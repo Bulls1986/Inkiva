@@ -1,11 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 
-// #3359 — exporting with Header & Footer enabled dropped diagram (mermaid)
-// content. The header/footer branch re-sanitized the WHOLE already-rendered
-// article with the export DOMPurify config, which strips the <foreignObject>
-// that mermaid renders its node labels into; the no-header/footer branch never
-// re-sanitized, so the same document exported fine without header/footer.
-
 const FULL_DOC =
   '<html><head></head><body>' +
   '<article class="markdown-body">' +
@@ -15,7 +9,7 @@ const FULL_DOC =
   '</g></svg></figure>' +
   '</article></body></html>'
 
-vi.mock('@muyajs/core', () => ({
+vi.mock('@muyajs/core/state/markdownToHtml', () => ({
   MarkdownToHtml: class {
     async generate(): Promise<string> {
       return FULL_DOC
