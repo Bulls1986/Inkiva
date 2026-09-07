@@ -7,7 +7,7 @@ import { electronLocalshortcut, isValidElectronAccelerator } from '@hfelix/elect
 import { isFile2 } from 'common/filesystem'
 import { isEqualAccelerator } from 'common/keybinding'
 import { isLinux, isOsx } from '../config'
-import { getKeyboardInfo, keyboardLayoutMonitor, type KeyboardInfo } from '../keyboard'
+import type { KeyboardInfo } from '../keyboard'
 import keybindingsDarwin from './keybindingsDarwin'
 import keybindingsLinux from './keybindingsLinux'
 import keybindingsWindows from './keybindingsWindows'
@@ -75,13 +75,9 @@ class Keybindings {
       throw new Error(`addKeyHandler: invalid arguments (accelerator="${accelerator}").`)
     }
 
-    // Register shortcuts on the BrowserWindow instead of using Chromium's native menu.
-    // This makes it possible to receive key down events before Chromium/Electron and we
-    // can handle reserved Chromium shortcuts. Afterwards prevent the default action of
-    // the event so the native menu is not triggered.
     electronLocalshortcut.register(win, accelerator, () => {
       callback(win)
-      return true // prevent default action
+      return true
     })
   }
 
@@ -117,12 +113,6 @@ class Keybindings {
     return this.shortcutStyle
   }
 
-  /**
-   * Changes the active preset without touching the user's custom map.
-   *
-   * The caller is responsible for persisting the preference; this method only
-   * rebuilds the active map and re-registers shortcuts on open windows.
-   */
   setShortcutStyle(style: unknown, windows: BrowserWindow[] = []): boolean {
     const nextStyle = normalizeShortcutStyle(style)
     if (nextStyle === this.shortcutStyle) {
@@ -143,20 +133,10 @@ class Keybindings {
     return keybindingsWindows
   }
 
-  /**
-   * Returns all user key bindings.
-   *
-   * @returns User key bindings.
-   */
   getUserKeybindings(): Map<string, string> {
     return this.userKeybindings
   }
 
-  /**
-   * Sets and saves the given user key bindings on disk.
-   *
-   * @param userKeybindings New user key bindings.
-   */
   async setUserKeybindings(
     userKeybindings: Map<string, string> | Iterable<readonly [string, string]>,
     windows: BrowserWindow[] = []
@@ -167,11 +147,6 @@ class Keybindings {
     return saved
   }
 
-  /**
-   * Rebuilds the active key map from the defaults plus the persisted user
-   * keybindings and re-registers shortcuts on the given windows, so a change
-   * takes effect without restarting the application.
-   */
   _reloadKeybindings(windows: BrowserWindow[]): void {
     const previousAccelerators = [...this.keys.values()].filter(
       (accelerator) => accelerator && accelerator.length > 1
@@ -194,19 +169,29 @@ class Keybindings {
   // --- private --------------------------------
 
   _prepareKeyMapper(): void {
-    // Update the key mapper to prevent problems on non-US keyboards.
-    const { layout, keymap } = getKeyboardInfo()
-    electronLocalshortcut.setKeyboardLayout(layout, keymap)
+    // native-keymap loads a native addon and enumerates the complete OS keymap.
+    // Neither is required to paint the first editor frame, so keep it out of
+    // the synchronous Accessor construction path. Default accelerators work in
+    // the meantime and the mapper is replaced shortly after startup.
+    setTimeout(() => {
+      import('../keyboard')
+        .then(({ getKeyboardInfo, keyboardLayoutMonitor }) => {
+          const { layout, keymap } = getKeyboardInfo()
+          electronLocalshortcut.setKeyboardLayout(layout, keymap)
 
-    // Notify key mapper when the keyboard layout was changed.
-    keyboardLayoutMonitor.addListener(({ layout, keymap }: KeyboardInfo) => {
-      const globalDebug = (globalThis as typeof globalThis & { MARKTEXT_DEBUG?: boolean })
-        .MARKTEXT_DEBUG
-      if (globalDebug && process.env.MARKTEXT_DEBUG_KEYBOARD) {
-        console.log('[DEBUG] Keyboard layout changed:\n', layout)
-      }
-      electronLocalshortcut.setKeyboardLayout(layout, keymap)
-    })
+          keyboardLayoutMonitor.addListener(({ layout: nextLayout, keymap: nextKeymap }: KeyboardInfo) => {
+            const globalDebug = (globalThis as typeof globalThis & { MARKTEXT_DEBUG?: boolean })
+              .MARKTEXT_DEBUG
+            if (globalDebug && process.env.MARKTEXT_DEBUG_KEYBOARD) {
+              console.log('[DEBUG] Keyboard layout changed:\n', nextLayout)
+            }
+            electronLocalshortcut.setKeyboardLayout(nextLayout, nextKeymap)
+          })
+        })
+        .catch((error: unknown) => {
+          log.warn('Unable to initialize native keyboard mapping:', error)
+        })
+    }, 1200)
   }
 
   async _saveUserKeybindings(): Promise<boolean> {
@@ -233,19 +218,12 @@ class Keybindings {
       return
     }
 
-    // keybindings.json example:
-    // {
-    //   "file.save": "CmdOrCtrl+S",
-    //   "file.save-as": "CmdOrCtrl+Shift+S"
-    // }
-
     const userAccelerators: Map<string, string> = new Map()
     for (const key in rawUserKeybindings) {
       if (this.keys.has(key)) {
         const value = rawUserKeybindings[key]
         if (typeof value === 'string') {
           if (value.length === 0) {
-            // Unset key
             userAccelerators.set(key, '')
           } else if (isValidElectronAccelerator(value)) {
             userAccelerators.set(key, value)
@@ -256,7 +234,6 @@ class Keybindings {
       }
     }
 
-    // Check for duplicate user shortcuts
     for (const [keyA, valueA] of userAccelerators) {
       for (const [keyB, valueB] of userAccelerators) {
         if (valueA !== '' && keyA !== keyB && isEqualAccelerator(valueA, valueB)) {
@@ -272,28 +249,17 @@ class Keybindings {
       return
     }
 
-    // Deep clone shortcuts
     const accelerators = new Map(this.keys)
 
-    // Check for duplicate shortcuts
     for (const [userKey, userValue] of userAccelerators) {
-      // Only search for conflicts when the user actually bound a key. Empty means "unbound"
-      // and would incorrectly match any other default-empty entry via isEqualAccelerator.
       if (userValue) {
         for (const [key, value] of accelerators) {
-          // This is a workaround to unset key bindings that the user used in `keybindings.json` before
-          // proper settings. Keep this for now, but add the ID to the users key binding that we show the
-          // right bindings in settings.
           if (isEqualAccelerator(value, userValue)) {
-            // Unset default key
             accelerators.set(key, '')
 
-            // This entry is actually unset because the user used the accelerator.
             if (userAccelerators.get(key) == null) {
               userAccelerators.set(key, '')
             }
-
-            // A accelerator should only exist once in the default map.
             break
           }
         }
@@ -301,10 +267,7 @@ class Keybindings {
       accelerators.set(userKey, userValue)
     }
 
-    // Update key bindings
     this.keys = accelerators
-
-    // Save user keybindings for settings
     this.userKeybindings = userAccelerators
   }
 
