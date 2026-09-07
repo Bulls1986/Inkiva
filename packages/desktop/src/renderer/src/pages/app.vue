@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch, nextTick, onMounted, ref } from 'vue'
+import { computed, watch, nextTick, onMounted, ref, defineAsyncComponent } from 'vue'
 import { useMainStore } from '@/store'
 import { storeToRefs } from 'pinia'
 import { addStyles, addThemeStyle, addCustomStyle, type AddStylesOptions } from '@/util/theme'
@@ -46,11 +46,6 @@ import Recent from '@/components/recent/index.vue'
 import EditorWithTabs from '@/components/editorWithTabs/index.vue'
 import TitleBar from '@/components/titleBar/index.vue'
 import SideBar from '@/components/sideBar/index.vue'
-import AboutDialog from '@/components/about/index.vue'
-import CommandPalette from '@/components/commandPalette/index.vue'
-import ExportSettingDialog from '@/components/exportSettings/index.vue'
-import Rename from '@/components/rename/index.vue'
-import ImportModal from '@/components/import/index.vue'
 import bus from '@/bus'
 import { DEFAULT_STYLE } from '@/config'
 import { useLayoutStore } from '@/store/layout'
@@ -60,6 +55,15 @@ import { useEditorStore } from '@/store/editor'
 import { useCommandCenterStore } from '@/store/commandCenter'
 import { useProjectStore } from '@/store/project'
 import { useNotificationStore } from '@/store/notification'
+
+// Keep the first editor paint focused on the title/sidebar/editor path. These
+// components are interaction-driven and can live in separate chunks instead
+// of increasing parse/evaluation time of the main editor route.
+const AboutDialog = defineAsyncComponent(() => import('@/components/about/index.vue'))
+const CommandPalette = defineAsyncComponent(() => import('@/components/commandPalette/index.vue'))
+const ExportSettingDialog = defineAsyncComponent(() => import('@/components/exportSettings/index.vue'))
+const Rename = defineAsyncComponent(() => import('@/components/rename/index.vue'))
+const ImportModal = defineAsyncComponent(() => import('@/components/import/index.vue'))
 
 const mainStore = useMainStore()
 const editorStore = useEditorStore()
@@ -81,15 +85,9 @@ const { currentFile } = storeToRefs(editorStore)
 const pathname = computed(() => currentFile.value?.pathname)
 const filename = computed(() => currentFile.value?.filename)
 const isSaved = computed(() => currentFile.value?.isSaved)
-// `markdown` is read by `<editor-with-tabs>` whose prop is `required: true`.
-// In template space we render that subtree only when `hasCurrentFile` is set,
-// but vue-tsc can't see through the v-if guard — coalesce to '' so the prop
-// type is `string`. The `<editor-with-tabs>` mount is still gated.
 const markdown = computed<string>(() => currentFile.value?.markdown ?? '')
 const cursor = computed(() => currentFile.value?.cursor)
 const wordCount = computed(() => currentFile.value?.wordCount)
-// `muyaIndexCursor` is loosely typed as `unknown` on the editor store; the
-// downstream prop expects `Object | undefined`. Cast at the boundary.
 const muyaIndexCursor = computed<Record<string, unknown> | undefined>(
   () => currentFile.value?.muyaIndexCursor as Record<string, unknown> | undefined
 )
@@ -98,7 +96,6 @@ const hasCurrentFile = computed<boolean>(() => {
   return currentFile.value?.markdown !== undefined
 })
 
-// Watchers
 watch(theme, (value, oldValue) => {
   if (value !== oldValue) {
     addThemeStyle(value)
@@ -107,9 +104,7 @@ watch(theme, (value, oldValue) => {
 
 watch(customCss, (value, oldValue) => {
   if (value !== oldValue) {
-    addCustomStyle({
-      customCss: value
-    })
+    addCustomStyle({ customCss: value })
   }
 })
 
@@ -141,10 +136,7 @@ const setupDragDropHandler = (): void => {
         }
         e.dataTransfer.dropEffect = 'copy'
       } else if (e.dataTransfer.types.indexOf('text/uri-list') >= 0) {
-        // A web-link / web-image drag (e.g. an <img> dragged from a browser).
-        // The muya editor's own dragover/drop handlers accept these and insert
-        // an image block, so leave the drop enabled — forcing dropEffect='none'
-        // here would clobber the editor's 'copy' and suppress the drop event.
+        // Let the editor handle browser links/images.
       } else {
         e.stopPropagation()
         e.dataTransfer.dropEffect = 'none'
@@ -153,6 +145,7 @@ const setupDragDropHandler = (): void => {
     false
   )
 }
+
 onMounted(async () => {
   if (window.marktext?.initialState) {
     preferencesStore.SET_USER_PREFERENCE(window.marktext.initialState)
@@ -194,15 +187,10 @@ onMounted(async () => {
   editorStore.LISTEN_FOR_CONTEXT_MENU()
   editorStore.LISTEN_FOR_STATE_REPLACE()
 
-  // module: notification
   notificationStore.listenForNotification()
-
   setupDragDropHandler()
 
   nextTick(() => {
-    // `initialState` from bootstrap carries nullable URL params (string|null);
-    // `addStyles` requires non-null `theme` / `codeFontFamily` strings.
-    // Coalesce against DEFAULT_STYLE for every nullable field.
     const init = window.marktext?.initialState
     const style: AddStylesOptions = {
       theme: init?.theme ?? DEFAULT_STYLE.theme,
@@ -237,7 +225,6 @@ onMounted(async () => {
   height: var(--titleBarHeight);
   background: var(--editorBgColor);
   pointer-events: none;
-  /* Keep native scrollbars and their tracks below the menu strip. */
   z-index: 1;
 }
 .editor-container .hide {
