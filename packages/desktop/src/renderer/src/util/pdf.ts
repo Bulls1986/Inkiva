@@ -6,8 +6,6 @@
 // algorithm, with the SAME `-N` document-order dedup the engine uses, so the
 // in-document TOC links resolve.
 import { escapeHTML, unescapeHTML, generateGithubSlug } from '@muyajs/core'
-import academicTheme from '@/assets/themes/export/academic.theme.css?inline'
-import liberTheme from '@/assets/themes/export/liber.theme.css?inline'
 import { deepClone } from '../util'
 import { sanitize, EXPORT_DOMPURIFY_CONFIG } from '../util/dompurify'
 
@@ -25,6 +23,15 @@ export interface PdfCssOptions {
   theme?: string
   headerFooterFontSize?: number
   [key: string]: unknown
+}
+
+const loadBundledExportTheme = async(theme: 'academic' | 'liber'): Promise<string> => {
+  if (theme === 'academic') {
+    const module = await import('@/assets/themes/export/academic.theme.css?inline')
+    return module.default
+  }
+  const module = await import('@/assets/themes/export/liber.theme.css?inline')
+  return module.default
 }
 
 export const getCssForOptions = async(options: PdfCssOptions): Promise<string> => {
@@ -64,10 +71,11 @@ export const getCssForOptions = async(options: PdfCssOptions): Promise<string> =
   }
 
   if (theme) {
-    if (theme === 'academic') {
-      output += academicTheme
-    } else if (theme === 'liber') {
-      output += liberTheme
+    if (theme === 'academic' || theme === 'liber') {
+      // These themes are large inline CSS assets. Loading them only when the
+      // matching export theme is actually selected keeps them out of the editor
+      // first-paint bundle.
+      output += await loadBundledExportTheme(theme)
     } else {
       // Read theme from disk
       const { userDataPath } = window.marktext!.paths as { userDataPath: string }
