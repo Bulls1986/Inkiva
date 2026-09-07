@@ -7,16 +7,20 @@ import log from 'electron-log'
 import { ensureDirSync } from 'common/filesystem'
 import { IMAGE_EXTENSIONS } from 'common/filesystem/paths'
 import { TypedEmitter } from '@shared/types/typedEmitter'
+import type * as KeytarModule from 'keytar'
 import { getDefaultPicgoAppPath } from '../ipc/picgoApp'
 
 const DATA_CENTER_NAME = 'dataCenter'
 
-type KeytarApi = (typeof import('keytar'))['default']
+type KeytarApi = typeof KeytarModule
 let keytarPromise: Promise<KeytarApi> | null = null
 
 const loadKeytar = async(): Promise<KeytarApi> => {
   if (!keytarPromise) {
-    keytarPromise = import('keytar').then((mod) => mod.default)
+    keytarPromise = import('keytar').then((mod) => {
+      const maybeDefault = (mod as unknown as { default?: KeytarApi }).default
+      return maybeDefault ?? mod
+    })
   }
   return keytarPromise
 }
@@ -205,13 +209,15 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
     }
 
     for (const key of Object.keys(settings)) {
-      void this.setItem(key, settings[key])
+      this.setItem(key, settings[key]).catch((err) => log.error('Failed to update user data:', err))
     }
   }
 
   _listenForIpcMain(): void {
     ipcMain.on('set-image-folder-path', (_event, newPath: string) => {
-      void this.setItem('imageFolderPath', newPath)
+      this.setItem('imageFolderPath', newPath).catch((err) =>
+        log.error('Failed to set image folder path:', err)
+      )
     })
 
     ipcMain.on('mt::ask-for-user-data', async(e) => {
@@ -233,7 +239,9 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
         }
       }
       if (imagePath) {
-        void this.setItem('imageFolderPath', imagePath)
+        this.setItem('imageFolderPath', imagePath).catch((err) =>
+          log.error('Failed to set image folder path:', err)
+        )
       }
     })
 
