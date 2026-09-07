@@ -5,7 +5,6 @@ import { DOWNLOAD } from '@/lib/downloads'
 import { EXT_LINK } from '@/lib/links'
 import { SECTIONS, hash, revealClass } from '@/lib/sections'
 import { useTilt } from '@/hooks/useTilt'
-import DownloadIcon from './Icons'
 import Nav from './Nav'
 import Brand from './Brand'
 import PageEffects from './PageEffects'
@@ -17,6 +16,7 @@ import {
   CheckIcon,
   CodeIcon,
   DiagramIcon,
+  DownloadIcon,
   ExportIcon,
   FootnoteIcon,
   FrontmatterIcon,
