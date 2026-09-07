@@ -1,16 +1,20 @@
 import type { RouteRecordRaw } from 'vue-router'
-// .vue extensions are explicit so TS resolves them through the *.vue module
-// shim in src/types/renderer.d.ts. Vite handles extension-less imports at
-// runtime, but vue-tsc needs the suffix.
-import App from '@/pages/app.vue'
-import Preference from '@/pages/preference.vue'
-import General from '@/prefComponents/general/index.vue'
-import Editor from '@/prefComponents/editor/index.vue'
-import Markdown from '@/prefComponents/markdown/index.vue'
-import SpellChecker from '@/prefComponents/spellchecker/index.vue'
-import Theme from '@/prefComponents/theme/index.vue'
-import Image from '@/prefComponents/image/index.vue'
-import Keybindings from '@/prefComponents/keybindings/index.vue'
+
+// Route components are intentionally lazy-loaded. Editor and Preferences share
+// the same renderer entry, and eager imports here used to pull the complete
+// editor plus every preference panel into the initial renderer bundle for every
+// window. On slower machines that caused a long blank interval before Vue could
+// mount. Keep each window type/panel in its own chunk so only the code required
+// for the current route is parsed and evaluated during startup.
+const App = () => import('@/pages/app.vue')
+const Preference = () => import('@/pages/preference.vue')
+const General = () => import('@/prefComponents/general/index.vue')
+const Editor = () => import('@/prefComponents/editor/index.vue')
+const Markdown = () => import('@/prefComponents/markdown/index.vue')
+const SpellChecker = () => import('@/prefComponents/spellchecker/index.vue')
+const Theme = () => import('@/prefComponents/theme/index.vue')
+const Image = () => import('@/prefComponents/image/index.vue')
+const Keybindings = () => import('@/prefComponents/keybindings/index.vue')
 
 const parseSettingsPage = (type: string | null | undefined): string => {
   let pageUrl = '/preference'
