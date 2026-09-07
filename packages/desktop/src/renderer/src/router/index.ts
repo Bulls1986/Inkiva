@@ -1,12 +1,12 @@
 import type { RouteRecordRaw } from 'vue-router'
+import App from '@/pages/app.vue'
 
-// Route components are intentionally lazy-loaded. Editor and Preferences share
-// the same renderer entry, and eager imports here used to pull the complete
-// editor plus every preference panel into the initial renderer bundle for every
-// window. On slower machines that caused a long blank interval before Vue could
-// mount. Keep each window type/panel in its own chunk so only the code required
-// for the current route is parsed and evaluated during startup.
-const App = () => import('@/pages/app.vue')
+// The root editor page must stay eagerly loaded. It registers the one-shot
+// editor bootstrap IPC listener during mount; lazy-loading this route can delay
+// listener registration until after the main process has already emitted the
+// bootstrap payload, leaving the editor permanently uninitialized and blank.
+// Preferences remain lazy so their code is still kept out of the editor startup
+// path and can be warmed in the background after the editor has mounted.
 const Preference = () => import('@/pages/preference.vue')
 const General = () => import('@/prefComponents/general/index.vue')
 const Editor = () => import('@/prefComponents/editor/index.vue')
