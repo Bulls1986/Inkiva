@@ -46,20 +46,22 @@ class KeyboardLayoutMonitor extends EventEmitter {
     this._emitTimer = null
   }
 
-  // The single-arg shape diverges from EventEmitter#addListener(eventName, listener);
-  // we preserve the original JS behavior verbatim: the first positional argument is
-  // always treated as the callback. Parameters are typed loosely to keep TS happy
-  // with the override against the base signature.
+  // Preserve the historic single-argument API while delegating to the real
+  // EventEmitter implementation under a private channel.
   override addListener(eventNameOrCallback: unknown, _listener?: unknown): this {
     this._ensureNativeListener()
-    this.on(KEYBOARD_LAYOUT_MONITOR_CHANNEL_ID, eventNameOrCallback as KeyboardInfoListener)
+    super.addListener(
+      KEYBOARD_LAYOUT_MONITOR_CHANNEL_ID,
+      eventNameOrCallback as KeyboardInfoListener
+    )
     return this
   }
 
-  // NOTE: Preserves the pre-existing single-argument override; the original JS
-  // also delegated to `this.removeListener(channel, callback)` (recursive).
   override removeListener(eventNameOrCallback: unknown, _listener?: unknown): this {
-    this.removeListener(KEYBOARD_LAYOUT_MONITOR_CHANNEL_ID, eventNameOrCallback as KeyboardInfoListener)
+    super.removeListener(
+      KEYBOARD_LAYOUT_MONITOR_CHANNEL_ID,
+      eventNameOrCallback as KeyboardInfoListener
+    )
     return this
   }
 
@@ -80,7 +82,6 @@ class KeyboardLayoutMonitor extends EventEmitter {
   }
 }
 
-// Export a single-instance of the monitor.
 export const keyboardLayoutMonitor = new KeyboardLayoutMonitor()
 
 export const registerKeyboardListeners = (): void => {
