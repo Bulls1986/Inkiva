@@ -114,8 +114,9 @@ const handleRendererError = (error: Error): void => {
   // one dialog per identical failure so dismissing it cannot open a second
   // copy of the same message immediately.
   const signature = `${error.name}\n${error.message}\n${error.stack ?? ''}`
-  if (activeRendererErrorSignatures.has(signature))
+  if (activeRendererErrorSignatures.has(signature)) {
     return
+  }
 
   activeRendererErrorSignatures.add(signature)
   void handleError(ERROR_MSG_RENDERER(), error, 'renderer')

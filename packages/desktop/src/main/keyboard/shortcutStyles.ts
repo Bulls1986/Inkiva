@@ -83,13 +83,13 @@ export const getShortcutStyleOverrides = (
     // the native Ctrl shortcuts do not collide with Command+1..6 headings.
     ...(!isMac
       ? Array.from({ length: 10 }, (_, index) => [
-          `tabs.switchTo${
-            index === 9
-              ? 'Tenth'
-              : ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'][index]
-          }`,
-          chord(primary, 'Alt', String(index === 9 ? 0 : index + 1))
-        ] as [string, string])
+        `tabs.switchTo${
+          index === 9
+            ? 'Tenth'
+            : ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'][index]
+        }`,
+        chord(primary, 'Alt', String(index === 9 ? 0 : index + 1))
+      ] as [string, string])
       : [])
   ])
 

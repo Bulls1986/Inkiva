@@ -641,14 +641,14 @@ const savePicgoAppPath = (): void => {
   })
 }
 
-const choosePicgoAppPath = async(): Promise<void> => {
+const choosePicgoAppPath = async (): Promise<void> => {
   const selectedPath = await window.uploader.pickPicgoAppPath()
   if (!selectedPath) return
   picgoAppPath.value = selectedPath
   savePicgoAppPath()
 }
 
-const testPicgoApp = async(): Promise<void> => {
+const testPicgoApp = async (): Promise<void> => {
   if (isTestingPicgoApp.value) return
   if (!picgoAppPath.value) ensurePicgoAppPath()
   savePicgoAppPath()

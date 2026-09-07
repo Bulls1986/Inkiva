@@ -161,5 +161,4 @@ export const registerWindowHandlers = (): void => {
       }
     }
   )
-
 }

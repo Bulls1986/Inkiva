@@ -79,6 +79,9 @@ export default [
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' }
       ],
       '@typescript-eslint/no-non-null-assertion': 'warn',
+      // `void promise` is the project's explicit marker for intentional
+      // fire-and-forget work. Keep other uses of void forbidden.
+      'no-void': ['error', { allowAsStatement: true }],
       // Disable JS-only rules that double-trigger or fight TS:
       'no-unused-vars': 'off',
       'no-undef': 'off',
@@ -160,6 +163,7 @@ export default [
       '@stylistic/space-before-function-paren': ['error', 'never'],
       '@stylistic/arrow-parens': 'off',
       '@stylistic/no-mixed-operators': 'off',
+      'no-void': ['error', { allowAsStatement: true }],
       'no-return-await': 'error',
       'no-return-assign': 'error',
       'no-new': 'error',
