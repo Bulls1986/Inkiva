@@ -13,7 +13,7 @@ class Accessor {
   public env: AppEnvironment
   public paths: AppPaths
   public preferences: Preference
-  public dataCenter: DataCenter
+  private _dataCenter: DataCenter | null
   public editorBufferStore: EditorBufferStore
   public commandManager: CommandManager
   public keybindings: Keybindings
@@ -27,10 +27,13 @@ class Accessor {
     const userDataPath = appEnvironment.paths.userDataPath
 
     this.env = appEnvironment
-    this.paths = appEnvironment.paths // export paths to make it better accessible
+    this.paths = appEnvironment.paths
 
+    // Preferences affect BrowserWindow construction and must stay on the
+    // critical path. DataCenter is only needed by image/screenshot/upload
+    // features, so defer its electron-store/native path work until first use.
     this.preferences = new Preference(this.paths)
-    this.dataCenter = new DataCenter(this.paths)
+    this._dataCenter = null
     this.editorBufferStore = new EditorBufferStore(this.paths)
 
     this.commandManager = CommandManager
@@ -43,6 +46,13 @@ class Accessor {
     )
     this.menu = new AppMenu(this.preferences, this.keybindings, userDataPath)
     this.windowManager = new WindowManager(this.menu, this.preferences, this.editorBufferStore)
+  }
+
+  get dataCenter(): DataCenter {
+    if (!this._dataCenter) {
+      this._dataCenter = new DataCenter(this.paths)
+    }
+    return this._dataCenter
   }
 
   private _loadCommands(): void {
