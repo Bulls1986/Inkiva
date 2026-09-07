@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
-import { launchWithMarkdown, clickMenuById, waitForEditor } from './helpers'
+import { launchWithMarkdown, showSidebarPanel, waitForEditor } from './helpers'
 
 // Build a long document with many top-level headings so the editor content
 // overflows its scroll container. Each heading title is unique so the sidebar
@@ -63,24 +63,6 @@ const isHeadingInViewport = (page: Page, index: number): Promise<boolean> =>
 const tocLabel = (page: Page, text: string) =>
   page.locator('.side-bar-toc').getByText(text, { exact: true })
 
-const showSidebar = async(app: ElectronApplication, page: Page): Promise<void> => {
-  const visible = await page.evaluate(() => {
-    const el = document.querySelector('.side-bar') as HTMLElement | null
-    return !!(el && el.offsetParent !== null)
-  })
-  if (!visible) {
-    await clickMenuById(app, 'sideBarMenuItem')
-    await page.waitForFunction(
-      () => {
-        const el = document.querySelector('.side-bar') as HTMLElement | null
-        return !!(el && el.offsetParent !== null)
-      },
-      null,
-      { timeout: 5000 }
-    )
-  }
-}
-
 test.describe('TOC sidebar click scrolls the live editor', () => {
   let app: ElectronApplication
   let page: Page
@@ -91,8 +73,7 @@ test.describe('TOC sidebar click scrolls the live editor', () => {
     page = launched.page
     await waitForEditor(page)
     // Open the sidebar and switch its right column to the ToC (el-tree).
-    await showSidebar(app, page)
-    await clickMenuById(app, 'tocMenuItem')
+    await showSidebarPanel(app, page, 'toc')
     await page.waitForSelector('.side-bar-toc .el-tree', { state: 'visible', timeout: 10000 })
     // The TOC is seeded from `editor.getTOC()` on mount / json-change. Wait
     // until every heading has rendered a tree node before clicking.

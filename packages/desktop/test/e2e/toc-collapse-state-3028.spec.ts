@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
-import { launchWithMarkdown, clickMenuById, waitForEditor } from './helpers'
+import { launchWithMarkdown, showSidebarPanel, waitForEditor } from './helpers'
 
 // #3028 — collapsing a heading in the TOC must survive a document edit.
 //
@@ -46,24 +46,6 @@ const collapseNode = (page: Page, label: string): Promise<void> =>
     icon.click()
   }, label)
 
-const ensureSidebarVisible = async(app: ElectronApplication, page: Page): Promise<void> => {
-  const visible = await page.evaluate(() => {
-    const el = document.querySelector('.side-bar') as HTMLElement | null
-    return !!(el && el.offsetParent !== null)
-  })
-  if (!visible) {
-    await clickMenuById(app, 'sideBarMenuItem')
-    await page.waitForFunction(
-      () => {
-        const el = document.querySelector('.side-bar') as HTMLElement | null
-        return !!(el && el.offsetParent !== null)
-      },
-      null,
-      { timeout: 5000 }
-    )
-  }
-}
-
 test.describe('TOC collapse state survives edits (#3028)', () => {
   let app: ElectronApplication
   let page: Page
@@ -73,8 +55,7 @@ test.describe('TOC collapse state survives edits (#3028)', () => {
     app = launched.app
     page = launched.page
     await waitForEditor(page)
-    await ensureSidebarVisible(app, page)
-    await clickMenuById(app, 'tocMenuItem')
+    await showSidebarPanel(app, page, 'toc')
     await page.waitForSelector('.side-bar-toc .el-tree', { state: 'visible', timeout: 10000 })
     await page.waitForFunction(
       () => document.querySelectorAll('.side-bar-toc .el-tree-node__label').length >= 4,

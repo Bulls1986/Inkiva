@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import fs from 'fs'
-import { launchWithMarkdown, waitForMenuReady } from './helpers'
+import { launchWithMarkdown, setUserPreferences, waitForMenuReady } from './helpers'
 
 // #1861 — rewriting the open file on disk with byte-identical content (e.g. a
 // git checkout that left it unchanged) fires a watcher 'change', but must NOT
@@ -23,6 +23,16 @@ test.describe('Issue #1861 — content-identical file change', () => {
   test('an identical on-disk rewrite stays clean; a real change warns', async() => {
     const { app, page, filePath } = await launchWithMarkdown('hello\nworld\n')
     await waitForMenuReady(app)
+    // The product default is now autoSave=true, but this regression exercises
+    // the warning path used when external changes are not silently reloaded.
+    await setUserPreferences(page, { autoSave: false })
+    await expect
+      .poll(() =>
+        app.evaluate(({ Menu }) =>
+          !!Menu.getApplicationMenu()?.getMenuItemById('autoSaveMenuItem')?.checked
+        )
+      )
+      .toBe(false)
     await page.waitForTimeout(500)
     expect(await isDirty(page)).toBe(false)
 

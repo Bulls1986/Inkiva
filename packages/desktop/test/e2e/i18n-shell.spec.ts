@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
-import { launchWithMarkdown, sendIpcToRenderer, waitForMenuReady } from './helpers'
+import { launchWithMarkdown, switchLanguage, waitForMenuReady } from './helpers'
 
 // Checklist item 278 — switching the UI language must re-translate the Vue
 // shell (menu bar / command palette / preferences tabs), not just the engine
@@ -59,6 +59,21 @@ test.describe('i18n shell — language switch re-translates the Vue shell', () =
   })
 
   test('command palette placeholder re-translates en -> zh-CN', async() => {
+    // The product default is zh-CN. Set the test baseline explicitly so this
+    // shell translation test is independent of the first-run locale.
+    await switchLanguage(app, 'en')
+    await expect
+      .poll(
+        async() => {
+          await openPalette(app, page)
+          const value = await readPlaceholder(page)
+          await closePalette(page)
+          return value
+        },
+        { timeout: 8000, intervals: [300, 500, 800] }
+      )
+      .toBe('Type a command to execute')
+
     // 1) Read the English shell label.
     await openPalette(app, page)
     const enPlaceholder = await readPlaceholder(page)
@@ -72,8 +87,7 @@ test.describe('i18n shell — language switch re-translates the Vue shell', () =
     // 2) Drive a language switch the way the main process does: the
     // `language-changed` broadcast reaches the renderer BEFORE the
     // `mt::user-preference` that syncs the preferences store.
-    await sendIpcToRenderer(app, 'language-changed', 'zh-CN')
-    await sendIpcToRenderer(app, 'mt::user-preference', { language: 'zh-CN' })
+    await switchLanguage(app, 'zh-CN')
 
     // The renderer loads the zh-CN locale asynchronously via
     // window.i18nUtils.loadTranslations -> `mt::i18n::load` IPC, so poll the

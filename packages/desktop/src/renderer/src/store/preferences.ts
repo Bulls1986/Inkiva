@@ -142,7 +142,7 @@ interface ModeTogglePayload {
 
 export const usePreferencesStore = defineStore('preferences', {
   state: (): PreferencesState => ({
-    autoSave: false,
+    autoSave: true,
     autoSaveDelay: 5000,
     titleBarStyle: 'custom',
     openFilesInNewWindow: false,
@@ -168,7 +168,7 @@ export const usePreferencesStore = defineStore('preferences', {
     codeBlockLineNumbers: false,
     trimUnnecessaryCodeBlockEmptyLines: true,
     wrapCodeBlocks: false,
-    editorLineWidth: '',
+    editorLineWidth: '80%',
 
     autoPairBracket: true,
     autoPairMarkdownSyntax: true,

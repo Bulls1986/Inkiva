@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
-import { launchElectron } from './helpers'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { launchElectron, showSidebarPanel, waitForMenuReady } from './helpers'
 
 // #3439 — invoking "New File" (sidebar context menu) on a COLLAPSED folder did
 // nothing: the create <input> only renders inside the folder's expanded
@@ -20,13 +23,22 @@ const visibleNewInput = (page: Page): Promise<number> =>
 test.describe('New File on a collapsed folder (#3439)', () => {
   let app: ElectronApplication
   let page: Page
+  let projectPath = ''
 
   test.beforeAll(async() => {
-    // launchElectron opens the desktop package folder in the sidebar (its
-    // sub-folders render as collapsed tree-folders).
-    const launched = await launchElectron()
+    // A fresh user-data directory has no remembered project. Create an
+    // isolated project with a real collapsed child folder instead of relying
+    // on a previous developer-machine layout.
+    projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-e2e-3439-'))
+    const childPath = path.join(projectPath, 'collapsed-folder')
+    fs.mkdirSync(childPath)
+    fs.writeFileSync(path.join(childPath, 'seed.md'), 'seed\n', 'utf-8')
+
+    const launched = await launchElectron([projectPath])
     app = launched.app
     page = launched.page
+    await waitForMenuReady(app)
+    await showSidebarPanel(app, page, 'files')
     await page.waitForSelector('.side-bar-folder .folder-name', { timeout: 10000 })
 
     // Replace the sidebar context-menu popup handler so it does NOT open a real
@@ -61,6 +73,7 @@ test.describe('New File on a collapsed folder (#3439)', () => {
 
   test.afterAll(async() => {
     if (app) await app.close()
+    if (projectPath) fs.rmSync(projectPath, { recursive: true, force: true })
   })
 
   test('the create input appears when New File targets a collapsed folder', async() => {

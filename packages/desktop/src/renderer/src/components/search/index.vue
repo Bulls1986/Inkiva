@@ -269,7 +269,7 @@ const listenFindNext = () => {
 }
 
 const listenFindPrev = () => {
-  find('prev')
+  find('previous')
 }
 
 const docKeyup = (event: KeyboardEvent) => {
@@ -300,9 +300,9 @@ const toggleSearchType = () => {
 
 /**
  * Find the previous or next search result.
- * action: prev or next
+ * action: previous or next
  */
-const find = (action: 'prev' | 'next') => {
+const find = (action: 'previous' | 'next') => {
   bus.emit('find-action', action)
 }
 
