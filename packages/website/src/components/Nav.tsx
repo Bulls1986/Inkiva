@@ -23,7 +23,6 @@ export default function Nav() {
         <a href={hash(SECTIONS.themes)}>Themes</a>
         <a href={hash(SECTIONS.extensions)}>Markdown</a>
         <Link href="/docs">Docs</Link>
-        <a href={hash(SECTIONS.support)}>Support</a>
       </div>
       <div className="nav-right">
         <button
