@@ -9,6 +9,7 @@ import { onInternalChannel } from '../utils/internalIpc'
 import { TypedEmitter } from '@shared/types/typedEmitter'
 import type { IUserPreferences } from '@shared/types/preferences'
 import schema from './schema.json'
+import bundledDefaultPreferences from '../../../static/preference.json'
 
 const PREFERENCES_FILE_NAME = 'preferences'
 
@@ -22,7 +23,6 @@ class Preference extends TypedEmitter<PreferenceEvents> {
   public readonly preferencesPath: string
   public readonly hasPreferencesFile: boolean
   public readonly store: Store<IUserPreferences>
-  public readonly staticPath: string
 
   constructor(paths: AppPaths) {
     super()
@@ -55,24 +55,19 @@ class Preference extends TypedEmitter<PreferenceEvents> {
       }
     })
 
-    this.staticPath = path.join(global.__static, 'preference.json')
     this.init()
   }
 
   init = (): void => {
-    let defaultSettings: Record<string, unknown> | null = null
-    try {
-      defaultSettings = JSON.parse(fs.readFileSync(this.staticPath, { encoding: 'utf8' }) || '{}')
-
-      if (nativeTheme.shouldUseDarkColors) {
-        defaultSettings!.theme = 'dark'
-      }
-    } catch (err) {
-      log.error(err)
+    // preference.json is application-static data. Import it into the main
+    // bundle instead of blocking Electron's startup thread with readFileSync +
+    // JSON.parse on every launch.
+    const defaultSettings: Record<string, unknown> = {
+      ...(bundledDefaultPreferences as Record<string, unknown>)
     }
 
-    if (!defaultSettings) {
-      throw new Error('Can not load static preference.json file')
+    if (nativeTheme.shouldUseDarkColors) {
+      defaultSettings.theme = 'dark'
     }
 
     if (!this.hasPreferencesFile) {
@@ -114,9 +109,6 @@ class Preference extends TypedEmitter<PreferenceEvents> {
       return
     }
 
-    // electron-store persists synchronously. Writing each key separately turns
-    // one Preferences apply action into N JSON rewrites, so commit the object in
-    // one operation and broadcast the same aggregate change once.
     this.store.set(settings)
     ipcMain.emit('broadcast-preferences-changed', settings)
   }
