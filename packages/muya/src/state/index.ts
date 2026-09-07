@@ -208,14 +208,18 @@ class JSONState {
     dispatch(op: JSONOp, source = 'user' /* user, api */) {
         const prevDoc = this.getState();
         this._apply(op);
-        // TODO: remove doc in future
-        const doc = this.getState();
+        const getDoc = () => this.getState();
         debug.log(JSON.stringify(op));
         this._muya.eventCenter.emit('json-change', {
             op,
             source,
             prevDoc,
-            doc,
+            // Most listeners (History and the desktop shell) only need op/
+            // source/prevDoc. Preserve the public `doc` field but clone the
+            // current full AST only if a consumer actually reads it.
+            get doc() {
+                return getDoc();
+            },
         });
     }
 
@@ -224,7 +228,11 @@ class JSONState {
     }
 
     getMarkdown() {
-        return this.getMarkdownFromState(this.getState());
+        // StateToMarkdown is read-only with respect to the document tree (it
+        // only clones list meta before applying output-only marker overrides),
+        // so cloning the entire AST before every serialization is unnecessary.
+        // This is a hot path: desktop serializes Markdown on every json-change.
+        return this.getMarkdownFromState(this._state);
     }
 
     getTOC() {
@@ -280,8 +288,7 @@ class JSONState {
         );
         const prevDoc = this.getState();
         this._apply(op);
-        // TODO: remove doc in future
-        const doc = this.getState();
+        const getDoc = () => this.getState();
         // Clear before emitting: a listener that edits synchronously then starts
         // a fresh batch instead of mutating the one being flushed.
         this._operationCache = [];
@@ -293,7 +300,11 @@ class JSONState {
             op,
             source: 'user',
             prevDoc,
-            doc,
+            // Lazily materialize the post-change AST for compatibility with
+            // consumers that need it, without penalizing every keystroke.
+            get doc() {
+                return getDoc();
+            },
         });
     }
 }
