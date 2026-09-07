@@ -10,7 +10,6 @@
 // engine output so the export result stays equivalent to the legacy engine.
 
 import type { Muya } from '@muyajs/core'
-import { MarkdownToHtml } from '@muyajs/core'
 import { sanitize, EXPORT_DOMPURIFY_CONFIG } from './dompurify'
 import { resolveLocalImageSrc } from './resolveImageSrc'
 import { resolveLocalLinkHref } from './resolveLinkHref'
@@ -173,6 +172,10 @@ export const exportStyledHTML = async(
   markdown: string,
   options: ExportStyledHtmlOptions = {}
 ): Promise<string> => {
+  // MarkdownToHtml pulls in export-specific rendering code. Keep it outside
+  // the normal editor startup graph and load it only when the user exports or
+  // prints for the first time.
+  const { MarkdownToHtml } = await import('@muyajs/core')
   const { title = '', toc = '', header, footer, headerFooterStyled, dir } = options
   let { extraCss = '' } = options
 
