@@ -228,6 +228,18 @@ onMounted(async () => {
   right: 0;
   bottom: 0;
 }
+.editor-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--titleBarHeight);
+  background: var(--editorBgColor);
+  pointer-events: none;
+  /* Keep native scrollbars and their tracks below the menu strip. */
+  z-index: 1;
+}
 .editor-container .hide {
   z-index: -1;
   opacity: 0;

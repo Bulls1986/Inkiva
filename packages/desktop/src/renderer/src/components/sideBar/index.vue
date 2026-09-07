@@ -150,7 +150,19 @@ const handleLeftBottomClick = (name: string): void => {
   position: relative;
   color: var(--sideBarColor);
   user-select: none;
-  background: var(--sideBarBgColor);
+  /*
+   * The native application menu occupies the first title-bar-height pixels
+   * of the window. Keep that strip on the editor background so the sidebar
+   * color does not bleed through the menu area. The sidebar content already
+   * reserves this space through its existing top offsets.
+   */
+  background: linear-gradient(
+    to bottom,
+    var(--editorBgColor) 0,
+    var(--editorBgColor) var(--titleBarHeight),
+    var(--sideBarBgColor) var(--titleBarHeight),
+    var(--sideBarBgColor) 100%
+  );
   border-right: 1px solid var(--itemBgColor);
 }
 
