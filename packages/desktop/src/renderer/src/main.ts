@@ -60,3 +60,39 @@ app.config.globalProperties.$http = axios
 
 // Mount the app
 app.mount('#app')
+
+/**
+ * Warm settings chunks only after the editor has mounted and the browser has
+ * spare time. This keeps first paint focused on the editor while making the
+ * first Preferences open substantially cheaper on slower machines.
+ *
+ * We intentionally preload modules, not a hidden BrowserWindow, so there is no
+ * extra long-lived renderer process or duplicate Vue application consuming
+ * memory in the background.
+ */
+const preloadSettingsWhenIdle = (): void => {
+  if (envType !== 'editor') return
+
+  const preload = (): void => {
+    void Promise.allSettled([
+      import('./pages/preference.vue'),
+      import('./prefComponents/general/index.vue'),
+      import('./prefComponents/editor/index.vue'),
+      import('./prefComponents/markdown/index.vue'),
+      import('./prefComponents/spellchecker/index.vue'),
+      import('./prefComponents/theme/index.vue'),
+      import('./prefComponents/image/index.vue'),
+      import('./prefComponents/keybindings/index.vue')
+    ])
+  }
+
+  if ('requestIdleCallback' in window) {
+    ;(window as Window & {
+      requestIdleCallback: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+    }).requestIdleCallback(preload, { timeout: 2500 })
+  } else {
+    window.setTimeout(preload, 1200)
+  }
+}
+
+preloadSettingsWhenIdle()
