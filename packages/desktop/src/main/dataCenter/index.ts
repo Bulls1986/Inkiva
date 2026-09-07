@@ -35,8 +35,7 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
   userDataPath: string
   serviceName: string
   encryptKeys: string[]
-  hasDataCenterFile: boolean
-  store: Store<Record<string, unknown>>
+  private _store: Store<Record<string, unknown>> | null
 
   constructor(paths: DataCenterPaths) {
     super()
@@ -46,18 +45,27 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
     this.userDataPath = userDataPath
     this.serviceName = 'marktext'
     this.encryptKeys = []
-    this.hasDataCenterFile = fs.existsSync(
+    this._store = null
+
+    // IPC must exist as soon as Accessor is constructed. The electron-store
+    // instance and its migration/directory I/O are deferred until one of these
+    // handlers (or another DataCenter consumer) actually touches persisted data.
+    this._listenForIpcMain()
+  }
+
+  private _ensureStore(): Store<Record<string, unknown>> {
+    if (this._store) {
+      return this._store
+    }
+
+    const hasDataCenterFile = fs.existsSync(
       path.join(this.dataCenterPath, `./${DATA_CENTER_NAME}.json`)
     )
-    this.store = new Store<Record<string, unknown>>({
+    const store = new Store<Record<string, unknown>>({
       schema: schema as Schema<Record<string, unknown>>,
       name: DATA_CENTER_NAME
     })
 
-    this.init()
-  }
-
-  init(): void {
     const defaultData = {
       imageFolderPath: path.join(this.userDataPath, 'images'),
       screenshotFolderPath: path.join(this.userDataPath, 'screenshot'),
@@ -67,31 +75,33 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
       picgoAppPath: getDefaultPicgoAppPath()
     }
 
-    if (!this.hasDataCenterFile) {
-      this.store.set(defaultData)
-      ensureDirSync(this.store.get('screenshotFolderPath') as string)
+    if (!hasDataCenterFile) {
+      store.set(defaultData)
+      ensureDirSync(store.get('screenshotFolderPath') as string)
     } else {
-      // Migrate legacy uploader values that no longer exist
-      const stored = this.store.get('currentUploader') as string | undefined
+      // Migrate legacy uploader values that no longer exist.
+      const stored = store.get('currentUploader') as string | undefined
       if (stored === 'none' || stored === 'github') {
-        this.store.set('currentUploader', 'picgo')
+        store.set('currentUploader', 'picgo')
       }
 
       // Keep existing data-center files compatible with the PicGo App
       // uploader introduced after the original uploader settings.
-      if (typeof this.store.get('picgoAppPath') !== 'string') {
-        this.store.set('picgoAppPath', getDefaultPicgoAppPath())
+      if (typeof store.get('picgoAppPath') !== 'string') {
+        store.set('picgoAppPath', getDefaultPicgoAppPath())
       }
     }
-    this._listenForIpcMain()
+
+    this._store = store
+    return store
   }
 
   async getAll(): Promise<Record<string, unknown>> {
     const { serviceName, encryptKeys } = this
-    const data = this.store.store
+    const data = this._ensureStore().store
 
     // Inkiva currently has no encrypted DataCenter keys. Avoid loading keytar
-    // (a native keychain module) during cold start when it is not needed.
+    // (a native keychain module) unless encrypted data is actually introduced.
     if (encryptKeys.length === 0) {
       return data
     }
@@ -99,9 +109,7 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
     try {
       const keytar = await loadKeytar()
       const encryptData = await Promise.all(
-        encryptKeys.map((key) => {
-          return keytar.getPassword(serviceName, key)
-        })
+        encryptKeys.map((key) => keytar.getPassword(serviceName, key))
       )
       const encryptObj = encryptKeys.reduce<Record<string, string | null>>((acc, k, i) => {
         return {
@@ -118,7 +126,8 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
   }
 
   addImage(key: string, url: string): void {
-    const items = this.store.get(key) as Array<{ url: string; timeStamp: number }>
+    const store = this._ensureStore()
+    const items = (store.get(key) as Array<{ url: string; timeStamp: number }> | undefined) ?? []
     const alreadyHas = items.some((item) => item.url === url)
     let item
     if (alreadyHas) {
@@ -130,17 +139,18 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
     }
 
     ipcMain.emit('broadcast-web-image-added', { type: key, item })
-    return this.store.set(key, items)
+    store.set(key, items)
   }
 
   removeImage(type: string, url: string): unknown {
-    const items = this.store.get(type) as unknown[]
+    const store = this._ensureStore()
+    const items = (store.get(type) as unknown[] | undefined) ?? []
     const index = items.indexOf(url)
-    const item = items[index]
     if (index === -1) return
+    const item = items[index]
     items.splice(index, 1)
     ipcMain.emit('broadcast-web-image-removed', { type, item })
-    return this.store.set(type, items)
+    return store.set(type, items)
   }
 
   async getItem(key: string): Promise<unknown> {
@@ -148,9 +158,8 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
     if (encryptKeys.includes(key)) {
       const keytar = await loadKeytar()
       return keytar.getPassword(serviceName, key)
-    } else {
-      return this.store.get(key)
     }
+    return this._ensureStore().get(key)
   }
 
   async setItem(key: string, value: unknown): Promise<void> {
@@ -162,13 +171,14 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
     if (encryptKeys.includes(key)) {
       try {
         const keytar = await loadKeytar()
-        return await keytar.setPassword(serviceName, key, value as string)
+        await keytar.setPassword(serviceName, key, value as string)
+        return
       } catch (err) {
         log.error('Keytar error:', err)
+        return
       }
-    } else {
-      return this.store.set(key, value)
     }
+    this._ensureStore().set(key, value)
   }
 
   /**
@@ -180,14 +190,28 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
       return
     }
 
-    Object.keys(settings).forEach((key) => {
-      this.setItem(key, settings[key])
-    })
+    // There are currently no encrypted keys, so keep normal multi-key updates
+    // in one electron-store write. Fall back to setItem if encrypted settings
+    // are introduced later.
+    if (this.encryptKeys.length === 0) {
+      const store = this._ensureStore()
+      const nextState = { ...store.store, ...settings }
+      if (typeof settings.screenshotFolderPath === 'string') {
+        ensureDirSync(settings.screenshotFolderPath)
+      }
+      ipcMain.emit('broadcast-user-data-changed', settings)
+      store.store = nextState
+      return
+    }
+
+    for (const key of Object.keys(settings)) {
+      void this.setItem(key, settings[key])
+    }
   }
 
   _listenForIpcMain(): void {
-    ipcMain.on('set-image-folder-path', (newPath) => {
-      this.setItem('imageFolderPath', newPath)
+    ipcMain.on('set-image-folder-path', (_event, newPath: string) => {
+      void this.setItem('imageFolderPath', newPath)
     })
 
     ipcMain.on('mt::ask-for-user-data', async(e) => {
@@ -209,7 +233,7 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
         }
       }
       if (imagePath) {
-        this.setItem('imageFolderPath', imagePath)
+        void this.setItem('imageFolderPath', imagePath)
       }
     })
 
@@ -230,11 +254,7 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
         ]
       })
 
-      if (filePaths && filePaths[0]) {
-        return filePaths[0]
-      } else {
-        return ''
-      }
+      return filePaths?.[0] ?? ''
     })
   }
 }
