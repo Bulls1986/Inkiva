@@ -31,8 +31,6 @@ interface PendingWrite {
   waiters: Array<{ resolve: () => void; reject: (error: unknown) => void }>
 }
 
-// No instance-level events emitted; kept as TypedEmitter for parity with the
-// other main classes.
 type EditorBufferStoreEvents = Record<string, unknown[]>
 
 class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
@@ -47,9 +45,6 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
 
     const { editorBufferStorePath } = paths
     this.editorBufferStorePath = editorBufferStorePath
-    // Object of paths to buffer stores. Buffer stores are NOT held in memory
-    // for performance reasons — they are read from disk when needed and
-    // written to disk when updated.
     this.bufferStores = null
     this.serviceName = 'marktext'
     this.encryptKeys = []
@@ -98,9 +93,6 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
   }
 
   handleClose(restoreBufferId: string | undefined, editorWindows: EditorWindow[]): void {
-    // If a recovery write is still in flight, keep the recovery file. Deleting
-    // it while an async atomic write is pending can race the final state write;
-    // retaining a fully-saved buffer is harmless and it will be cleaned later.
     if (!restoreBufferId) {
       console.warn('No restoreBufferId found for window, skipping buffer cleanup')
       return
@@ -161,9 +153,6 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
 
   getBufferStoreInfo(restoreBufferId: string): BufferStoreEntry {
     if (!this.bufferStores) {
-      // Do not scan the whole recovery directory on the normal new-window path.
-      // A random UUID collision is practically impossible; populate the cache
-      // lazily with the exact requested entry instead.
       this.bufferStores = {}
     }
 
@@ -203,10 +192,7 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
     return buffer
   }
 
-  private async _writeBufferStoreFile(filePath: string, newState: unknown): Promise<void> {
-    // Durable atomic write without blocking Electron's main thread. Calls for
-    // the same recovery file are coalesced by _enqueueBufferWrite so typing can
-    // never build an unbounded fsync queue.
+  async writeBufferStoreFile(filePath: string, newState: unknown): Promise<void> {
     await writeFileAtomic(filePath, JSON.stringify(newState), { encoding: 'utf8' })
   }
 
@@ -237,7 +223,7 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
         pending.nextState = null
 
         try {
-          await this._writeBufferStoreFile(filePath, state)
+          await this.writeBufferStoreFile(filePath, state)
           waiters.forEach(({ resolve }) => resolve())
         } catch (error) {
           waiters.forEach(({ reject }) => reject(error))
@@ -268,8 +254,6 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
   }
 
   getUnUsedBufferUUID(): string {
-    // crypto.randomUUID() provides enough uniqueness that scanning every
-    // recovery file before opening each new window only adds cold-start I/O.
     return crypto.randomUUID()
   }
 
