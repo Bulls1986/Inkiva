@@ -1,5 +1,3 @@
-import dayjs from 'dayjs'
-
 export type FileCreateType = 'file' | 'directory'
 export type PasteType = 'cut' | 'copy'
 export type HashType = 'sha1' | 'sha256' | 'sha512'
@@ -29,6 +27,11 @@ const toHex = (buf: ArrayBuffer | Uint8Array): string => {
   let out = ''
   for (let i = 0; i < bytes.length; i++) out += bytes[i].toString(16).padStart(2, '0')
   return out
+}
+
+const formatTimestamp = (date = new Date()): string => {
+  const two = (value: number): string => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}-${two(date.getHours())}-${two(date.getMinutes())}-${two(date.getSeconds())}`
 }
 
 // Replacement for crypto.createHash that uses the Web Crypto API. Only SHA-1 is
@@ -93,10 +96,7 @@ export const moveImageToFolder = async(
     }
   } else {
     const file = image as File
-    const imagePath = window.path.join(
-      outputDir,
-      `${dayjs().format('YYYY-MM-DD-HH-mm-ss')}-${file.name}`
-    )
+    const imagePath = window.path.join(outputDir, `${formatTimestamp()}-${file.name}`)
 
     const buffer = new Uint8Array(await file.arrayBuffer())
     await window.fileUtils.writeFile(imagePath, buffer)
