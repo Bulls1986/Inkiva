@@ -1,5 +1,6 @@
 import type { IFileState } from '@shared/types/files'
 import { getUniqueId, deepClone } from '../util'
+import { wordCount as muyaWordCount } from '@muyajs/core'
 
 // Helper module (NOT a Pinia store): defaults and factories for the editor
 // document state objects.
@@ -113,6 +114,9 @@ export const getBlankFileState = (
   }
 
   fileState.encoding.encoding = defaultEncoding
+  // The counter is derived from the document, so initialize it before the
+  // editor emits its first change event.
+  fileState.wordCount = muyaWordCount(markdown)
   return Object.assign(fileState, {
     lineEnding,
     adjustLineEndingOnSave: lineEnding.toLowerCase() === 'crlf',
@@ -145,6 +149,10 @@ export const createDocumentState = (
       ;(docState as Record<string, unknown>)[key] = src[key]
     }
   }
+
+  // Persisted counts can be missing or stale. Markdown is the source of truth
+  // for every newly created, reopened, and restored tab.
+  docState.wordCount = muyaWordCount(docState.markdown)
 
   return Object.assign(docState, {
     id,
