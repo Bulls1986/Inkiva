@@ -22,7 +22,6 @@ export default function Footer() {
             <a href={hash(SECTIONS.themes)}>Themes</a>
             <a href={hash(SECTIONS.extensions)}>Markdown support</a>
             <a href={hash(SECTIONS.download)}>Download</a>
-            <a href={hash(SECTIONS.support)}>Support the project</a>
           </div>
           <div className="foot-col">
             <h5>Resources</h5>
@@ -34,7 +33,6 @@ export default function Footer() {
           <div className="foot-col">
             <h5>Community</h5>
             <a href={DOWNLOAD.repo} {...EXT_LINK}>GitHub</a>
-            <a href={DOWNLOAD.twitter} {...EXT_LINK}>Twitter / X</a>
           </div>
         </div>
         <div className="foot-bot">

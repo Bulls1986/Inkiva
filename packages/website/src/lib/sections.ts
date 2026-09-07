@@ -3,7 +3,6 @@ export const SECTIONS = {
   preview: 'preview',
   extensions: 'extensions',
   themes: 'themes',
-  support: 'support',
   download: 'download'
 } as const
 

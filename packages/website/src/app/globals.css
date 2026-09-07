@@ -1074,59 +1074,6 @@ h2.sec-title {
 }
 
 /* ============================================================
-   SUPPORT / SPONSORS
-   ============================================================ */
-.sponsors-wall {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 22px;
-  margin-top: 56px;
-}
-.sponsors-label {
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.sponsor-logos {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 22px;
-}
-.sponsor-logo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 22px 40px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--panel);
-  transition:
-    transform 0.3s var(--ease),
-    border-color 0.3s,
-    background 0.3s;
-}
-.sponsor-logo:hover {
-  transform: translateY(-3px);
-  border-color: var(--border-2);
-  background: var(--panel-2);
-}
-.sponsor-logo img {
-  height: 44px;
-  width: auto;
-  display: block;
-}
-/* Logos that carry their own background can't be recolored, so exclude them
-   from the dark-mode inversion that transparent single-color logos rely on. */
-[data-theme='dark'] .sponsor-logo img:not(.sponsor-logo-raw) {
-  filter: brightness(0) invert(1);
-  opacity: 0.9;
-}
-
-/* ============================================================
    FOOTER
    ============================================================ */
 .site-footer {

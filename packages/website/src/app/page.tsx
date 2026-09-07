@@ -7,7 +7,6 @@ import Nav from '@/components/Nav'
 import PageEffects from '@/components/PageEffects'
 import Preview from '@/components/Preview'
 import Stats from '@/components/Stats'
-import Support from '@/components/Support'
 import Themes from '@/components/Themes'
 
 export default function Home() {
@@ -23,7 +22,6 @@ export default function Home() {
       <Extensions />
       <Themes />
       <FocusExport />
-      <Support />
       <Download />
       <Footer />
       <PageEffects />
