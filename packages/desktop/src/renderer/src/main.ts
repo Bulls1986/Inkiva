@@ -1,57 +1,19 @@
-import { createApp, type App } from 'vue'
-import { createRouter, createWebHashHistory } from 'vue-router'
-import bootstrapRenderer from './bootstrap'
-import axios from './axios'
-import pinia from './store'
-import './assets/symbolIcon'
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import router from './router'
+import i18n from './i18n'
+import services from './services'
+import '@/assets/styles/index.css'
 
-// Element Plus instead of Element UI for Vue 3
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
-import en from 'element-plus/es/locale/lang/en'
+const envType = window.marktext?.env?.type
 
-// I18n translation system
-import i18nPlugin from './i18n'
-
-// something is wrong here! \/
-import services from './services/index'
-import routes from './router'
-import Main from './Main.vue'
-
-import './assets/styles/index.css'
-import './assets/styles/printService.css'
-
-// -----------------------------------------------
-
-window.marktext = {}
-bootstrapRenderer()
-
-// -----------------------------------------------
-// Be careful when changing code before this line!
-
-// Create Vue app
-const app: App<Element> = createApp(Main)
-
-// Configure Element Plus with locale
-app.use(ElementPlus, {
-  locale: en
+const app = createApp({
+  template: '<router-view />'
 })
 
-const envType = window.marktext?.env?.type as string | undefined
-
-const router = createRouter({
-  history: createWebHashHistory(),
-  // it seems like something might have changed in vue-router? it uses the full "file path" instead of
-  // links like /editor if we use the old createWebHistory()
-  routes: routes(envType)
-})
-
+app.use(createPinia())
 app.use(router)
-app.use(pinia)
-app.use(i18nPlugin)
-
-// Configure axios globally
-app.config.globalProperties.$http = axios
+app.use(i18n)
 
 // Register services globally
 ;(services as unknown as Array<Record<string, unknown> & { name: string }>).forEach((s) => {
@@ -74,7 +36,7 @@ const preloadSettingsWhenIdle = (): void => {
   if (envType !== 'editor') return
 
   const preload = (): void => {
-    void Promise.allSettled([
+    Promise.allSettled([
       import('./pages/preference.vue'),
       import('./prefComponents/general/index.vue'),
       import('./prefComponents/editor/index.vue'),
@@ -87,11 +49,9 @@ const preloadSettingsWhenIdle = (): void => {
   }
 
   if ('requestIdleCallback' in window) {
-    ;(window as Window & {
-      requestIdleCallback: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
-    }).requestIdleCallback(preload, { timeout: 2500 })
+    window.requestIdleCallback(preload, { timeout: 2500 })
   } else {
-    window.setTimeout(preload, 1200)
+    globalThis.setTimeout(preload, 1200)
   }
 }
 
