@@ -1,0 +1,16 @@
+name: Typecheck Verify
+
+on:
+  push:
+    branches:
+      - ci/verify-current-build
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          node-version: 22.21.1
+      - run: pnpm typecheck
