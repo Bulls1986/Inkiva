@@ -5,6 +5,7 @@ import { useRef } from 'react'
 import { DOWNLOAD } from '@/lib/downloads'
 import { EXT_LINK } from '@/lib/links'
 import { SECTIONS, hash, revealClass } from '@/lib/sections'
+import { INKIVA_VERSION_LABEL } from '@/lib/version'
 import { useTilt } from '@/hooks/useTilt'
 import Nav from './Nav'
 import Brand from './Brand'
@@ -58,7 +59,7 @@ export default function ChineseHomePage() {
       <header className="hero">
         <div className="wrap">
           <div className={revealClass(undefined, 'eyebrow')}>
-            <span className="tag">v0.1.0-beta1</span> Inkiva · 墨映
+            <span className="tag">{INKIVA_VERSION_LABEL}</span> Inkiva · 墨映
           </div>
           <h1 className={revealClass('d1', 'hero-title')}>
             用 Markdown 写作，<span className="grad-text">让内容自然显现。</span>
