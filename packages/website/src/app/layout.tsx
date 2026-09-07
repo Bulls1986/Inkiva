@@ -47,6 +47,10 @@ export const metadata: Metadata = {
   creator: 'Ran Luo',
   alternates: { canonical: '/' },
   icons: { icon: '/favicon.png' },
+  alternates: {
+    canonical: '/',
+    languages: { 'en-US': '/', 'zh-CN': '/zh-CN/' }
+  },
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -82,12 +86,14 @@ const jsonLd = {
 
 // Inline before paint to avoid theme flash.
 const themeBootstrap = `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(!t)t=${JSON.stringify(DEFAULT_THEME)};document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme',${JSON.stringify(DEFAULT_THEME)});}})();`
+const localeBootstrap = `(function(){try{document.documentElement.lang=location.pathname.indexOf('/zh-CN')===0?'zh-CN':'en';}catch(e){}})();`
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-theme={DEFAULT_THEME} className={`${geistSans.variable} ${geistMono.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+        <script dangerouslySetInnerHTML={{ __html: localeBootstrap }} />
       </head>
       <body>
         {children}
