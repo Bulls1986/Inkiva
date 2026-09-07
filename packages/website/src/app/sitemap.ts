@@ -15,6 +15,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1
     },
     {
+      url: SITE + '/zh-CN/',
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 1
+    },
+    {
       url: SITE + '/docs',
       lastModified: now,
       changeFrequency: 'weekly',
