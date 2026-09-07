@@ -38,7 +38,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch, nextTick, onMounted, ref, defineAsyncComponent } from 'vue'
+import {
+  computed,
+  watch,
+  nextTick,
+  onMounted,
+  onBeforeUnmount,
+  ref,
+  defineAsyncComponent
+} from 'vue'
 import { useMainStore } from '@/store'
 import { storeToRefs } from 'pinia'
 import { addStyles, addThemeStyle, addCustomStyle, type AddStylesOptions } from '@/util/theme'
@@ -56,9 +64,6 @@ import { useCommandCenterStore } from '@/store/commandCenter'
 import { useProjectStore } from '@/store/project'
 import { useNotificationStore } from '@/store/notification'
 
-// Keep the first editor paint focused on the title/sidebar/editor path. These
-// components are interaction-driven and can live in separate chunks instead
-// of increasing parse/evaluation time of the main editor route.
 const AboutDialog = defineAsyncComponent(() => import('@/components/about/index.vue'))
 const CommandPalette = defineAsyncComponent(() => import('@/components/commandPalette/index.vue'))
 const ExportSettingDialog = defineAsyncComponent(() => import('@/components/exportSettings/index.vue'))
@@ -91,59 +96,39 @@ const wordCount = computed(() => currentFile.value?.wordCount)
 const muyaIndexCursor = computed<Record<string, unknown> | undefined>(
   () => currentFile.value?.muyaIndexCursor as Record<string, unknown> | undefined
 )
-
-const hasCurrentFile = computed<boolean>(() => {
-  return currentFile.value?.markdown !== undefined
-})
+const hasCurrentFile = computed<boolean>(() => currentFile.value?.markdown !== undefined)
 
 watch(theme, (value, oldValue) => {
-  if (value !== oldValue) {
-    addThemeStyle(value)
-  }
+  if (value !== oldValue) addThemeStyle(value)
 })
-
 watch(customCss, (value, oldValue) => {
-  if (value !== oldValue) {
-    addCustomStyle({ customCss: value })
+  if (value !== oldValue) addCustomStyle({ customCss: value })
+})
+watch(zoom, (zoomValue) => bus.emit('mt::window-zoom', zoomValue))
+
+const handleDragOver = (e: DragEvent): void => {
+  if (!e.dataTransfer || !e.dataTransfer.types.length) return
+
+  if (e.dataTransfer.types.indexOf('Files') >= 0) {
+    if (
+      e.dataTransfer.items.length === 1 &&
+      e.dataTransfer.items[0]!.type.indexOf('image') > -1
+    ) {
+      return
+    }
+
+    e.preventDefault()
+    if (timer.value) clearTimeout(timer.value)
+    timer.value = setTimeout(() => {
+      bus.emit('importDialog', false)
+      timer.value = null
+    }, 300)
+    bus.emit('importDialog', true)
+    e.dataTransfer.dropEffect = 'copy'
+  } else if (e.dataTransfer.types.indexOf('text/uri-list') < 0) {
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'none'
   }
-})
-
-watch(zoom, (zoomValue) => {
-  bus.emit('mt::window-zoom', zoomValue)
-})
-
-const setupDragDropHandler = (): void => {
-  window.addEventListener(
-    'dragover',
-    (e: DragEvent) => {
-      if (!e.dataTransfer || !e.dataTransfer.types.length) return
-
-      if (e.dataTransfer.types.indexOf('Files') >= 0) {
-        if (
-          e.dataTransfer.items.length === 1 &&
-          e.dataTransfer.items[0]!.type.indexOf('image') > -1
-        ) {
-          // Do nothing
-        } else {
-          e.preventDefault()
-          if (timer.value) {
-            clearTimeout(timer.value)
-          }
-          timer.value = setTimeout(() => {
-            bus.emit('importDialog', false)
-          }, 300)
-          bus.emit('importDialog', true)
-        }
-        e.dataTransfer.dropEffect = 'copy'
-      } else if (e.dataTransfer.types.indexOf('text/uri-list') >= 0) {
-        // Let the editor handle browser links/images.
-      } else {
-        e.stopPropagation()
-        e.dataTransfer.dropEffect = 'none'
-      }
-    },
-    false
-  )
 }
 
 onMounted(async () => {
@@ -188,18 +173,26 @@ onMounted(async () => {
   editorStore.LISTEN_FOR_STATE_REPLACE()
 
   notificationStore.listenForNotification()
-  setupDragDropHandler()
+  window.addEventListener('dragover', handleDragOver, false)
 
   nextTick(() => {
-    const init = window.marktext?.initialState
+    const initial = window.marktext?.initialState
     const style: AddStylesOptions = {
-      theme: init?.theme ?? DEFAULT_STYLE.theme,
-      codeFontFamily: init?.codeFontFamily ?? DEFAULT_STYLE.codeFontFamily,
-      codeFontSize: init?.codeFontSize ?? DEFAULT_STYLE.codeFontSize,
-      hideScrollbar: init?.hideScrollbar ?? DEFAULT_STYLE.hideScrollbar
+      theme: initial?.theme ?? DEFAULT_STYLE.theme,
+      codeFontFamily: initial?.codeFontFamily ?? DEFAULT_STYLE.codeFontFamily,
+      codeFontSize: initial?.codeFontSize ?? DEFAULT_STYLE.codeFontSize,
+      hideScrollbar: initial?.hideScrollbar ?? DEFAULT_STYLE.hideScrollbar
     }
     addStyles(style)
   })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('dragover', handleDragOver, false)
+  if (timer.value) {
+    clearTimeout(timer.value)
+    timer.value = null
+  }
 })
 </script>
 
