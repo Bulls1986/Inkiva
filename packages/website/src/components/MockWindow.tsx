@@ -7,8 +7,11 @@ type Props = {
   windowId?: string
   windowRef?: React.Ref<HTMLDivElement>
   docStyle?: CSSProperties
+  menuLabels?: string[]
   children: ReactNode
 }
+
+const DEFAULT_MENU = ['File', 'Edit', 'Paragraph', 'Format', 'View', 'Theme', 'Window', 'Help']
 
 export default function MockWindow({
   title,
@@ -16,6 +19,7 @@ export default function MockWindow({
   windowId,
   windowRef,
   docStyle,
+  menuLabels = DEFAULT_MENU,
   children
 }: Props) {
   return (
@@ -27,14 +31,9 @@ export default function MockWindow({
           <i />
         </div>
         <div className="app-menu" aria-label="Application menu">
-          <span className="active">File</span>
-          <span>Edit</span>
-          <span>Paragraph</span>
-          <span>Format</span>
-          <span>View</span>
-          <span>Theme</span>
-          <span>Window</span>
-          <span>Help</span>
+          {menuLabels.map((label, index) => (
+            <span className={index === 0 ? 'active' : ''} key={label}>{label}</span>
+          ))}
         </div>
         <div className="win-title">
           <span className="dot" /> {title}
