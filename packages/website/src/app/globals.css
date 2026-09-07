@@ -1278,3 +1278,62 @@ h2.sec-title {
     margin-left: 0;
   }
 }
+
+
+/* ============================================================
+   LANGUAGE AND STAR ACTIONS
+   ============================================================ */
+.locale-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
+}
+.locale-switch:hover {
+  color: var(--text);
+  background: var(--panel-2);
+  border-color: var(--border-2);
+}
+.star-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid color-mix(in oklch, #f5b942 45%, var(--border));
+  border-radius: 999px;
+  color: #f5c45a;
+  background: color-mix(in oklch, #f5b942 8%, transparent);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: color 0.2s, background 0.2s, border-color 0.2s, transform 0.2s;
+}
+.star-btn svg {
+  width: 15px;
+  height: 15px;
+}
+.star-btn:hover {
+  color: #ffd978;
+  background: color-mix(in oklch, #f5b942 16%, transparent);
+  border-color: #f5c45a;
+  transform: translateY(-1px);
+}
+@media (max-width: 920px) {
+  .star-btn span {
+    display: none;
+  }
+  .star-btn {
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+}
