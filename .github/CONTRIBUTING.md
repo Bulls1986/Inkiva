@@ -77,7 +77,7 @@ If there are conflicts or you want to update your local branch, please do the fo
 
 ### Build Instructions
 
-🔗 [Build Instructions](https://marktext.me/docs/dev/build)
+🔗 [Build Instructions](https://www.inkiva.net/docs)
 
 ### Style Guide
 
@@ -94,4 +94,4 @@ When writing comments, please follow our [Commenting Guidelines](./COMMENTING-GU
 
 ## Developer Documentation
 
-Please [click here](https://marktext.me/docs/dev/overview) for more details.
+Please [click here](https://www.inkiva.net/docs) for more details.
