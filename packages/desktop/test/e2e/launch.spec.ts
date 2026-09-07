@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
-import { launchElectron } from './helpers'
+import { launchElectron, waitForEditor, waitForMenuReady } from './helpers'
 
 test.describe('Check Launch Inkiva', () => {
   let app: ElectronApplication
@@ -10,6 +10,8 @@ test.describe('Check Launch Inkiva', () => {
     const { app: electronApp, page: firstPage } = await launchElectron()
     app = electronApp
     page = firstPage
+    await waitForEditor(page)
+    await waitForMenuReady(app)
   })
 
   test.afterAll(async() => {
