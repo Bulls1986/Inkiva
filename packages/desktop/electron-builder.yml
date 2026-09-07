@@ -1,5 +1,6 @@
 appId: com.github.bulls1986.inkiva
 productName: Inkiva
+copyright: 'Copyright © 2026 Bulls1986'
 directories:
   buildResources: build
   output: ../../dist

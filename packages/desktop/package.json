@@ -4,25 +4,15 @@
   "description": "Inkiva — A free, open-source WYSIWYG Markdown editor",
   "main": "./out/main/index.js",
   "author": {
-    "name": "Jocs",
-    "email": "ransixi@gmail.com",
-    "url": "https://github.com/Jocs"
+    "name": "Bulls1986",
+    "email": "bullsasd@qq.com",
+    "url": "https://github.com/Bulls1986"
   },
   "maintainer": [
     {
-      "name": "Jocs",
-      "email": "ransixi@gmail.com",
-      "url": "https://github.com/Jocs"
-    },
-    {
-      "name": "Felix Häusler",
-      "email": "hfelix@protonmail.ch",
-      "url": "https://github.com/fxha"
-    },
-    {
-      "name": "Tkaixiang",
-      "email": "tkaixiang@gmail.com",
-      "url": "https://github.com/Tkaixiang"
+      "name": "Bulls1986",
+      "email": "bullsasd@qq.com",
+      "url": "https://github.com/Bulls1986"
     }
   ],
   "homepage": "https://www.inkiva.net",
