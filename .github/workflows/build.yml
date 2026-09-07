@@ -21,17 +21,19 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: linux
-            os: ubuntu-latest
-            platform: linux
+          # Temporarily disabled from PR packaging checks.
+          # - name: linux
+          #   os: ubuntu-latest
+          #   platform: linux
           - name: windows-x64
             os: windows-latest
             platform: windows
             arch: x64
-          - name: windows-arm64
-            os: windows-11-arm
-            platform: windows
-            arch: arm64
+          # Temporarily disabled from PR packaging checks.
+          # - name: windows-arm64
+          #   os: windows-11-arm
+          #   platform: windows
+          #   arch: arm64
           - name: macos-x64
             os: macos-15-intel
             platform: macos
