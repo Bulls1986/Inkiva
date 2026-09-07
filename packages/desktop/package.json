@@ -1,6 +1,6 @@
 {
   "name": "inkiva",
-  "version": "0.20.0-dev.7",
+  "version": "0.1.0-beta1",
   "description": "Inkiva — A free, open-source WYSIWYG Markdown editor",
   "main": "./out/main/index.js",
   "author": {
