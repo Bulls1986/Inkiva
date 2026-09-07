@@ -13,7 +13,7 @@ class Accessor {
   public env: AppEnvironment
   public paths: AppPaths
   public preferences: Preference
-  private _dataCenter: DataCenter | null
+  public dataCenter: DataCenter
   public editorBufferStore: EditorBufferStore
   public commandManager: CommandManager
   public keybindings: Keybindings
@@ -29,16 +29,8 @@ class Accessor {
     this.env = appEnvironment
     this.paths = appEnvironment.paths // export paths to make it better accessible
 
-    // Preferences are required before the first BrowserWindow is created because
-    // they determine theme, titlebar, startup action, shortcuts and layout.
     this.preferences = new Preference(this.paths)
-
-    // DataCenter is intentionally lazy. Its electron-store/keytar setup performs
-    // synchronous disk/module work, but none of it is required to construct the
-    // first native window. Initializing it after BrowserWindow creation lets the
-    // lightweight HTML startup shell become visible first on slower machines.
-    this._dataCenter = null
-
+    this.dataCenter = new DataCenter(this.paths)
     this.editorBufferStore = new EditorBufferStore(this.paths)
 
     this.commandManager = CommandManager
@@ -51,21 +43,6 @@ class Accessor {
     )
     this.menu = new AppMenu(this.preferences, this.keybindings, userDataPath)
     this.windowManager = new WindowManager(this.menu, this.preferences, this.editorBufferStore)
-  }
-
-  get dataCenter(): DataCenter {
-    if (!this._dataCenter) {
-      this._dataCenter = new DataCenter(this.paths)
-    }
-    return this._dataCenter
-  }
-
-  /**
-   * Ensure DataCenter IPC handlers exist before a renderer begins requesting
-   * user data. Call this only after the native BrowserWindow has been created.
-   */
-  initializeDataCenter(): void {
-    void this.dataCenter
   }
 
   private _loadCommands(): void {
