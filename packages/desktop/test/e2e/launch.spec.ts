@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
-import { launchElectron, waitForEditor, waitForMenuReady } from './helpers'
+import { launchElectron, launchWithMarkdown, waitForMenuReady } from './helpers'
 
 test.describe('Check Launch Inkiva', () => {
   let app: ElectronApplication
@@ -10,7 +10,6 @@ test.describe('Check Launch Inkiva', () => {
     const { app: electronApp, page: firstPage } = await launchElectron()
     app = electronApp
     page = firstPage
-    await waitForEditor(page)
     await waitForMenuReady(app)
   })
 
@@ -24,15 +23,20 @@ test.describe('Check Launch Inkiva', () => {
   })
 
   test('loads the current first-run defaults', async() => {
-    await expect
-      .poll(() =>
-        app.evaluate(({ Menu }) =>
-          !!Menu.getApplicationMenu()?.getMenuItemById('autoSaveMenuItem')?.checked
+    const defaults = await launchWithMarkdown('')
+    try {
+      await expect
+        .poll(() =>
+          defaults.app.evaluate(({ Menu }) =>
+            !!Menu.getApplicationMenu()?.getMenuItemById('autoSaveMenuItem')?.checked
+          )
         )
-      )
-      .toBe(true)
-    await expect
-      .poll(() => page.locator('#editor-width').textContent())
-      .toContain('80%')
+        .toBe(true)
+      await expect
+        .poll(() => defaults.page.locator('#editor-width').textContent())
+        .toContain('80%')
+    } finally {
+      await defaults.app.close()
+    }
   })
 })
