@@ -1,0 +1,229 @@
+:root {
+  --titleBarHeight: 32px;
+  --editorAreaWidth: 750px;
+
+  /* Inkiva · 墨映 dark palette: charcoal canvas with a clear display-blue accent */
+  --themeColor: #2d80ff;
+  --themeColor90: rgba(45, 128, 255, 0.9);
+  --themeColor80: rgba(45, 128, 255, 0.8);
+  --themeColor70: rgba(45, 128, 255, 0.7);
+  --themeColor60: rgba(45, 128, 255, 0.6);
+  --themeColor50: rgba(45, 128, 255, 0.5);
+  --themeColor40: rgba(45, 128, 255, 0.4);
+  --themeColor30: rgba(45, 128, 255, 0.3);
+  --themeColor20: rgba(45, 128, 255, 0.2);
+  --themeColor10: rgba(45, 128, 255, 0.1);
+
+  --highlightColor: rgba(90, 168, 255, 0.55);
+  --selectionColor: rgba(45, 128, 255, 0.28);
+  --editorColor: rgba(245, 247, 250, 0.82);
+  --editorColor80: rgba(245, 247, 250, 0.9);
+  --editorColor60: rgba(245, 247, 250, 0.68);
+  --editorColor50: rgba(245, 247, 250, 0.55);
+  --editorColor40: rgba(245, 247, 250, 0.43);
+  --editorColor30: rgba(245, 247, 250, 0.3);
+  --editorColor10: rgba(245, 247, 250, 0.12);
+  --editorColor04: rgba(245, 247, 250, 0.06);
+  --editorBgColor: #1c1d20;
+  --deleteColor: #ff453a;
+  --iconColor: rgba(245, 247, 250, 0.58);
+  --codeBgColor: #2b3037;
+  --codeBlockBgColor: #24282e;
+  --footnoteBgColor: rgba(36, 40, 46, 0.78);
+  --inputBgColor: #252a31;
+
+  --focusColor: var(--themeColor);
+
+  --buttonFontColor: rgba(245, 247, 250, 0.82);
+  --buttonBgColor: #252a31;
+  --buttonBorder: 1px solid rgba(255, 255, 255, 0.1);
+  --buttonShadow: none;
+  --buttonFontColorHover: rgba(245, 247, 250, 0.95);
+  --buttonBgColorHover: #30363f;
+  --buttonBorderHover: 1px solid rgba(255, 255, 255, 0.16);
+  --buttonFontColorActive: rgba(245, 247, 250, 0.95);
+  --buttonBgColorActive: #1f242a;
+  --buttonBorderActive: 1px solid rgba(255, 255, 255, 0.12);
+
+  --buttonPrimaryFontColor: #ffffff;
+  --buttonPrimaryBgColor: var(--themeColor);
+  --buttonPrimaryBorder: none;
+  --buttonPrimaryShadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --buttonPrimaryFontColorHover: var(--buttonPrimaryFontColor);
+  --buttonPrimaryBgColorHover: #3d8cff;
+  --buttonPrimaryBorderHover: var(--buttonPrimaryBorder);
+  --buttonPrimaryFontColorActive: var(--buttonPrimaryFontColor);
+  --buttonPrimaryBgColorActive: #1f6fe5;
+  --buttonPrimaryBorderActive: var(--buttonPrimaryBorder);
+  --buttonPrimaryFocusBorder: none;
+  --buttonPrimaryFocusShadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35), 0 0 0 3px rgba(45, 128, 255, 0.28);
+  --tableBorderColor: #333840;
+
+  /* Markdown element colors */
+  --headingColor: #f5f7fa;
+  --h1Color: #f5f7fa;
+  --h2Color: #e3e7ee;
+  --h3Color: #cbd2dc;
+  --h4Color: #aeb8c5;
+  --h5Color: #8d9aaa;
+  --h6Color: #738093;
+  --blockquoteTextColor: rgba(245, 247, 250, 0.58);
+  --blockquoteBorderColor: var(--themeColor);
+  --hrColor: rgba(245, 247, 250, 0.12);
+  --linkColor: #5aa8ff;
+  --strongColor: rgba(245, 247, 250, 0.9);
+  --emColor: #5aa8ff;
+  --listMarkerColor: #9ba7b7;
+
+  /* Sidebar and application chrome */
+  --sideBarColor: rgba(245, 247, 250, 0.78);
+  --sideBarIconColor: var(--iconColor);
+  --sideBarTitleColor: rgba(245, 247, 250, 0.92);
+  --sideBarTextColor: rgba(245, 247, 250, 0.5);
+  --sideBarBgColor: #17191d;
+  --sideBarItemHoverBgColor: rgba(255, 255, 255, 0.055);
+  --itemBgColor: #252a31;
+
+  /* Floating surfaces */
+  --floatFontColor: rgba(245, 247, 250, 0.82);
+  --floatBgColor: #252a31;
+  --floatHoverColor: rgba(255, 255, 255, 0.06);
+  --floatBorderColor: rgba(255, 255, 255, 0.12);
+  --floatShadow:
+    rgba(0, 0, 0, 0.28) 0px 0px 0px 1px, rgba(0, 0, 0, 0.35) 0px 8px 24px;
+  --maskColor: rgba(0, 0, 0, 0.7);
+
+  /* Notification colors */
+  --notificationPrimaryColor: #ffffff;
+  --notificationPrimaryBg: var(--themeColor);
+  --notificationInfoColor: #ffffff;
+  --notificationInfoBg: #64748b;
+  --notificationWarningColor: #ffffff;
+  --notificationWarningBg: #ff9f0a;
+  --notificationErrorColor: #ffffff;
+  --notificationErrorBg: #ff453a;
+
+  /* @muyajs/core (kebab-case) editor variables */
+  --theme-color: var(--themeColor);
+  --highlight-color: var(--highlightColor);
+  --selection-color: var(--selectionColor);
+  --editor-color: var(--editorColor);
+  --editor-color-80: var(--editorColor80);
+  --editor-color-50: var(--editorColor50);
+  --editor-color-30: var(--editorColor30);
+  --editor-color-10: var(--editorColor10);
+  --editor-color-04: var(--editorColor04);
+  --editor-bg-color: var(--editorBgColor);
+  --editor-area-width: var(--editorAreaWidth);
+  --delete-color: var(--deleteColor);
+  --icon-color: var(--iconColor);
+  --code-block-bg-color: var(--codeBlockBgColor);
+  --table-border-color: var(--tableBorderColor);
+  --input-bg-color: var(--inputBgColor);
+  --button-font-color: var(--buttonFontColor);
+  --button-bg-color: var(--buttonBgColor);
+  --button-border: var(--buttonBorder);
+  --button-bg-color-hover: var(--buttonBgColorHover);
+  --button-border-hover: var(--buttonBorderHover);
+  --button-bg-color-active: var(--buttonBgColorActive);
+  --button-border-active: var(--buttonBorderActive);
+  --button-border-focus: var(--button-border);
+  --float-bg-color: var(--floatBgColor);
+  --float-hover-color: var(--floatHoverColor);
+  --float-border-color: var(--floatBorderColor);
+  --float-shadow: rgb(15 15 15 / 3%) 0 0 0 1px, rgb(15 15 15 / 4%) 0 3px 6px;
+  --link-color: var(--linkColor);
+  --h1-color: var(--h1Color);
+  --h2-color: var(--h2Color);
+  --h3-color: var(--h3Color);
+  --h4-color: var(--h4Color);
+  --h5-color: var(--h5Color);
+  --h6-color: var(--h6Color);
+  --blockquote-text-color: var(--blockquoteTextColor);
+  --blockquote-border-color: var(--blockquoteBorderColor);
+  --strong-color: var(--strongColor);
+  --em-color: var(--emColor);
+  --list-marker-color: var(--listMarkerColor);
+  --hr-color: var(--hrColor);
+}
+::-webkit-scrollbar {
+  background: var(--editorBgColor);
+}
+
+.mu-front-menu,
+.mu-float-wrapper {
+  box-shadow: 0 4px 8px 0 var(--floatShadow) !important;
+}
+
+.title-bar .frameless-titlebar-button > div > svg {
+  fill: #ffffff;
+}
+.title-bar .frameless-titlebar-minimize:hover,
+.title-bar .frameless-titlebar-toggle:hover {
+  background-color: rgb(255, 255, 255, 0.05);
+}
+
+.side-bar {
+  border-right: 1px solid #24272d !important;
+}
+
+.recent-files-projects a,
+.open-project a {
+  box-shadow: none !important;
+}
+
+.editor-tabs {
+  box-shadow: none !important;
+}
+.editor-tabs:after {
+  position: absolute;
+  content: '';
+  border-bottom: 1px solid #24272d;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+}
+.editor-tabs ul.tabs-container:after {
+  position: absolute;
+  content: '';
+  border-bottom: 1px solid #24272d;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+}
+
+.tabs-container > li,
+.tabs-container > li.active {
+  background: var(--editorBgColor) !important;
+}
+
+.open-project button,
+.recent-files-projects button {
+  box-shadow: none !important;
+}
+
+/* ------------------------------------ */
+
+:not(pre) > code[class*='language-'],
+pre:not(.CodeMirror-line),
+pre[class*='language-'],
+pre.mu-code-block {
+  background: var(--codeBlockBgColor) !important;
+  border: none !important;
+}
+.mu-thematic-break:not(.mu-active)::before {
+  border-top: 2px dashed var(--editorColor10) !important;
+  background: none !important;
+}
+figure.mu-active.mu-math-block > div.mu-math-preview,
+figure.mu-active.mu-diagram-block > div.mu-diagram-preview {
+  box-shadow: 0 3px 8px 0 var(--floatShadow) !important;
+}
+
+/*
+ * Prism.js theme (override light theme)
+ */
+
+/* @import url("prismjs/dark.theme.css"); */

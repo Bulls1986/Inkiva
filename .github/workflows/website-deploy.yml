@@ -1,0 +1,55 @@
+name: Deploy Inkiva website
+# Logo design 04 assets are part of the static website build.
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'packages/website/**'
+      - 'packages/muyajs/**'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - '.github/workflows/website-deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: website-pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Inkiva
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.21.1'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Build static website
+        run: pnpm --filter inkiva-website run build:static
+
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+          external_repository: Bulls1986/Bulls1986.github.io
+          publish_branch: master
+          publish_dir: ./packages/website/out
+          cname: www.inkiva.net
+          force_orphan: true
+          commit_message: Deploy Inkiva website from ${{ github.sha }}
+

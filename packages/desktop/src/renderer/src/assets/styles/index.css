@@ -1,0 +1,429 @@
+/* Common CSS use by both light and dark themes */
+:root {
+  --titleBarHeight: 32px;
+  --editorAreaWidth: 750px;
+
+  /* Inkiva · 墨映 default palette: charcoal ink, display blue and cool paper surfaces */
+  --themeColor: rgba(11, 99, 229, 1);
+  --themeColor90: rgba(11, 99, 229, 0.9);
+  --themeColor80: rgba(11, 99, 229, 0.8);
+  --themeColor70: rgba(11, 99, 229, 0.7);
+  --themeColor60: rgba(11, 99, 229, 0.6);
+  --themeColor50: rgba(11, 99, 229, 0.5);
+  --themeColor40: rgba(11, 99, 229, 0.4);
+  --themeColor30: rgba(11, 99, 229, 0.3);
+  --themeColor20: rgba(11, 99, 229, 0.2);
+  --themeColor10: rgba(11, 99, 229, 0.1);
+  --highlightThemeColor: var(--themeColor);
+
+  --highlightColor: rgba(11, 99, 229, 0.28);
+  --selectionColor: rgba(11, 99, 229, 0.16);
+  --editorColor: #3e4754;
+  --editorColor80: #171a1f;
+  --editorColor60: #4c5664;
+  --editorColor50: #6c7786;
+  --editorColor40: #8b96a4;
+  --editorColor30: #abb4c0;
+  --editorColor10: #e1e6ec;
+  --editorColor04: #f4f6f8;
+  --editorBgColor: #ffffff;
+  --deleteColor: #ff453a;
+  --iconColor: #7b8794;
+  --codeBgColor: #eef3f8;
+  --codeBlockBgColor: #f4f6f8;
+  --footnoteBgColor: #f5f7fa;
+  --inputBgColor: #f2f5f8;
+  --focusColor: var(--themeColor);
+
+  --buttonFontColor: var(--editorColor);
+  --buttonBgColor: #ffffff;
+  --buttonBorder: 1px solid #d7dde5;
+  --buttonShadow: 0 1px 1px rgba(23, 26, 31, 0.02);
+  --buttonFontColorHover: var(--editorColor80);
+  --buttonBgColorHover: linear-gradient(#ffffff, #f6f8fb);
+  --buttonBorderHover: 1px solid #bfc8d4;
+  --buttonFontColorActive: var(--editorColor80);
+  --buttonBgColorActive: #edf2f8;
+  --buttonBorderActive: 1px solid #c8d2de;
+  --buttonFocusBorder: 1px solid var(--themeColor);
+
+  --buttonPrimaryFontColor: #ffffff;
+  --buttonPrimaryBgColor: var(--themeColor);
+  --buttonPrimaryBorder: none;
+  --buttonPrimaryShadow: 0 2px 6px rgba(11, 99, 229, 0.18);
+  --buttonPrimaryFontColorHover: var(--buttonPrimaryFontColor);
+  --buttonPrimaryBgColorHover: #0757f2;
+  --buttonPrimaryBorderHover: var(--buttonPrimaryBorder);
+  --buttonPrimaryFontColorActive: var(--buttonPrimaryFontColor);
+  --buttonPrimaryBgColorActive: #0647c7;
+  --buttonPrimaryBorderActive: var(--buttonPrimaryBorder);
+  --buttonPrimaryFocusBorder: none;
+  --buttonPrimaryFocusShadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35), 0 0 0 3px rgba(11, 99, 229, 0.2);
+  --tableBorderColor: #e1e6ec;
+
+  /* Markdown element colors */
+  --headingColor: #171a1f;
+  --h1Color: #171a1f;
+  --h2Color: #242a32;
+  --h3Color: #343d49;
+  --h4Color: #4b5665;
+  --h5Color: #657285;
+  --h6Color: #7b8794;
+  --blockquoteTextColor: #6c7786;
+  --blockquoteBorderColor: var(--themeColor);
+  --hrColor: #e1e6ec;
+  --linkColor: var(--themeColor);
+  --strongColor: #171a1f;
+  --emColor: #0b63e5;
+  --listMarkerColor: #7b8794;
+
+  /* Sidebar and application chrome */
+  --sideBarColor: #3e4754;
+  --sideBarIconColor: var(--iconColor);
+  --sideBarTitleColor: #171a1f;
+  --sideBarTextColor: #7b8794;
+  --sideBarBgColor: #f6f8fa;
+  --sideBarItemHoverBgColor: rgba(23, 26, 31, 0.05);
+  --itemBgColor: rgba(255, 255, 255, 0.82);
+
+  /* Floating surfaces */
+  --floatFontColor: #3e4754;
+  --floatBgColor: #ffffff;
+  --floatHoverColor: rgba(23, 26, 31, 0.05);
+  --floatBorderColor: rgba(23, 26, 31, 0.12);
+  --floatShadow:
+    rgba(23, 26, 31, 0.04) 0px 0px 0px 1px, rgba(23, 26, 31, 0.08) 0px 8px 24px;
+  --maskColor: rgba(235, 239, 244, 0.86);
+
+  /* Notification colors */
+  --notificationPrimaryColor: #ffffff;
+  --notificationPrimaryBg: var(--themeColor);
+  --notificationInfoColor: #ffffff;
+  --notificationInfoBg: #64748b;
+  --notificationWarningColor: #ffffff;
+  --notificationWarningBg: #ff9f0a;
+  --notificationErrorColor: #ffffff;
+  --notificationErrorBg: #ff453a;
+}
+
+::-webkit-scrollbar,
+::-webkit-scrollbar-corner {
+  background: var(--floatHoverColor);
+}
+
+::-webkit-scrollbar:vertical {
+  width: 12px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--editorColor30);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--editorColor50);
+}
+
+:focus {
+  outline: none;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  caret-color: var(--editorColor);
+}
+
+body {
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.15em;
+  fill: currentColor;
+  overflow: hidden;
+}
+
+.text-overflow {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Overwrite Element style */
+.el-tooltip__popper {
+  background: var(--floatBgColor);
+  color: var(--sideBarColor);
+  box-shadow: 0 4px 8px 0 var(--floatBorderColor);
+  border: solid 1px var(--floatBorderColor);
+}
+
+.el-tooltip__popper[data-popper-placement^='left'] .popper__arrow {
+  border-left-color: #303133;
+}
+.el-tooltip__popper[data-popper-placement^='top'] .popper__arrow {
+  border-top-color: #303133;
+}
+.el-tooltip__popper[data-popper-placement^='right'] .popper__arrow {
+  border-right-color: #303133;
+}
+.el-tooltip__popper[data-popper-placement^='bottom'] .popper__arrow {
+  border-bottom-color: #303133;
+}
+
+.el-button:hover,
+.el-button--primary:hover {
+  border-color: unset;
+}
+.el-button:active,
+.el-button--primary:active {
+  border-color: unset;
+}
+.el-button:focus,
+.el-button--primary:focus {
+  border-color: unset;
+}
+
+.el-slider__button {
+  border-color: var(--themeColor);
+}
+
+.el-slider__bar {
+  background-color: var(--themeColor);
+}
+
+.el-radio__input.is-checked .el-radio__inner {
+  border-color: var(--themeColor);
+  background-color: var(--themeColor);
+}
+
+.el-radio__input.is-checked + .el-radio__label {
+  color: var(--editorColor);
+}
+
+.el-dialog,
+.el-dialog.ag-dialog-table {
+  border-radius: 8px;
+  box-shadow: 0 4px 8px 0 var(--floatBorderColor);
+  border: solid 1px var(--floatBorderColor);
+  background-color: var(--floatBgColor);
+}
+.el-dialog__header {
+  position: relative;
+  display: block;
+  padding: 8px 6px;
+}
+
+input.el-input__inner {
+  background: var(--inputBgColor);
+  border: 1px solid var(--editorColor10);
+  color: var(--editorColor80);
+}
+
+.el-input.is-focus .el-input__wrapper,
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--themeColor) inset;
+}
+
+.el-input-number.is-controls-right span.el-input-number__decrease,
+.el-input-number.is-controls-right span.el-input-number__increase {
+  background: var(--buttonBgColor);
+  border-left: none;
+  color: var(--editorColor80);
+}
+
+.el-input-number.is-controls-right span.el-input-number__increase {
+  border-bottom: none;
+}
+
+.el-tabs__nav-wrap::after {
+  background: var(--editorColor04);
+}
+
+div.el-tabs__item {
+  color: var(--editorColor);
+}
+
+div.el-tab-pane {
+  color: var(--editorColor);
+  font-size: 14px;
+}
+
+.ag-dialog-table .dialog-title svg {
+  width: 1.5em;
+  height: 1.5em;
+}
+
+.ag-underdevelop {
+  opacity: 0.3;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.button,
+.muya-button,
+.el-button {
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--buttonFontColor);
+  background: var(--buttonBgColor);
+  border: var(--buttonBorder);
+  border-radius: 5px;
+  box-shadow: var(--buttonShadow);
+  padding: 7px 14px;
+}
+.button:hover,
+.muya-button:hover,
+.el-button:hover {
+  color: var(--buttonFontColorHover);
+  background: var(--buttonBgColorHover);
+  border: var(--buttonBorderHover);
+}
+.button:active,
+.muya-button:active,
+.el-button:active {
+  color: var(--buttonFontColorActive);
+  background: var(--buttonBgColorActive);
+  border: var(--buttonBorderActive);
+}
+.button:focus,
+.muya-button:focus,
+.el-button:focus {
+  outline: none;
+  border: var(--buttonFocusBorder);
+}
+
+.button-primary,
+.muya-button-primary,
+.el-button--primary {
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--buttonPrimaryFontColor);
+  background: var(--buttonPrimaryBgColor);
+  border: var(--buttonPrimaryBorder);
+  border-radius: 5px;
+  box-shadow: var(--buttonPrimaryShadow);
+  padding: 7px 14px;
+}
+.button-primary:hover,
+.muya-button-primary:hover,
+.el-button--primary:hover {
+  color: var(--buttonPrimaryFontColorHover);
+  background: var(--buttonPrimaryBgColorHover);
+  border: var(--buttonPrimaryBorderHover);
+}
+.button-primary:active,
+.muya-button-primary:active,
+.el-button--primary:active {
+  color: var(--buttonPrimaryFontColorActive);
+  background: var(--buttonPrimaryBgColorActive);
+  border: var(--buttonPrimaryBorderActive);
+}
+button.button-primary:not(.custom):focus,
+.button-primary:focus,
+.muya-button-primary:focus,
+.el-button--primary:focus {
+  outline: none;
+  border: var(--buttonPrimaryFocusBorder);
+  box-shadow: var(--buttonPrimaryFocusShadow);
+}
+
+.button.disabled,
+.button[disabled],
+.muya-button.disabled,
+.muya-button[disabled],
+.el-button.disabled,
+.el-button[disabled],
+.button-primary.disabled,
+.button-primary[disabled],
+.el-button--primary.disabled,
+.el-button--primary[disabled] {
+  cursor: not-allowed !important;
+  opacity: 0.65 !important;
+  box-shadow: none !important;
+}
+
+.button.small,
+.muya-button.small,
+.el-button.small,
+.button-primary.small,
+.muya-button-primary.small,
+.el-button--primary.small {
+  padding: 5px 8px;
+}
+.button.tiny,
+.muya-button.tiny,
+.el-button.tiny,
+.button-primary.tiny,
+.muya-button-primary.tiny,
+.el-button--primary.tiny {
+  font-size: 13px;
+  padding: 4px 7px;
+}
+
+.button-group {
+  /* Remove space between buttons */
+  font-size: 0;
+}
+.button-group > button:first-child:not(:last-child) {
+  border-bottom-right-radius: 0;
+  border-top-right-radius: 0;
+  margin-left: 0;
+  border-right: none;
+}
+.button-group > button:not(:first-child):not(:last-child) {
+  border-radius: 0;
+  margin-left: 0;
+  margin-right: 0;
+  border-right: none;
+}
+.button-group > button:last-child:not(:first-child) {
+  border-bottom-left-radius: 0;
+  border-top-left-radius: 0;
+  margin-right: 0;
+}
+
+/* Overwrite element UI button padding */
+.el-button,
+.el-button--primary {
+  padding: 7px 14px;
+}
+.el-button:focus {
+  background-color: var(--buttonBgColor);
+}
+.el-button--primary:focus {
+  background-color: var(--buttonPrimaryBgColor);
+}
+.el-button.is-disabled,
+.el-button.is-disabled:focus,
+.el-button.is-disabled:hover {
+  color: var(--buttonFontColor);
+  background: var(--buttonBgColor);
+  border: var(--buttonBorder);
+  box-shadow: none;
+}
+.el-button--primary.is-disabled,
+.el-button--primary.is-disabled:focus,
+.el-button--primary.is-disabled:hover {
+  color: var(--buttonPrimaryFontColor);
+  background: var(--buttonPrimaryBgColor);
+  border: var(--buttonPrimaryBorder);
+  box-shadow: none;
+}
+
+.image-viewer {
+  z-index: 10001;
+}
+
+.el-tabs__active-bar {
+  background-color: var(--themeColor);
+}

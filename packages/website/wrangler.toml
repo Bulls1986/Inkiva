@@ -1,0 +1,14 @@
+# Legacy Cloudflare configuration. The active webdeploy publishes the
+# static export to Bulls1986/Bulls1986.github.io for GitHub Pages.
+name = "inkiva-website"
+main = ".open-next/worker.js"
+compatibility_date = "2025-05-01"
+compatibility_flags = ["nodejs_compat"]
+preview_urls = true
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[observability]
+enabled = true

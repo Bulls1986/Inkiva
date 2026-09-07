@@ -1,0 +1,21 @@
+packages:
+  - 'packages/*'
+  # muya v2 (TS) nests its dev surface and Playwright suite inside its own
+  # package directory rather than as siblings under packages/, so list them
+  # explicitly.
+  - 'packages/muya/examples'
+  - 'packages/muya/e2e'
+
+allowBuilds:
+  ced: true
+  electron-winstaller: true
+  esbuild: true
+  keytar: true
+  native-keymap: true
+  sharp: true
+  unrs-resolver: true
+  workerd: true
+
+overrides:
+  postcss: 8.5.15
+  esbuild@>=0.27.0 <0.28.1: 0.28.1
