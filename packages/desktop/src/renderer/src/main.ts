@@ -1,19 +1,57 @@
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import router from './router'
-import i18n from './i18n'
-import services from './services'
-import '@/assets/styles/index.css'
+import { createApp, type App } from 'vue'
+import { createRouter, createWebHashHistory } from 'vue-router'
+import bootstrapRenderer from './bootstrap'
+import axios from './axios'
+import pinia from './store'
+import './assets/symbolIcon'
 
-const envType = window.marktext?.env?.type
+// Element Plus instead of Element UI for Vue 3
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+import en from 'element-plus/es/locale/lang/en'
 
-const app = createApp({
-  template: '<router-view />'
+// I18n translation system
+import i18nPlugin from './i18n'
+
+// something is wrong here! \/
+import services from './services/index'
+import routes from './router'
+import Main from './Main.vue'
+
+import './assets/styles/index.css'
+import './assets/styles/printService.css'
+
+// -----------------------------------------------
+
+window.marktext = {}
+bootstrapRenderer()
+
+// -----------------------------------------------
+// Be careful when changing code before this line!
+
+// Create Vue app
+const app: App<Element> = createApp(Main)
+
+// Configure Element Plus with locale
+app.use(ElementPlus, {
+  locale: en
 })
 
-app.use(createPinia())
+const envType = window.marktext?.env?.type as string | undefined
+
+const router = createRouter({
+  history: createWebHashHistory(),
+  // it seems like something might have changed in vue-router? it uses the full "file path" instead of
+  // links like /editor if we use the old createWebHistory()
+  routes: routes(envType)
+})
+
 app.use(router)
-app.use(i18n)
+app.use(pinia)
+app.use(i18nPlugin)
+
+// Configure axios globally
+app.config.globalProperties.$http = axios
 
 // Register services globally
 ;(services as unknown as Array<Record<string, unknown> & { name: string }>).forEach((s) => {
@@ -49,7 +87,9 @@ const preloadSettingsWhenIdle = (): void => {
   }
 
   if ('requestIdleCallback' in window) {
-    window.requestIdleCallback(preload, { timeout: 2500 })
+    ;(window as Window & {
+      requestIdleCallback: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+    }).requestIdleCallback(preload, { timeout: 2500 })
   } else {
     globalThis.setTimeout(preload, 1200)
   }
