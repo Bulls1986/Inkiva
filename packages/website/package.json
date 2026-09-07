@@ -1,6 +1,6 @@
 {
   "name": "inkiva-website",
-  "version": "1.0.0",
+  "version": "0.20.0-dev.7",
   "private": true,
   "type": "module",
   "scripts": {

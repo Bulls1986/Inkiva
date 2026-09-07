@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { DEFAULT_THEME, THEME_STORAGE_KEY } from '@/lib/sections'
+import { INKIVA_VERSION } from '@/lib/version'
 import './globals.css'
 
 const geistSans = Geist({
@@ -54,14 +55,8 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
     images: [{ url: '/favicon.png', width: 512, height: 512, alt: 'Inkiva logo' }]
-  },
-  twitter: {
-    card: 'summary_large_image',
-    site: '@inkivaapp',
-    title: TITLE,
-    description: DESCRIPTION,
-    images: ['/favicon.png']
   }
+
 }
 
 export const viewport: Viewport = {
@@ -82,7 +77,7 @@ const jsonLd = {
   author: { '@type': 'Person', name: 'Ran Luo', url: 'https://github.com/Jocs' },
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
   downloadUrl: 'https://github.com/Bulls1986/Inkiva/releases/latest',
-  softwareVersion: 'latest'
+  softwareVersion: INKIVA_VERSION
 }
 
 // Inline before paint to avoid theme flash.

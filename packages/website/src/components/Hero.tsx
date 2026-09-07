@@ -2,6 +2,7 @@
 
 import { useRef } from 'react'
 import { DOWNLOAD } from '@/lib/downloads'
+import { INKIVA_VERSION_LABEL } from '@/lib/version'
 import { EXT_LINK } from '@/lib/links'
 import { revealClass } from '@/lib/sections'
 import { useTilt } from '@/hooks/useTilt'
@@ -17,7 +18,7 @@ export default function Hero() {
     <header className="hero">
       <div className="wrap">
         <div className={revealClass(undefined, 'eyebrow')}>
-          <span className="tag">v0.20.0-dev.7</span> Inkiva · 墨映
+          <span className="tag">{INKIVA_VERSION_LABEL}</span> Inkiva · 墨映
         </div>
         <h1 className={revealClass('d1', 'hero-title')}>
           Write in Markdown. <span className="grad-text">See it take shape.</span>
