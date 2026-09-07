@@ -45,7 +45,6 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: 'Ran Luo', url: 'https://github.com/Jocs' }],
   creator: 'Ran Luo',
-  alternates: { canonical: '/' },
   icons: { icon: '/favicon.png' },
   alternates: {
     canonical: '/',
