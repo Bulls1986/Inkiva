@@ -196,6 +196,55 @@ export const clickMenuById = async(app: ElectronApplication, id: string): Promis
   }, id)
 }
 
+export type SidebarPanel = 'files' | 'search' | 'toc'
+
+const sidebarPanelSelectors: Record<SidebarPanel, string> = {
+  files: '.side-bar .right-column .tree-view',
+  search: '.side-bar .right-column .side-bar-search',
+  toc: '.side-bar .right-column .side-bar-toc'
+}
+
+const sidebarPanelIndexes: Record<SidebarPanel, number> = {
+  files: 0,
+  search: 1,
+  toc: 2
+}
+
+export const ensureSidebarVisible = async(
+  app: ElectronApplication,
+  page: Page
+): Promise<void> => {
+  await page.waitForSelector('.side-bar', { state: 'attached', timeout: 5000 })
+  const sidebar = page.locator('.side-bar')
+  if (await sidebar.isVisible()) return
+
+  await clickMenuById(app, 'sideBarMenuItem')
+  await expect(sidebar).toBeVisible({ timeout: 5000 })
+}
+
+// The default right column is the ToC. Calling the ToC menu item blindly is
+// therefore a toggle: it collapses an already-selected ToC into the icon
+// strip. Tests should ask for the panel they need and only click when it is
+// not already active.
+export const showSidebarPanel = async(
+  app: ElectronApplication,
+  page: Page,
+  panel: SidebarPanel
+): Promise<void> => {
+  await ensureSidebarVisible(app, page)
+  const selector = sidebarPanelSelectors[panel]
+  const panelLocator = page.locator(selector)
+  if (!(await panelLocator.isVisible())) {
+    await page
+      .locator('.side-bar .left-column > ul')
+      .first()
+      .locator('li')
+      .nth(sidebarPanelIndexes[panel])
+      .click()
+  }
+  await expect(panelLocator).toBeVisible({ timeout: 5000 })
+}
+
 export const waitForEditor = async(page: Page, timeout = 15000): Promise<void> => {
   await page.waitForSelector('.editor-component', { state: 'attached', timeout })
   await page.waitForFunction(
@@ -364,4 +413,23 @@ export const sendIpcToRenderer = async(
     },
     { channel, args }
   )
+}
+
+export const setUserPreferences = async(
+  page: Page,
+  preferences: Record<string, unknown>
+): Promise<void> => {
+  await page.evaluate((value) => {
+    window.electron.ipcRenderer.send('mt::set-user-preference', value)
+  }, preferences)
+}
+
+export const switchLanguage = async(
+  app: ElectronApplication,
+  language: string
+): Promise<void> => {
+  // Match the main-process ordering: the editor receives the locale event
+  // before the preference broadcast, so both the Vue shell and Muya refresh.
+  await sendIpcToRenderer(app, 'language-changed', language)
+  await sendIpcToRenderer(app, 'mt::user-preference', { language })
 }

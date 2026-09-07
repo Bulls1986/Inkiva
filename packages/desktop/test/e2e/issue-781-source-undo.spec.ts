@@ -4,7 +4,8 @@ import {
   launchWithMarkdown,
   waitForMenuReady,
   enterSourceMode,
-  sendIpcToRenderer
+  sendIpcToRenderer,
+  setUserPreferences
 } from './helpers'
 
 // Issue #781 — Undo/redo while in Source Code mode must act on the CodeMirror
@@ -49,23 +50,35 @@ const redo = (app: Parameters<typeof sendIpcToRenderer>[0]): Promise<void> =>
 test.describe('Issue #781 — undo/redo in source code mode', () => {
   test('undo reverts a source-mode edit; redo re-applies it', async() => {
     const { app, page } = await launchWithMarkdown('saved baseline\n')
-    await waitForMenuReady(app)
+    try {
+      await waitForMenuReady(app)
+      // This is an in-memory undo/redo fixture. Keep external persistence out
+      // of the 5-second assertion window now that autoSave defaults to true.
+      await setUserPreferences(page, { autoSave: false })
+      await expect
+        .poll(() =>
+          app.evaluate(({ Menu }) =>
+            !!Menu.getApplicationMenu()?.getMenuItemById('autoSaveMenuItem')?.checked
+          )
+        )
+        .toBe(false)
 
-    await enterSourceMode(page, app)
-    const baseline = await cmValue(page)
+      await enterSourceMode(page, app)
+      const baseline = await cmValue(page)
 
-    // A single CodeMirror edit (one undo step).
-    await typeInCm(page, ' SRCKEY')
-    expect(await cmValue(page)).toContain('saved baseline SRCKEY')
+      // A single CodeMirror edit (one undo step).
+      await typeInCm(page, ' SRCKEY')
+      await expect.poll(() => cmValue(page)).toContain('saved baseline SRCKEY')
 
-    // Undo through the same IPC the Edit › Undo menu uses — must hit CodeMirror.
-    await undo(app)
-    await expect.poll(() => cmValue(page)).toBe(baseline)
+      // Undo through the same IPC the Edit › Undo menu uses — must hit CodeMirror.
+      await undo(app)
+      await expect.poll(() => cmValue(page)).toBe(baseline)
 
-    // Redo restores the edit.
-    await redo(app)
-    await expect.poll(() => cmValue(page)).toContain('saved baseline SRCKEY')
-
-    await app.close()
+      // Redo restores the edit.
+      await redo(app)
+      await expect.poll(() => cmValue(page)).toContain('saved baseline SRCKEY')
+    } finally {
+      await app.close()
+    }
   })
 })

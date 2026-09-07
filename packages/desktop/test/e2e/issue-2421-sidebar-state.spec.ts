@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
-import { launchWithMarkdown } from './helpers'
+import { launchWithMarkdown, showSidebarPanel } from './helpers'
 
 // #2421 — toggling the sidebar via its left-column icons must not lose state.
 // Two bugs: (1) collapsing to the icon strip persisted the clamped 220px width
@@ -26,11 +26,10 @@ test.describe('#2421 sidebar state survives icon toggle', () => {
     const launched = await launchWithMarkdown('# Doc\n\n## A\n\n## B\n')
     app = launched.app
     page = launched.page
-    // The files panel is the default right column; make sure it is open + wide.
-    await page.waitForFunction(() => {
-      const el = document.querySelector('.side-bar') as HTMLElement | null
-      return !!(el && el.offsetParent !== null && el.getBoundingClientRect().width > 220)
-    }, null, { timeout: 5000 })
+    await showSidebarPanel(app, page, 'files')
+    await expect
+      .poll(() => sideBarWidth(page))
+      .toBeGreaterThan(220)
   })
 
   test.afterAll(async() => {
@@ -38,6 +37,7 @@ test.describe('#2421 sidebar state survives icon toggle', () => {
   })
 
   test('collapsing then re-expanding preserves a widened sidebar width', async() => {
+    await showSidebarPanel(app, page, 'files')
     // Widen the sidebar past the 220px minimum by dragging the drag-bar, so a
     // width loss on collapse is observable (the default already sits at 220).
     const dragBar = page.locator('.side-bar .drag-bar')
@@ -74,8 +74,14 @@ test.describe('#2421 sidebar state survives icon toggle', () => {
   })
 
   test('a collapsed tree section stays collapsed after toggling the sidebar', async() => {
+    await showSidebarPanel(app, page, 'files')
     const arrow = page.locator('.side-bar .opened-files > .title .icon-arrow').first()
     await expect(arrow).toBeVisible()
+
+    if (await arrow.evaluate((el) => el.classList.contains('fold'))) {
+      await arrow.click()
+      await expect(arrow).not.toHaveClass(/fold/)
+    }
 
     // Collapse the "Opened files" section.
     await arrow.click()

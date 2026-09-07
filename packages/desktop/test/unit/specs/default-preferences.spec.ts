@@ -15,8 +15,10 @@ describe('private build first-run defaults', () => {
     const preferences = usePreferencesStore()
 
     for (const [key, value] of Object.entries({
+      autoSave: true,
       language: 'zh-CN',
       shortcutStyle: 'typora',
+      editorLineWidth: '80%',
       sideBarVisibility: true,
       tabBarVisibility: true
     })) {

@@ -2,7 +2,7 @@
   "autoSave": {
     "description": "General--Automatically save the content being edited.",
     "type": "boolean",
-    "default": false
+    "default": true
   },
   "autoSaveDelay": {
     "description": "General--The time in ms after a change that the file is saved.",
@@ -105,7 +105,7 @@
     "description": "Editor--Defines the maximum editor area width. An empty string or suffixes of ch (characters), px (pixels) or % (percentage) are allowed.",
     "type": "string",
     "pattern": "^(?:$|[0-9]+(?:ch|px|%)$)",
-    "default": ""
+    "default": "80%"
   },
   "codeFontSize": {
     "description": "Editor--Font size in code Block, the range is 12 ~ 18",

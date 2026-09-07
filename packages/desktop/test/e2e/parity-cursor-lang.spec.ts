@@ -4,7 +4,7 @@ import {
   launchWithMarkdown,
   waitForMenuReady,
   enterSourceMode,
-  sendIpcToRenderer,
+  switchLanguage,
   focusEditor,
   typeIntoEditor,
   getMarkdownContent,
@@ -120,6 +120,12 @@ test.describe('Parity G8 — language switch refreshes inline hints', () => {
         return p ? p.getAttribute('empty-hint') : null
       })
 
+    // The product default is zh-CN. Establish an English baseline before
+    // asserting that the live Muya hint changes on a locale switch.
+    await switchLanguage(app, 'en')
+    await expect
+      .poll(() => hintFor(), { timeout: 8000, intervals: [100, 250, 500] })
+      .toBe('Type / to insert...')
     const enHint = await hintFor()
     expect(enHint).toBeTruthy()
 
@@ -128,10 +134,11 @@ test.describe('Parity G8 — language switch refreshes inline hints', () => {
     // `language-changed` reaches the renderer BEFORE the `mt::user-preference`
     // that syncs the preferences store. The handler must therefore read the
     // locale from the event payload, not from the still-stale `language.value`.
-    await sendIpcToRenderer(app, 'language-changed', 'zh-CN')
-    await sendIpcToRenderer(app, 'mt::user-preference', { language: 'zh-CN' })
-    await page.waitForTimeout(400)
+    await switchLanguage(app, 'zh-CN')
 
+    await expect
+      .poll(() => hintFor(), { timeout: 8000, intervals: [100, 250, 500] })
+      .toBe('输入 / 插入段落')
     const zhHint = await hintFor()
     expect(zhHint).toBeTruthy()
     // The rendered hint changed language without re-typing/reloading.
@@ -175,8 +182,7 @@ test.describe('Heading creation under zh-CN does not crash the renderer (item 27
     // HeadingCopyLink attachment is built under the non-en locale that used to
     // crash. Mirror the real main-process order (language-changed precedes the
     // preferences sync), same as the G8 test above.
-    await sendIpcToRenderer(app, 'language-changed', 'zh-CN')
-    await sendIpcToRenderer(app, 'mt::user-preference', { language: 'zh-CN' })
+    await switchLanguage(app, 'zh-CN')
     await page.waitForTimeout(400)
   })
 
