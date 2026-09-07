@@ -1,7 +1,6 @@
 import fs from 'fs'
 import path from 'path'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
-import keytar from 'keytar'
 import schema from './schema.json'
 import Store, { type Schema } from 'electron-store'
 import log from 'electron-log'
@@ -11,6 +10,16 @@ import { TypedEmitter } from '@shared/types/typedEmitter'
 import { getDefaultPicgoAppPath } from '../ipc/picgoApp'
 
 const DATA_CENTER_NAME = 'dataCenter'
+
+type KeytarApi = typeof import('keytar') extends Promise<infer T> ? T : never
+let keytarPromise: Promise<KeytarApi> | null = null
+
+const loadKeytar = async(): Promise<KeytarApi> => {
+  if (!keytarPromise) {
+    keytarPromise = import('keytar') as Promise<KeytarApi>
+  }
+  return keytarPromise
+}
 
 // No events emitted directly on `this`. ipcMain.emit is used for cross-
 // process broadcasts but those don't fire through this instance.
@@ -80,7 +89,15 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
   async getAll(): Promise<Record<string, unknown>> {
     const { serviceName, encryptKeys } = this
     const data = this.store.store
+
+    // Inkiva currently has no encrypted DataCenter keys. Avoid loading keytar
+    // (a native keychain module) during cold start when it is not needed.
+    if (encryptKeys.length === 0) {
+      return data
+    }
+
     try {
+      const keytar = await loadKeytar()
       const encryptData = await Promise.all(
         encryptKeys.map((key) => {
           return keytar.getPassword(serviceName, key)
@@ -126,13 +143,13 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
     return this.store.set(type, items)
   }
 
-  getItem(key: string): Promise<unknown> {
+  async getItem(key: string): Promise<unknown> {
     const { encryptKeys, serviceName } = this
     if (encryptKeys.includes(key)) {
+      const keytar = await loadKeytar()
       return keytar.getPassword(serviceName, key)
     } else {
-      const value = this.store.get(key)
-      return Promise.resolve(value)
+      return this.store.get(key)
     }
   }
 
@@ -144,6 +161,7 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
     ipcMain.emit('broadcast-user-data-changed', { [key]: value })
     if (encryptKeys.includes(key)) {
       try {
+        const keytar = await loadKeytar()
         return await keytar.setPassword(serviceName, key, value as string)
       } catch (err) {
         log.error('Keytar error:', err)
