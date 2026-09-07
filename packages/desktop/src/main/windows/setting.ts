@@ -71,6 +71,10 @@ class SettingWindow extends BaseWindow {
     win.once('ready-to-show', () => {
       this.lifecycle = WindowLifecycle.READY
       this.emit('window-ready')
+      // The BrowserWindow is intentionally created hidden. Reveal it only
+      // after Chromium has a first frame ready so slow renderer startup never
+      // exposes an empty white preferences window.
+      this.bringToFront()
     })
 
     win.on('focus', () => {
