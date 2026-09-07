@@ -9,6 +9,7 @@
     ],
     "exports": {
         ".": "./src/index.ts",
+        "./state/markdownToHtml": "./src/state/markdownToHtml.ts",
         "./*": "./src/*"
     },
     "main": "./lib/cjs/index.js",
@@ -23,6 +24,11 @@
                 "import": "./lib/es/index.js",
                 "require": "./lib/cjs/index.js",
                 "types": "./lib/types/index.d.ts"
+            },
+            "./state/markdownToHtml": {
+                "import": "./lib/es/state/markdownToHtml.js",
+                "require": "./lib/cjs/state/markdownToHtml.js",
+                "types": "./lib/types/state/markdownToHtml.d.ts"
             },
             "./*": {
                 "import": "./lib/es/*",
