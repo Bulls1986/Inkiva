@@ -4,6 +4,7 @@ import { useProjectStore } from './project'
 import { useLayoutStore } from './layout'
 
 const BUFFERED_STATE_DEBOUNCE_MS = 1000
+const BUFFERED_STATE_IDLE_TIMEOUT_MS = 1500
 const BUFFERED_STATE_VERSION = 1
 
 interface StoreCache {
@@ -49,8 +50,30 @@ export const sendBufferedState = (): Promise<unknown> => {
   return Promise.resolve(false)
 }
 
-export const debouncedSendBufferedState = debounce(() => {
-  sendBufferedState().catch((err) => {
-    console.error('Failed to update buffered state', err)
-  })
-}, BUFFERED_STATE_DEBOUNCE_MS)
+let pendingIdleCallback: number | ReturnType<typeof setTimeout> | null = null
+
+const scheduleBufferedStateSend = (): void => {
+  if (pendingIdleCallback !== null) return
+
+  const send = (): void => {
+    pendingIdleCallback = null
+    sendBufferedState().catch((err) => {
+      console.error('Failed to update buffered state', err)
+    })
+  }
+
+  if ('requestIdleCallback' in window) {
+    pendingIdleCallback = window.requestIdleCallback(send, {
+      timeout: BUFFERED_STATE_IDLE_TIMEOUT_MS
+    })
+  } else {
+    // Electron versions without requestIdleCallback still defer the expensive
+    // full-state snapshot until after the current input/render task finishes.
+    pendingIdleCallback = setTimeout(send, 0)
+  }
+}
+
+export const debouncedSendBufferedState = debounce(
+  scheduleBufferedStateSend,
+  BUFFERED_STATE_DEBOUNCE_MS
+)
