@@ -67,7 +67,7 @@
         <div class="button-group">
           <button
             class="button right"
-            @click="find('prev')"
+            @click="find('previous')"
           >
             <el-icon :size="14">
               <ArrowUp />

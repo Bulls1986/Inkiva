@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
-import { launchWithMarkdown, switchLanguage, waitForMenuReady } from './helpers'
+import { launchWithMarkdown, sendIpcToRenderer, switchLanguage, waitForMenuReady } from './helpers'
 
 // Checklist item 278 — switching the UI language must re-translate the Vue
 // shell (menu bar / command palette / preferences tabs), not just the engine
