@@ -12,11 +12,8 @@ import schema from './schema.json'
 
 const PREFERENCES_FILE_NAME = 'preferences'
 
-// The Preference class extends EventEmitter but does not currently emit any
-// events itself — keep the event map empty until concrete events are added.
 type PreferenceEvents = Record<string, unknown[]>
 
-// Structural subset of EnvPaths/AppPaths — only `preferencesPath` is read here.
 interface AppPaths {
   readonly preferencesPath: string
 }
@@ -27,13 +24,7 @@ class Preference extends TypedEmitter<PreferenceEvents> {
   public readonly store: Store<IUserPreferences>
   public readonly staticPath: string
 
-  /**
-   * @param paths The path instance.
-   *
-   * NOTE: This throws an exception when validation fails.
-   */
   constructor(paths: AppPaths) {
-    // TODO: Preferences should not loaded if global.MARKTEXT_SAFE_MODE is set.
     super()
 
     const { preferencesPath } = paths
@@ -50,14 +41,10 @@ class Preference extends TypedEmitter<PreferenceEvents> {
             store.set('startUpAction', 'openLastFolder')
           }
         },
-        // The private build enables the sidebar and tab bar by default. Apply
-        // this once for existing installations that still have the upstream
-        // false values; subsequent user toggles remain unchanged.
         '0.20.0-dev.6': (store) => {
           store.set('sideBarVisibility', true)
           store.set('tabBarVisibility', true)
         },
-        // Reapply the private build defaults for users upgrading from .6.
         '0.20.0-dev.7': (store) => {
           store.set('sideBarVisibility', true)
           store.set('tabBarVisibility', true)
@@ -77,7 +64,6 @@ class Preference extends TypedEmitter<PreferenceEvents> {
     try {
       defaultSettings = JSON.parse(fs.readFileSync(this.staticPath, { encoding: 'utf8' }) || '{}')
 
-      // Set best theme on first application start.
       if (nativeTheme.shouldUseDarkColors) {
         defaultSettings!.theme = 'dark'
       }
@@ -89,7 +75,6 @@ class Preference extends TypedEmitter<PreferenceEvents> {
       throw new Error('Can not load static preference.json file')
     }
 
-    // I don't know why `this.store.size` is 3 when first load, so I just check file existed.
     if (!this.hasPreferencesFile) {
       this.store.set(defaultSettings)
     } else {
@@ -97,9 +82,6 @@ class Preference extends TypedEmitter<PreferenceEvents> {
       const requiresUpdate = !hasSameKeys(defaultSettings, userSetting)
 
       if (requiresUpdate) {
-        // Normalize the in-memory object first, then replace the store once.
-        // electron-store writes synchronously; deleting outdated keys one by one
-        // caused N separate disk writes during schema upgrades on cold start.
         const normalizedSettings: Record<string, unknown> = {}
         for (const key of Object.keys(defaultSettings)) {
           normalizedSettings[key] = Object.prototype.hasOwnProperty.call(userSetting, key)
@@ -126,20 +108,17 @@ class Preference extends TypedEmitter<PreferenceEvents> {
     return this.store.get(key) as T
   }
 
-  /**
-   * Change multiple setting entries.
-   *
-   * @param settings A settings object or subset object with key/value entries.
-   */
   setItems(settings: Record<string, unknown> | null | undefined): void {
     if (!settings) {
       log.error('Cannot change settings without entires: object is undefined or null.')
       return
     }
 
-    Object.keys(settings).forEach((key) => {
-      this.setItem(key, settings[key])
-    })
+    // electron-store persists synchronously. Writing each key separately turns
+    // one Preferences apply action into N JSON rewrites, so commit the object in
+    // one operation and broadcast the same aggregate change once.
+    this.store.set(settings)
+    ipcMain.emit('broadcast-preferences-changed', settings)
   }
 
   getPreferredEol(): 'lf' | 'crlf' {
@@ -176,7 +155,6 @@ class Preference extends TypedEmitter<PreferenceEvents> {
       this.setItems(settings)
     })
   }
-
 }
 
 export default Preference
