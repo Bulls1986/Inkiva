@@ -88,7 +88,6 @@
       "help": "ヘルプ",
       "markdownReference": "Markdownリファレンス",
       "changelog": "変更履歴",
-      "askQuestion": "質問する",
       "reportBug": "バグを報告",
       "viewSource": "ソースコードを表示",
       "followUs": "フォローする",
@@ -726,8 +725,8 @@
     }
   },
   "about": {
-    "copyright": "著作権",
-    "copyrightContributors": "著作権貢献者"
+    "copyright": "著作権 © Bulls1986 2026-{year}",
+    "copyrightContributors": "GitHub の貢献者に感謝します"
   },
   "commands": {
     "mt": {

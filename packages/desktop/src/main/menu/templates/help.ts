@@ -37,12 +37,6 @@ export default function(): MenuItemConstructorOptions {
       type: 'separator'
     },
     {
-      label: t('menu.help.askQuestion'),
-      click() {
-        shell.openExternal('https://github.com/Bulls1986/Inkiva/discussions')
-      }
-    },
-    {
       label: t('menu.help.reportBug'),
       click() {
         shell.openExternal('https://github.com/Bulls1986/Inkiva/issues')

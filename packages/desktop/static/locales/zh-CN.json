@@ -88,7 +88,6 @@
       "help": "帮助",
       "markdownReference": "Markdown 参考",
       "changelog": "更新日志",
-      "askQuestion": "提问",
       "reportBug": "报告错误",
       "viewSource": "查看源码",
       "followUs": "关注我们",
@@ -730,8 +729,8 @@
     }
   },
   "about": {
-    "copyright": "版权",
-    "copyrightContributors": "版权贡献者"
+    "copyright": "版权 © Bulls1986 2026-{year}",
+    "copyrightContributors": "感谢 GitHub 贡献者们"
   },
   "commands": {
     "mt": {

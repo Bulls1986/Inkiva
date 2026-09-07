@@ -88,7 +88,6 @@
       "help": "Hilfe",
       "markdownReference": "Markdown-Referenz",
       "changelog": "Änderungsprotokoll",
-      "askQuestion": "Frage stellen",
       "reportBug": "Fehler melden",
       "viewSource": "Quellcode anzeigen",
       "followUs": "Folgen Sie uns",
@@ -726,8 +725,8 @@
     }
   },
   "about": {
-    "copyright": "Copyright © Luo Ran 2017-{year}",
-    "copyrightContributors": "Urheberrecht Mitwirkende"
+    "copyright": "Copyright © Bulls1986 2026-{year}",
+    "copyrightContributors": "Danke an die GitHub-Mitwirkenden"
   },
   "commands": {
     "mt": {

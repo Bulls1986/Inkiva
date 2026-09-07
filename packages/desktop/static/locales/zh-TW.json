@@ -88,7 +88,6 @@
       "help": "說明",
       "markdownReference": "Markdown 參考",
       "changelog": "更新日誌",
-      "askQuestion": "提問",
       "reportBug": "回報錯誤",
       "viewSource": "檢視原始碼",
       "followUs": "關注我們",
@@ -726,8 +725,8 @@
     }
   },
   "about": {
-    "copyright": "版權",
-    "copyrightContributors": "版權貢獻者"
+    "copyright": "版權 © Bulls1986 2026-{year}",
+    "copyrightContributors": "感謝 GitHub 貢獻者們"
   },
   "commands": {
     "mt": {

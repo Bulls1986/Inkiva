@@ -88,7 +88,6 @@
       "help": "Ajuda",
       "markdownReference": "Referência Markdown",
       "changelog": "Histórico de Mudanças",
-      "askQuestion": "Fazer Pergunta",
       "reportBug": "Reportar Bug",
       "viewSource": "Ver Código Fonte",
       "followUs": "Siga-nos",
@@ -726,8 +725,8 @@
     }
   },
   "about": {
-    "copyright": "Copyright",
-    "copyrightContributors": "Copyright Contribuidores"
+    "copyright": "Copyright © Bulls1986 2026-{year}",
+    "copyrightContributors": "Agradecimentos aos contribuidores do GitHub"
   },
   "commands": {
     "mt": {

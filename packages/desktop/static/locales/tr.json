@@ -88,7 +88,6 @@
       "help": "Yardım",
       "markdownReference": "Markdown Başvurusu",
       "changelog": "Değişiklik Günlüğü",
-      "askQuestion": "Soru Sor",
       "reportBug": "Hata Bildir",
       "viewSource": "Kaynağı Görüntüle",
       "followUs": "Bizi Takip Edin",
@@ -726,8 +725,8 @@
     }
   },
   "about": {
-    "copyright": "Telif Hakkı © Luo Ran 2017-{year}",
-    "copyrightContributors": "Github Katkıda Bulunanlar tarafından <3 ile yapıldı"
+    "copyright": "Telif Hakkı © Bulls1986 2026-{year}",
+    "copyrightContributors": "GitHub katkıda bulunanlarına teşekkürler"
   },
   "commands": {
     "mt": {
