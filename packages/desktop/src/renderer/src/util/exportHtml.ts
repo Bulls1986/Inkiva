@@ -172,10 +172,10 @@ export const exportStyledHTML = async(
   markdown: string,
   options: ExportStyledHtmlOptions = {}
 ): Promise<string> => {
-  // MarkdownToHtml pulls in export-specific rendering code. Keep it outside
-  // the normal editor startup graph and load it only when the user exports or
-  // prints for the first time.
-  const { MarkdownToHtml } = await import('@muyajs/core')
+  // Import the export renderer through its subpath rather than the already
+  // statically loaded @muyajs/core barrel. This gives Rollup a real async
+  // boundary for marked/export CSS/diagram export dependencies.
+  const { MarkdownToHtml } = await import('@muyajs/core/state/markdownToHtml')
   const { title = '', toc = '', header, footer, headerFooterStyled, dir } = options
   let { extraCss = '' } = options
 
