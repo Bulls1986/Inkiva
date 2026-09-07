@@ -66,6 +66,7 @@ test.describe('Editor input and source-mode roundtrip', () => {
 // ---------------------------------------------------------------------------
 
 const WORD_COUNT_TEXT = '.word-count .text-center-vertical'
+const INITIAL_COUNTER_MARKDOWN = '# Counter\n\nOne two three.\n'
 
 // Read the title-bar counter text, e.g. "W 12". Returns the trimmed string.
 const counterText = (page: Page): Promise<string> =>
@@ -100,7 +101,7 @@ test.describe('Title-bar word counter (item 24)', () => {
   let page: Page
 
   test.beforeAll(async() => {
-    const launched = await launchWithMarkdown('# Counter\n\nOne two three.\n')
+    const launched = await launchWithMarkdown(INITIAL_COUNTER_MARKDOWN)
     app = launched.app
     page = launched.page
     await placeCaretInEditor(page)
@@ -110,9 +111,27 @@ test.describe('Title-bar word counter (item 24)', () => {
     if (app) await app.close()
   })
 
-  test('the counter is mounted and starts in word ("W") mode', async() => {
+  test('the counter reports loaded-document statistics before the first edit', async() => {
     const counter = page.locator(WORD_COUNT_TEXT)
     await expect(counter).toBeVisible({ timeout: 5000 })
+    await expect.poll(() => counterText(page)).toMatch(/^W\s/)
+
+    const expected = expectedCount(INITIAL_COUNTER_MARKDOWN)
+    await expect.poll(() => counterValue(page), { timeout: 5000 }).toBe(expected.word)
+
+    await counter.click()
+    await expect.poll(() => counterText(page)).toMatch(/^P\s/)
+    await expect.poll(() => counterValue(page), { timeout: 5000 }).toBe(expected.paragraph)
+
+    await counter.click()
+    await expect.poll(() => counterText(page)).toMatch(/^C\s/)
+    await expect.poll(() => counterValue(page), { timeout: 5000 }).toBe(expected.character)
+
+    await counter.click()
+    await expect.poll(() => counterText(page)).toMatch(/^A\s/)
+    await expect.poll(() => counterValue(page), { timeout: 5000 }).toBe(expected.all)
+
+    await counter.click()
     await expect.poll(() => counterText(page)).toMatch(/^W\s/)
   })
 
