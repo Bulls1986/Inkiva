@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { app, Menu, ipcMain, type BrowserWindow } from 'electron'
 import log from 'electron-log'
-import { ensureDirSync, isDirectory2, isFile2 } from 'common/filesystem'
+import { ensureDirSync, isFile2 } from 'common/filesystem'
 import { isLinux, isOsx, isWindows } from '../config'
 import { updateSidebarMenu } from '../menu/actions/edit'
 import { updateFormatMenu } from '../menu/actions/format'
@@ -113,7 +113,13 @@ class AppMenu {
   }
 
   /**
-   * Returns a list of all recently used documents and folders.
+   * Returns the persisted recently used document/folder paths.
+   *
+   * Do not synchronously stat every path while building the startup menu. A
+   * disconnected network share, sleeping external disk or slow filesystem can
+   * otherwise block Electron's main thread before the first window is usable.
+   * The open action validates the selected path when the user actually clicks
+   * it, so startup only needs to parse the small local recents JSON file.
    */
   getRecentlyUsedDocuments(): string[] {
     const { RECENTS_PATH } = this
@@ -122,8 +128,13 @@ class AppMenu {
     }
 
     try {
-      const recentDocuments: string[] = JSON.parse(fs.readFileSync(RECENTS_PATH, 'utf-8')).filter(
-        (f: string) => f && (isFile2(f) || isDirectory2(f))
+      const parsed: unknown = JSON.parse(fs.readFileSync(RECENTS_PATH, 'utf-8'))
+      if (!Array.isArray(parsed)) {
+        return []
+      }
+
+      const recentDocuments = parsed.filter(
+        (entry): entry is string => typeof entry === 'string' && entry.length > 0
       )
 
       if (recentDocuments.length > MAX_RECENTLY_USED_DOCUMENTS) {
