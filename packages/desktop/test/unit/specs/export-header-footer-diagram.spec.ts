@@ -15,7 +15,7 @@ const FULL_DOC =
   '</g></svg></figure>' +
   '</article></body></html>'
 
-vi.mock('@muyajs/core', () => ({
+vi.mock('@/util/exportRenderer', () => ({
   MarkdownToHtml: class {
     async generate(): Promise<string> {
       return FULL_DOC
