@@ -11,12 +11,12 @@ import { getDefaultPicgoAppPath } from '../ipc/picgoApp'
 
 const DATA_CENTER_NAME = 'dataCenter'
 
-type KeytarApi = typeof import('keytar') extends Promise<infer T> ? T : never
+type KeytarApi = (typeof import('keytar'))['default']
 let keytarPromise: Promise<KeytarApi> | null = null
 
 const loadKeytar = async(): Promise<KeytarApi> => {
   if (!keytarPromise) {
-    keytarPromise = import('keytar') as Promise<KeytarApi>
+    keytarPromise = import('keytar').then((mod) => mod.default)
   }
   return keytarPromise
 }
