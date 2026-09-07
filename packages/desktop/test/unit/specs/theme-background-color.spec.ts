@@ -16,7 +16,7 @@ describe('theme launch background colour (#3957)', () => {
     expect(getThemeBackgroundColor('dracula')).toBe('#282a36')
     expect(getThemeBackgroundColor('nord')).toBe('#2e3440')
     expect(getThemeBackgroundColor('tokyo-night')).toBe('#1a1b26')
-    expect(getThemeBackgroundColor('dark')).toBe('#282828')
+    expect(getThemeBackgroundColor('dark')).toBe('#1c1d20')
     expect(getThemeBackgroundColor('one-dark')).toBe('#282c34')
   })
 
