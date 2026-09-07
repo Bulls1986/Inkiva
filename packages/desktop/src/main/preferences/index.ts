@@ -93,38 +93,20 @@ class Preference extends TypedEmitter<PreferenceEvents> {
     if (!this.hasPreferencesFile) {
       this.store.set(defaultSettings)
     } else {
-      // Because `this.getAll()` will return a plainObject, so we can not use `hasOwnProperty` method
-      // const plainObject = () => Object.create(null)
       const userSetting = this.getAll() as Record<string, unknown>
-      // Update outdated settings
       const requiresUpdate = !hasSameKeys(defaultSettings, userSetting)
-      const userSettingKeys = Object.keys(userSetting)
-      const defaultSettingKeys = Object.keys(defaultSettings)
 
       if (requiresUpdate) {
-        // TODO(fxha): For performance reasons, we should try to replace 'electron-store' because
-        //   it does multiple blocking I/O calls when changing entries. There is no transaction or
-        //   async I/O available. The core reason we changed to it was JSON scheme validation.
-
-        // Remove outdated settings
-        for (const key of userSettingKeys) {
-          if (!defaultSettingKeys.includes(key)) {
-            delete userSetting[key]
-            this.store.delete(key)
-          }
+        // Normalize the in-memory object first, then replace the store once.
+        // electron-store writes synchronously; deleting outdated keys one by one
+        // caused N separate disk writes during schema upgrades on cold start.
+        const normalizedSettings: Record<string, unknown> = {}
+        for (const key of Object.keys(defaultSettings)) {
+          normalizedSettings[key] = Object.prototype.hasOwnProperty.call(userSetting, key)
+            ? userSetting[key]
+            : defaultSettings[key]
         }
-
-        // Add new setting options
-        let addedNewEntries = false
-        for (const key in defaultSettings) {
-          if (!userSettingKeys.includes(key)) {
-            addedNewEntries = true
-            userSetting[key] = defaultSettings[key]
-          }
-        }
-        if (addedNewEntries) {
-          this.store.set(userSetting)
-        }
+        this.store.store = normalizedSettings as IUserPreferences
       }
     }
 
