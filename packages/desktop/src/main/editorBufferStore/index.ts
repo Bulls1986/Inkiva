@@ -203,7 +203,7 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
     return buffer
   }
 
-  private async _writeBufferStoreFile(filePath: string, newState: unknown): Promise<void> {
+  async writeBufferStoreFile(filePath: string, newState: unknown): Promise<void> {
     // Durable atomic write without blocking Electron's main thread. Calls for
     // the same recovery file are coalesced by _enqueueBufferWrite so typing can
     // never build an unbounded fsync queue.
@@ -237,7 +237,7 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
         pending.nextState = null
 
         try {
-          await this._writeBufferStoreFile(filePath, state)
+          await this.writeBufferStoreFile(filePath, state)
           waiters.forEach(({ resolve }) => resolve())
         } catch (error) {
           waiters.forEach(({ reject }) => reject(error))
