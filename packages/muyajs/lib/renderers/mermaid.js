@@ -6,23 +6,23 @@ import loadRenderer from './index.js'
 const MERMAID_ICON_PACKS = [
   {
     name: 'fa',
-    loader: async () => (await import('@iconify-json/fa6-solid')).icons
+    loader: async() => (await import('@iconify-json/fa6-solid')).icons
   },
   {
     name: 'fas',
-    loader: async () => (await import('@iconify-json/fa6-solid')).icons
+    loader: async() => (await import('@iconify-json/fa6-solid')).icons
   },
   {
     name: 'far',
-    loader: async () => (await import('@iconify-json/fa6-regular')).icons
+    loader: async() => (await import('@iconify-json/fa6-regular')).icons
   },
   {
     name: 'fab',
-    loader: async () => (await import('@iconify-json/fa6-brands')).icons
+    loader: async() => (await import('@iconify-json/fa6-brands')).icons
   },
   {
     name: 'logos',
-    loader: async () => (await import('@iconify-json/logos')).icons
+    loader: async() => (await import('@iconify-json/logos')).icons
   }
 ]
 
@@ -66,7 +66,7 @@ function cleanupMermaidRenderNodes(id) {
 // Mermaid's configuration is global. Queue initialization and rendering so
 // concurrent previews/exports cannot change the theme or ID state mid-render.
 export function renderMermaid(code, theme) {
-  const next = renderQueue.then(async () => {
+  const next = renderQueue.then(async() => {
     const mermaid = await loadRenderer('mermaid')
     registerMermaidIconPacks(mermaid)
     mermaid.initialize({
