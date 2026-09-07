@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRef } from 'react'
 import { DOWNLOAD } from '@/lib/downloads'
 import { EXT_LINK } from '@/lib/links'
@@ -187,7 +188,7 @@ export default function ChineseHomePage() {
               <div className="mini">起草于 2024 年。<sup style={{ color: 'var(--accent)' }}>[1]</sup><br /><span style={{ color: 'var(--muted)' }}>[1]：Inkiva 诞生十周年。</span></div>
             </FeatureCard>
             <FeatureCard icon={<CodeIcon />} delay="d1" title="代码块" description="支持数百种语言的语法高亮。">
-              <div className="mini"><span className="c">// fib.js</span><br /><span style={{ color: 'var(--a1)' }}>const</span> fib = n =&gt;<br />&nbsp;&nbsp;n &lt; 2 ? n : fib(n-1)+fib(n-2);</div>
+              <div className="mini"><span className="c">{'// fib.js'}</span><br /><span style={{ color: 'var(--a1)' }}>const</span> fib = n =&gt;<br />&nbsp;&nbsp;n &lt; 2 ? n : fib(n-1)+fib(n-2);</div>
             </FeatureCard>
             <FeatureCard icon={<FrontmatterIcon />} delay="d2" title="Front matter" description="为博客和静态网站提供 YAML、TOML、JSON 元数据。">
               <div className="mini"><span style={{ color: 'var(--muted)' }}>---</span><br /><span style={{ color: 'var(--accent)' }}>标题</span>: 你好，世界<br /><span style={{ color: 'var(--accent)' }}>标签</span>: [markdown, notes]<br /><span style={{ color: 'var(--muted)' }}>---</span></div>
@@ -283,7 +284,7 @@ export default function ChineseHomePage() {
           <div className="foot-grid">
             <div className="foot-brand"><Brand /><p>Inkiva · 墨映是一款平静、开源的所见即所得 Markdown 编辑器。写一次，看见意义。</p></div>
             <div className="foot-col"><h5>产品</h5><a href={hash(SECTIONS.preview)}>实时预览</a><a href={hash(SECTIONS.themes)}>主题</a><a href={hash(SECTIONS.extensions)}>Markdown 支持</a><a href={hash(SECTIONS.download)}>下载</a></div>
-            <div className="foot-col"><h5>资源</h5><a href="/docs">文档</a><a href={DOWNLOAD.releases} {...EXT_LINK}>发布版本</a><a href={DOWNLOAD.contributing} {...EXT_LINK}>参与贡献</a><a href={DOWNLOAD.issues} {...EXT_LINK}>问题反馈</a></div>
+            <div className="foot-col"><h5>资源</h5><Link href="/docs">文档</Link><a href={DOWNLOAD.releases} {...EXT_LINK}>发布版本</a><a href={DOWNLOAD.contributing} {...EXT_LINK}>参与贡献</a><a href={DOWNLOAD.issues} {...EXT_LINK}>问题反馈</a></div>
             <div className="foot-col"><h5>社区</h5><a href={DOWNLOAD.repo} {...EXT_LINK}>GitHub</a></div>
           </div>
           <div className="foot-bot"><span>© 2017–2026 Inkiva · 以 GPL-3.0 许可证发布</span><div className="foot-social"><a className="icon-btn" href={DOWNLOAD.repo} {...EXT_LINK} aria-label="GitHub"><GitHubIcon /></a></div></div>
