@@ -23,18 +23,19 @@
 </template>
 
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
 import { useLayoutStore } from '@/store/layout'
 import { storeToRefs } from 'pinia'
 import Tabs from './tabs.vue'
 import Editor from './editor.vue'
-import SourceCode from './sourceCode.vue'
 import TabNotifications from './notifications.vue'
+
+// Source mode is optional and disabled by default. Keep CodeMirror and its
+// language/runtime dependencies out of the WYSIWYG first-paint path.
+const SourceCode = defineAsyncComponent(() => import('./sourceCode.vue'))
 
 defineProps<{
   markdown: string
-  // `cursor` originates as `IFileState.cursor` which is `unknown`
-  // (see src/shared/types/files.ts); align here instead of forcing every
-  // caller to widen.
   cursor: unknown
   muyaIndexCursor?: unknown
   sourceCode: boolean
