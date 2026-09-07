@@ -21,6 +21,7 @@ vi.mock('@/services/notification', () => ({
 vi.mock('@/store/bufferedState', () => ({ debouncedSendBufferedState: vi.fn() }))
 
 import { useEditorStore } from '@/store/editor'
+import { usePreferencesStore } from '@/store/preferences'
 
 // #1861: a watcher 'change' event fires even when only the file's mtime changed
 // (e.g. a git checkout that left the content byte-identical). The handler then
@@ -35,6 +36,9 @@ describe('useEditorStore LISTEN_FOR_FILE_CHANGE — content-identical change (#1
   })
 
   const makeSavedTab = (store: ReturnType<typeof useEditorStore>) => {
+    // This fixture exercises the warning path. The application default is now
+    // autoSave=true, which would reload an already-saved tab instead.
+    usePreferencesStore().autoSave = false
     const tab = { id: 'tab-1', filename: 'a.md', pathname: '/x/a.md', markdown: 'hello', isSaved: true }
     store.tabs = [tab] as unknown as typeof store.tabs
     store.tabIdToIndex = { 'tab-1': 0 }
