@@ -74,7 +74,7 @@ const preloadSettingsWhenIdle = (): void => {
   if (envType !== 'editor') return
 
   const preload = (): void => {
-    void Promise.allSettled([
+    Promise.allSettled([
       import('./pages/preference.vue'),
       import('./prefComponents/general/index.vue'),
       import('./prefComponents/editor/index.vue'),
@@ -91,7 +91,7 @@ const preloadSettingsWhenIdle = (): void => {
       requestIdleCallback: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
     }).requestIdleCallback(preload, { timeout: 2500 })
   } else {
-    window.setTimeout(preload, 1200)
+    globalThis.setTimeout(preload, 1200)
   }
 }
 
