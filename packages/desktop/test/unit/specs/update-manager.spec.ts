@@ -105,6 +105,33 @@ describe('UpdateManager', () => {
     expect(provider.checkCalls).toBe(2)
   })
 
+  it('reports no formal release as up-to-date and records a successful check', async() => {
+    const { manager, provider, store } = createManager()
+    provider.result = { candidates: [] }
+
+    await expect(manager.checkForUpdate('manual')).resolves.toMatchObject({
+      state: 'up-to-date',
+      checkSource: 'manual',
+      currentVersion: '1.0.0'
+    })
+    expect(store.get()).toBe(1_000_000)
+    expect(provider.downloadCalls).toBe(0)
+  })
+
+  it('surfaces provider failures without recording a successful check', async() => {
+    const { manager, provider, store } = createManager()
+    provider.checkForUpdates = vi.fn(async() => {
+      throw new Error('network unavailable')
+    })
+
+    await expect(manager.checkForUpdate('manual')).resolves.toMatchObject({
+      state: 'error',
+      errorCode: 'NETWORK_ERROR',
+      errorMessage: 'network unavailable'
+    })
+    expect(store.get()).toBeUndefined()
+  })
+
   it('deduplicates concurrent checks into one provider request', async() => {
     const { manager, provider } = createManager()
     let resolve: ((result: UpdateCheckResult) => void) | undefined

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isStableVersion,
+  isNoFormalReleaseError,
   selectNewestStableRelease,
   type ReleaseCandidate
 } from 'main_renderer/update/release'
@@ -42,6 +43,16 @@ describe('stable release filtering', () => {
     expect(result).toBeUndefined()
   })
 
+  it('treats an empty, prerelease-only, or draft-only feed as no update', () => {
+    expect(selectNewestStableRelease('1.0.0', [])).toBeUndefined()
+    expect(selectNewestStableRelease('1.0.0', [
+      release('v1.1.0-beta.1', { prerelease: true })
+    ])).toBeUndefined()
+    expect(selectNewestStableRelease('1.0.0', [
+      release('v1.1.0', { draft: true })
+    ])).toBeUndefined()
+  })
+
   it('normalizes a release whose API version is provided separately from its tag', () => {
     const result = selectNewestStableRelease('1.0.0', [
       release('release-1.1.0', { version: '1.1.0' })
@@ -49,5 +60,26 @@ describe('stable release filtering', () => {
 
     expect(result?.version).toBe('1.1.0')
     expect(result?.tagName).toBe('release-1.1.0')
+  })
+})
+
+describe('no formal release errors', () => {
+  it('recognizes electron-updater empty-feed errors', () => {
+    expect(isNoFormalReleaseError({ code: 'ERR_UPDATER_NO_PUBLISHED_VERSIONS' })).toBe(true)
+    expect(isNoFormalReleaseError({
+      code: 'ERR_UPDATER_LATEST_VERSION_NOT_FOUND',
+      message: 'GitHub returned HTTP 404'
+    })).toBe(true)
+  })
+
+  it('does not hide network or missing-artifact errors', () => {
+    expect(isNoFormalReleaseError({
+      code: 'ERR_UPDATER_LATEST_VERSION_NOT_FOUND',
+      message: 'connect ETIMEDOUT api.github.com'
+    })).toBe(false)
+    expect(isNoFormalReleaseError({
+      code: 'ERR_UPDATER_CHANNEL_FILE_NOT_FOUND',
+      message: 'latest.yml is missing'
+    })).toBe(false)
   })
 })

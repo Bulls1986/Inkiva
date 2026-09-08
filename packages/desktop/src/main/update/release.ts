@@ -2,6 +2,16 @@ import type { ReleaseCandidate, StableRelease } from './types'
 
 export type { ReleaseCandidate, StableRelease } from './types'
 
+interface UpdateProviderError {
+  code?: unknown
+  message?: unknown
+  statusCode?: unknown
+  response?: {
+    statusCode?: unknown
+    status?: unknown
+  }
+}
+
 interface ParsedVersion {
   major: number
   minor: number
@@ -12,6 +22,28 @@ interface ParsedVersion {
 const SEMVER_REGEXP =
   /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
+
+/**
+ * electron-updater uses an exception for an empty GitHub release feed. That
+ * is a successful "no update" result for Inkiva, not a network failure.
+ *
+ * ERR_UPDATER_LATEST_VERSION_NOT_FOUND is also used for transport failures,
+ * so only its explicit HTTP-404 form is treated as an empty release feed.
+ * Missing channel artifacts and all other errors must remain visible to the
+ * caller.
+ */
+export const isNoFormalReleaseError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false
+
+  const candidate = error as UpdateProviderError
+  if (candidate.code === 'ERR_UPDATER_NO_PUBLISHED_VERSIONS') return true
+  if (candidate.code !== 'ERR_UPDATER_LATEST_VERSION_NOT_FOUND') return false
+
+  const statusCode = candidate.statusCode ?? candidate.response?.statusCode ?? candidate.response?.status
+  if (statusCode === 404 || statusCode === '404') return true
+
+  return typeof candidate.message === 'string' && /\b404\b/.test(candidate.message)
+}
 
 const parseVersion = (value: string | undefined): ParsedVersion | undefined => {
   if (!value) return undefined

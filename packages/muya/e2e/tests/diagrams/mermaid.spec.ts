@@ -142,7 +142,10 @@ test.describe('mermaid diagram', () => {
 
         const svg = page.locator(`${editor.diagramPreview} > svg`).first();
         await expect(svg).toBeVisible({ timeout: 15_000 });
-        await expect.poll(async () => svg.locator('svg.label-icon').count())
+        // Flowchart icon shapes use the registered Iconify pack directly and
+        // are emitted as nested SVGs. `label-icon` is only the class Mermaid
+        // uses for inline Font Awesome label syntax, not node icon shapes.
+        await expect.poll(async () => svg.locator('svg').count())
             .toBeGreaterThan(0);
         await expect(page.locator(`${editor.diagramPreview} ${editor.diagramError}`))
             .toHaveCount(0);
@@ -228,6 +231,13 @@ test.describe('diagram via quick-insert menu', () => {
         // The preview updates live on input; allow generous time for the async
         // mermaid render (dynamic import + direct render).
         const svg = page.locator(`${editor.diagramPreview} svg`).first();
+        // While the diagram source is active, the current presentation keeps
+        // the source editor visible and stages the SVG in a hidden preview.
+        // Assert the render first, then exercise the real blur transition.
+        await expect(svg).toBeAttached({ timeout: 15_000 });
+        await page.evaluate(() => {
+            window.muya!.editor.activeContentBlock = null;
+        });
         await expect(svg).toBeVisible({ timeout: 15_000 });
 
         // The fence language round-trips back to ```mermaid carrying the body.
@@ -281,12 +291,15 @@ test.describe('diagram via quick-insert menu', () => {
 
         // Vega-Lite renders asynchronously to an `<svg>` with mark elements.
         const svg = page.locator(`${editor.diagramPreview} svg`).first();
+        await expect(svg).toBeAttached({ timeout: 15_000 });
+        await page.evaluate(() => {
+            window.muya!.editor.activeContentBlock = null;
+        });
         await expect(svg).toBeVisible({ timeout: 15_000 });
-        const markCount = await page.evaluate(() => {
+        await expect.poll(() => page.evaluate(() => {
             const root = document.querySelector('.mu-diagram-preview svg');
             return root ? root.querySelectorAll('path, rect').length : 0;
-        });
-        expect(markCount).toBeGreaterThan(0);
+        })).toBeGreaterThan(0);
 
         // The fence language round-trips back to ```vega-lite carrying the body.
         const md = await page.evaluate(() => window.muya!.getMarkdown());

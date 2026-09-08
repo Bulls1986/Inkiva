@@ -1,4 +1,5 @@
 import { autoUpdater } from 'electron-updater'
+import { isNoFormalReleaseError } from './release'
 import type { UpdateProvider, UpdateCheckResult } from './types'
 
 interface DownloadProgress {
@@ -39,7 +40,14 @@ export class WindowsUpdateProvider implements UpdateProvider {
   }
 
   async checkForUpdates(): Promise<UpdateCheckResult> {
-    const result = await this._updater.checkForUpdates()
+    let result: Awaited<ReturnType<ElectronAutoUpdaterLike['checkForUpdates']>>
+    try {
+      result = await this._updater.checkForUpdates()
+    } catch (error) {
+      if (isNoFormalReleaseError(error)) return { candidates: [] }
+      throw error
+    }
+
     this._downloadPromise = result?.downloadPromise
     const version = result?.updateInfo?.version
     if (!version) return { candidates: [] }

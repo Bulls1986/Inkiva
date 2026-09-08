@@ -27,6 +27,7 @@ import { saveUnsavedFilesForUpdate } from '../menu/actions/file'
 import { ShutdownCoordinator } from '../update/ShutdownCoordinator'
 import { RendererUpdatePreflight } from '../update/RendererUpdatePreflight'
 import { MacReleaseChecker } from '../update/MacReleaseChecker'
+import { E2EUpdateProvider, isE2EUpdateScenario } from '../update/E2EUpdateProvider'
 import { UpdateManager } from '../update/UpdateManager'
 import { WindowsUpdateProvider } from '../update/WindowsUpdateProvider'
 import { ElectronUpdateCheckStore } from '../update/store'
@@ -98,9 +99,13 @@ class App {
         return saveUnsavedFilesForUpdate(win, files)
       }
     })
+    const e2eUpdatePlatform = process.env.INKIVA_E2E_UPDATE_PLATFORM
+    const updatePlatform = e2eUpdatePlatform === 'win32' || e2eUpdatePlatform === 'darwin'
+      ? e2eUpdatePlatform
+      : process.platform
     this._updateManager = new UpdateManager({
-      platform: process.platform,
-      currentVersion: app.getVersion(),
+      platform: updatePlatform,
+      currentVersion: process.env.INKIVA_E2E_UPDATE_CURRENT_VERSION ?? app.getVersion(),
       provider: this._createUpdateProvider(),
       store: new ElectronUpdateCheckStore(),
       prepareRestart: () => this._accessor.shutdownCoordinator!.prepareUpdateInstall(),
@@ -697,7 +702,9 @@ class App {
     this._broadcastKeybindings(editorWindows)
   }
 
-  private _createUpdateProvider(): MacReleaseChecker | WindowsUpdateProvider | undefined {
+  private _createUpdateProvider(): E2EUpdateProvider | MacReleaseChecker | WindowsUpdateProvider | undefined {
+    const scenario = process.env.INKIVA_E2E_UPDATE_SCENARIO
+    if (isE2EUpdateScenario(scenario)) return new E2EUpdateProvider(scenario)
     if (isWindows) return new WindowsUpdateProvider()
     if (isOsx) return new MacReleaseChecker()
     return undefined
@@ -706,9 +713,12 @@ class App {
   private _scheduleBackgroundUpdateCheck(): void {
     if (this._backgroundUpdateCheckScheduled) return
     this._backgroundUpdateCheckScheduled = true
+    const configuredDelay = process.env.INKIVA_E2E_UPDATE_BACKGROUND_DELAY_MS
+    const parsedDelay = configuredDelay === undefined ? NaN : Number(configuredDelay)
+    const delay = Number.isFinite(parsedDelay) && parsedDelay >= 0 ? parsedDelay : 5000
     setTimeout(() => {
       void this._updateManager.checkForUpdate('background')
-    }, 5000)
+    }, delay)
   }
 
   private _broadcastUpdateStatus(status: UpdateStatus): void {
@@ -720,6 +730,12 @@ class App {
   }
 
   private _handleUpdateStatusChanged(status: UpdateStatus): void {
+    if (isE2EUpdateScenario(process.env.INKIVA_E2E_UPDATE_SCENARIO)) {
+      const globalState = globalThis as typeof globalThis & {
+        __inkiva_e2e_update_statuses__?: UpdateStatus[]
+      }
+      ;(globalState.__inkiva_e2e_update_statuses__ ??= []).push({ ...status })
+    }
     this._broadcastUpdateStatus(status)
     if (status.state === 'ready-to-install' && isWindows) {
       void this._showWindowsUpdateReadyPrompt()
