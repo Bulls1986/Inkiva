@@ -3,6 +3,7 @@
     v-show="showSideBar"
     ref="sideBar"
     class="side-bar"
+    :class="{ 'side-bar--overlay': isOverlayWindow }"
     :style="[!rightColumn ? { 'min-width': '45px' } : {}, { width: `${finalSideBarWidth}px` }]"
   >
     <div class="left-column">
@@ -48,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useLayoutStore } from '@/store/layout'
 import { useProjectStore } from '@/store/project'
 import { useEditorStore } from '@/store/editor'
@@ -60,6 +61,12 @@ import Toc from './toc.vue'
 import { storeToRefs } from 'pinia'
 import type { TabDescriptor } from './types'
 
+const DEFAULT_SIDE_BAR_WIDTH = 270
+const MIN_SIDE_BAR_WIDTH = 220
+const NARROW_WINDOW_BREAKPOINT = 1000
+const NARROW_SIDE_BAR_WIDTH = 240
+const OVERLAY_WINDOW_BREAKPOINT = 590
+
 const layoutStore = useLayoutStore()
 const projectStore = useProjectStore()
 const editorStore = useEditorStore()
@@ -68,20 +75,40 @@ const sideBar = ref<HTMLDivElement | null>(null)
 const dragBar = ref<HTMLDivElement | null>(null)
 
 const openedFiles = ref<TabDescriptor[]>([])
-const sideBarViewWidth = ref(280)
+const sideBarViewWidth = ref(DEFAULT_SIDE_BAR_WIDTH)
+const windowWidth = ref(window.innerWidth)
 
 const { rightColumn, showSideBar, sideBarWidth } = storeToRefs(layoutStore)
 
 const { projectTree } = storeToRefs(projectStore)
 const { tabs } = storeToRefs(editorStore)
 
+const isNarrowWindow = computed<boolean>(() => windowWidth.value <= NARROW_WINDOW_BREAKPOINT)
+const isOverlayWindow = computed<boolean>(() => windowWidth.value <= OVERLAY_WINDOW_BREAKPOINT)
+
+const clampSideBarWidthForViewport = (width: number): number => {
+  const minClampedWidth = Math.max(width, MIN_SIDE_BAR_WIDTH)
+  return isNarrowWindow.value
+    ? Math.min(minClampedWidth, NARROW_SIDE_BAR_WIDTH)
+    : minClampedWidth
+}
+
 const finalSideBarWidth = computed<number>(() => {
   if (!showSideBar.value) return 0
   if (rightColumn.value === '') return 45
-  return sideBarViewWidth.value < 220 ? 220 : sideBarViewWidth.value
+  return clampSideBarWidthForViewport(sideBarViewWidth.value)
 })
 
+const handleWindowResize = (): void => {
+  windowWidth.value = window.innerWidth
+}
+
+let removeDragBarListener: (() => void) | null = null
+
 onMounted(() => {
+  window.addEventListener('resize', handleWindowResize, false)
+  handleWindowResize()
+
   nextTick(() => {
     const dragBarEl = dragBar.value
     if (!dragBarEl) return
@@ -94,32 +121,43 @@ onMounted(() => {
     const mouseUpHandler = (): void => {
       document.removeEventListener('mousemove', mouseMoveHandler, false)
       document.removeEventListener('mouseup', mouseUpHandler, false)
-      layoutStore.CHANGE_SIDE_BAR_WIDTH(currentSideBarWidth < 220 ? 220 : currentSideBarWidth)
+      layoutStore.CHANGE_SIDE_BAR_WIDTH(currentSideBarWidth)
     }
 
     const mouseMoveHandler = (event: MouseEvent): void => {
       const offset = event.clientX - startX
-      currentSideBarWidth = startWidth + offset
+      currentSideBarWidth = clampSideBarWidthForViewport(startWidth + offset)
       sideBarViewWidth.value = currentSideBarWidth
     }
 
     const mouseDownHandler = (event: MouseEvent): void => {
       startX = event.clientX
-      startWidth = +sideBarWidth.value
+      startWidth = finalSideBarWidth.value
+      currentSideBarWidth = startWidth
       document.addEventListener('mousemove', mouseMoveHandler, false)
       document.addEventListener('mouseup', mouseUpHandler, false)
     }
 
     dragBarEl.addEventListener('mousedown', mouseDownHandler, false)
+    removeDragBarListener = () => {
+      dragBarEl.removeEventListener('mousedown', mouseDownHandler, false)
+      document.removeEventListener('mousemove', mouseMoveHandler, false)
+      document.removeEventListener('mouseup', mouseUpHandler, false)
+    }
   })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleWindowResize, false)
+  removeDragBarListener?.()
 })
 
 const handleLeftIconClick = (name: string): void => {
   if (rightColumn.value === name) {
     // Capture the expanded width BEFORE collapsing: once rightColumn is '',
     // finalSideBarWidth evaluates to the 45px icon strip and would overwrite
-    // the user's real width with the clamped 220px minimum (#2421).
-    const widthToPersist = finalSideBarWidth.value
+    // the user's real width with the clamped minimum (#2421).
+    const widthToPersist = +sideBarWidth.value
     layoutStore.SET_LAYOUT({ rightColumn: '' })
     layoutStore.CHANGE_SIDE_BAR_WIDTH(widthToPersist)
   } else {
@@ -127,7 +165,7 @@ const handleLeftIconClick = (name: string): void => {
     layoutStore.SET_LAYOUT({ rightColumn: name })
     sideBarViewWidth.value = +sideBarWidth.value
     if (needDispatch) {
-      layoutStore.CHANGE_SIDE_BAR_WIDTH(finalSideBarWidth.value)
+      layoutStore.CHANGE_SIDE_BAR_WIDTH(sideBarWidth.value)
     }
   }
 }
@@ -144,7 +182,7 @@ const handleLeftBottomClick = (name: string): void => {
   display: flex;
   flex-shrink: 0;
   flex-grow: 0;
-  width: 280px;
+  width: 270px;
   height: 100vh;
   min-width: 220px;
   position: relative;
@@ -164,6 +202,20 @@ const handleLeftBottomClick = (name: string): void => {
     var(--sideBarBgColor) 100%
   );
   border-right: 1px solid var(--itemBgColor);
+}
+
+/*
+ * Typora stops reserving horizontal editor space for its pinned sidebar below
+ * roughly 590px. Mirror that behavior: the sidebar becomes a fixed overlay so
+ * a minimum-size editor window (550px in Inkiva) keeps the full editing width.
+ * The title bar remains above this layer (z-index: 2) and stays interactive.
+ */
+.side-bar--overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 1;
 }
 
 .side-bar .left-column svg {
