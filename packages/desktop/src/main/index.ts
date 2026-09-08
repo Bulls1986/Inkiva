@@ -15,8 +15,8 @@ import { t } from './i18n'
 import { registerSandboxIpcHandlers } from './ipc'
 
 // Set version strings into global and process.versions
-process.env.MARKTEXT_VERSION = MARKTEXT_VERSION
-process.env.MARKTEXT_VERSION_STRING = MARKTEXT_VERSION_STRING
+process.env.INKIVA_VERSION = INKIVA_VERSION
+process.env.INKIVA_VERSION_STRING = INKIVA_VERSION_STRING
 
 // -----------------------------------------------
 // Exception handling and logging setup
@@ -104,8 +104,8 @@ try {
     : ''
   log.error(t('error.initializationFailed', { hint: msgHint }), errorObj)
 
-  const EXIT_ON_ERROR = !!process.env.MARKTEXT_EXIT_ON_ERROR
-  const SHOW_ERROR_DIALOG = !process.env.MARKTEXT_ERROR_INTERACTION
+  const EXIT_ON_ERROR = !!process.env.INKIVA_EXIT_ON_ERROR
+  const SHOW_ERROR_DIALOG = !process.env.INKIVA_ERROR_INTERACTION
   if (!EXIT_ON_ERROR && SHOW_ERROR_DIALOG) {
     dialog.showErrorBox(
       t('error.startupError'),

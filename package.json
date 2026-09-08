@@ -1,6 +1,6 @@
 {
   "name": "inkiva-monorepo",
-  "version": "0.1.0-beta.4",
+  "version": "0.1.0",
   "description": "Inkiva monorepo root",
   "private": true,
   "homepage": "https://www.inkiva.net",

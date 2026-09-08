@@ -131,8 +131,8 @@ const handleDragOver = (e: DragEvent): void => {
 }
 
 onMounted(async () => {
-  if (window.marktext?.initialState) {
-    preferencesStore.SET_USER_PREFERENCE(window.marktext.initialState)
+  if (window.inkiva?.initialState) {
+    preferencesStore.SET_USER_PREFERENCE(window.inkiva.initialState)
   }
 
   mainStore.LISTEN_WIN_STATUS()
@@ -176,7 +176,7 @@ onMounted(async () => {
   window.addEventListener('dragover', handleDragOver, false)
 
   nextTick(() => {
-    const initial = window.marktext?.initialState
+    const initial = window.inkiva?.initialState
     const style: AddStylesOptions = {
       theme: initial?.theme ?? DEFAULT_STYLE.theme,
       codeFontFamily: initial?.codeFontFamily ?? DEFAULT_STYLE.codeFontFamily,

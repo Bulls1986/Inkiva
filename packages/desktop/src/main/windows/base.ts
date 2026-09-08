@@ -5,14 +5,14 @@ import type Accessor from '../app/accessor'
 import { getThemeBackgroundColor } from '../../common/theme'
 
 /**
- * A MarkText window.
+ * An Inkiva window.
  * @property id Identifier (= browserWindow.id) or null during initialization.
  * @property browserWindow The browser window.
  * @property lifecycle The window lifecycle state.
  * @property type The window type.
  */
 
-// Window type marktext support.
+// Window type support.
 export const WindowType = {
   BASE: 'base', // You shold never create a `BASE` window.
   EDITOR: 'editor',

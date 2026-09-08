@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // `@/util/pdf` reads `window.path.join` and (for disk themes)
-// `window.marktext.paths` / `window.fileUtils` at call time, all normally
+// `window.inkiva.paths` / `window.fileUtils` at call time, all normally
 // injected by the preload bridge. Stub the surface before the hoisted imports
 // run so the module graph can load. Per-test overrides below swap the
 // `window.fileUtils` behavior via `vi.resetModules()` + dynamic import.
@@ -9,13 +9,13 @@ vi.hoisted(() => {
   const w = globalThis as unknown as {
     window?: {
       path?: { sep: string, join: (...parts: string[]) => string }
-      marktext?: { paths: { userDataPath: string } }
+      inkiva?: { paths: { userDataPath: string } }
       fileUtils?: { isFile: (p: string) => Promise<boolean>, readFile: (p: string) => Promise<unknown> }
     }
   }
   w.window ??= {}
   w.window.path ??= { sep: '/', join: (...parts: string[]) => parts.join('/') }
-  w.window.marktext ??= { paths: { userDataPath: '/userData' } }
+  w.window.inkiva ??= { paths: { userDataPath: '/userData' } }
   w.window.fileUtils ??= { isFile: async() => false, readFile: async() => '' }
 })
 
@@ -23,7 +23,7 @@ vi.hoisted(() => {
 // EMPTY string under vitest (no CSS `?inline` transform is configured), so the
 // academic/liber branch contributes no CSS in this environment. We therefore
 // characterize the branch *dispatch* (academic/liber take the inline path and
-// never touch `window.fileUtils`/`window.marktext`, unlike a disk theme name)
+// never touch `window.fileUtils`/`window.inkiva`, unlike a disk theme name)
 // rather than asserting a theme-specific selector token, which is unavailable
 // here.
 
@@ -36,11 +36,11 @@ describe('getCssForOptions', () => {
     vi.resetModules()
     const w = globalThis as unknown as {
       window: {
-        marktext: { paths: { userDataPath: string } }
+        inkiva: { paths: { userDataPath: string } }
         fileUtils: { isFile: (p: string) => Promise<boolean>, readFile: (p: string) => Promise<unknown> }
       }
     }
-    w.window.marktext = { paths: { userDataPath: '/userData' } }
+    w.window.inkiva = { paths: { userDataPath: '/userData' } }
     w.window.fileUtils = { isFile: async() => false, readFile: async() => '' }
   })
 
@@ -49,7 +49,7 @@ describe('getCssForOptions', () => {
     // Remove the disk surfaces entirely: if academic/liber tried a disk read
     // these would throw. They must not.
     const w = globalThis as unknown as { window: Record<string, unknown> }
-    delete w.window.marktext
+    delete w.window.inkiva
     delete w.window.fileUtils
 
     await expect(getCssForOptions({ theme: 'academic' })).resolves.toBeTypeOf('string')
@@ -59,7 +59,7 @@ describe('getCssForOptions', () => {
   it('appends no theme CSS for theme:"default" (disk lookup misses) or {}', async() => {
     const { getCssForOptions } = await loadPdf()
     // 'default' is NOT special-cased: it falls into the disk branch, which
-    // reads window.marktext.paths + window.fileUtils.isFile (→ false here).
+    // reads window.inkiva.paths + window.fileUtils.isFile (→ false here).
     const def = await getCssForOptions({ theme: 'default' })
     const empty = await getCssForOptions({})
 

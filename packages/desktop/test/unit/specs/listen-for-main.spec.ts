@@ -15,14 +15,14 @@ import { useListenForMainStore } from '@/store/listenForMain'
 import { DEFAULT_RIGHT_COLUMN, useLayoutStore } from '@/store/layout'
 
 // `EDITOR_EDIT_ACTION('findInFolder')` routes through `layoutStore.SET_LAYOUT`,
-// which (because `showSideBar` is defined) reads `window.marktext.env`,
+// which (because `showSideBar` is defined) reads `window.inkiva.env`,
 // fires `window.electron.ipcRenderer.send`, and persists the sidebar
 // visibility preference (another `ipcRenderer.send`). The renderer i18n module
 // (pulled in via the preferences store) also reads `window.electron.ipcRenderer`
 // at import time. Provide spies for all of it.
 const win = window as unknown as {
   electron?: { ipcRenderer: { on: Mock; send: Mock; invoke: Mock } }
-  marktext?: { env: { windowId: number } }
+  inkiva?: { env: { windowId: number } }
 }
 
 describe('listenForMain store EDITOR_EDIT_ACTION', () => {
@@ -34,13 +34,13 @@ describe('listenForMain store EDITOR_EDIT_ACTION', () => {
         invoke: vi.fn(() => Promise.resolve(false))
       }
     }
-    win.marktext = { env: { windowId: 1 } }
+    win.inkiva = { env: { windowId: 1 } }
     setActivePinia(createPinia())
   })
 
   afterEach(() => {
     delete win.electron
-    delete win.marktext
+    delete win.inkiva
     vi.clearAllMocks()
   })
 

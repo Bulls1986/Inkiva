@@ -91,7 +91,7 @@ export default function(keybindings: Keybindings): MenuItemConstructorOptions {
     submenu
   }
 
-  if (global.MARKTEXT_DEBUG) {
+  if (global.INKIVA_DEBUG) {
     submenu.push({
       type: 'separator'
     })

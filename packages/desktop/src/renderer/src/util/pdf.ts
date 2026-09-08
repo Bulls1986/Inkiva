@@ -78,7 +78,7 @@ export const getCssForOptions = async(options: PdfCssOptions): Promise<string> =
       output += await loadBundledExportTheme(theme)
     } else {
       // Read theme from disk
-      const { userDataPath } = window.marktext!.paths as { userDataPath: string }
+      const { userDataPath } = window.inkiva!.paths as { userDataPath: string }
       const themePath = window.path.join(userDataPath, 'themes/export', theme)
       if (await window.fileUtils.isFile(themePath)) {
         try {

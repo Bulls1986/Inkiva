@@ -263,7 +263,7 @@ class Watcher {
       .on('addDir', (pathname: string) => addDir(win, pathname, type))
       .on('unlinkDir', (pathname: string) => unlinkDir(win, pathname, type))
       .on('raw', (event: string, subpath: string, details: unknown) => {
-        if (globalThis.MARKTEXT_DEBUG_VERBOSE >= 3) {
+        if (globalThis.INKIVA_DEBUG_VERBOSE >= 3) {
           console.log('watcher: ', event, subpath, details)
         }
 

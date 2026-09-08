@@ -73,7 +73,7 @@ const setupEnvironment = (args: Record<string, unknown>): AppEnvironment => {
 
   const isDevMode = process.env.NODE_ENV !== 'production'
   const debug =
-    !!args['--debug'] || !!process.env.MARKTEXT_DEBUG || process.env.NODE_ENV !== 'production'
+    !!args['--debug'] || !!process.env.INKIVA_DEBUG || process.env.NODE_ENV !== 'production'
   const verbose = (args['--verbose'] as number | undefined) || 0
   const safeMode = !!args['--safe']
   const userDataPath = args['--user-data-dir'] as string | undefined // or undefined (= default user data path)
@@ -92,13 +92,13 @@ const setupEnvironment = (args: Record<string, unknown>): AppEnvironment => {
 
   // Keep this for easier access.
   const mutableGlobal = global as unknown as {
-    MARKTEXT_DEBUG: boolean
-    MARKTEXT_DEBUG_VERBOSE: number
-    MARKTEXT_SAFE_MODE: boolean
+    INKIVA_DEBUG: boolean
+    INKIVA_DEBUG_VERBOSE: number
+    INKIVA_SAFE_MODE: boolean
   }
-  mutableGlobal.MARKTEXT_DEBUG = debug
-  mutableGlobal.MARKTEXT_DEBUG_VERBOSE = verbose
-  mutableGlobal.MARKTEXT_SAFE_MODE = safeMode
+  mutableGlobal.INKIVA_DEBUG = debug
+  mutableGlobal.INKIVA_DEBUG_VERBOSE = verbose
+  mutableGlobal.INKIVA_SAFE_MODE = safeMode
 
   return appEnvironment
 }
