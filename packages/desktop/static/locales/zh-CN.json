@@ -135,7 +135,7 @@
       "clearFormat": "清除格式"
     },
     "theme": {
-      "theme": "主题(&T)",
+      "theme": "主题",
       "dark": "深色",
       "followThemDisabled": "跟随系统主题时无法选择主题",
       "lightThemes": "— 浅色主题 —",

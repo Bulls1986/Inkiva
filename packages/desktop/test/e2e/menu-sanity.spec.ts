@@ -23,6 +23,15 @@ test.describe('Application menu wiring', () => {
     expect(labels.length).toBeGreaterThanOrEqual(5)
   })
 
+  test('Simplified Chinese Theme menu label has no mnemonic suffix', async() => {
+    const label = await app.evaluate(({ Menu }) => {
+      return Menu.getApplicationMenu()?.getMenuItemById('themeMenu')?.label ?? null
+    })
+
+    expect(label).toBe('主题')
+    expect(label).not.toContain('(&T)')
+  })
+
   test('Known menu IDs are registered', async() => {
     const expected = [
       'heading1MenuItem',
