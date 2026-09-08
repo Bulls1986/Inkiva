@@ -185,6 +185,7 @@ const handleLeftBottomClick = (name: string): void => {
   width: 270px;
   height: 100vh;
   min-width: 220px;
+  box-sizing: border-box;
   position: relative;
   color: var(--sideBarColor);
   user-select: none;
