@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint . --max-warnings 0",
     "type-check": "tsc --noEmit",
-"build:static": "next build"
+    "test": "tsx --test test/**/*.test.ts",
+    "build:static": "next build"
   },
   "dependencies": {
     "github-slugger": "^2.0.0",
