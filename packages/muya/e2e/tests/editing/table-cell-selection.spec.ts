@@ -70,6 +70,44 @@ test.describe('cross-cell table selection', () => {
         }).toBe(4);
     });
 
+    test('selected cell overlays stay translucent so cell text remains visible', async ({ page }) => {
+        await seedTable(page);
+        await dragSelect(page, { row: 0, column: 0 }, { row: 1, column: 1 });
+
+        await expect.poll(() => selectedCount(page), {
+            timeout: 5_000,
+            intervals: [50, 100, 250, 500],
+        }).toBe(4);
+
+        const selectedCell = page.locator(`${editor.table} td.mu-table-cell-selected`).first();
+        const overlay = await selectedCell.evaluate((cell) => {
+            const backgroundColor = getComputedStyle(cell, '::before').backgroundColor;
+            const colorValue = backgroundColor.slice(
+                backgroundColor.indexOf('(') + 1,
+                -1,
+            );
+            const [channels, alphaValue] = colorValue.split('/');
+            const commaChannels = channels.split(',');
+            const alpha = alphaValue != null
+                ? alphaValue.trim().endsWith('%')
+                    ? Number.parseFloat(alphaValue) / 100
+                    : Number.parseFloat(alphaValue)
+                : commaChannels.length === 4
+                    ? Number.parseFloat(commaChannels[3])
+                    : 1;
+
+            return {
+                alpha,
+                backgroundColor,
+                text: cell.textContent ?? '',
+            };
+        });
+
+        expect(overlay.alpha).toBeGreaterThan(0);
+        expect(overlay.alpha).toBeLessThan(1);
+        expect(overlay.text).toContain('a1');
+    });
+
     test('copy yields only the selected sub-rectangle as a GFM table', async ({ browserName, context, page }) => {
         test.skip(browserName !== 'chromium', 'clipboard read unreliable on Firefox/WebKit headless — BACKLOG Phase 3.');
         await context.grantPermissions(['clipboard-read', 'clipboard-write']);

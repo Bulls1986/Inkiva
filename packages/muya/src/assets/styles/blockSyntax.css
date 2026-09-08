@@ -657,7 +657,7 @@ li.mu-task-list-item > span.mu-checkbox-checked::before {
 .mu-table-inner tr td.mu-table-cell-selected::before {
     z-index: 1;
 
-    background: var(--editor-color-04);
+    background: var(--selection-color);
 }
 
 .mu-table-inner tr td.mu-table-cell-border-top::before {
