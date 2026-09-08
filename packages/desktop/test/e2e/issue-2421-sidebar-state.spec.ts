@@ -3,11 +3,11 @@ import type { ElectronApplication, Page } from 'playwright'
 import { launchWithMarkdown, showSidebarPanel } from './helpers'
 
 // #2421 — toggling the sidebar via its left-column icons must not lose state.
-// Two bugs: (1) collapsing to the icon strip persisted the clamped 220px width
-// instead of the real width, so re-expanding shrank the sidebar; (2) the tree's
-// collapsed sections (Opened files / Directories) are local refs under a v-if,
-// so collapsing the sidebar destroyed the tree and reset them on re-expand.
-// These drive the real built app.
+// Two bugs: (1) collapsing to the icon strip persisted the minimum width
+// instead of the real preferred width, so re-expanding shrank the sidebar;
+// (2) the tree's collapsed sections (Opened files / Directories) are local refs
+// under a v-if, so collapsing the sidebar destroyed the tree and reset them on
+// re-expand. These drive the real built app.
 
 const filesIcon = (page: Page) =>
   page.locator('.side-bar .left-column > ul').first().locator('li').nth(0)
@@ -18,6 +18,15 @@ const sideBarWidth = (page: Page) =>
     return el ? Math.round(el.getBoundingClientRect().width) : 0
   })
 
+const setRegularWindowWidth = async(app: ElectronApplication, page: Page): Promise<void> => {
+  await app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (!win) throw new Error('No editor BrowserWindow found')
+    win.setSize(1200, 800)
+  })
+  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(1200)
+}
+
 test.describe('#2421 sidebar state survives icon toggle', () => {
   let app: ElectronApplication
   let page: Page
@@ -26,10 +35,9 @@ test.describe('#2421 sidebar state survives icon toggle', () => {
     const launched = await launchWithMarkdown('# Doc\n\n## A\n\n## B\n')
     app = launched.app
     page = launched.page
+    await setRegularWindowWidth(app, page)
     await showSidebarPanel(app, page, 'files')
-    await expect
-      .poll(() => sideBarWidth(page))
-      .toBeGreaterThan(220)
+    await expect.poll(() => sideBarWidth(page)).toBeGreaterThan(220)
   })
 
   test.afterAll(async() => {
@@ -37,9 +45,10 @@ test.describe('#2421 sidebar state survives icon toggle', () => {
   })
 
   test('collapsing then re-expanding preserves a widened sidebar width', async() => {
+    await setRegularWindowWidth(app, page)
     await showSidebarPanel(app, page, 'files')
-    // Widen the sidebar past the 220px minimum by dragging the drag-bar, so a
-    // width loss on collapse is observable (the default already sits at 220).
+    // Widen well past the 270px default so a width loss on collapse is
+    // observable independently of the responsive 240px narrow-window cap.
     const dragBar = page.locator('.side-bar .drag-bar')
     const box = await dragBar.boundingBox()
     expect(box).not.toBeNull()
@@ -68,12 +77,12 @@ test.describe('#2421 sidebar state survives icon toggle', () => {
     }, null, { timeout: 5000 })
 
     const reExpanded = await sideBarWidth(page)
-    // The widened width must survive the collapse round-trip (it was reset to
-    // the clamped 220px before the fix).
+    // The widened preferred width must survive the collapse round-trip.
     expect(Math.abs(reExpanded - widened)).toBeLessThanOrEqual(3)
   })
 
   test('a collapsed tree section stays collapsed after toggling the sidebar', async() => {
+    await setRegularWindowWidth(app, page)
     await showSidebarPanel(app, page, 'files')
     const arrow = page.locator('.side-bar .opened-files > .title .icon-arrow').first()
     await expect(arrow).toBeVisible()
