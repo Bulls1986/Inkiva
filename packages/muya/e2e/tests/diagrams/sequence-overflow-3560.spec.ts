@@ -8,10 +8,13 @@ import { editor } from '../helpers/selectors';
 // than just clipping the box). A wide diagram must end up no wider than its
 // block — i.e. fully visible, scaled down.
 test('a wide sequence diagram scales to fit its block, not clipped (#3560)', async ({ page }) => {
+    // Keep the fixture deterministic across CI viewport sizes: the regression
+    // only exists when the diagram is intrinsically wider than its block.
+    await page.setViewportSize({ width: 800, height: 720 });
     await page.evaluate(() => {
         // many actors + long messages → a diagram far wider than the editor
-        const seq = Array.from({ length: 12 }, (_, i) =>
-            `Actor${i}->Actor${i + 1}: ${'a reasonably long message '.repeat(8)}${i}`).join('\n');
+        const seq = Array.from({ length: 18 }, (_, i) =>
+            `Actor${i}->Actor${i + 1}: ${'a reasonably long message '.repeat(12)}${i}`).join('\n');
         window.muya!.setContent([{
             name: 'diagram',
             text: seq,
@@ -36,13 +39,20 @@ test('a wide sequence diagram scales to fit its block, not clipped (#3560)', asy
     await expect.poll(() => page.evaluate((sel) => {
         const svgEl = document.querySelector(`${sel} > svg`) as SVGSVGElement;
         if (!svgEl) return { wideEnough: false, fits: false };
-        const block = svgEl.closest('figure.mu-diagram-block') as HTMLElement;
+        const block = svgEl.closest('figure.mu-diagram-block') as HTMLElement | null;
+        if (!block) return { wideEnough: false, fits: false };
         // the diagram is intrinsically wider than the block (otherwise the test
         // would pass trivially), yet renders no wider than the block (scaled).
         const intrinsic = svgEl.viewBox.baseVal.width;
         const rendered = svgEl.getBoundingClientRect().width;
         const blockWidth = block.getBoundingClientRect().width;
-        return { wideEnough: intrinsic > blockWidth, fits: rendered <= blockWidth + 1 };
+        return {
+            wideEnough: intrinsic > blockWidth,
+            fits: rendered <= blockWidth + 1,
+            intrinsic,
+            rendered,
+            blockWidth,
+        };
     }, editor.diagramPreview), { timeout: 8_000 }).toMatchObject({
         wideEnough: true,
         fits: true,
