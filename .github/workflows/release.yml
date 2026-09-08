@@ -193,6 +193,14 @@ jobs:
       contents: write
       actions: read
     steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4.3.1
+
+      - name: Setup pnpm + Node + dependencies
+        uses: ./.github/actions/setup
+        with:
+          node-version: '24.14.1'
+
       # upload-artifact@v4 treats `dist/` as the common-ancestor root and
       # stores files flat inside each artifact (no `dist/` prefix). Downloading
       # with `path: dist` + `merge-multiple` recreates `./dist/<file>` across
