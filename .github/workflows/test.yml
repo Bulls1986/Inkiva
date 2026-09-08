@@ -19,5 +19,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
 
+      - name: Run Website Unit Tests
+        run: pnpm --filter inkiva-website test
+
       - name: Run Unit Tests
         run: pnpm test
