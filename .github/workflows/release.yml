@@ -213,6 +213,11 @@ jobs:
           echo "---"
           cat SHA256SUMS.txt
 
+      - name: Verify stable updater artifact contract
+        run: pnpm verify-update-artifacts
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+
       - name: Compose release notes body
         env:
           IS_PRERELEASE: ${{ contains(github.ref_name, '-') }}

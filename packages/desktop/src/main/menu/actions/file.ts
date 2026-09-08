@@ -11,7 +11,11 @@ import {
 } from 'electron'
 import log from 'electron-log'
 import { isDirectory, isFile, exists } from 'common/filesystem'
-import { MARKDOWN_EXTENSIONS, isDangerousExecutableFile, isMarkdownFile } from 'common/filesystem/paths'
+import {
+  MARKDOWN_EXTENSIONS,
+  isDangerousExecutableFile,
+  isMarkdownFile
+} from 'common/filesystem/paths'
 import { userSetting } from './inkiva'
 import { showTabBar } from './view'
 import { COMMANDS } from '../../commands'
@@ -222,6 +226,66 @@ const handleResponseForSave = async(
       const msg = err instanceof Error ? err.message : String(err)
       win.webContents.send('mt::tab-save-failure', id, msg)
     })
+}
+
+/**
+ * Save every dirty document as part of an update install preflight.
+ *
+ * Unlike the normal close flow, update installation has no "don't save"
+ * branch. A canceled Save As dialog or a write failure aborts the complete
+ * preflight so electron-updater never starts while a document is dirty.
+ */
+export const saveUnsavedFilesForUpdate = async(
+  win: BrowserWindow,
+  files: UnsavedFile[]
+): Promise<boolean> => {
+  for (const file of files) {
+    let recommendFilename = getRecommendTitleFromMarkdownString(file.markdown)
+    if (!recommendFilename) recommendFilename = file.filename || 'Untitled'
+
+    const alreadyExistOnDisk = !!file.pathname
+    let filePath = file.pathname
+
+    if (!filePath) {
+      const result = await dialog.showSaveDialog(win, {
+        defaultPath: path.join(file.defaultPath || getPath('documents'), `${recommendFilename}.md`)
+      })
+      if (result.canceled || !result.filePath) return false
+      filePath = result.filePath
+    }
+
+    filePath = path.resolve(filePath)
+    const extension = path.extname(filePath) || '.md'
+    if (!filePath.endsWith(extension)) filePath += extension
+
+    try {
+      await writeMarkdownFile(
+        filePath,
+        file.markdown,
+        file.options as Parameters<typeof writeMarkdownFile>[2]
+      )
+
+      if (!alreadyExistOnDisk) {
+        ipcMain.emit('window-add-file-path', win.id, filePath)
+        ipcMain.emit('menu-add-recently-used', filePath)
+        win.webContents.send('mt::set-pathname', {
+          id: file.id,
+          pathname: filePath,
+          filename: path.basename(filePath)
+        })
+      } else {
+        ipcMain.emit('window-file-saved', win.id, filePath)
+        win.webContents.send('mt::tab-saved', file.id)
+      }
+    } catch (error) {
+      log.error('Error while saving before update install:', error)
+      const message = error instanceof Error ? error.message : String(error)
+      win.webContents.send('mt::tab-save-failure', file.id, message)
+      return false
+    }
+  }
+
+  return true
 }
 
 const showUnsavedFilesMessage = async(

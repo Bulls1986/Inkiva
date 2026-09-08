@@ -93,6 +93,7 @@
       "followUs": "關注我們",
       "support": "支持 Inkiva",
       "license": "授權條款",
+      "checkForUpdates": "檢查更新",
       "about": "關於"
     },
     "marktext": {
@@ -902,6 +903,22 @@
     "unexpectedErrorWithMessage": "意外錯誤訊息",
     "unexpectedMainProcess": "意外的主程序錯誤",
     "unexpectedRendererProcess": "意外的渲染程序錯誤"
+  },
+  "update": {
+    "checking": "正在檢查更新…",
+    "upToDate": "Inkiva 已是最新版本（{version}）。",
+    "available": "Inkiva 有新版本可用（{version}）。",
+    "downloading": "正在下載更新…",
+    "ready": "更新已準備好安裝。",
+    "restartNow": "立即重新啟動並更新",
+    "later": "稍後",
+    "saveAndRestart": "儲存並重新啟動",
+    "saveRequired": "安裝更新前請先儲存變更",
+    "checkFailed": "無法檢查更新。",
+    "downloadFailed": "無法下載更新。",
+    "openRelease": "開啟發行頁面",
+    "macosManualUpdate": "請從發行頁面下載並安裝更新。",
+    "disabled": "此版本暫不提供穩定版更新。"
   },
   "notifications": {
     "defaultMessage": "預設訊息",

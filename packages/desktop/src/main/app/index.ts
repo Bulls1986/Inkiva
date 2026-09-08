@@ -22,7 +22,15 @@ import { onInternalChannel } from '../utils/internalIpc'
 import { WindowType } from '../windows/base'
 import EditorWindow from '../windows/editor'
 import SettingWindow from '../windows/setting'
-import { setLanguage } from '../i18n'
+import { setLanguage, t } from '../i18n'
+import { saveUnsavedFilesForUpdate } from '../menu/actions/file'
+import { ShutdownCoordinator } from '../update/ShutdownCoordinator'
+import { RendererUpdatePreflight } from '../update/RendererUpdatePreflight'
+import { MacReleaseChecker } from '../update/MacReleaseChecker'
+import { UpdateManager } from '../update/UpdateManager'
+import { WindowsUpdateProvider } from '../update/WindowsUpdateProvider'
+import { ElectronUpdateCheckStore } from '../update/store'
+import type { UpdateStatus } from '../update/types'
 import { getNativeThemeSource, isDarkApplicationTheme } from './nativeTheme'
 import type Accessor from './accessor'
 import type WindowManager from './windowManager'
@@ -46,6 +54,10 @@ class App {
   private _openFilesTimer: ReturnType<typeof setTimeout> | null
   private _windowManager: WindowManager
   private _themeListenerRegistered: boolean
+  private _updateManager: UpdateManager
+  private _updatePreflight: RendererUpdatePreflight
+  private _updatePromptOpen: boolean
+  private _backgroundUpdateCheckScheduled: boolean
 
   /**
    * @param accessor The application accessor for application instances.
@@ -57,6 +69,43 @@ class App {
     this._openFilesCache = []
     this._openFilesTimer = null
     this._windowManager = this._accessor.windowManager
+    this._updatePreflight = new RendererUpdatePreflight()
+    this._updatePromptOpen = false
+    this._backgroundUpdateCheckScheduled = false
+    this._accessor.shutdownCoordinator = new ShutdownCoordinator({
+      getEditorWindows: () =>
+        this._windowManager.getWindowsByType(WindowType.EDITOR).map(({ id }) => ({ id })),
+      getActiveEditorId: () => this._windowManager.getActiveEditorId(),
+      requestUnsavedFiles: ({ id }) => {
+        const win = this._windowManager.getBrowserWindow(id)
+        if (!win) return Promise.reject(new Error(`Editor window ${id} is unavailable`))
+        return this._updatePreflight.request(win)
+      },
+      saveDirtyFiles: async({ id }, files) => {
+        const win = this._windowManager.getBrowserWindow(id)
+        if (!win) return false
+
+        const { response } = await dialog.showMessageBox(win, {
+          type: 'warning',
+          buttons: [t('update.later'), t('update.saveAndRestart')],
+          defaultId: 1,
+          cancelId: 0,
+          noLink: true,
+          message: t('update.saveRequired'),
+          detail: files.map(({ filename }) => filename).join('\n')
+        })
+        if (response !== 1) return false
+        return saveUnsavedFilesForUpdate(win, files)
+      }
+    })
+    this._updateManager = new UpdateManager({
+      platform: process.platform,
+      currentVersion: app.getVersion(),
+      provider: this._createUpdateProvider(),
+      store: new ElectronUpdateCheckStore(),
+      prepareRestart: () => this._accessor.shutdownCoordinator!.prepareUpdateInstall(),
+      onStatusChanged: (status) => this._handleUpdateStatusChanged(status)
+    })
     // this.launchScreenshotWin = null // The window which call the screenshot.
     // this.shortcutCapture = null
 
@@ -241,58 +290,56 @@ class App {
       selectTheme(newTheme)
     }
 
-    onInternalChannel(
-      'broadcast-preferences-changed',
-      (change: Partial<IUserPreferences>) => {
-        if (change.shortcutStyle !== undefined) {
-          this._applyShortcutStyle(change.shortcutStyle)
-        }
+    onInternalChannel('broadcast-preferences-changed', (change: Partial<IUserPreferences>) => {
+      if (change.shortcutStyle !== undefined) {
+        this._applyShortcutStyle(change.shortcutStyle)
+      }
 
-        const nextPreferences = {
-          ...preferences.getAll(),
-          ...change
-        }
-        nativeTheme.themeSource = getNativeThemeSource(nextPreferences)
+      const nextPreferences = {
+        ...preferences.getAll(),
+        ...change
+      }
+      nativeTheme.themeSource = getNativeThemeSource(nextPreferences)
 
       // When followSystemTheme is enabled, immediately switch to match system
-        if (change.followSystemTheme === true) {
-          const systemIsDark = nativeTheme.shouldUseDarkColors
-          const lightModeTheme = preferences.getItem<string>('lightModeTheme')
-          const darkModeTheme = preferences.getItem<string>('darkModeTheme')
-          const newTheme = systemIsDark ? darkModeTheme : lightModeTheme
+      if (change.followSystemTheme === true) {
+        const systemIsDark = nativeTheme.shouldUseDarkColors
+        const lightModeTheme = preferences.getItem<string>('lightModeTheme')
+        const darkModeTheme = preferences.getItem<string>('darkModeTheme')
+        const newTheme = systemIsDark ? darkModeTheme : lightModeTheme
 
-          log.info(
-            `followSystemTheme enabled, switching to: ${newTheme} (system ${systemIsDark ? 'dark' : 'light'})`
-          )
-          selectTheme(newTheme)
-          preferences.setItem('theme', newTheme)
-        }
+        log.info(
+          `followSystemTheme enabled, switching to: ${newTheme} (system ${systemIsDark ? 'dark' : 'light'})`
+        )
+        selectTheme(newTheme)
+        preferences.setItem('theme', newTheme)
+      }
       // When light/dark mode theme preferences change, apply immediately if following system
-        if (
-          preferences.getItem<boolean>('followSystemTheme') &&
+      if (
+        preferences.getItem<boolean>('followSystemTheme') &&
         (change.lightModeTheme || change.darkModeTheme)
-        ) {
-          const systemIsDark = nativeTheme.shouldUseDarkColors
+      ) {
+        const systemIsDark = nativeTheme.shouldUseDarkColors
 
         // Get current values, but prefer the NEW values from the change event
-          let lightModeTheme = preferences.getItem<string>('lightModeTheme')
-          let darkModeTheme = preferences.getItem<string>('darkModeTheme')
+        let lightModeTheme = preferences.getItem<string>('lightModeTheme')
+        let darkModeTheme = preferences.getItem<string>('darkModeTheme')
 
         // If these preferences were just changed, use the new values from the change object
-          if (change.lightModeTheme !== undefined) {
-            lightModeTheme = change.lightModeTheme
-          }
-          if (change.darkModeTheme !== undefined) {
-            darkModeTheme = change.darkModeTheme
-          }
-
-          const newTheme = systemIsDark ? darkModeTheme : lightModeTheme
-
-          log.info(`Theme preference changed, applying: ${newTheme}`)
-          selectTheme(newTheme)
-          preferences.setItem('theme', newTheme)
+        if (change.lightModeTheme !== undefined) {
+          lightModeTheme = change.lightModeTheme
         }
-      })
+        if (change.darkModeTheme !== undefined) {
+          darkModeTheme = change.darkModeTheme
+        }
+
+        const newTheme = systemIsDark ? darkModeTheme : lightModeTheme
+
+        log.info(`Theme preference changed, applying: ${newTheme}`)
+        selectTheme(newTheme)
+        preferences.setItem('theme', newTheme)
+      }
+    })
 
     // Listen for system theme changes and auto-switch if enabled
     if (!this._themeListenerRegistered) {
@@ -386,6 +433,8 @@ class App {
       // Create immediately on Windows/macOS
       createWindow()
     }
+
+    this._scheduleBackgroundUpdateCheck()
 
     // this.shortcutCapture = new ShortcutCapture()
     // if (process.env.NODE_ENV === 'development') {
@@ -648,6 +697,122 @@ class App {
     this._broadcastKeybindings(editorWindows)
   }
 
+  private _createUpdateProvider(): MacReleaseChecker | WindowsUpdateProvider | undefined {
+    if (isWindows) return new WindowsUpdateProvider()
+    if (isOsx) return new MacReleaseChecker()
+    return undefined
+  }
+
+  private _scheduleBackgroundUpdateCheck(): void {
+    if (this._backgroundUpdateCheckScheduled) return
+    this._backgroundUpdateCheckScheduled = true
+    setTimeout(() => {
+      void this._updateManager.checkForUpdate('background')
+    }, 5000)
+  }
+
+  private _broadcastUpdateStatus(status: UpdateStatus): void {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('mt::update-state-changed', status)
+      }
+    }
+  }
+
+  private _handleUpdateStatusChanged(status: UpdateStatus): void {
+    this._broadcastUpdateStatus(status)
+    if (status.state === 'ready-to-install' && isWindows) {
+      void this._showWindowsUpdateReadyPrompt()
+    } else if (status.state === 'available' && isOsx) {
+      void this._showMacUpdateAvailablePrompt()
+    }
+  }
+
+  private _getUpdateDialogWindow(): BrowserWindow | undefined {
+    return (
+      this._windowManager.getActiveEditor()?.browserWindow ??
+      BrowserWindow.getFocusedWindow() ??
+      undefined
+    )
+  }
+
+  private async _showWindowsUpdateReadyPrompt(): Promise<void> {
+    if (this._updatePromptOpen || this._updateManager.status.state !== 'ready-to-install') return
+    this._updatePromptOpen = true
+    try {
+      const win = this._getUpdateDialogWindow()
+      const options: Electron.MessageBoxOptions = {
+        type: 'info',
+        buttons: [t('update.later'), t('update.restartNow')],
+        defaultId: 1,
+        cancelId: 0,
+        noLink: true,
+        message: t('update.ready'),
+        detail: t('update.available', { version: this._updateManager.status.latestVersion ?? '' })
+      }
+      const result = win
+        ? await dialog.showMessageBox(win, options)
+        : await dialog.showMessageBox(options)
+      if (result.response === 1) {
+        await this._updateManager.requestRestart()
+      }
+    } finally {
+      this._updatePromptOpen = false
+    }
+  }
+
+  private async _showMacUpdateAvailablePrompt(): Promise<void> {
+    if (this._updatePromptOpen || this._updateManager.status.state !== 'available') return
+    this._updatePromptOpen = true
+    try {
+      const win = this._getUpdateDialogWindow()
+      const options: Electron.MessageBoxOptions = {
+        type: 'info',
+        buttons: [t('update.later'), t('update.openRelease')],
+        defaultId: 1,
+        cancelId: 0,
+        noLink: true,
+        message: t('update.available', { version: this._updateManager.status.latestVersion ?? '' }),
+        detail: t('update.macosManualUpdate')
+      }
+      const result = win
+        ? await dialog.showMessageBox(win, options)
+        : await dialog.showMessageBox(options)
+      if (result.response === 1) await this._updateManager.openUpdateRelease()
+    } finally {
+      this._updatePromptOpen = false
+    }
+  }
+
+  private async _handleManualUpdateCheck(): Promise<void> {
+    const status = await this._updateManager.checkForUpdate('manual')
+    if (status.state !== 'up-to-date' && status.state !== 'error' && status.state !== 'disabled') {
+      return
+    }
+
+    const win = this._getUpdateDialogWindow()
+    const options: Electron.MessageBoxOptions =
+      status.state === 'up-to-date'
+        ? {
+          type: 'info',
+          buttons: [t('update.later')],
+          defaultId: 0,
+          noLink: true,
+          message: t('update.upToDate', { version: status.currentVersion })
+        }
+        : {
+          type: status.state === 'disabled' ? 'info' : 'error',
+          buttons: [t('update.later')],
+          defaultId: 0,
+          noLink: true,
+          message: status.state === 'disabled' ? t('update.disabled') : t('update.checkFailed'),
+          detail: status.errorMessage
+        }
+
+    if (win) await dialog.showMessageBox(win, options)
+    else await dialog.showMessageBox(options)
+  }
+
   private _listenForIpcMain(): void {
     registerKeyboardListeners()
     registerSpellcheckerListeners()
@@ -703,7 +868,8 @@ class App {
     })
 
     onInternalChannel('app-open-file-by-id', (windowId: number, filePath: string) => {
-      const openFilesInNewWindow = this._accessor.preferences.getItem<boolean>('openFilesInNewWindow')
+      const openFilesInNewWindow =
+        this._accessor.preferences.getItem<boolean>('openFilesInNewWindow')
       if (openFilesInNewWindow) {
         this._createEditorWindow(null, [filePath])
       } else {
@@ -714,7 +880,8 @@ class App {
       }
     })
     onInternalChannel('app-open-files-by-id', (windowId: number, fileList: string[]) => {
-      const openFilesInNewWindow = this._accessor.preferences.getItem<boolean>('openFilesInNewWindow')
+      const openFilesInNewWindow =
+        this._accessor.preferences.getItem<boolean>('openFilesInNewWindow')
       if (openFilesInNewWindow) {
         this._createEditorWindow(null, fileList)
       } else {
@@ -731,7 +898,8 @@ class App {
     })
 
     onInternalChannel('app-open-markdown-by-id', (windowId: number, data: string) => {
-      const openFilesInNewWindow = this._accessor.preferences.getItem<boolean>('openFilesInNewWindow')
+      const openFilesInNewWindow =
+        this._accessor.preferences.getItem<boolean>('openFilesInNewWindow')
       if (openFilesInNewWindow) {
         this._createEditorWindow(null, [], [data])
       } else {
@@ -759,13 +927,29 @@ class App {
 
     // --- renderer -------------------
 
+    const checkForUpdates = (): void => {
+      void this._handleManualUpdateCheck()
+    }
+    ipcMain.on('app-check-for-updates', checkForUpdates)
+    ipcMain.on('mt::check-for-update', checkForUpdates)
+    ipcMain.on('mt::restart-to-update', () => {
+      void this._updateManager.requestRestart()
+    })
+    ipcMain.on('mt::open-update-release', () => {
+      void this._updateManager.openUpdateRelease()
+    })
+    ipcMain.on('mt::update-preflight-response', (_event, requestId, files) => {
+      this._updatePreflight.resolve(requestId, files)
+    })
+
     ipcMain.on('mt::app-try-quit', () => {
       app.quit()
     })
 
     ipcMain.on('mt::open-file-by-window-id', (_e, windowId: number, filePath: string) => {
       const resolvedPath = normalizeAndResolvePath(filePath)
-      const openFilesInNewWindow = this._accessor.preferences.getItem<boolean>('openFilesInNewWindow')
+      const openFilesInNewWindow =
+        this._accessor.preferences.getItem<boolean>('openFilesInNewWindow')
       if (openFilesInNewWindow) {
         this._createEditorWindow(null, [resolvedPath])
       } else {

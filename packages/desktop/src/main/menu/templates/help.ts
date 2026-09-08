@@ -66,12 +66,27 @@ export default function(): MenuItemConstructorOptions {
     submenu
   }
 
+  submenu.push(
+    {
+      type: 'separator'
+    },
+    {
+      id: 'checkForUpdatesMenuItem',
+      label: t('menu.help.checkForUpdates'),
+      visible: process.platform !== 'linux',
+      click() {
+        actions.checkForUpdates()
+      }
+    }
+  )
+
   if (process.platform !== 'darwin') {
     submenu.push(
       {
         type: 'separator'
       },
       {
+        id: 'aboutMenuItem',
         label: t('menu.help.about'),
         click(_menuItem, browserWindow) {
           actions.showAboutDialog(browserWindow as BrowserWindow | undefined)

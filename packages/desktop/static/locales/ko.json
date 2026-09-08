@@ -93,6 +93,7 @@
       "followUs": "팔로우하기",
       "support": "Inkiva 후원",
       "license": "라이선스",
+      "checkForUpdates": "업데이트 확인",
       "about": "정보"
     },
     "marktext": {
@@ -902,6 +903,22 @@
     "unexpectedErrorWithMessage": "메시지와 함께 예상치 못한 오류",
     "unexpectedMainProcess": "예상치 못한 메인 프로세스 오류",
     "unexpectedRendererProcess": "예상치 못한 렌더러 프로세스 오류"
+  },
+  "update": {
+    "checking": "Checking for updates…",
+    "upToDate": "Inkiva {version} is up to date.",
+    "available": "Inkiva {version} is available.",
+    "downloading": "Downloading update…",
+    "ready": "The update is ready to install.",
+    "restartNow": "Restart and update",
+    "later": "Later",
+    "saveAndRestart": "Save and restart",
+    "saveRequired": "Save changes before installing the update",
+    "checkFailed": "Unable to check for updates.",
+    "downloadFailed": "Unable to download the update.",
+    "openRelease": "Open release page",
+    "macosManualUpdate": "Download and install the update from the release page.",
+    "disabled": "Stable updates are unavailable for this build."
   },
   "notifications": {
     "defaultMessage": "기본 메시지",

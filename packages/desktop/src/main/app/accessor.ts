@@ -8,6 +8,7 @@ import { loadMenuCommands } from '../menu/actions'
 import { CommandManager, loadDefaultCommands } from '../commands'
 import type { AppEnvironment } from './env'
 import type AppPaths from './paths'
+import type { ShutdownCoordinator } from '../update/ShutdownCoordinator'
 
 class Accessor {
   public env: AppEnvironment
@@ -19,6 +20,7 @@ class Accessor {
   public keybindings: Keybindings
   public menu: AppMenu
   public windowManager: WindowManager
+  public shutdownCoordinator: ShutdownCoordinator | undefined
 
   /**
    * @param appEnvironment The application environment instance.

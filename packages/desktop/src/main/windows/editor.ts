@@ -222,6 +222,9 @@ class EditorWindow extends BaseWindow {
 
     win.on('close', (event) => {
       this.emit('window-close')
+      if (this._accessor.shutdownCoordinator?.isUpdateInstallApproved()) {
+        return
+      }
       event.preventDefault()
       win!.webContents.send('mt::ask-for-close')
     })
@@ -264,7 +267,8 @@ class EditorWindow extends BaseWindow {
     const { browserWindow } = this
     const { preferences } = this._accessor
     const eol = preferences.getPreferredEol()
-    const { autoGuessEncoding, trimTrailingNewline, autoNormalizeLineEndings } = preferences.getAll()
+    const { autoGuessEncoding, trimTrailingNewline, autoNormalizeLineEndings } =
+      preferences.getAll()
 
     for (const { filePath, options, selected } of fileList) {
       if (this._openedFiles!.includes(filePath)) {
@@ -461,7 +465,8 @@ class EditorWindow extends BaseWindow {
       if (rootDirectory) this.openFolder(rootDirectory)
 
       const eol = preferences.getPreferredEol()
-      const { autoGuessEncoding, trimTrailingNewline, autoNormalizeLineEndings } = preferences.getAll()
+      const { autoGuessEncoding, trimTrailingNewline, autoNormalizeLineEndings } =
+        preferences.getAll()
 
       const fileOpenRequests: Promise<void>[] = []
       for (const tab of bufferState.tabs) {
