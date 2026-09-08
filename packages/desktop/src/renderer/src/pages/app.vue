@@ -66,7 +66,9 @@ import { useNotificationStore } from '@/store/notification'
 
 const AboutDialog = defineAsyncComponent(() => import('@/components/about/index.vue'))
 const CommandPalette = defineAsyncComponent(() => import('@/components/commandPalette/index.vue'))
-const ExportSettingDialog = defineAsyncComponent(() => import('@/components/exportSettings/index.vue'))
+const ExportSettingDialog = defineAsyncComponent(
+  () => import('@/components/exportSettings/index.vue')
+)
 const Rename = defineAsyncComponent(() => import('@/components/rename/index.vue'))
 const ImportModal = defineAsyncComponent(() => import('@/components/import/index.vue'))
 
@@ -110,10 +112,7 @@ const handleDragOver = (e: DragEvent): void => {
   if (!e.dataTransfer || !e.dataTransfer.types.length) return
 
   if (e.dataTransfer.types.indexOf('Files') >= 0) {
-    if (
-      e.dataTransfer.items.length === 1 &&
-      e.dataTransfer.items[0]!.type.indexOf('image') > -1
-    ) {
+    if (e.dataTransfer.items.length === 1 && e.dataTransfer.items[0]!.type.indexOf('image') > -1) {
       return
     }
 
@@ -150,6 +149,7 @@ onMounted(async () => {
   preferencesStore.LISTEN_TOGGLE_VIEW()
   editorStore.LISTEN_SCREEN_SHOT()
   editorStore.LISTEN_FOR_CLOSE()
+  editorStore.LISTEN_FOR_UPDATE_PREFLIGHT()
   editorStore.LISTEN_FOR_SAVE_AS()
   editorStore.LISTEN_FOR_MOVE_TO()
   editorStore.LISTEN_FOR_SAVE()

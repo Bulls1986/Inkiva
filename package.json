@@ -35,7 +35,8 @@
     "typecheck:watch": "pnpm --filter inkiva typecheck:watch",
     "check": "pnpm lint && pnpm typecheck",
     "gen-third-party": "tsx scripts/generateThirdPartyLicense.ts",
-    "validate-licenses": "tsx scripts/validateLicenses.ts"
+    "validate-licenses": "tsx scripts/validateLicenses.ts",
+    "verify-update-artifacts": "tsx scripts/verifyUpdateArtifacts.ts"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.29.7",

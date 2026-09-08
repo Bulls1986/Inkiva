@@ -59,6 +59,8 @@ export interface LaunchOptions {
   // should opt in — otherwise existing specs would silently ignore renderer
   // exceptions that previously surfaced as a dialog (a hidden regression risk).
   suppressErrorDialog?: boolean
+  /** Additional environment values for deterministic, opt-in E2E seams. */
+  env?: Record<string, string>
 }
 
 export const launchElectron = async(
@@ -75,6 +77,7 @@ export const launchElectron = async(
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v
   env.PERF_TESTING = 'true'
   if (options.suppressErrorDialog) env.MARKTEXT_ERROR_INTERACTION = '1'
+  Object.assign(env, options.env)
   const app = await _electron.launch({
     executablePath,
     args,
@@ -88,6 +91,42 @@ export const launchElectron = async(
   await new Promise((resolve) => setTimeout(resolve, 500))
   return { app, page }
 }
+
+export interface CapturedMessageBox {
+  message?: string
+  detail?: string
+}
+
+export const installMessageBoxCapture = async(app: ElectronApplication): Promise<void> => {
+  await app.evaluate(({ dialog }) => {
+    const globalState = global as unknown as {
+      __mt_message_boxes__?: CapturedMessageBox[]
+    }
+    if (globalState.__mt_message_boxes__) return
+
+    const calls: CapturedMessageBox[] = []
+    globalState.__mt_message_boxes__ = calls
+    ;(dialog as unknown as {
+      showMessageBox: (...args: unknown[]) => Promise<unknown>
+    }).showMessageBox = async(...args: unknown[]) => {
+      const options = (args.length === 1 ? args[0] : args[1]) as {
+        message?: unknown
+        detail?: unknown
+      }
+      calls.push({
+        message: typeof options?.message === 'string' ? options.message : undefined,
+        detail: typeof options?.detail === 'string' ? options.detail : undefined
+      })
+      return { response: 0, checkboxChecked: false }
+    }
+  })
+}
+
+export const getMessageBoxCalls = async(app: ElectronApplication): Promise<CapturedMessageBox[]> =>
+  await app.evaluate(() => {
+    const globalState = global as unknown as { __mt_message_boxes__?: CapturedMessageBox[] }
+    return (globalState.__mt_message_boxes__ ?? []).slice()
+  })
 
 // Capture renderer-process errors that would otherwise pop the "Unexpected
 // error" dialog. We attach a parallel listener to the same IPC channel

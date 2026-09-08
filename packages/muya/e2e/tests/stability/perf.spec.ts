@@ -23,13 +23,12 @@ import { editor } from '../helpers/selectors';
  *   - `test.setTimeout(120_000)` below — the ceiling for the whole test
  *     body (setContent + scroll + assertions). Wide enough to ride out
  *     CI variance and still surface a runaway regression as a timeout.
- *   - `expect(result.ms).toBeLessThan(60_000)` further down — the actual
- *     setContent perf budget. This is the assertion that catches a 5-10×
- *     regression on the render path. A future Phase-5 nightly job can
- *     tighten this against a production bundle.
+ *   - the budget assertion further down — the actual setContent perf guard.
+ *     The dev-server baseline is 60s locally and 90s on shared CI runners;
+ *     a future production-bundle lane can tighten both budgets.
  *
- * Tagged @perf so a future Phase-2 CI config can `--grep-invert "@perf"`
- * for the PR-time runs and keep this in a nightly schedule.
+ * Tagged @perf so the PR lane can use `--grep-invert "@perf"` while the
+ * scheduled/manual performance lane keeps this coverage active.
  */
 test.describe('stability / perf smoke @perf', () => {
     // Per-spec ceiling: 4× the assertion budget below, so an actual
@@ -56,8 +55,9 @@ test.describe('stability / perf smoke @perf', () => {
             return { ms: t1 - t0, n: N };
         });
 
-        // Wide budget — see file header. Tighten once we have a baseline.
-        expect(result.ms, `setContent(${result.n} paragraphs) took ${result.ms.toFixed(0)}ms`).toBeLessThan(60_000);
+        const budget = process.env.CI ? 90_000 : 60_000;
+        expect(result.ms, `setContent(${result.n} paragraphs) took ${result.ms.toFixed(0)}ms (budget ${budget}ms)`)
+            .toBeLessThan(budget);
 
         // Confirm the DOM actually rendered the count we asked for.
         // `count()` walks the page synchronously — we use it once here

@@ -28,7 +28,8 @@ import type {
   LineEnding,
   MarkdownDocument,
   PageOptions,
-  TabOptions
+  TabOptions,
+  UnsavedFile
 } from '@shared/types/files'
 
 // ----------------------------------------------------------------------------
@@ -117,7 +118,12 @@ interface AffiliationEntry {
 }
 
 interface SelectionChange {
-  start: { key: string; offset: number; block?: { text?: string; functionType?: string }; type?: string }
+  start: {
+    key: string
+    offset: number
+    block?: { text?: string; functionType?: string }
+    type?: string
+  }
   end: { key: string; offset: number; block?: { functionType?: string }; type?: string }
   affiliation?: AffiliationEntry[]
   hasFrontMatter?: boolean
@@ -509,6 +515,24 @@ export const useEditorStore = defineStore('editor', {
       bus.emit('flush-active-editor')
     },
 
+    GET_UNSAVED_FILES(): UnsavedFile[] {
+      const projectStore = useProjectStore()
+      const defaultPath = getRootFolderFromState(projectStore)
+      return this.tabs
+        .filter((file) => !file.isSaved)
+        .map((file) => {
+          const { id, filename, pathname, markdown } = file
+          return {
+            id,
+            filename,
+            pathname,
+            markdown,
+            options: deepClone(getOptionsFromState(file)),
+            defaultPath
+          }
+        })
+    },
+
     FILE_SAVE(): void {
       if (!this.currentFile) return
       this.flushActiveEditor()
@@ -643,7 +667,6 @@ export const useEditorStore = defineStore('editor', {
     },
 
     LISTEN_FOR_CLOSE(): void {
-      const projectStore = useProjectStore()
       const preferencesStore = usePreferencesStore()
       window.electron.ipcRenderer.on('mt::ask-for-close', () => {
         sendBufferedState()
@@ -651,20 +674,7 @@ export const useEditorStore = defineStore('editor', {
             console.error('Failed to update buffered state before closing', err)
           })
           .then(() => {
-            const unsavedFiles = this.tabs
-              .filter((file) => !file.isSaved)
-              .map((file) => {
-                const { id, filename, pathname, markdown } = file
-                const options = getOptionsFromState(file)
-                return {
-                  id,
-                  filename,
-                  pathname,
-                  markdown,
-                  options,
-                  defaultPath: getRootFolderFromState(projectStore)
-                }
-              })
+            const unsavedFiles = this.GET_UNSAVED_FILES()
 
             if (unsavedFiles.length && preferencesStore.startUpAction !== 'restoreAll') {
               // Ignore unsaved files when user has chosen to restore all on startup, as they will be restored anyway.
@@ -673,6 +683,23 @@ export const useEditorStore = defineStore('editor', {
               window.electron.ipcRenderer.send('mt::close-window')
             }
           })
+      })
+    },
+
+    LISTEN_FOR_UPDATE_PREFLIGHT(): void {
+      window.electron.ipcRenderer.on('mt::update-preflight-request', async(_, requestId) => {
+        this.flushActiveEditor()
+        try {
+          await sendBufferedState()
+        } catch (error) {
+          console.error('Failed to update buffered state before update install', error)
+        }
+
+        window.electron.ipcRenderer.send(
+          'mt::update-preflight-response',
+          requestId,
+          deepClone(this.GET_UNSAVED_FILES())
+        )
       })
     },
 
@@ -872,14 +899,8 @@ export const useEditorStore = defineStore('editor', {
             project: projectStore
           })
         )
-        bus.emit(
-          'cmd::register-command',
-          new LineEndingCommand(this)
-        )
-        bus.emit(
-          'cmd::register-command',
-          new TrailingNewlineCommand(this)
-        )
+        bus.emit('cmd::register-command', new LineEndingCommand(this))
+        bus.emit('cmd::register-command', new TrailingNewlineCommand(this))
 
         setTimeout(() => {
           window.electron.ipcRenderer.send('mt::request-keybindings')
@@ -1108,8 +1129,7 @@ export const useEditorStore = defineStore('editor', {
       this.updateTabIdToIndex() // Update before sending it out to prevent stale mappings.
 
       if (this.currentFile == null && this.tabs.length > 0) {
-        this.currentFile =
-          this.tabs[tabIndex] ?? this.tabs[tabIndex - 1] ?? this.tabs[0] ?? null
+        this.currentFile = this.tabs[tabIndex] ?? this.tabs[tabIndex - 1] ?? this.tabs[0] ?? null
         if (this.currentFile && typeof this.currentFile.markdown === 'string') {
           const { id, markdown, cursor, history, pathname, scrollTop, blocks, muyaIndexCursor } =
             this.currentFile
@@ -1242,7 +1262,10 @@ export const useEditorStore = defineStore('editor', {
     NEW_UNTITLED_TAB({
       markdown: markdownString,
       selected
-    }: { markdown?: string; selected?: boolean }): void {
+    }: {
+      markdown?: string
+      selected?: boolean
+    }): void {
       if (selected == null) {
         selected = true
       }
@@ -1799,10 +1822,7 @@ const getRootFolderFromState = (projectStore: ProjectStoreLike): string => {
  * @param markdown The text to trim.
  * @param trimTrailingNewlineOption The option how we should trim the final newlines.
  */
-const adjustTrailingNewlines = (
-  markdown: string,
-  trimTrailingNewlineOption: number
-): string => {
+const adjustTrailingNewlines = (markdown: string, trimTrailingNewlineOption: number): string => {
   if (!markdown) {
     return ''
   }
@@ -1975,9 +1995,7 @@ const createApplicationMenuState = ({
 /**
  * Creates a object that contains the formats selection state.
  */
-export const createSelectionFormatState = (
-  formats: SelectionFormat[]
-): Record<string, boolean> => {
+export const createSelectionFormatState = (formats: SelectionFormat[]): Record<string, boolean> => {
   const state: Record<string, boolean> = {}
   for (const item of formats) {
     // Underline/superscript/subscript/highlight are carried as `html_tag`

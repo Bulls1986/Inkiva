@@ -11,6 +11,7 @@ export default function(keybindings: Keybindings): MenuItemConstructorOptions {
     label: t('menu.marktext.title'),
     submenu: [
       {
+        id: 'aboutMenuItem',
         label: t('menu.marktext.about'),
         click(_menuItem, focusedWindow) {
           showAboutDialog(focusedWindow as BrowserWindow | undefined)

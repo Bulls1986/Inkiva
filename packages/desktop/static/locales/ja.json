@@ -93,6 +93,7 @@
       "followUs": "フォローする",
       "support": "Inkivaを支援",
       "license": "ライセンス",
+      "checkForUpdates": "更新を確認",
       "about": "について"
     },
     "marktext": {
@@ -902,6 +903,22 @@
     "unexpectedErrorWithMessage": "予期しないエラーメッセージ",
     "unexpectedMainProcess": "予期しないメインプロセスエラー",
     "unexpectedRendererProcess": "予期しないレンダラープロセスエラー"
+  },
+  "update": {
+    "checking": "Checking for updates…",
+    "upToDate": "Inkiva {version} is up to date.",
+    "available": "Inkiva {version} is available.",
+    "downloading": "Downloading update…",
+    "ready": "The update is ready to install.",
+    "restartNow": "Restart and update",
+    "later": "Later",
+    "saveAndRestart": "Save and restart",
+    "saveRequired": "Save changes before installing the update",
+    "checkFailed": "Unable to check for updates.",
+    "downloadFailed": "Unable to download the update.",
+    "openRelease": "Open release page",
+    "macosManualUpdate": "Download and install the update from the release page.",
+    "disabled": "Stable updates are unavailable for this build."
   },
   "notifications": {
     "defaultMessage": "デフォルトメッセージ",

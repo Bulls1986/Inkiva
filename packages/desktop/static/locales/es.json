@@ -93,6 +93,7 @@
       "followUs": "Síguenos",
       "support": "Apoyar Inkiva",
       "license": "Licencia",
+      "checkForUpdates": "Buscar actualizaciones",
       "about": "Acerca de"
     },
     "marktext": {
@@ -902,6 +903,22 @@
     "unexpectedErrorWithMessage": "Error inesperado con mensaje {message}",
     "unexpectedMainProcess": "Error inesperado del proceso principal",
     "unexpectedRendererProcess": "Error inesperado del proceso de renderizado"
+  },
+  "update": {
+    "checking": "Checking for updates…",
+    "upToDate": "Inkiva {version} is up to date.",
+    "available": "Inkiva {version} is available.",
+    "downloading": "Downloading update…",
+    "ready": "The update is ready to install.",
+    "restartNow": "Restart and update",
+    "later": "Later",
+    "saveAndRestart": "Save and restart",
+    "saveRequired": "Save changes before installing the update",
+    "checkFailed": "Unable to check for updates.",
+    "downloadFailed": "Unable to download the update.",
+    "openRelease": "Open release page",
+    "macosManualUpdate": "Download and install the update from the release page.",
+    "disabled": "Stable updates are unavailable for this build."
   },
   "notifications": {
     "defaultMessage": "Mensaje predeterminado",

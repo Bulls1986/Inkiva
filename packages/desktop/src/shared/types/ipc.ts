@@ -33,6 +33,7 @@ import type {
 import type { BufferedState as BufferedStateType } from './bufferedState'
 import type { MenuTemplate, MenuPopupPosition } from './menu'
 import type { ShortcutStyle } from './preferences'
+import type { UpdateStatus } from '../../main/update/types'
 
 export interface KeybindingPreferences {
   defaultKeybindings: Map<string, string>
@@ -112,6 +113,7 @@ export interface IpcSendChannels {
   'menu-clear-recently-used': []
   'mt::add-recently-used-document': [filePath: string]
   'mt::app-try-quit': []
+  'mt::check-for-update': []
   'mt::ask-for-image-auto-path': [payload: unknown]
   'mt::ask-for-modify-image-folder-path': [imagePath?: string]
   'mt::ask-for-open-project-in-sidebar': []
@@ -139,7 +141,9 @@ export interface IpcSendChannels {
   'mt::open-file-by-window-id': [windowId: number, filePath: string, options?: unknown]
   'mt::open-keybindings-config': []
   'mt::open-setting-window': []
-  'mt::rename': [payload: { id: string; pathname: string; newPathname: string; currentFile?: unknown }]
+  'mt::rename': [
+    payload: { id: string; pathname: string; newPathname: string; currentFile?: unknown }
+  ]
   'mt::request-keybindings': []
   'mt::set-editor-format-menus-enabled': [windowId: number, enabled: boolean]
   'mt::response-export': [
@@ -179,6 +183,9 @@ export interface IpcSendChannels {
   'mt::shell::open-external': [url: string]
   'mt::shell::show-item': [fullPath: string]
   'mt::update-format-menu': [windowId: number, state: Record<string, boolean>]
+  'mt::restart-to-update': []
+  'mt::open-update-release': []
+  'mt::update-preflight-response': [requestId: string, files: UnsavedFile[]]
   'mt::update-line-ending-menu': [windowId: number, lineEnding: LineEnding]
   'mt::update-sidebar-menu': [windowId: number, visible: boolean]
   'mt::view-layout-changed': [windowId: number, layout: unknown]
@@ -282,6 +289,8 @@ export interface IpcMainEventChannels {
   'mt::toggle-view-layout-entry': [entry: string]
   'mt::toggle-view-mode-entry': [entry: string]
   'mt::update-file': [payload: { type: 'add' | 'change' | 'unlink'; change: FileChangeDetail }]
+  'mt::update-preflight-request': [requestId: string]
+  'mt::update-state-changed': [status: UpdateStatus]
   'mt::update-object-tree': [payload: unknown]
   'mt::user-preference': [partial: unknown]
   'mt::window-active-status': [active: boolean]
