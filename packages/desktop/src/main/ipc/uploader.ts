@@ -195,7 +195,7 @@ export const registerUploaderHandlers = (): void => {
 
   ipcMain.handle('mt::uploader::test-picgo-app', async(_event, picgoAppPath: string) => {
     return uploadFromBuffer(
-      { data: PICGO_TEST_IMAGE, name: 'marktext-picgo-test.png' },
+      { data: PICGO_TEST_IMAGE, name: 'inkiva-picgo-test.png' },
       { currentUploader: 'picgoApp', cliScript: '', picgoAppPath }
     )
   })

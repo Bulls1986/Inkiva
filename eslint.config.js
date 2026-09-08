@@ -63,8 +63,8 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.node,
-        MARKTEXT_VERSION_STRING: 'readonly',
-        MARKTEXT_VERSION: 'readonly',
+        INKIVA_VERSION_STRING: 'readonly',
+        INKIVA_VERSION: 'readonly',
         __static: 'readonly'
       }
     },
@@ -152,8 +152,8 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.node,
-        MARKTEXT_VERSION_STRING: 'readonly',
-        MARKTEXT_VERSION: 'readonly',
+        INKIVA_VERSION_STRING: 'readonly',
+        INKIVA_VERSION: 'readonly',
         __static: 'readonly'
       }
     },

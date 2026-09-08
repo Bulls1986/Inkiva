@@ -497,7 +497,7 @@ export const useEditorStore = defineStore('editor', {
       if (!this.currentFile) return
       const { lineEnding } = this.currentFile
       if (lineEnding) {
-        const { windowId } = window.marktext?.env ?? { windowId: -1 }
+        const { windowId } = window.inkiva?.env ?? { windowId: -1 }
         window.electron.ipcRenderer.send(
           'mt::update-line-ending-menu',
           windowId,
@@ -1536,7 +1536,7 @@ export const useEditorStore = defineStore('editor', {
         }
       }
 
-      const { windowId } = window.marktext?.env ?? { windowId: -1 }
+      const { windowId } = window.inkiva?.env ?? { windowId: -1 }
       window.electron.ipcRenderer.send(
         'mt::editor-selection-changed',
         windowId,
@@ -1560,7 +1560,7 @@ export const useEditorStore = defineStore('editor', {
     },
 
     SELECTION_FORMATS(formats: SelectionFormat[]): void {
-      const { windowId } = window.marktext?.env ?? { windowId: -1 }
+      const { windowId } = window.inkiva?.env ?? { windowId: -1 }
       window.electron.ipcRenderer.send(
         'mt::update-format-menu',
         windowId,

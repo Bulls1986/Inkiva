@@ -15,8 +15,8 @@ import { t } from './i18n'
 type ErrorType = 'main' | 'renderer'
 type Logger = (s: string) => void
 
-const EXIT_ON_ERROR = !!process.env.MARKTEXT_EXIT_ON_ERROR
-const SHOW_ERROR_DIALOG = !process.env.MARKTEXT_ERROR_INTERACTION
+const EXIT_ON_ERROR = !!process.env.INKIVA_EXIT_ON_ERROR
+const SHOW_ERROR_DIALOG = !process.env.INKIVA_ERROR_INTERACTION
 const ERROR_MSG_MAIN = (): string => t('error.unexpectedMainProcess')
 const ERROR_MSG_RENDERER = (): string => t('error.unexpectedRendererProcess')
 
@@ -30,7 +30,7 @@ const getOSInformation = (): string => {
 const exceptionToString = (error: Error, type: ErrorType): string => {
   const { message, stack } = error
   return (
-    `Version: ${MARKTEXT_VERSION_STRING || app.getVersion()}\n` +
+    `Version: ${INKIVA_VERSION_STRING || app.getVersion()}\n` +
     `OS: ${getOSInformation()}\n` +
     `Type: ${type}\n` +
     `Date: ${new Date().toUTCString()}\n` +
@@ -54,7 +54,7 @@ const handleError = async(title: string, error: Error, type: ErrorType): Promise
     return
   } else if (
     !SHOW_ERROR_DIALOG ||
-    ((global as unknown as { MARKTEXT_IS_STABLE?: boolean }).MARKTEXT_IS_STABLE &&
+    ((global as unknown as { INKIVA_IS_STABLE?: boolean }).INKIVA_IS_STABLE &&
       type === 'renderer')
   ) {
     return
@@ -95,7 +95,7 @@ ${title}.
 
 ### Version
 
-Inkiva: ${MARKTEXT_VERSION_STRING}
+Inkiva: ${INKIVA_VERSION_STRING}
 Operating system: ${getOSInformation()}`
         )
         break

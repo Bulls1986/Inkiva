@@ -180,9 +180,9 @@ class Keybindings {
           electronLocalshortcut.setKeyboardLayout(layout, keymap)
 
           keyboardLayoutMonitor.addListener(({ layout: nextLayout, keymap: nextKeymap }: KeyboardInfo) => {
-            const globalDebug = (globalThis as typeof globalThis & { MARKTEXT_DEBUG?: boolean })
-              .MARKTEXT_DEBUG
-            if (globalDebug && process.env.MARKTEXT_DEBUG_KEYBOARD) {
+            const globalDebug = (globalThis as typeof globalThis & { INKIVA_DEBUG?: boolean })
+              .INKIVA_DEBUG
+            if (globalDebug && process.env.INKIVA_DEBUG_KEYBOARD) {
               console.log('[DEBUG] Keyboard layout changed:\n', nextLayout)
             }
             electronLocalshortcut.setKeyboardLayout(nextLayout, nextKeymap)
@@ -206,8 +206,8 @@ class Keybindings {
   }
 
   _loadLocalKeybindings(): void {
-    const safeMode = (globalThis as typeof globalThis & { MARKTEXT_SAFE_MODE?: boolean })
-      .MARKTEXT_SAFE_MODE
+    const safeMode = (globalThis as typeof globalThis & { INKIVA_SAFE_MODE?: boolean })
+      .INKIVA_SAFE_MODE
     if (safeMode || !isFile2(this.configPath)) {
       return
     }
