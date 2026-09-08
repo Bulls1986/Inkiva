@@ -12,6 +12,8 @@ interface LayoutPartial {
 }
 
 export const DEFAULT_RIGHT_COLUMN = 'toc'
+export const DEFAULT_SIDE_BAR_WIDTH = 270
+export const MIN_SIDE_BAR_WIDTH = 220
 
 interface SetLayoutOptions {
   scheduleBufferUpdate?: boolean
@@ -19,7 +21,9 @@ interface SetLayoutOptions {
 
 const normalizeSideBarWidth = (width: unknown): number => {
   const numericWidth = Number(width)
-  return Number.isFinite(numericWidth) ? Math.max(numericWidth, 220) : 280
+  return Number.isFinite(numericWidth)
+    ? Math.max(numericWidth, MIN_SIDE_BAR_WIDTH)
+    : DEFAULT_SIDE_BAR_WIDTH
 }
 
 interface BufferedLayout {
@@ -33,9 +37,6 @@ const createBufferedLayoutState = (state: unknown): BufferedLayout | null => {
   if (!state || typeof state !== 'object') return null
   const s = state as LayoutPartial
 
-  // Pass through `rightColumn` (may be undefined). The pre-migration JS did
-  // not coerce to 'files' here — RESTORE_BUFFERED_STATE then routes through
-  // SET_LAYOUT which only assigns when the key is defined.
   return {
     rightColumn: s.rightColumn,
     showSideBar: !!s.showSideBar,
@@ -53,10 +54,6 @@ export const useLayoutStore = defineStore('layout', () => {
   const showTabBar = ref(false)
   const sideBarWidth = ref<number>(initialSideBarWidth)
 
-  // Actual rendered sidebar width. `sideBarWidth` is the right-column width
-  // (clamped to ≥220 by `normalizeSideBarWidth`); when `rightColumn` is empty
-  // the sidebar collapses to its 45px icon strip. Consumers that need to
-  // subtract the sidebar from viewport space must use this, not the raw ref.
   const effectiveSideBarWidth = computed<number>(() => {
     if (!showSideBar.value) return 0
     if (!rightColumn.value) return 45
@@ -80,9 +77,6 @@ export const useLayoutStore = defineStore('layout', () => {
         value: !!layout.showSideBar
       })
     }
-    // Match the pre-migration `Object.assign(this, layout)` semantics: assign
-    // each known field as-is (no normalization here; SET_SIDE_BAR_WIDTH owns
-    // sideBarWidth's normalization), and skip unknown keys silently.
     if (layout.rightColumn !== undefined) rightColumn.value = layout.rightColumn
     if (layout.showSideBar !== undefined) showSideBar.value = !!layout.showSideBar
     if (layout.showTabBar !== undefined) showTabBar.value = !!layout.showTabBar
