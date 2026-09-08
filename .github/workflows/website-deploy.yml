@@ -10,6 +10,8 @@ on:
       - 'pnpm-lock.yaml'
       - 'package.json'
       - '.github/workflows/website-deploy.yml'
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
@@ -40,6 +42,8 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Build static website
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: pnpm --filter inkiva-website run build:static
 
       - name: Publish to GitHub Pages
@@ -52,4 +56,3 @@ jobs:
           cname: www.inkiva.net
           force_orphan: true
           commit_message: Deploy Inkiva website from ${{ github.sha }}
-
