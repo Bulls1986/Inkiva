@@ -20,6 +20,10 @@ interface SetLayoutOptions {
 }
 
 const normalizeSideBarWidth = (width: unknown): number => {
+  if (width === null || width === undefined || width === '') {
+    return DEFAULT_SIDE_BAR_WIDTH
+  }
+
   const numericWidth = Number(width)
   return Number.isFinite(numericWidth)
     ? Math.max(numericWidth, MIN_SIDE_BAR_WIDTH)
