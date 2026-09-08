@@ -80,6 +80,7 @@ test.describe('cross-cell table selection', () => {
         }).toBe(4);
 
         const selectedCell = page.locator(`${editor.table} td.mu-table-cell-selected`).first();
+        const cellContent = selectedCell.locator('.mu-table-cell-content').first();
         const overlay = await selectedCell.evaluate((cell) => {
             const backgroundColor = getComputedStyle(cell, '::before').backgroundColor;
             const colorValue = backgroundColor.slice(
@@ -106,6 +107,13 @@ test.describe('cross-cell table selection', () => {
         expect(overlay.alpha).toBeGreaterThan(0);
         expect(overlay.alpha).toBeLessThan(1);
         expect(overlay.text).toContain('a1');
+
+        const contentLayer = await cellContent.evaluate((content) => ({
+            position: getComputedStyle(content).position,
+            zIndex: getComputedStyle(content).zIndex,
+        }));
+        expect(contentLayer.position).toBe('relative');
+        expect(Number(contentLayer.zIndex)).toBeGreaterThan(0);
     });
 
     test('copy yields only the selected sub-rectangle as a GFM table', async ({ browserName, context, page }) => {
