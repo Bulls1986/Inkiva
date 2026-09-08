@@ -22,5 +22,10 @@ jobs:
       - name: Run Website Unit Tests
         run: pnpm --filter inkiva-website test
 
+      - name: Build Website
+        env:
+          INKIVA_RELEASE_VERSION_LABEL: v0.0.0-test
+        run: pnpm --filter inkiva-website run build:static
+
       - name: Run Unit Tests
         run: pnpm test
