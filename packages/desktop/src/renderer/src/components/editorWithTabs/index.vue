@@ -1,8 +1,5 @@
 <template>
-  <div
-    class="editor-with-tabs"
-    :style="{ 'max-width': `calc(100vw - ${effectiveSideBarWidth}px)` }"
-  >
+  <div class="editor-with-tabs">
     <tabs v-show="showTabBar" />
     <div class="container">
       <editor
@@ -24,8 +21,6 @@
 
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
-import { useLayoutStore } from '@/store/layout'
-import { storeToRefs } from 'pinia'
 import Tabs from './tabs.vue'
 import Editor from './editor.vue'
 import TabNotifications from './notifications.vue'
@@ -43,8 +38,6 @@ defineProps<{
   textDirection: string
   platform: string
 }>()
-
-const { effectiveSideBarWidth } = storeToRefs(useLayoutStore())
 </script>
 
 <style scoped>
@@ -52,6 +45,10 @@ const { effectiveSideBarWidth } = storeToRefs(useLayoutStore())
   position: relative;
   height: 100%;
   flex: 1;
+  min-width: 0;
+  /* The in-flow sidebar is already accounted for by the flex parent. When
+     the sidebar becomes an overlay it leaves that flow, so an explicit
+     `100vw - sidebarWidth` cap would incorrectly shrink the editor. */
   display: flex;
   flex-direction: column;
 
@@ -59,6 +56,7 @@ const { effectiveSideBarWidth } = storeToRefs(useLayoutStore())
   background: var(--editorBgColor);
   & > .container {
     flex: 1;
+    min-width: 0;
     overflow: hidden;
   }
 }

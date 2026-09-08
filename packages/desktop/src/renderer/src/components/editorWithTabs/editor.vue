@@ -2047,6 +2047,7 @@ onBeforeUnmount(() => {
      paint above modal dialogs rendered outside the editor. */
   isolation: isolate;
   flex: 1;
+  min-width: 0;
   color: var(--editorColor);
 }
 
@@ -2085,6 +2086,7 @@ onBeforeUnmount(() => {
 
 .editor-component {
   height: 100%;
+  min-width: 0;
   overflow: auto;
   box-sizing: border-box;
   cursor: default;
