@@ -5,11 +5,19 @@ import {
   getMarkdownContent,
   enterSourceMode,
   exitSourceMode,
-  typeIntoEditor,
   placeCaretInEditor,
   setSourceMarkdown,
   sendIpcToRenderer
 } from './helpers'
+
+// Muya's input -> model/json-change pipeline is asynchronous. Zero-delay
+// synthetic typing can switch into source mode before the last key has been
+// committed on slower CI runners, so keep real-keyboard E2E input paced.
+const typeIntoEditor = async(page: Page, text: string): Promise<void> => {
+  await page.click('.editor-component', { timeout: 5000 })
+  await page.keyboard.type(text, { delay: 30 })
+  await page.waitForTimeout(150)
+}
 
 test.describe('Editor input and source-mode roundtrip', () => {
   let app: ElectronApplication
