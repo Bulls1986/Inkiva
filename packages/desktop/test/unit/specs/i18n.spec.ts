@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest'
 
 interface MockI18nUtils {
@@ -7,6 +9,18 @@ interface MockI18nUtils {
 // Window.i18nUtils is required in the runtime contextBridge typing, but in
 // this unit test we install a mock with `vi.fn` and remove it between specs.
 const win = window as unknown as { i18nUtils?: MockI18nUtils }
+
+describe('Simplified Chinese menu translations', () => {
+  it('uses a clean Theme menu label without a literal mnemonic suffix', () => {
+    const localePath = resolve(process.cwd(), 'static/locales/zh-CN.json')
+    const locale = JSON.parse(readFileSync(localePath, 'utf8')) as {
+      menu: { theme: { theme: string } }
+    }
+
+    expect(locale.menu.theme.theme).toBe('主题')
+    expect(locale.menu.theme.theme).not.toMatch(/\(&[A-Za-z]\)$/)
+  })
+})
 
 describe('renderer i18n language loading', () => {
   beforeEach(() => {
