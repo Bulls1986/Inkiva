@@ -24,6 +24,11 @@ test('restores multiple recovery files into one deduplicated editor window', asy
   const editorStatesDir = path.join(userDataDir, 'editorStates')
   fs.mkdirSync(documentsDir, { recursive: true })
   fs.mkdirSync(editorStatesDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(userDataDir, 'preferences.json'),
+    JSON.stringify({ startUpAction: 'restoreAll' }),
+    'utf8'
+  )
 
   const firstPath = path.join(documentsDir, 'first.md')
   const secondPath = path.join(documentsDir, 'second.md')
@@ -53,7 +58,24 @@ test('restores multiple recovery files into one deduplicated editor window', asy
   })
 
   try {
-    await waitForEditor(launched.page)
+    try {
+      await waitForEditor(launched.page)
+    } catch (error) {
+      const snapshot = await launched.page.evaluate(() => ({
+        readyState: document.readyState,
+        title: document.title,
+        editorComponent: !!document.querySelector('.editor-component'),
+        editorWithTabs: !!document.querySelector('.editor-with-tabs'),
+        recent: !!document.querySelector('.recent'),
+        tabCount: document.querySelectorAll('.tabs-container > li').length,
+        bodyText: document.body.innerText.slice(0, 500)
+      }))
+      const windowCount = await launched.app.evaluate(
+        ({ BrowserWindow }) => BrowserWindow.getAllWindows().length
+      )
+      console.error('[restore-buffer-store] startup snapshot', { snapshot, windowCount })
+      throw error
+    }
     await waitForMenuReady(launched.app)
 
     await expect
