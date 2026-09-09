@@ -912,7 +912,7 @@
     "checking": "正在检查更新…",
     "upToDate": "Inkiva 已是最新版本（{version}）。",
     "available": "Inkiva 有新版本可用（{version}）。",
-    "downloading": "正在下载更新…",
+    "downloading": "正在后台下载更新…",
     "ready": "更新已准备好安装。",
     "restartNow": "立即重启并更新",
     "later": "稍后",

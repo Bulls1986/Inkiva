@@ -1,6 +1,7 @@
 import type { ReleaseCandidate, UpdateCheckResult, UpdateProvider } from './types'
 
 export const E2E_UPDATE_SCENARIOS = [
+  'stable-update',
   'no-release',
   'prerelease-only',
   'draft-only',
@@ -9,13 +10,14 @@ export const E2E_UPDATE_SCENARIOS = [
   'missing-artifact'
 ] as const
 
-export type E2EUpdateScenario = typeof E2E_UPDATE_SCENARIOS[number]
+export type E2EUpdateScenario = (typeof E2E_UPDATE_SCENARIOS)[number]
 
 export const isE2EUpdateScenario = (value: string | undefined): value is E2EUpdateScenario =>
   E2E_UPDATE_SCENARIOS.includes(value as E2EUpdateScenario)
 
 interface E2EUpdateState {
   checkCalls: number
+  downloadCalls: number
   installCalls: number
 }
 
@@ -23,7 +25,11 @@ const getE2EUpdateState = (): E2EUpdateState => {
   const globalState = globalThis as typeof globalThis & {
     __inkiva_e2e_update__?: E2EUpdateState
   }
-  return (globalState.__inkiva_e2e_update__ ??= { checkCalls: 0, installCalls: 0 })
+  return (globalState.__inkiva_e2e_update__ ??= {
+    checkCalls: 0,
+    downloadCalls: 0,
+    installCalls: 0
+  })
 }
 
 const candidate = (tagName: string, extra: Partial<ReleaseCandidate> = {}): ReleaseCandidate => ({
@@ -59,10 +65,20 @@ export class E2EUpdateProvider implements UpdateProvider {
         return { candidates: [candidate('v1.1.0', { draft: true })] }
       case 'malformed-release':
         return { candidates: [candidate('not-a-semver')] }
+      case 'stable-update':
+        return { candidates: [candidate('v1.1.0')] }
       case 'no-release':
       default:
         return { candidates: [] }
     }
+  }
+
+  async downloadUpdate(onProgress: (progress: number) => void): Promise<void> {
+    if (this._scenario !== 'stable-update') return
+    getE2EUpdateState().downloadCalls += 1
+    onProgress(35)
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    onProgress(100)
   }
 
   quitAndInstall(): void {

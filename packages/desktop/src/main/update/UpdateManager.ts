@@ -13,6 +13,7 @@ export class UpdateManager {
   private _status: UpdateStatus
   private _latestRelease: StableRelease | undefined
   private _checkPromise: Promise<UpdateStatus> | undefined
+  private _downloadPromise: Promise<UpdateStatus> | undefined
   private _restartPromise: Promise<boolean> | undefined
 
   constructor(options: UpdateManagerOptions) {
@@ -43,6 +44,7 @@ export class UpdateManager {
       return this.status
     }
     if (this._status.state === 'downloading') return this.status
+    if (this._status.state === 'available') return this.status
     if (this._checkPromise) return this._checkPromise
 
     if (source === 'background' && this._isWithinBackgroundCacheWindow()) {
@@ -52,9 +54,29 @@ export class UpdateManager {
     const promise = this._check(source)
     this._checkPromise = promise
     try {
-      return await promise
+      const status = await promise
+      if (source === 'background' && status.state === 'available') {
+        void this.downloadUpdate()
+      }
+      return status
     } finally {
       if (this._checkPromise === promise) this._checkPromise = undefined
+    }
+  }
+
+  async downloadUpdate(): Promise<UpdateStatus> {
+    if (this._status.state === 'ready-to-install') return this.status
+    if (this._status.state !== 'available' || !this._provider?.downloadUpdate) {
+      return this.status
+    }
+    if (this._downloadPromise) return this._downloadPromise
+
+    const promise = this._download()
+    this._downloadPromise = promise
+    try {
+      return await promise
+    } finally {
+      if (this._downloadPromise === promise) this._downloadPromise = undefined
     }
   }
 
@@ -115,24 +137,39 @@ export class UpdateManager {
         releaseUrl: release.releaseUrl,
         downloadProgress: undefined
       })
+      return this.status
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      log.warn(`Update NETWORK_ERROR: ${errorMessage}`)
+      this._setStatus({ state: 'error', errorCode: 'NETWORK_ERROR', errorMessage })
+      return this.status
+    }
+  }
 
-      if (!this._provider.downloadUpdate) return this.status
+  private async _download(): Promise<UpdateStatus> {
+    const provider = this._provider
+    if (!provider?.downloadUpdate) return this.status
 
-      this._setStatus({ state: 'downloading', downloadProgress: 0 })
-      await this._provider.downloadUpdate((progress) => {
+    this._setStatus({
+      state: 'downloading',
+      errorCode: undefined,
+      errorMessage: undefined,
+      downloadProgress: 0
+    })
+
+    try {
+      await provider.downloadUpdate((progress) => {
         this._status = {
           ...this._status,
           downloadProgress: Math.min(100, Math.max(0, progress))
         }
       })
-
       this._setStatus({ state: 'ready-to-install', downloadProgress: 100 })
       return this.status
     } catch (error) {
-      const errorCode = this._status.state === 'downloading' ? 'DOWNLOAD_ERROR' : 'NETWORK_ERROR'
       const errorMessage = error instanceof Error ? error.message : String(error)
-      log.warn(`Update ${errorCode}: ${errorMessage}`)
-      this._setStatus({ state: 'error', errorCode, errorMessage })
+      log.warn(`Update DOWNLOAD_ERROR: ${errorMessage}`)
+      this._setStatus({ state: 'error', errorCode: 'DOWNLOAD_ERROR', errorMessage })
       return this.status
     }
   }

@@ -20,7 +20,7 @@ class MemoryUpdateStore {
 }
 
 class FakeProvider implements UpdateProvider {
-  readonly autoDownload = true
+  readonly autoDownload = false
   checkCalls = 0
   downloadCalls = 0
   installCalls = 0
@@ -150,7 +150,7 @@ describe('UpdateManager', () => {
     expect(manager.status.state).toBe('up-to-date')
   })
 
-  it('downloads a stable update and reaches ready-to-install', async() => {
+  it('reports a stable update without downloading during a manual check', async() => {
     const { manager, provider } = createManager()
     provider.result = {
       candidates: [
@@ -159,7 +159,23 @@ describe('UpdateManager', () => {
       ]
     }
 
+    await expect(manager.checkForUpdate('manual')).resolves.toMatchObject({
+      state: 'available',
+      currentVersion: '1.0.0',
+      latestVersion: '1.1.0',
+      checkSource: 'manual'
+    })
+
+    expect(provider.downloadCalls).toBe(0)
+    expect(manager.status.state).toBe('available')
+  })
+
+  it('downloads a stable update only after the caller starts it', async() => {
+    const { manager, provider } = createManager()
+    provider.result = { candidates: [candidate('v1.1.0')] }
+
     await manager.checkForUpdate('manual')
+    await manager.downloadUpdate()
 
     expect(provider.downloadCalls).toBe(1)
     expect(provider.progress).toEqual([35, 100])
@@ -172,12 +188,40 @@ describe('UpdateManager', () => {
     })
   })
 
+  it('starts a background download after detecting a stable update', async() => {
+    const { manager, provider } = createManager()
+    provider.result = { candidates: [candidate('v1.1.0')] }
+
+    const status = await manager.checkForUpdate('background')
+
+    expect(status.state).toBe('available')
+    await vi.waitFor(() => expect(provider.downloadCalls).toBe(1))
+    expect(manager.status.state).toBe('ready-to-install')
+  })
+
+  it('reports download failures separately from check failures', async() => {
+    const { manager, provider } = createManager()
+    provider.result = { candidates: [candidate('v1.1.0')] }
+    provider.downloadUpdate = vi.fn(async() => {
+      throw new Error('download unavailable')
+    })
+
+    await manager.checkForUpdate('manual')
+    await expect(manager.downloadUpdate()).resolves.toMatchObject({
+      state: 'error',
+      errorCode: 'DOWNLOAD_ERROR',
+      errorMessage: 'download unavailable'
+    })
+    expect(provider.downloadCalls).toBe(0)
+  })
+
   it('does not re-download an already downloaded update', async() => {
     const { manager, provider } = createManager()
     provider.result = { candidates: [candidate('v1.1.0')] }
 
     await manager.checkForUpdate('manual')
-    await manager.checkForUpdate('manual')
+    await manager.downloadUpdate()
+    await manager.downloadUpdate()
 
     expect(provider.checkCalls).toBe(1)
     expect(provider.downloadCalls).toBe(1)
@@ -189,11 +233,9 @@ describe('UpdateManager', () => {
     })
     provider.result = { candidates: [candidate('v1.1.0')] }
     await manager.checkForUpdate('manual')
+    await manager.downloadUpdate()
 
-    const [first, second] = await Promise.all([
-      manager.requestRestart(),
-      manager.requestRestart()
-    ])
+    const [first, second] = await Promise.all([manager.requestRestart(), manager.requestRestart()])
 
     expect(first).toBe(true)
     expect(second).toBe(true)
@@ -207,6 +249,7 @@ describe('UpdateManager', () => {
     })
     provider.result = { candidates: [candidate('v1.1.0')] }
     await manager.checkForUpdate('manual')
+    await manager.downloadUpdate()
 
     await expect(manager.requestRestart()).resolves.toBe(false)
     expect(provider.installCalls).toBe(0)
@@ -221,6 +264,7 @@ describe('UpdateManager', () => {
     provider.result = { candidates: [candidate('v1.1.0')] }
 
     await manager.checkForUpdate('manual')
+    await manager.downloadUpdate()
 
     expect(changes.map(({ state }) => state)).toEqual([
       'checking',

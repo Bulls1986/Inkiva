@@ -73,4 +73,10 @@ describe('Inkiva release and runtime identifiers', () => {
     expect(environmentDocumentation).toContain('INKIVA_PANDOC')
     expect(environmentDocumentation).toContain('INKIVA_EXIT_ON_ERROR')
   })
+
+  it('enables differential Windows NSIS packages for incremental updates', () => {
+    const builderConfig = fs.readFileSync(path.join(desktopRoot, 'electron-builder.yml'), 'utf8')
+
+    expect(builderConfig).toContain('differentialPackage: true')
+  })
 })

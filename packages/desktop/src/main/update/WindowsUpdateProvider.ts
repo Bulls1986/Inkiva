@@ -11,6 +11,7 @@ interface ElectronAutoUpdaterLike {
   allowPrerelease: boolean
   allowDowngrade: boolean
   autoInstallOnAppQuit: boolean
+  disableDifferentialDownload?: boolean
   on(event: 'download-progress', listener: (progress: DownloadProgress) => void): void
   checkForUpdates(): Promise<{
     updateInfo?: { version?: string }
@@ -21,7 +22,7 @@ interface ElectronAutoUpdaterLike {
 }
 
 export class WindowsUpdateProvider implements UpdateProvider {
-  readonly autoDownload = true
+  readonly autoDownload = false
   private readonly _updater: ElectronAutoUpdaterLike
   private _downloadPromise: Promise<unknown> | undefined
   private _progressListener: ((progress: number) => void) | undefined
@@ -30,10 +31,11 @@ export class WindowsUpdateProvider implements UpdateProvider {
     updater: ElectronAutoUpdaterLike = autoUpdater as unknown as ElectronAutoUpdaterLike
   ) {
     this._updater = updater
-    this._updater.autoDownload = true
+    this._updater.autoDownload = false
     this._updater.allowPrerelease = false
     this._updater.allowDowngrade = false
     this._updater.autoInstallOnAppQuit = false
+    this._updater.disableDifferentialDownload = false
     this._updater.on('download-progress', ({ percent }) => {
       this._progressListener?.(percent)
     })

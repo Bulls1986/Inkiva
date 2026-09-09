@@ -48,6 +48,28 @@ interface PathInfo {
 
 const DEFAULT_LANGUAGE = 'zh-CN'
 
+type UpdateNotificationType = 'primary' | 'error' | 'warning' | 'info'
+type UpdateNotificationAction = 'restart-to-update' | 'open-update-release'
+
+interface UpdateNotificationOptions {
+  time: number
+  title: string
+  message: string
+  type: UpdateNotificationType
+  showConfirm?: boolean
+  action?: UpdateNotificationAction
+}
+
+const UPDATE_NOTIFICATION_TIME = {
+  checking: 5000,
+  upToDate: 5000,
+  available: 10000,
+  downloading: 10000,
+  ready: 30000,
+  failure: 12000,
+  disabled: 7000
+} as const
+
 class App {
   private _accessor: Accessor
   private _args: CliArgs
@@ -57,7 +79,7 @@ class App {
   private _themeListenerRegistered: boolean
   private _updateManager: UpdateManager
   private _updatePreflight: RendererUpdatePreflight
-  private _updatePromptOpen: boolean
+  private readonly _updatePlatform: NodeJS.Platform
   private _backgroundUpdateCheckScheduled: boolean
 
   /**
@@ -71,7 +93,6 @@ class App {
     this._openFilesTimer = null
     this._windowManager = this._accessor.windowManager
     this._updatePreflight = new RendererUpdatePreflight()
-    this._updatePromptOpen = false
     this._backgroundUpdateCheckScheduled = false
     this._accessor.shutdownCoordinator = new ShutdownCoordinator({
       getEditorWindows: () =>
@@ -103,6 +124,7 @@ class App {
     const updatePlatform = e2eUpdatePlatform === 'win32' || e2eUpdatePlatform === 'darwin'
       ? e2eUpdatePlatform
       : process.platform
+    this._updatePlatform = updatePlatform
     this._updateManager = new UpdateManager({
       platform: updatePlatform,
       currentVersion: process.env.INKIVA_E2E_UPDATE_CURRENT_VERSION ?? app.getVersion(),
@@ -755,10 +777,30 @@ class App {
       ;(globalState.__inkiva_e2e_update_statuses__ ??= []).push({ ...status })
     }
     this._broadcastUpdateStatus(status)
-    if (status.state === 'ready-to-install' && isWindows) {
-      void this._showWindowsUpdateReadyPrompt()
-    } else if (status.state === 'available' && isOsx) {
-      void this._showMacUpdateAvailablePrompt()
+    if (status.state === 'checking' && status.checkSource === 'manual') {
+      this._sendUpdateNotification({
+        time: UPDATE_NOTIFICATION_TIME.checking,
+        title: t('update.checking'),
+        message: '',
+        type: 'info'
+      })
+    } else if (status.state === 'up-to-date' && status.checkSource === 'manual') {
+      this._sendUpdateNotification({
+        time: UPDATE_NOTIFICATION_TIME.upToDate,
+        title: t('update.upToDate', { version: status.currentVersion }),
+        message: '',
+        type: 'info'
+      })
+    } else if (status.state === 'available') {
+      if (this._updatePlatform === 'win32') this._showUpdateAvailableNotification(status)
+      else if (this._updatePlatform === 'darwin') this._showMacUpdateAvailableNotification(status)
+    } else if (status.state === 'ready-to-install' && this._updatePlatform === 'win32') {
+      this._showUpdateReadyNotification(status)
+    } else if (
+      status.state === 'error' &&
+      (status.errorCode === 'DOWNLOAD_ERROR' || status.checkSource === 'manual')
+    ) {
+      this._showUpdateErrorNotification(status)
     }
   }
 
@@ -770,81 +812,96 @@ class App {
     )
   }
 
-  private async _showWindowsUpdateReadyPrompt(): Promise<void> {
-    if (this._updatePromptOpen || this._updateManager.status.state !== 'ready-to-install') return
-    this._updatePromptOpen = true
-    try {
-      const win = this._getUpdateDialogWindow()
-      const options: Electron.MessageBoxOptions = {
-        type: 'info',
-        buttons: [t('update.later'), t('update.restartNow')],
-        defaultId: 1,
-        cancelId: 0,
-        noLink: true,
-        message: t('update.ready'),
-        detail: t('update.available', { version: this._updateManager.status.latestVersion ?? '' })
-      }
-      const result = win
-        ? await dialog.showMessageBox(win, options)
-        : await dialog.showMessageBox(options)
-      if (result.response === 1) {
-        await this._updateManager.requestRestart()
-      }
-    } finally {
-      this._updatePromptOpen = false
+  private _sendUpdateNotification(options: UpdateNotificationOptions): void {
+    const target = this._getUpdateDialogWindow()
+    if (target && !target.isDestroyed()) {
+      target.webContents.send('mt::show-notification', options)
+      return
+    }
+
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send('mt::show-notification', options)
     }
   }
 
-  private async _showMacUpdateAvailablePrompt(): Promise<void> {
-    if (this._updatePromptOpen || this._updateManager.status.state !== 'available') return
-    this._updatePromptOpen = true
-    try {
-      const win = this._getUpdateDialogWindow()
-      const options: Electron.MessageBoxOptions = {
-        type: 'info',
-        buttons: [t('update.later'), t('update.openRelease')],
-        defaultId: 1,
-        cancelId: 0,
-        noLink: true,
-        message: t('update.available', { version: this._updateManager.status.latestVersion ?? '' }),
-        detail: t('update.macosManualUpdate')
-      }
-      const result = win
-        ? await dialog.showMessageBox(win, options)
-        : await dialog.showMessageBox(options)
-      if (result.response === 1) await this._updateManager.openUpdateRelease()
-    } finally {
-      this._updatePromptOpen = false
-    }
+  private _showUpdateAvailableNotification(status: UpdateStatus): void {
+    this._sendUpdateNotification({
+      time: UPDATE_NOTIFICATION_TIME.available,
+      title: t('update.available', { version: status.latestVersion ?? '' }),
+      message: t('update.downloading'),
+      type: 'info'
+    })
+  }
+
+  private _showUpdateDownloadingNotification(status: UpdateStatus): void {
+    this._sendUpdateNotification({
+      time: UPDATE_NOTIFICATION_TIME.downloading,
+      title: t('update.downloading'),
+      message: t('update.available', { version: status.latestVersion ?? '' }),
+      type: 'info'
+    })
+  }
+
+  private _showUpdateReadyNotification(status: UpdateStatus): void {
+    this._sendUpdateNotification({
+      time: UPDATE_NOTIFICATION_TIME.ready,
+      title: t('update.ready'),
+      message: t('update.available', { version: status.latestVersion ?? '' }),
+      type: 'primary',
+      showConfirm: true,
+      action: 'restart-to-update'
+    })
+  }
+
+  private _showMacUpdateAvailableNotification(status: UpdateStatus): void {
+    this._sendUpdateNotification({
+      time: UPDATE_NOTIFICATION_TIME.ready,
+      title: t('update.available', { version: status.latestVersion ?? '' }),
+      message: t('update.macosManualUpdate'),
+      type: 'info',
+      showConfirm: true,
+      action: 'open-update-release'
+    })
+  }
+
+  private _showUpdateErrorNotification(status: UpdateStatus): void {
+    const title =
+      status.errorCode === 'DOWNLOAD_ERROR' ? t('update.downloadFailed') : t('update.checkFailed')
+    this._sendUpdateNotification({
+      time: UPDATE_NOTIFICATION_TIME.failure,
+      title,
+      message: status.errorMessage ?? '',
+      type: 'error'
+    })
+  }
+
+  private _showDisabledUpdateNotification(): void {
+    this._sendUpdateNotification({
+      time: UPDATE_NOTIFICATION_TIME.disabled,
+      title: t('update.disabled'),
+      message: '',
+      type: 'info'
+    })
   }
 
   private async _handleManualUpdateCheck(): Promise<void> {
     const status = await this._updateManager.checkForUpdate('manual')
-    if (status.state !== 'up-to-date' && status.state !== 'error' && status.state !== 'disabled') {
-      return
+    switch (status.state) {
+      case 'available':
+        if (this._updatePlatform === 'win32') void this._updateManager.downloadUpdate()
+        break
+      case 'downloading':
+        this._showUpdateDownloadingNotification(status)
+        break
+      case 'ready-to-install':
+        if (this._updatePlatform === 'win32') this._showUpdateReadyNotification(status)
+        break
+      case 'disabled':
+        this._showDisabledUpdateNotification()
+        break
+      default:
+        break
     }
-
-    const win = this._getUpdateDialogWindow()
-    const options: Electron.MessageBoxOptions =
-      status.state === 'up-to-date'
-        ? {
-          type: 'info',
-          buttons: [t('update.later')],
-          defaultId: 0,
-          noLink: true,
-          message: t('update.upToDate', { version: status.currentVersion })
-        }
-        : {
-          type: status.state === 'disabled' ? 'info' : 'error',
-          buttons: [t('update.later')],
-          defaultId: 0,
-          noLink: true,
-          message: status.state === 'disabled' ? t('update.disabled') : t('update.checkFailed'),
-          detail: status.errorMessage
-        }
-
-    if (win) await dialog.showMessageBox(win, options)
-    else await dialog.showMessageBox(options)
   }
 
   private _listenForIpcMain(): void {

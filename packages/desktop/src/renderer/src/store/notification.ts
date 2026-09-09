@@ -2,6 +2,12 @@ import { defineStore } from 'pinia'
 import notice, { type NotifyOptions } from '../services/notification'
 import { t } from '../i18n'
 
+type NotificationAction = 'restart-to-update' | 'open-update-release'
+
+interface NotificationPayload extends Partial<NotifyOptions> {
+  action?: NotificationAction
+}
+
 export const useNotificationStore = defineStore('notification', () => {
   function listenForNotification(): void {
     const DEFAULT_OPTS = {
@@ -12,8 +18,20 @@ export const useNotificationStore = defineStore('notification', () => {
     }
 
     window.electron.ipcRenderer.on('mt::show-notification', (_e, opts) => {
-      const options = Object.assign({ ...DEFAULT_OPTS }, opts as Partial<NotifyOptions>)
-      notice.notify(options)
+      const { action, ...notificationOpts } = (opts ?? {}) as NotificationPayload
+      const options = Object.assign({ ...DEFAULT_OPTS }, notificationOpts)
+      const notificationPromise = Promise.resolve(notice.notify(options))
+      if (action === 'restart-to-update') {
+        void notificationPromise
+          .then(() => window.electron.ipcRenderer.send('mt::restart-to-update'))
+          .catch(() => {})
+      } else if (action === 'open-update-release') {
+        void notificationPromise
+          .then(() => window.electron.ipcRenderer.send('mt::open-update-release'))
+          .catch(() => {})
+      } else {
+        void notificationPromise.catch(() => {})
+      }
     })
 
     window.electron.ipcRenderer.on('mt::pandoc-not-exists', async(_e, opts) => {
