@@ -24,6 +24,58 @@ type RendererEventListener<K extends keyof IpcMainEventChannels> = (
   ...args: IpcMainEventChannels[K]
 ) => void
 
+type BufferedRendererEvent = {
+  event: IpcRendererEvent
+  args: unknown[]
+}
+
+type BufferedRendererListener = (event: IpcRendererEvent, ...args: unknown[]) => void
+
+// Electron can finish the document load while a slow renderer is still
+// evaluating its application bundle. Keep the two startup-sensitive messages
+// until the Vue listeners are registered instead of losing them in that gap.
+const bufferedRendererChannels = ['mt::bootstrap-editor', 'mt::ask-for-close'] as const
+const bufferedRendererEvents = new Map<string, BufferedRendererEvent[]>()
+const bufferedRendererListeners = new Map<string, BufferedRendererListener>()
+
+for (const channel of bufferedRendererChannels) {
+  const listener: BufferedRendererListener = (event, ...args) => {
+    const pending = bufferedRendererEvents.get(channel) ?? []
+    pending.push({ event, args })
+    bufferedRendererEvents.set(channel, pending)
+  }
+  bufferedRendererListeners.set(channel, listener)
+  ipcRenderer.on(channel, listener)
+}
+
+const registerRendererListener = (
+  channel: string,
+  listener: BufferedRendererListener,
+  once: boolean
+): void => {
+  const bufferListener = bufferedRendererListeners.get(channel)
+  if (!bufferListener) {
+    if (once) ipcRenderer.once(channel, listener)
+    else ipcRenderer.on(channel, listener)
+    return
+  }
+
+  ipcRenderer.removeListener(channel, bufferListener)
+  bufferedRendererListeners.delete(channel)
+
+  const pending = bufferedRendererEvents.get(channel) ?? []
+  bufferedRendererEvents.delete(channel)
+  if (once && pending.length > 0) {
+    const first = pending[0]
+    if (first) listener(first.event, ...first.args)
+    return
+  }
+
+  if (once) ipcRenderer.once(channel, listener)
+  else ipcRenderer.on(channel, listener)
+  for (const event of pending) listener(event.event, ...event.args)
+}
+
 const invoke = <K extends keyof IpcInvokeChannels>(
   channel: K,
   ...args: IpcInvokeChannels[K]['args']
@@ -69,7 +121,7 @@ const ipcWrapper = {
     const subscription = (event: IpcRendererEvent, ...args: unknown[]): void => {
       listener(event, ...(args as IpcMainEventChannels[K]))
     }
-    ipcRenderer.on(channel, subscription)
+    registerRendererListener(channel, subscription, false)
     return () => ipcRenderer.removeListener(channel, subscription)
   },
   once: <K extends keyof IpcMainEventChannels>(
@@ -79,7 +131,7 @@ const ipcWrapper = {
     const subscription = (event: IpcRendererEvent, ...args: unknown[]): void => {
       listener(event, ...(args as IpcMainEventChannels[K]))
     }
-    ipcRenderer.once(channel, subscription)
+    registerRendererListener(channel, subscription, true)
     return () => ipcRenderer.removeListener(channel, subscription)
   },
   removeAllListeners: (channel: keyof IpcMainEventChannels | string): void => {
