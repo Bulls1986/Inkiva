@@ -1167,6 +1167,27 @@ const handleUploadedImage = (url: unknown, deletionUrl?: unknown) => {
 const getScrollContainer = (): HTMLElement | null =>
   (editor.value?.domNode as HTMLElement | undefined) ?? null
 
+type PendingScrollRestore = {
+  element: HTMLElement
+  target: number
+  basePaddingBottom: number
+}
+
+// `scrollToCords` may temporarily replace the editor's normal bottom padding
+// while a document is being laid out. Keep the target and the padding that was
+// replaced together so the observer can decide when it is safe to restore the
+// normal document height.
+let pendingScrollRestore: PendingScrollRestore | null = null
+
+const clearPendingScrollRestore = (): void => {
+  const pending = pendingScrollRestore
+  if (!pending) return
+
+  pending.element.style.paddingBottom = ''
+  resizeObserverForEditor.unobserve(pending.element)
+  pendingScrollRestore = null
+}
+
 // Viewport-relative caret rect (mirrors the engine's `Selection.getCursorCoords`
 // / legacy `cursorCoords`). Used for typewriter + keep-cursor-visible scrolling
 // when we are not inside a `selection-change` event (which already supplies it).
@@ -1198,25 +1219,44 @@ const scrollToCursor = (duration = 300) => {
 const scrollToCords = (y: number) => {
   const container = getScrollContainer()
   if (!container) return
+
+  // A previous document may have needed temporary padding. It must not become
+  // part of the next document's scroll range when the editor root is reused.
+  clearPendingScrollRestore()
+
+  const target = Math.max(0, y)
+  const editorRoot = container.firstElementChild as HTMLElement | null
+  const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
+
   // Depending on how much the user previously scrolled, sometimes the container has not fully rendered all elements.
   // Hence, container.scrollHeight < [saved scrollTop]
-  // What we need to do is to temporarily add a padding to the container so that we can actually set the scrollTop without getting clamped.
-
-  const maxScrollHeight = container.scrollHeight - container.clientHeight // max scroll height is actually calculated as such
-  if (y > maxScrollHeight) {
-    const editorId = container.firstElementChild as HTMLElement | null
-    if (editorId) {
-      editorId.style.paddingBottom = `${y - maxScrollHeight + 100}px` // 100px is the default editor padding
-      // attach a resize observer so we know when to remove the padding when it is of the "correct" height
-      resizeObserverForEditor.observe(editorId)
+  // What we need to do is to temporarily add a padding to the editor root so
+  // that we can actually set the scrollTop without getting clamped. The root
+  // already has intentional bottom padding (currently 100vh), so calculate the
+  // replacement from the computed value instead of assuming it is 100px.
+  // A saved position that is more than one viewport beyond the current
+  // boundary belongs to an older/shorter document, not to a few pixels of
+  // pending layout. Do not manufacture a huge blank scroll range for it —
+  // letting the browser clamp to the real boundary is the correct behavior.
+  const missingScrollDistance = target - maxScrollTop
+  if (editorRoot && missingScrollDistance > 0 && missingScrollDistance <= container.clientHeight) {
+    const basePaddingBottom = Number.parseFloat(getComputedStyle(editorRoot).paddingBottom) || 0
+    editorRoot.style.paddingBottom = `${target - maxScrollTop + basePaddingBottom}px`
+    pendingScrollRestore = {
+      element: editorRoot,
+      target,
+      basePaddingBottom
     }
+    // Attach a resize observer so we know when the document has reached the
+    // restored position and the temporary padding can be removed.
+    resizeObserverForEditor.observe(editorRoot)
   }
   requestAnimationFrame(() => {
     if (!container) return
     // wait for the padding to be applied (if any)
     container.style.visibility = 'visible'
     container.style.pointerEvents = 'auto'
-    container.scrollTop = y
+    container.scrollTop = target
   })
 }
 
@@ -1463,6 +1503,7 @@ interface FileLoadedPayload {
 const setMarkdownToEditor = (payload: unknown) => {
   const { id, markdown: newMarkdown, cursor: newCursor } = (payload ?? {}) as FileLoadedPayload
   if (editor.value) {
+    clearPendingScrollRestore()
     // `setContent` resets the document and clears the undo history; only set a
     // cursor afterwards (a freshly-opened file has no history to restore).
     editor.value.setContent(newMarkdown ?? '')
@@ -1518,6 +1559,8 @@ const handleFileChange = (payload: unknown) => {
   if (!editor.value) return
   const container = getScrollContainer()
   if (!container) return
+
+  clearPendingScrollRestore()
 
   if (typeof newMarkdown === 'string') {
     // Returning from source-code mode: the WYSIWYG engine is never unmounted
@@ -1679,12 +1722,26 @@ const handleResetPaddingBottom = () => {
   if (!container) return
   const firstChild = container.firstElementChild as HTMLElement | null
   if (!firstChild) return
-  const newScollableHeightWithoutPadding =
-    container.scrollHeight - container.clientHeight - parseFloat(firstChild.style.paddingBottom)
+  const pending = pendingScrollRestore
+  if (!pending || pending.element !== firstChild) return
 
-  if (currentFile.value && newScollableHeightWithoutPadding > currentFile.value.scrollTop) {
-    container.style.paddingBottom = ''
-    resizeObserverForEditor.unobserve(firstChild) // unobserve #ag-editor-id since we have removed the padding
+  const temporaryPaddingBottom = Number.parseFloat(firstChild.style.paddingBottom)
+  if (!Number.isFinite(temporaryPaddingBottom)) {
+    clearPendingScrollRestore()
+    return
+  }
+
+  // The inline padding replaces the root's normal padding. Add the replaced
+  // base padding back before deciding whether the real document is tall
+  // enough for the saved position.
+  const naturalMaxScrollTop =
+    container.scrollHeight -
+    container.clientHeight -
+    temporaryPaddingBottom +
+    pending.basePaddingBottom
+
+  if (naturalMaxScrollTop >= pending.target) {
+    clearPendingScrollRestore()
   }
 }
 

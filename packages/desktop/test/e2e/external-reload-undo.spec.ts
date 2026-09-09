@@ -81,6 +81,79 @@ test.describe('External disk reload — undo restores the pre-change document', 
   })
 })
 
+test.describe('External disk reload — stale WYSIWYG scroll range is removed', () => {
+  // A reload keeps the tab's previous scrollTop. If the new document is much
+  // shorter, that saved position is no longer valid and must be clamped to the
+  // real document boundary. The intentional editor bottom padding may remain,
+  // but a temporary restore padding must not become a second scroll range.
+  test('clamps an old scroll position after the document becomes shorter', async() => {
+    const longBody = Array.from({ length: 400 }, (_, i) => `long line ${i}`).join('\n\n') + '\n'
+    const shortBody = '# Short document\n\nThis is the new end.'
+    const { app, page, filePath } = await launchWithMarkdown(longBody)
+
+    try {
+      await waitForMenuReady(app)
+      await sendIpcToRenderer(app, 'mt::user-preference', { autoSave: true })
+      await page.waitForTimeout(100)
+
+      // Persist a scroll position that will be invalid for the short document.
+      await page.evaluate(() => {
+        const container = document.querySelector('.editor-component') as HTMLElement | null
+        if (!container) return
+        container.scrollTop = 3000
+        container.dispatchEvent(new Event('scroll'))
+      })
+      await expect
+        .poll(
+          () =>
+            page.evaluate(
+              () => (document.querySelector('.editor-component') as HTMLElement)?.scrollTop ?? 0
+            ),
+          { timeout: 5000 }
+        )
+        .toBeGreaterThan(1000)
+      // updateScrollPosition is debounced before the reload reads it back.
+      await page.waitForTimeout(700)
+
+      await reportExternalChange(app, filePath, shortBody)
+      await page.waitForTimeout(800)
+
+      const metrics = await page.evaluate(() => {
+        const container = document.querySelector('.editor-component') as HTMLElement | null
+        const root = container?.firstElementChild as HTMLElement | null
+        const lastBlock = root?.lastElementChild as HTMLElement | null
+        if (!container || !root || !lastBlock) return null
+
+        const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
+        container.scrollTop = maxScrollTop
+        const containerRect = container.getBoundingClientRect()
+        const lastBlockRect = lastBlock.getBoundingClientRect()
+
+        return {
+          maxScrollTop,
+          scrollTop: container.scrollTop,
+          inlinePaddingBottom: root.style.paddingBottom,
+          basePaddingBottom: Number.parseFloat(getComputedStyle(root).paddingBottom) || 0,
+          bottomGap: containerRect.bottom - lastBlockRect.bottom,
+          lastBlockText: lastBlock.textContent || ''
+        }
+      })
+
+      expect(metrics).not.toBeNull()
+      if (!metrics) throw new Error('Editor scroll metrics were not available')
+      expect(metrics.lastBlockText).toContain('new end')
+      // The restore padding is temporary and must not remain after the short
+      // document has settled.
+      expect(metrics.inlinePaddingBottom).toBe('')
+      // At the end, only the intentional base padding may remain below content.
+      expect(metrics.bottomGap).toBeLessThanOrEqual(metrics.basePaddingBottom + 40)
+      expect(metrics.scrollTop).toBe(metrics.maxScrollTop)
+    } finally {
+      await app.close()
+    }
+  })
+})
+
 test.describe('External disk reload — source-mode scroll position survives a same-tab reload', () => {
   // Item 258: a same-id `mt::update-file` reload must not yank the CodeMirror
   // view back to the top. sourceCode.vue handleFileChange snapshots every
