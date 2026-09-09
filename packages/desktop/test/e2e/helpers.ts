@@ -115,26 +115,41 @@ export const closeElectron = async(
   app: ElectronApplication,
   timeoutMs = 5000
 ): Promise<void> => {
-  let settled = false
   const gracefulClose = gracefulCloseByApp.get(app) ?? app.close.bind(app)
-  const closePromise = gracefulClose().catch(() => {}).finally(() => {
-    settled = true
-  })
-  const wait = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, timeoutMs))
+  const closePromise = gracefulClose().catch(() => {})
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const didClose = await Promise.race([
+    closePromise.then(() => true),
+    new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => resolve(false), timeoutMs)
+    })
+  ])
+  if (timer) clearTimeout(timer)
+  if (didClose) return
 
-  await Promise.race([closePromise, wait()])
-  if (settled) return
-
+  // Playwright launches Electron in its own process group. Killing the group
+  // is the only reliable last resort when app.quit() is blocked by a native
+  // close handler or a crashed renderer. This is test cleanup only; normal
+  // exits still use the graceful path above.
+  const child = app.process()
   try {
-    await Promise.race([
-      app.evaluate(({ app: electronApp }) => electronApp.exit(0)),
-      wait()
-    ])
+    if (child.pid && process.platform !== 'win32') {
+      process.kill(-child.pid, 'SIGKILL')
+    } else if (!child.killed) {
+      child.kill()
+    }
   } catch {
-    // The app may have exited between the timeout and the fallback evaluate.
+    // The process may have exited between the timeout and the hard cleanup.
   }
 
-  await Promise.race([closePromise, wait()])
+  let forceTimer: ReturnType<typeof setTimeout> | undefined
+  await Promise.race([
+    closePromise,
+    new Promise<void>((resolve) => {
+      forceTimer = setTimeout(resolve, 1000)
+    })
+  ])
+  if (forceTimer) clearTimeout(forceTimer)
 }
 
 export interface CapturedMessageBox {

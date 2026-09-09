@@ -193,6 +193,10 @@ class EditorWindow extends BaseWindow {
     })
 
     win.webContents.once('render-process-gone', async(_event, { reason }) => {
+      // A dead renderer cannot answer the close-confirmation IPC request.
+      // Mark it uninitialized so app.quit() can still tear down the native
+      // window instead of waiting forever for a response that cannot arrive.
+      rendererInitialized = false
       if (reason === 'clean-exit') return
 
       const msg = `The renderer process has crashed unexpected or is killed (${reason}).`
