@@ -15,6 +15,10 @@ concurrency:
 jobs:
   e2e:
     runs-on: ubuntu-24.04
+    # A wedged Electron close/renderer handshake must fail the job instead of
+    # consuming a runner indefinitely. The suite normally completes in about
+    # five minutes on this runner.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 

@@ -96,6 +96,36 @@ export const launchElectron = async(
   return { app, page }
 }
 
+/**
+ * Close an Electron app without allowing a renderer shutdown handshake to
+ * wedge the Playwright worker forever. Normal exits still use Playwright's
+ * graceful close; the force-exit path is only a cleanup fallback.
+ */
+export const closeElectron = async(
+  app: ElectronApplication,
+  timeoutMs = 5000
+): Promise<void> => {
+  let settled = false
+  const closePromise = app.close().catch(() => {}).finally(() => {
+    settled = true
+  })
+  const wait = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, timeoutMs))
+
+  await Promise.race([closePromise, wait()])
+  if (settled) return
+
+  try {
+    await Promise.race([
+      app.evaluate(({ app: electronApp }) => electronApp.exit(0)),
+      wait()
+    ])
+  } catch {
+    // The app may have exited between the timeout and the fallback evaluate.
+  }
+
+  await Promise.race([closePromise, wait()])
+}
+
 export interface CapturedMessageBox {
   message?: string
   detail?: string

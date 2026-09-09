@@ -58,20 +58,8 @@ app.config.globalProperties.$http = axios
   app.config.globalProperties['$' + s.name] = s[s.name]
 })
 
-const mountApp = (): void => {
-  app.mount('#app')
-}
-
-// Keep a deterministic gap between the inline shell and Vue mounting for the
-// startup E2E test. The variable is only exposed through the test environment.
-const startupDelay = Number(
-  window.electron?.process?.env?.INKIVA_E2E_RENDERER_STARTUP_DELAY_MS ?? 0
-)
-if (window.electron?.process?.env?.PERF_TESTING === 'true' && startupDelay > 0) {
-  globalThis.setTimeout(mountApp, startupDelay)
-} else {
-  mountApp()
-}
+// Mount the app
+app.mount('#app')
 
 /**
  * Warm settings chunks only after the editor has mounted and the browser has

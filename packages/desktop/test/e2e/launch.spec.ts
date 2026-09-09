@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
-import { launchElectron, launchWithMarkdown, waitForMenuReady } from './helpers'
+import { closeElectron, launchElectron, launchWithMarkdown, waitForMenuReady } from './helpers'
 
 test.describe('Check Launch Inkiva', () => {
   let app: ElectronApplication
@@ -57,7 +57,7 @@ test.describe('Check Launch Inkiva', () => {
 
       await expect(startup.page.locator('.editor-container')).toBeVisible({ timeout: 10000 })
     } finally {
-      await startup.app.close()
+      await closeElectron(startup.app)
     }
   })
 
