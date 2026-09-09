@@ -82,11 +82,16 @@ test('restores multiple recovery files into one deduplicated editor window', asy
         argv: process.argv.slice(0, 10),
         windowUrls: BrowserWindow.getAllWindows().map((window) => window.webContents.getURL())
       }))
+      const recoveryFiles = fs.readdirSync(editorStatesDir).map((file) => ({
+        file,
+        content: fs.readFileSync(path.join(editorStatesDir, file), 'utf8').slice(0, 1000)
+      }))
       console.error('[restore-buffer-store] startup snapshot', {
         snapshot,
         windowCount,
         expectedUserDataPath: userDataDir,
         mainSnapshot,
+        recoveryFiles,
         rendererConsoleErrors
       })
       throw error
