@@ -19,7 +19,9 @@ test.describe('Check Launch Inkiva', () => {
 
   test('Empty Inkiva', async() => {
     const title = await page.title()
-    expect(title).toBe('Inkiva')
+    // With no user path or recovery state, startup creates the default blank
+    // document. The app entry path must not be mistaken for an opened folder.
+    expect(title).toBe('Untitled-1')
   })
 
   test('shows the inline loading shell before the renderer mounts', async() => {
