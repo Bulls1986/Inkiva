@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 const desktopRoot = path.resolve(__dirname, '../../../')
 const repositoryRoot = path.resolve(desktopRoot, '../..')
+const expectedStableVersion = '0.1.1'
 
 const readJson = <T>(filePath: string): T => JSON.parse(fs.readFileSync(filePath, 'utf8')) as T
 
@@ -21,7 +22,7 @@ const collectSourceFiles = (directory: string): string[] => {
 }
 
 describe('Inkiva release and runtime identifiers', () => {
-  it('uses the stable v0.1.0 version in every published package manifest', () => {
+  it(`uses the stable v${expectedStableVersion} version in every published package manifest`, () => {
     const versionFiles = [
       path.join(repositoryRoot, 'package.json'),
       path.join(desktopRoot, 'package.json'),
@@ -29,7 +30,7 @@ describe('Inkiva release and runtime identifiers', () => {
     ]
 
     expect(versionFiles.map((filePath) => readJson<{ version: string }>(filePath).version)).toEqual(
-      ['0.1.0', '0.1.0', '0.1.0']
+      [expectedStableVersion, expectedStableVersion, expectedStableVersion]
     )
   })
 
