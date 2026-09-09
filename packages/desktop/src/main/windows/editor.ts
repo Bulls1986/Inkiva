@@ -1,6 +1,6 @@
 import path from 'path'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
-import type { BrowserWindowConstructorOptions } from 'electron'
+import type { BrowserWindowConstructorOptions, IpcMainEvent } from 'electron'
 import log from 'electron-log'
 import windowStateKeeper from 'electron-window-state'
 import { isChildOfDirectory, isSamePathSync } from 'common/filesystem/paths'
@@ -112,6 +112,18 @@ class EditorWindow extends BaseWindow {
     }
 
     let win: BrowserWindow | null = (this.browserWindow = new BrowserWindow(winOptions))
+    let rendererInitialized = false
+
+    // A renderer that has not completed the bootstrap handshake cannot have
+    // unsaved editor state. Allow the native close to continue in that phase;
+    // otherwise app.quit() can be held indefinitely by the close-confirmation
+    // IPC round trip while Vue is still mounting.
+    const onRendererIpcMessage = (event: IpcMainEvent, channel: string): void => {
+      if (event.sender === win?.webContents && channel === 'mt::window-initialized') {
+        rendererInitialized = true
+      }
+    }
+    win.webContents.on('ipc-message', onRendererIpcMessage)
 
     this.bufferStoreInfo = {
       id: bufferStoreInfo ? bufferStoreInfo.id : editorBufferStore.getUnUsedBufferUUID(),
@@ -223,7 +235,10 @@ class EditorWindow extends BaseWindow {
 
     win.on('close', (event) => {
       this.emit('window-close')
-      if (this._accessor.shutdownCoordinator?.isUpdateInstallApproved()) {
+      if (
+        this._accessor.shutdownCoordinator?.isUpdateInstallApproved() ||
+        !rendererInitialized
+      ) {
         return
       }
       event.preventDefault()
@@ -231,6 +246,7 @@ class EditorWindow extends BaseWindow {
     })
 
     win.on('closed', () => {
+      win!.webContents.removeListener('ipc-message', onRendererIpcMessage)
       this.lifecycle = WindowLifecycle.QUITTED
       this.emit('window-closed')
       win = null
