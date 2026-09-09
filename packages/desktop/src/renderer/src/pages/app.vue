@@ -136,6 +136,14 @@ onMounted(async () => {
   }
 
   mainStore.LISTEN_WIN_STATUS()
+
+  // These two listeners are part of the renderer's startup handshake. Register
+  // them before loading the command catalogue because that async work can be
+  // slow on a cold machine; otherwise the main process may send bootstrap or
+  // close messages into a gap with no listener attached.
+  editorStore.LISTEN_FOR_CLOSE()
+  editorStore.LISTEN_FOR_BOOTSTRAP_WINDOW()
+
   await commandCenterStore.LISTEN_COMMAND_CENTER_BUS()
   layoutStore.LISTEN_FOR_LAYOUT()
   listenForMainStore.LISTEN_FOR_EDIT()
@@ -148,13 +156,11 @@ onMounted(async () => {
   preferencesStore.ASK_FOR_USER_PREFERENCE()
   preferencesStore.LISTEN_TOGGLE_VIEW()
   editorStore.LISTEN_SCREEN_SHOT()
-  editorStore.LISTEN_FOR_CLOSE()
   editorStore.LISTEN_FOR_UPDATE_PREFLIGHT()
   editorStore.LISTEN_FOR_SAVE_AS()
   editorStore.LISTEN_FOR_MOVE_TO()
   editorStore.LISTEN_FOR_SAVE()
   editorStore.LISTEN_FOR_SET_PATHNAME()
-  editorStore.LISTEN_FOR_BOOTSTRAP_WINDOW()
   editorStore.LISTEN_FOR_SAVE_CLOSE()
   editorStore.LISTEN_FOR_RENAME()
   editorStore.LISTEN_FOR_SET_LINE_ENDING()
