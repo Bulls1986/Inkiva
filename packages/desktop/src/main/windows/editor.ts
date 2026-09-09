@@ -11,6 +11,7 @@ import { TITLE_BAR_HEIGHT, editorWinOptions, isLinux, isOsx } from '../config'
 import { showEditorContextMenu } from '../contextMenu/editor'
 import { loadMarkdownFile } from '../filesystem/markdown'
 import { switchLanguage } from '../spellchecker'
+import type { BufferStoreState } from '../editorBufferStore/restore'
 
 type RawMarkdownDocument = Awaited<ReturnType<typeof loadMarkdownFile>>
 
@@ -23,6 +24,7 @@ interface PendingFile {
 interface BufferStoreInfo {
   id: string
   filePath: string | null
+  restoreBufferStores?: Array<{ id: string; filePath: string }>
 }
 
 interface CandidateScore {
@@ -38,11 +40,10 @@ interface RestoredTab {
   [key: string]: unknown
 }
 
-interface RestoredBufferState {
+interface RestoredBufferState extends Omit<BufferStoreState, 'tabs'> {
   tabs: RestoredTab[]
   restoreWarnings?: unknown[]
   project?: { rootDirectory?: string }
-  [key: string]: unknown
 }
 
 class EditorWindow extends BaseWindow {
@@ -130,7 +131,8 @@ class EditorWindow extends BaseWindow {
 
     this.bufferStoreInfo = {
       id: bufferStoreInfo ? bufferStoreInfo.id : editorBufferStore.getUnUsedBufferUUID(),
-      filePath: bufferStoreInfo ? bufferStoreInfo.filePath : null
+      filePath: bufferStoreInfo ? bufferStoreInfo.filePath : null,
+      restoreBufferStores: bufferStoreInfo?.restoreBufferStores
     }
     ;(win as unknown as { restoreBufferId: string }).restoreBufferId = this.bufferStoreInfo.id
     this.id = win.id
@@ -480,9 +482,24 @@ class EditorWindow extends BaseWindow {
     const { menu: appMenu, preferences, editorBufferStore } = _accessor
 
     try {
-      const bufferState = (await editorBufferStore.readBufferStoreFileAsync(
-        bufferStoreInfo!.filePath!
-      )) as RestoredBufferState
+      const restoreBufferStores = bufferStoreInfo!.restoreBufferStores ?? [
+        { id: bufferStoreInfo!.id, filePath: bufferStoreInfo!.filePath! }
+      ]
+      const {
+        state: restoredState,
+        primaryFilePath,
+        sourceFilePaths
+      } = await editorBufferStore.readAndMergeBufferStoreFilesAsync(restoreBufferStores)
+      // Consolidate before loading files. The renderer has no tabs yet, so a
+      // slow disk read cannot race with a user edit and overwrite a newer
+      // recovery snapshot.
+      await editorBufferStore.consolidateBufferStoreFiles(
+        primaryFilePath,
+        sourceFilePaths,
+        restoredState
+      )
+
+      const bufferState = restoredState as RestoredBufferState
       if (!Array.isArray(bufferState.restoreWarnings)) bufferState.restoreWarnings = []
 
       const rootDirectory = bufferState.project?.rootDirectory

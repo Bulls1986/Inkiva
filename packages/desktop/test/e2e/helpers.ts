@@ -68,6 +68,8 @@ export interface LaunchOptions {
   waitForReady?: boolean
   /** Additional environment values for deterministic, opt-in E2E seams. */
   env?: Record<string, string>
+  /** Use a prepared profile when testing persisted startup state. */
+  userDataDir?: string
 }
 
 export const launchElectron = async(
@@ -78,7 +80,7 @@ export const launchElectron = async(
   const executablePath = getElectronPath()
   // Pass project root as entry so Electron reads package.json and getAppPath() returns project root.
   // Passing out/main/index.js directly bypasses package.json and breaks __static path resolution.
-  const userDataDir = trackTempDir(getTempPath())
+  const userDataDir = trackTempDir(options.userDataDir ?? getTempPath())
   const args = [projectRoot, '--user-data-dir', userDataDir].concat(userArgs)
   const env: Record<string, string> = {}
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v
