@@ -2,7 +2,13 @@ import path from 'path'
 import { BrowserWindow, ipcMain } from 'electron'
 import type { BrowserWindowConstructorOptions } from 'electron'
 import { electronLocalshortcut } from '@hfelix/electron-localshortcut'
-import BaseWindow, { WindowLifecycle, WindowType, type EnvLike, type PreferenceLike } from './base'
+import BaseWindow, {
+  showWindowWhenRendererReady,
+  WindowLifecycle,
+  WindowType,
+  type EnvLike,
+  type PreferenceLike
+} from './base'
 import type Accessor from '../app/accessor'
 import { centerWindowOptions } from './utils'
 import { TITLE_BAR_HEIGHT, preferencesWinOptions, isLinux, isOsx } from '../config'
@@ -64,6 +70,7 @@ class SettingWindow extends BaseWindow {
     })
 
     this.id = win.id
+    showWindowWhenRendererReady(win)
 
     // Create a menu for the current window
     appMenu.addSettingMenu(win)

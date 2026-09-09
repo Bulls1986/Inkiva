@@ -4,7 +4,7 @@ import type { BrowserWindowConstructorOptions } from 'electron'
 import log from 'electron-log'
 import windowStateKeeper from 'electron-window-state'
 import { isChildOfDirectory, isSamePathSync } from 'common/filesystem/paths'
-import BaseWindow, { WindowLifecycle, WindowType } from './base'
+import BaseWindow, { showWindowWhenRendererReady, WindowLifecycle, WindowType } from './base'
 import type Accessor from '../app/accessor'
 import { ensureWindowPosition, zoomIn, zoomOut } from './utils'
 import { TITLE_BAR_HEIGHT, editorWinOptions, isLinux, isOsx } from '../config'
@@ -119,6 +119,7 @@ class EditorWindow extends BaseWindow {
     }
     ;(win as unknown as { restoreBufferId: string }).restoreBufferId = this.bufferStoreInfo.id
     this.id = win.id
+    showWindowWhenRendererReady(win)
 
     // Attach load lifecycle handlers before starting navigation, then start the
     // renderer immediately. The lightweight HTML shell can now paint while the

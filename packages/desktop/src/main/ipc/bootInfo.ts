@@ -6,6 +6,7 @@ import type { BootInfo } from '@shared/types/ipc'
 const ENV_ALLOWLIST = [
   'NODE_ENV',
   'PERF_TESTING',
+  'INKIVA_E2E_RENDERER_STARTUP_DELAY_MS',
   'APPIMAGE',
   'INKIVA_VERSION',
   'INKIVA_VERSION_STRING',

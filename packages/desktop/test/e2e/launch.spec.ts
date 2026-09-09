@@ -22,6 +22,45 @@ test.describe('Check Launch Inkiva', () => {
     expect(title).toBe('Inkiva')
   })
 
+  test('shows the inline loading shell before the renderer mounts', async() => {
+    const startup = await launchElectron([], {
+      waitForReady: false,
+      env: {
+        INKIVA_E2E_RENDERER_STARTUP_DELAY_MS: '2000'
+      }
+    })
+
+    try {
+      await expect
+        .poll(async() => {
+          const loading = await startup.page
+            .locator('.inkiva-bootstrap')
+            .isVisible()
+            .catch(() => false)
+          const editorMounted = await startup.page.locator('.editor-container').count()
+          const windowVisible = await startup.app.evaluate(
+            ({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isVisible() ?? false
+          )
+          return { loading, editorMounted, windowVisible }
+        }, { timeout: 10000 })
+        .toEqual({ loading: true, editorMounted: 0, windowVisible: true })
+
+      const scrollState = await startup.page.evaluate(() => ({
+        documentOverflow: getComputedStyle(document.documentElement).overflow,
+        bodyOverflow: getComputedStyle(document.body).overflow,
+        documentScrollHeight: document.documentElement.scrollHeight,
+        documentClientHeight: document.documentElement.clientHeight
+      }))
+      expect(scrollState.documentOverflow).toBe('hidden')
+      expect(scrollState.bodyOverflow).toBe('hidden')
+      expect(scrollState.documentScrollHeight).toBeLessThanOrEqual(scrollState.documentClientHeight)
+
+      await expect(startup.page.locator('.editor-container')).toBeVisible({ timeout: 10000 })
+    } finally {
+      await startup.app.close()
+    }
+  })
+
   test('loads the current first-run defaults', async() => {
     const defaults = await launchWithMarkdown('')
     try {

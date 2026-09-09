@@ -59,6 +59,8 @@ export interface LaunchOptions {
   // should opt in — otherwise existing specs would silently ignore renderer
   // exceptions that previously surfaced as a dialog (a hidden regression risk).
   suppressErrorDialog?: boolean
+  /** Skip the normal post-launch wait when observing the renderer's first paint. */
+  waitForReady?: boolean
   /** Additional environment values for deterministic, opt-in E2E seams. */
   env?: Record<string, string>
 }
@@ -87,8 +89,10 @@ export const launchElectron = async(
   })
   if (options.suppressErrorDialog) await installRendererErrorCounter(app)
   const page = await app.firstWindow()
-  await page.waitForLoadState('domcontentloaded')
-  await new Promise((resolve) => setTimeout(resolve, 500))
+  if (options.waitForReady !== false) {
+    await page.waitForLoadState('domcontentloaded')
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
   return { app, page }
 }
 

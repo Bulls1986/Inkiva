@@ -10,12 +10,13 @@ import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import pathe from 'pathe'
 
-import type {
-  IpcInvokeChannels,
-  IpcSendChannels,
-  IpcSyncChannels,
-  IpcMainEventChannels,
-  BootInfo
+import {
+  WINDOW_INITIAL_SHELL_READY_CHANNEL,
+  type IpcInvokeChannels,
+  type IpcSendChannels,
+  type IpcSyncChannels,
+  type IpcMainEventChannels,
+  type BootInfo
 } from '@shared/types/ipc'
 
 type RendererEventListener<K extends keyof IpcMainEventChannels> = (
@@ -34,6 +35,25 @@ const send = <K extends keyof IpcSendChannels>(channel: K, ...args: IpcSendChann
 // One synchronous handshake at startup so the renderer can read platform/env
 // without an `await` from inside Vue computed properties etc.
 const bootInfo = ipcRenderer.sendSync('mt::boot-info') as BootInfo | undefined
+
+// Notify the main process as soon as the HTML parser has built the document.
+// `interactive` happens before deferred/module scripts run, so the native
+// window can reveal the inline loading shell while the Vue bundle is loading.
+const notifyInitialShellReady = (): void => {
+  send(WINDOW_INITIAL_SHELL_READY_CHANNEL)
+}
+
+if (document.readyState === 'loading') {
+  const onReadyStateChange = (): void => {
+    if (document.readyState !== 'interactive' && document.readyState !== 'complete') return
+
+    document.removeEventListener('readystatechange', onReadyStateChange)
+    notifyInitialShellReady()
+  }
+  document.addEventListener('readystatechange', onReadyStateChange)
+} else {
+  notifyInitialShellReady()
+}
 
 const ipcWrapper = {
   send,
