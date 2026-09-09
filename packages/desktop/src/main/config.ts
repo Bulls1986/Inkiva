@@ -20,9 +20,10 @@ export const editorWinOptions: Readonly<BrowserWindowConstructorOptions> = Objec
     preload: path.join(__dirname, '../preload/index.js')
   },
   useContentSize: true,
-  // Show immediately so user actions always get instant visual feedback. The
-  // renderer supplies a lightweight loading shell until the real route is ready.
-  show: true,
+  // Keep the native window hidden until the renderer's inline loading shell is
+  // available. Showing BrowserWindow immediately exposes Electron's initial
+  // blank document before index.html has started to render.
+  show: false,
   frame: false,
   titleBarStyle: 'hiddenInset',
   zoomFactor: 1.0
@@ -46,9 +47,9 @@ export const preferencesWinOptions: Readonly<BrowserWindowConstructorOptions> = 
   fullscreen: false,
   minimizable: false,
   useContentSize: true,
-  // Preferences should open immediately; a lightweight renderer shell avoids
-  // the previous white-screen interval while route chunks load asynchronously.
-  show: true,
+  // Use the same first-paint gate as the editor so opening preferences never
+  // exposes Electron's initial blank document.
+  show: false,
   frame: false,
   thickFrame: !isOsx,
   zoomFactor: 1.0

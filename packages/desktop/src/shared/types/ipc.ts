@@ -35,6 +35,8 @@ import type { MenuTemplate, MenuPopupPosition } from './menu'
 import type { ShortcutStyle } from './preferences'
 import type { UpdateStatus } from '../../main/update/types'
 
+export const WINDOW_INITIAL_SHELL_READY_CHANNEL = 'mt::window-initial-shell-ready'
+
 export interface KeybindingPreferences {
   defaultKeybindings: Map<string, string>
   userKeybindings: Map<string, string>
@@ -101,6 +103,7 @@ export interface IpcInvokeChannels {
 // =================================================================
 
 export interface IpcSendChannels {
+  [WINDOW_INITIAL_SHELL_READY_CHANNEL]: []
   'app-create-editor-window': [config?: unknown]
   'app-create-settings-window': []
   'app-open-directory-by-id': [windowId: number, dirPath: string]

@@ -249,9 +249,17 @@ class App {
     }
 
     if (args._.length) {
+      // When Electron is launched in development/Playwright mode, the app
+      // entry directory is present in process.argv as a positional argument.
+      // It is the executable entry, not a document or folder requested by the
+      // user; treating it as an opened folder disables startup recovery.
+      const applicationPath = path.resolve(app.getAppPath())
       for (const pathname of args._) {
         // Ignore all unknown flags
         if (pathname.startsWith('--')) {
+          continue
+        }
+        if (path.resolve(pathname) === applicationPath) {
           continue
         }
 
@@ -397,20 +405,26 @@ class App {
 
     const createWindow = (): void => {
       if (isRestorePathway) {
-        // We will restore based off the previous buffer, one window per buffer store file
+        // A previous version could leave one recovery file per editor window.
+        // Restore all of them into one window; the editor buffer store merges
+        // tabs and removes duplicate document paths during the restore.
         const bufferStores = editorBufferStore.getAll()
         const bufferStoreList = Object.values(bufferStores) as Array<{
           id: string
           filePath: string | null
         }>
-        if (bufferStoreList.length === 0) {
+        const restorableBufferStores = bufferStoreList.filter(
+          (bufferStoreInfo): bufferStoreInfo is { id: string; filePath: string } =>
+            typeof bufferStoreInfo.filePath === 'string'
+        )
+        if (restorableBufferStores.length === 0) {
           this._createEditorWindow()
           return
         }
 
-        bufferStoreList.forEach((bufferStoreInfo) => {
-          // Read the buffer store file and pass the content
-          this._createEditorWindow(null, [], [], {}, bufferStoreInfo)
+        this._createEditorWindow(null, [], [], {}, {
+          ...restorableBufferStores[0],
+          restoreBufferStores: restorableBufferStores
         })
       } else if (_openFilesCache.length) {
         // We should wipe the buffer store if not it will keep creating new windows whenever we open files via double click in the file manager
@@ -493,7 +507,11 @@ class App {
     fileList: string[] = [],
     markdownList: string[] = [],
     options: Partial<BrowserWindowConstructorOptions> = {},
-    bufferStoreInfo: { id: string; filePath: string | null } | null = null
+    bufferStoreInfo: {
+      id: string
+      filePath: string | null
+      restoreBufferStores?: Array<{ id: string; filePath: string }>
+    } | null = null
   ): EditorWindow {
     const editor = new EditorWindow(this._accessor)
     if (rootDirectory) {

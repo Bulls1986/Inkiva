@@ -52,6 +52,11 @@ export interface LaunchResult {
   page: Page
 }
 
+// Keep the original Playwright close method so every test gets the same
+// bounded cleanup behavior without requiring each of the many existing specs
+// to remember a special helper.
+const gracefulCloseByApp = new WeakMap<ElectronApplication, () => Promise<void>>()
+
 export interface LaunchOptions {
   // When true, sets INKIVA_ERROR_INTERACTION=1 in the launch env so
   // src/main/exceptionHandler.ts suppresses the modal "Unexpected error"
@@ -59,8 +64,12 @@ export interface LaunchOptions {
   // should opt in — otherwise existing specs would silently ignore renderer
   // exceptions that previously surfaced as a dialog (a hidden regression risk).
   suppressErrorDialog?: boolean
+  /** Skip the normal post-launch wait when observing the renderer's first paint. */
+  waitForReady?: boolean
   /** Additional environment values for deterministic, opt-in E2E seams. */
   env?: Record<string, string>
+  /** Use a prepared profile when testing persisted startup state. */
+  userDataDir?: string
 }
 
 export const launchElectron = async(
@@ -71,7 +80,7 @@ export const launchElectron = async(
   const executablePath = getElectronPath()
   // Pass project root as entry so Electron reads package.json and getAppPath() returns project root.
   // Passing out/main/index.js directly bypasses package.json and breaks __static path resolution.
-  const userDataDir = trackTempDir(getTempPath())
+  const userDataDir = trackTempDir(options.userDataDir ?? getTempPath())
   const args = [projectRoot, '--user-data-dir', userDataDir].concat(userArgs)
   const env: Record<string, string> = {}
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v
@@ -85,11 +94,64 @@ export const launchElectron = async(
     env,
     timeout: 30000
   })
+  gracefulCloseByApp.set(app, app.close.bind(app))
+  Object.defineProperty(app, 'close', {
+    configurable: true,
+    value: (): Promise<void> => closeElectron(app)
+  })
   if (options.suppressErrorDialog) await installRendererErrorCounter(app)
   const page = await app.firstWindow()
-  await page.waitForLoadState('domcontentloaded')
-  await new Promise((resolve) => setTimeout(resolve, 500))
+  if (options.waitForReady !== false) {
+    await page.waitForLoadState('domcontentloaded')
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
   return { app, page }
+}
+
+/**
+ * Close an Electron app without allowing a renderer shutdown handshake to
+ * wedge the Playwright worker forever. Normal exits still use Playwright's
+ * graceful close; the force-exit path is only a cleanup fallback.
+ */
+export const closeElectron = async(
+  app: ElectronApplication,
+  timeoutMs = 5000
+): Promise<void> => {
+  const gracefulClose = gracefulCloseByApp.get(app) ?? app.close.bind(app)
+  const closePromise = gracefulClose().catch(() => {})
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const didClose = await Promise.race([
+    closePromise.then(() => true),
+    new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => resolve(false), timeoutMs)
+    })
+  ])
+  if (timer) clearTimeout(timer)
+  if (didClose) return
+
+  // Playwright launches Electron in its own process group. Killing the group
+  // is the only reliable last resort when app.quit() is blocked by a native
+  // close handler or a crashed renderer. This is test cleanup only; normal
+  // exits still use the graceful path above.
+  const child = app.process()
+  try {
+    if (child.pid && process.platform !== 'win32') {
+      process.kill(-child.pid, 'SIGKILL')
+    } else if (!child.killed) {
+      child.kill()
+    }
+  } catch {
+    // The process may have exited between the timeout and the hard cleanup.
+  }
+
+  let forceTimer: ReturnType<typeof setTimeout> | undefined
+  await Promise.race([
+    closePromise,
+    new Promise<void>((resolve) => {
+      forceTimer = setTimeout(resolve, 1000)
+    })
+  ])
+  if (forceTimer) clearTimeout(forceTimer)
 }
 
 export interface CapturedMessageBox {

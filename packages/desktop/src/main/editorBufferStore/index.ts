@@ -5,6 +5,7 @@ import writeFileAtomic from 'write-file-atomic'
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { TypedEmitter } from '@shared/types/typedEmitter'
 import type BaseWindow from '../windows/base'
+import { mergeBufferStoreContents, type BufferStoreState } from './restore'
 
 interface EditorBufferStorePaths {
   editorBufferStorePath: string
@@ -15,14 +16,15 @@ interface BufferStoreEntry {
   filePath: string
 }
 
-interface BufferStoreContent {
-  tabs: Array<{ isSaved: boolean; [key: string]: unknown }>
-  [key: string]: unknown
-}
-
 interface EditorWindow {
   id: number
   win: BaseWindow
+}
+
+interface MergedBufferStoreFiles {
+  state: BufferStoreState
+  primaryFilePath: string
+  sourceFilePaths: string[]
 }
 
 interface PendingWrite {
@@ -180,27 +182,98 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
     return this.bufferStores[restoreBufferId]
   }
 
-  readBufferStoreFile(filePath: string): BufferStoreContent {
+  readBufferStoreFile(filePath: string): BufferStoreState {
     const content = fs.readFileSync(filePath, 'utf8')
     return this._parseBufferStore(content)
   }
 
-  async readBufferStoreFileAsync(filePath: string): Promise<BufferStoreContent> {
+  async readBufferStoreFileAsync(filePath: string): Promise<BufferStoreState> {
     const content = await fsPromises.readFile(filePath, 'utf8')
     return this._parseBufferStore(content)
   }
 
-  private _parseBufferStore(content: string): BufferStoreContent {
+  private _parseBufferStore(content: string): BufferStoreState {
     if (!content.trim()) {
       throw new Error('Buffer store file is empty.')
     }
 
-    const buffer = JSON.parse(content) as BufferStoreContent
+    const buffer = JSON.parse(content) as BufferStoreState
     if (!buffer || !Array.isArray(buffer.tabs)) {
       throw new Error('Invalid editor buffer state.')
     }
 
     return buffer
+  }
+
+  /**
+   * Read all recovery files that were left by previous editor windows. A
+   * single invalid file should not prevent valid documents from being
+   * restored after an upgrade; the first listed file remains the destination
+   * so the BrowserWindow's existing restore id stays stable.
+   */
+  async readAndMergeBufferStoreFilesAsync(
+    bufferStoreInfos: Array<{ id: string; filePath: string }>
+  ): Promise<MergedBufferStoreFiles> {
+    if (bufferStoreInfos.length === 0) {
+      throw new Error('No editor buffer stores were provided.')
+    }
+
+    const states: BufferStoreState[] = []
+    for (const bufferStoreInfo of bufferStoreInfos) {
+      try {
+        states.push(await this.readBufferStoreFileAsync(bufferStoreInfo.filePath))
+      } catch (error) {
+        console.error(
+          `Failed to read editor buffer store ${bufferStoreInfo.filePath} during restore`,
+          error
+        )
+      }
+    }
+
+    if (states.length === 0) {
+      throw new Error('No valid editor buffer stores could be restored.')
+    }
+
+    return {
+      state: mergeBufferStoreContents(states),
+      primaryFilePath: bufferStoreInfos[0].filePath,
+      sourceFilePaths: [...new Set(bufferStoreInfos.map(({ filePath }) => filePath))]
+    }
+  }
+
+  /**
+   * Persist the merged recovery state before deleting stale per-window
+   * files. This makes the migration recoverable if the application exits
+   * during the next startup.
+   */
+  async consolidateBufferStoreFiles(
+    primaryFilePath: string,
+    sourceFilePaths: string[],
+    state: BufferStoreState
+  ): Promise<void> {
+    if (!primaryFilePath || sourceFilePaths.length <= 1) return
+
+    try {
+      await this.writeBufferStoreFile(primaryFilePath, state)
+    } catch (error) {
+      console.error(`Failed to consolidate editor buffer stores into ${primaryFilePath}`, error)
+      return
+    }
+
+    for (const filePath of sourceFilePaths) {
+      if (filePath === primaryFilePath) continue
+      try {
+        fs.unlinkSync(filePath)
+      } catch (error) {
+        // The file may have disappeared between the directory scan and the
+        // migration. Keep startup successful in either case.
+        if (fs.existsSync(filePath)) {
+          console.error(`Failed to remove stale editor buffer store ${filePath}`, error)
+        }
+      }
+    }
+
+    this.bufferStores = this.findEditorBufferStores(this.editorBufferStorePath)
   }
 
   async writeBufferStoreFile(filePath: string, newState: unknown): Promise<void> {

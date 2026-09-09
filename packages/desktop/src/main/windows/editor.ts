@@ -1,16 +1,17 @@
 import path from 'path'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
-import type { BrowserWindowConstructorOptions } from 'electron'
+import type { BrowserWindowConstructorOptions, IpcMainEvent } from 'electron'
 import log from 'electron-log'
 import windowStateKeeper from 'electron-window-state'
 import { isChildOfDirectory, isSamePathSync } from 'common/filesystem/paths'
-import BaseWindow, { WindowLifecycle, WindowType } from './base'
+import BaseWindow, { showWindowWhenRendererReady, WindowLifecycle, WindowType } from './base'
 import type Accessor from '../app/accessor'
 import { ensureWindowPosition, zoomIn, zoomOut } from './utils'
 import { TITLE_BAR_HEIGHT, editorWinOptions, isLinux, isOsx } from '../config'
 import { showEditorContextMenu } from '../contextMenu/editor'
 import { loadMarkdownFile } from '../filesystem/markdown'
 import { switchLanguage } from '../spellchecker'
+import type { BufferStoreState } from '../editorBufferStore/restore'
 
 type RawMarkdownDocument = Awaited<ReturnType<typeof loadMarkdownFile>>
 
@@ -23,6 +24,7 @@ interface PendingFile {
 interface BufferStoreInfo {
   id: string
   filePath: string | null
+  restoreBufferStores?: Array<{ id: string; filePath: string }>
 }
 
 interface CandidateScore {
@@ -38,11 +40,10 @@ interface RestoredTab {
   [key: string]: unknown
 }
 
-interface RestoredBufferState {
+interface RestoredBufferState extends Omit<BufferStoreState, 'tabs'> {
   tabs: RestoredTab[]
   restoreWarnings?: unknown[]
   project?: { rootDirectory?: string }
-  [key: string]: unknown
 }
 
 class EditorWindow extends BaseWindow {
@@ -112,13 +113,30 @@ class EditorWindow extends BaseWindow {
     }
 
     let win: BrowserWindow | null = (this.browserWindow = new BrowserWindow(winOptions))
+    // BrowserWindow.webContents throws after the native window is destroyed.
+    // Keep the already-created WebContents object for lifecycle cleanup.
+    const rendererWebContents = win.webContents
+    let rendererInitialized = false
+
+    // A renderer that has not completed the bootstrap handshake cannot have
+    // unsaved editor state. Allow the native close to continue in that phase;
+    // otherwise app.quit() can be held indefinitely by the close-confirmation
+    // IPC round trip while Vue is still mounting.
+    const onRendererIpcMessage = (event: IpcMainEvent, channel: string): void => {
+      if (event.sender === rendererWebContents && channel === 'mt::window-initialized') {
+        rendererInitialized = true
+      }
+    }
+    rendererWebContents.on('ipc-message', onRendererIpcMessage)
 
     this.bufferStoreInfo = {
       id: bufferStoreInfo ? bufferStoreInfo.id : editorBufferStore.getUnUsedBufferUUID(),
-      filePath: bufferStoreInfo ? bufferStoreInfo.filePath : null
+      filePath: bufferStoreInfo ? bufferStoreInfo.filePath : null,
+      restoreBufferStores: bufferStoreInfo?.restoreBufferStores
     }
     ;(win as unknown as { restoreBufferId: string }).restoreBufferId = this.bufferStoreInfo.id
     this.id = win.id
+    showWindowWhenRendererReady(win)
 
     // Attach load lifecycle handlers before starting navigation, then start the
     // renderer immediately. The lightweight HTML shell can now paint while the
@@ -180,6 +198,10 @@ class EditorWindow extends BaseWindow {
     })
 
     win.webContents.once('render-process-gone', async(_event, { reason }) => {
+      // A dead renderer cannot answer the close-confirmation IPC request.
+      // Mark it uninitialized so app.quit() can still tear down the native
+      // window instead of waiting forever for a response that cannot arrive.
+      rendererInitialized = false
       if (reason === 'clean-exit') return
 
       const msg = `The renderer process has crashed unexpected or is killed (${reason}).`
@@ -222,7 +244,10 @@ class EditorWindow extends BaseWindow {
 
     win.on('close', (event) => {
       this.emit('window-close')
-      if (this._accessor.shutdownCoordinator?.isUpdateInstallApproved()) {
+      if (
+        this._accessor.shutdownCoordinator?.isUpdateInstallApproved() ||
+        !rendererInitialized
+      ) {
         return
       }
       event.preventDefault()
@@ -230,6 +255,7 @@ class EditorWindow extends BaseWindow {
     })
 
     win.on('closed', () => {
+      rendererWebContents.removeListener('ipc-message', onRendererIpcMessage)
       this.lifecycle = WindowLifecycle.QUITTED
       this.emit('window-closed')
       win = null
@@ -456,9 +482,24 @@ class EditorWindow extends BaseWindow {
     const { menu: appMenu, preferences, editorBufferStore } = _accessor
 
     try {
-      const bufferState = (await editorBufferStore.readBufferStoreFileAsync(
-        bufferStoreInfo!.filePath!
-      )) as RestoredBufferState
+      const restoreBufferStores = bufferStoreInfo!.restoreBufferStores ?? [
+        { id: bufferStoreInfo!.id, filePath: bufferStoreInfo!.filePath! }
+      ]
+      const {
+        state: restoredState,
+        primaryFilePath,
+        sourceFilePaths
+      } = await editorBufferStore.readAndMergeBufferStoreFilesAsync(restoreBufferStores)
+      // Consolidate before loading files. The renderer has no tabs yet, so a
+      // slow disk read cannot race with a user edit and overwrite a newer
+      // recovery snapshot.
+      await editorBufferStore.consolidateBufferStoreFiles(
+        primaryFilePath,
+        sourceFilePaths,
+        restoredState
+      )
+
+      const bufferState = restoredState as RestoredBufferState
       if (!Array.isArray(bufferState.restoreWarnings)) bufferState.restoreWarnings = []
 
       const rootDirectory = bufferState.project?.rootDirectory

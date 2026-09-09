@@ -1,6 +1,7 @@
 import path from 'path'
-import type { BrowserWindow } from 'electron'
+import type { BrowserWindow, IpcMainEvent } from 'electron'
 import { TypedEmitter } from '@shared/types/typedEmitter'
+import { WINDOW_INITIAL_SHELL_READY_CHANNEL } from '@shared/types/ipc'
 import type Accessor from '../app/accessor'
 import { getThemeBackgroundColor } from '../../common/theme'
 
@@ -58,6 +59,41 @@ export interface PreferenceLike {
 export interface EnvLike {
   debug: boolean
   paths: { userDataPath: string }
+}
+
+/**
+ * Show a window once its inline loading shell is available. The preload signal
+ * arrives at `readyState=interactive`, before deferred/module scripts run;
+ * `dom-ready` remains a fallback for alternate renderer entry points.
+ */
+export const showWindowWhenRendererReady = (win: BrowserWindow): void => {
+  let shown = false
+  // Keep the WebContents reference captured before the BrowserWindow can be
+  // destroyed. Accessing `win.webContents` from a `closed`/`destroyed` event
+  // can itself throw "Object has been destroyed" in Electron.
+  const webContents = win.webContents
+
+  const cleanup = (): void => {
+    webContents.removeListener('ipc-message', onIpcMessage)
+  }
+
+  const show = (): void => {
+    if (shown || win.isDestroyed()) return
+
+    shown = true
+    cleanup()
+    if (!win.isVisible()) win.show()
+  }
+
+  const onIpcMessage = (event: IpcMainEvent, channel: string): void => {
+    if (event.sender !== webContents || channel !== WINDOW_INITIAL_SHELL_READY_CHANNEL) return
+
+    show()
+  }
+
+  webContents.on('ipc-message', onIpcMessage)
+  webContents.once('dom-ready', show)
+  webContents.once('destroyed', cleanup)
 }
 
 class BaseWindow extends TypedEmitter<BaseWindowEvents> {
