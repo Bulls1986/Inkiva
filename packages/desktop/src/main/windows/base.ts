@@ -68,9 +68,13 @@ export interface EnvLike {
  */
 export const showWindowWhenRendererReady = (win: BrowserWindow): void => {
   let shown = false
+  // Keep the WebContents reference captured before the BrowserWindow can be
+  // destroyed. Accessing `win.webContents` from a `closed`/`destroyed` event
+  // can itself throw "Object has been destroyed" in Electron.
+  const webContents = win.webContents
 
   const cleanup = (): void => {
-    win.webContents.removeListener('ipc-message', onIpcMessage)
+    webContents.removeListener('ipc-message', onIpcMessage)
   }
 
   const show = (): void => {
@@ -82,14 +86,14 @@ export const showWindowWhenRendererReady = (win: BrowserWindow): void => {
   }
 
   const onIpcMessage = (event: IpcMainEvent, channel: string): void => {
-    if (event.sender !== win.webContents || channel !== WINDOW_INITIAL_SHELL_READY_CHANNEL) return
+    if (event.sender !== webContents || channel !== WINDOW_INITIAL_SHELL_READY_CHANNEL) return
 
     show()
   }
 
-  win.webContents.on('ipc-message', onIpcMessage)
-  win.webContents.once('dom-ready', show)
-  win.webContents.once('destroyed', cleanup)
+  webContents.on('ipc-message', onIpcMessage)
+  webContents.once('dom-ready', show)
+  webContents.once('destroyed', cleanup)
 }
 
 class BaseWindow extends TypedEmitter<BaseWindowEvents> {

@@ -112,6 +112,9 @@ class EditorWindow extends BaseWindow {
     }
 
     let win: BrowserWindow | null = (this.browserWindow = new BrowserWindow(winOptions))
+    // BrowserWindow.webContents throws after the native window is destroyed.
+    // Keep the already-created WebContents object for lifecycle cleanup.
+    const rendererWebContents = win.webContents
     let rendererInitialized = false
 
     // A renderer that has not completed the bootstrap handshake cannot have
@@ -119,11 +122,11 @@ class EditorWindow extends BaseWindow {
     // otherwise app.quit() can be held indefinitely by the close-confirmation
     // IPC round trip while Vue is still mounting.
     const onRendererIpcMessage = (event: IpcMainEvent, channel: string): void => {
-      if (event.sender === win?.webContents && channel === 'mt::window-initialized') {
+      if (event.sender === rendererWebContents && channel === 'mt::window-initialized') {
         rendererInitialized = true
       }
     }
-    win.webContents.on('ipc-message', onRendererIpcMessage)
+    rendererWebContents.on('ipc-message', onRendererIpcMessage)
 
     this.bufferStoreInfo = {
       id: bufferStoreInfo ? bufferStoreInfo.id : editorBufferStore.getUnUsedBufferUUID(),
@@ -250,7 +253,7 @@ class EditorWindow extends BaseWindow {
     })
 
     win.on('closed', () => {
-      win!.webContents.removeListener('ipc-message', onRendererIpcMessage)
+      rendererWebContents.removeListener('ipc-message', onRendererIpcMessage)
       this.lifecycle = WindowLifecycle.QUITTED
       this.emit('window-closed')
       win = null
