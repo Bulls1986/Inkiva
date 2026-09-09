@@ -143,6 +143,7 @@ onMounted(async () => {
   // close messages into a gap with no listener attached.
   editorStore.LISTEN_FOR_CLOSE()
   editorStore.LISTEN_FOR_BOOTSTRAP_WINDOW()
+  editorStore.LISTEN_FOR_STATE_REPLACE()
 
   await commandCenterStore.LISTEN_COMMAND_CENTER_BUS()
   layoutStore.LISTEN_FOR_LAYOUT()
@@ -176,7 +177,6 @@ onMounted(async () => {
   editorStore.LISTEN_WINDOW_ZOOM()
   editorStore.LISTEN_FOR_RELOAD_IMAGES()
   editorStore.LISTEN_FOR_CONTEXT_MENU()
-  editorStore.LISTEN_FOR_STATE_REPLACE()
 
   notificationStore.listenForNotification()
   window.addEventListener('dragover', handleDragOver, false)

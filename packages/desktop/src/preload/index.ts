@@ -32,9 +32,13 @@ type BufferedRendererEvent = {
 type BufferedRendererListener = (event: IpcRendererEvent, ...args: unknown[]) => void
 
 // Electron can finish the document load while a slow renderer is still
-// evaluating its application bundle. Keep the two startup-sensitive messages
-// until the Vue listeners are registered instead of losing them in that gap.
-const bufferedRendererChannels = ['mt::bootstrap-editor', 'mt::ask-for-close'] as const
+// evaluating its application bundle. Keep startup-sensitive messages until the
+// Vue listeners are registered instead of losing them in that gap.
+const bufferedRendererChannels = [
+  'mt::bootstrap-editor',
+  'mt::load-state',
+  'mt::ask-for-close'
+] as const
 const bufferedRendererEvents = new Map<string, BufferedRendererEvent[]>()
 const bufferedRendererListeners = new Map<string, BufferedRendererListener>()
 
