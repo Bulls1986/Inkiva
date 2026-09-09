@@ -908,7 +908,7 @@
     "checking": "Checking for updates…",
     "upToDate": "Inkiva {version} is up to date.",
     "available": "Inkiva {version} is available.",
-    "downloading": "Downloading update…",
+    "downloading": "Downloading the update in the background…",
     "ready": "The update is ready to install.",
     "restartNow": "Restart and update",
     "later": "Later",

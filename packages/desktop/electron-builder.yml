@@ -104,6 +104,7 @@ win:
   icon: static/inkiva.ico
 nsis:
   artifactName: 'inkiva-win-${arch}-${version}-setup.${ext}'
+  differentialPackage: true
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: true

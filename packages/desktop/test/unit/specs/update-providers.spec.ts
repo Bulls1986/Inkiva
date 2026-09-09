@@ -10,22 +10,23 @@ describe('WindowsUpdateProvider', () => {
       allowPrerelease: true,
       allowDowngrade: true,
       autoInstallOnAppQuit: true,
+      disableDifferentialDownload: true,
       on: vi.fn((event: string, listener: (progress: { percent: number }) => void) => {
         listeners.set(event, listener)
       }),
       checkForUpdates: vi.fn(async() => ({
-        updateInfo: { version: '1.1.0' },
-        downloadPromise: Promise.resolve()
+        updateInfo: { version: '1.1.0' }
       })),
       downloadUpdate: vi.fn(async() => {}),
       quitAndInstall: vi.fn()
     }
 
     const provider = new WindowsUpdateProvider(updater)
-    expect(updater.autoDownload).toBe(true)
+    expect(updater.autoDownload).toBe(false)
     expect(updater.allowPrerelease).toBe(false)
     expect(updater.allowDowngrade).toBe(false)
     expect(updater.autoInstallOnAppQuit).toBe(false)
+    expect(updater.disableDifferentialDownload).toBe(false)
 
     await expect(provider.checkForUpdates()).resolves.toMatchObject({
       candidates: [{ version: '1.1.0', tagName: 'v1.1.0', prerelease: false, draft: false }]
@@ -36,6 +37,7 @@ describe('WindowsUpdateProvider', () => {
     listeners.get('download-progress')?.({ percent: 42 })
     await download
     expect(progress).toEqual([42])
+    expect(updater.downloadUpdate).toHaveBeenCalledTimes(1)
 
     provider.quitAndInstall()
     expect(updater.quitAndInstall).toHaveBeenCalledWith(false, true)

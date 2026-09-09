@@ -25,7 +25,12 @@ const builderConfig = fs.readFileSync(
   path.join(root, 'packages/desktop/electron-builder.yml'),
   'utf8'
 )
-for (const expected of ['provider: github', 'owner: Bulls1986', 'repo: Inkiva']) {
+for (const expected of [
+  'provider: github',
+  'owner: Bulls1986',
+  'repo: Inkiva',
+  'differentialPackage: true'
+]) {
   if (!builderConfig.includes(expected)) fail(`electron-builder.yml is missing '${expected}'`)
 }
 
