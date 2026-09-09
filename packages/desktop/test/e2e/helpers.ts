@@ -52,6 +52,11 @@ export interface LaunchResult {
   page: Page
 }
 
+// Keep the original Playwright close method so every test gets the same
+// bounded cleanup behavior without requiring each of the many existing specs
+// to remember a special helper.
+const gracefulCloseByApp = new WeakMap<ElectronApplication, () => Promise<void>>()
+
 export interface LaunchOptions {
   // When true, sets INKIVA_ERROR_INTERACTION=1 in the launch env so
   // src/main/exceptionHandler.ts suppresses the modal "Unexpected error"
@@ -87,6 +92,11 @@ export const launchElectron = async(
     env,
     timeout: 30000
   })
+  gracefulCloseByApp.set(app, app.close.bind(app))
+  Object.defineProperty(app, 'close', {
+    configurable: true,
+    value: (): Promise<void> => closeElectron(app)
+  })
   if (options.suppressErrorDialog) await installRendererErrorCounter(app)
   const page = await app.firstWindow()
   if (options.waitForReady !== false) {
@@ -106,7 +116,8 @@ export const closeElectron = async(
   timeoutMs = 5000
 ): Promise<void> => {
   let settled = false
-  const closePromise = app.close().catch(() => {}).finally(() => {
+  const gracefulClose = gracefulCloseByApp.get(app) ?? app.close.bind(app)
+  const closePromise = gracefulClose().catch(() => {}).finally(() => {
     settled = true
   })
   const wait = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, timeoutMs))
