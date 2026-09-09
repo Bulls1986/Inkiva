@@ -56,6 +56,10 @@ test('restores multiple recovery files into one deduplicated editor window', asy
     userDataDir,
     suppressErrorDialog: true
   })
+  const rendererConsoleErrors: string[] = []
+  launched.page.on('console', (message) => {
+    if (message.type() === 'error') rendererConsoleErrors.push(message.text())
+  })
 
   try {
     try {
@@ -73,7 +77,18 @@ test('restores multiple recovery files into one deduplicated editor window', asy
       const windowCount = await launched.app.evaluate(
         ({ BrowserWindow }) => BrowserWindow.getAllWindows().length
       )
-      console.error('[restore-buffer-store] startup snapshot', { snapshot, windowCount })
+      const mainSnapshot = await launched.app.evaluate(({ app, BrowserWindow }) => ({
+        userDataPath: app.getPath('userData'),
+        argv: process.argv.slice(0, 10),
+        windowUrls: BrowserWindow.getAllWindows().map((window) => window.webContents.getURL())
+      }))
+      console.error('[restore-buffer-store] startup snapshot', {
+        snapshot,
+        windowCount,
+        expectedUserDataPath: userDataDir,
+        mainSnapshot,
+        rendererConsoleErrors
+      })
       throw error
     }
     await waitForMenuReady(launched.app)
