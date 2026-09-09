@@ -249,9 +249,17 @@ class App {
     }
 
     if (args._.length) {
+      // When Electron is launched in development/Playwright mode, the app
+      // entry directory is present in process.argv as a positional argument.
+      // It is the executable entry, not a document or folder requested by the
+      // user; treating it as an opened folder disables startup recovery.
+      const applicationPath = path.resolve(app.getAppPath())
       for (const pathname of args._) {
         // Ignore all unknown flags
         if (pathname.startsWith('--')) {
+          continue
+        }
+        if (path.resolve(pathname) === applicationPath) {
           continue
         }
 

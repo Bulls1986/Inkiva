@@ -56,46 +56,9 @@ test('restores multiple recovery files into one deduplicated editor window', asy
     userDataDir,
     suppressErrorDialog: true
   })
-  const rendererConsoleErrors: string[] = []
-  launched.page.on('console', (message) => {
-    if (message.type() === 'error') rendererConsoleErrors.push(message.text())
-  })
 
   try {
-    try {
-      await waitForEditor(launched.page)
-    } catch (error) {
-      const snapshot = await launched.page.evaluate(() => ({
-        readyState: document.readyState,
-        title: document.title,
-        editorComponent: !!document.querySelector('.editor-component'),
-        editorWithTabs: !!document.querySelector('.editor-with-tabs'),
-        recent: !!document.querySelector('.recent'),
-        tabCount: document.querySelectorAll('.tabs-container > li').length,
-        bodyText: document.body.innerText.slice(0, 500)
-      }))
-      const windowCount = await launched.app.evaluate(
-        ({ BrowserWindow }) => BrowserWindow.getAllWindows().length
-      )
-      const mainSnapshot = await launched.app.evaluate(({ app, BrowserWindow }) => ({
-        userDataPath: app.getPath('userData'),
-        argv: process.argv.slice(0, 10),
-        windowUrls: BrowserWindow.getAllWindows().map((window) => window.webContents.getURL())
-      }))
-      const recoveryFiles = fs.readdirSync(editorStatesDir).map((file) => ({
-        file,
-        content: fs.readFileSync(path.join(editorStatesDir, file), 'utf8').slice(0, 1000)
-      }))
-      console.error('[restore-buffer-store] startup snapshot', {
-        snapshot,
-        windowCount,
-        expectedUserDataPath: userDataDir,
-        mainSnapshot,
-        recoveryFiles,
-        rendererConsoleErrors
-      })
-      throw error
-    }
+    await waitForEditor(launched.page)
     await waitForMenuReady(launched.app)
 
     await expect
