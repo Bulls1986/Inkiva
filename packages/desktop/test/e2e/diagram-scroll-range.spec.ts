@@ -48,7 +48,7 @@ const LARGE_MERMAID_DOCUMENT = [
 ].join('\n')
 
 test.describe('Mermaid diagram scroll range', () => {
-  test('does not include the hidden diagram source after preview rendering', async () => {
+  test('does not include the hidden diagram source after preview rendering', async() => {
     const { app, page } = await launchWithMarkdown(LARGE_MERMAID_DOCUMENT)
 
     try {
