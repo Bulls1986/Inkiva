@@ -1,5 +1,11 @@
 import log from 'electron-log'
-import { isStableVersion, selectNewestStableRelease, UPDATE_CHECK_INTERVAL } from './release'
+import {
+  isMissingReleaseArtifactError,
+  isNoFormalReleaseError,
+  isStableVersion,
+  selectNewestStableRelease,
+  UPDATE_CHECK_INTERVAL
+} from './release'
 import type { StableRelease, UpdateCheckSource, UpdateManagerOptions, UpdateStatus } from './types'
 
 const cloneStatus = (status: UpdateStatus): UpdateStatus => ({ ...status })
@@ -140,6 +146,32 @@ export class UpdateManager {
       return this.status
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
+      if (isNoFormalReleaseError(error)) {
+        this._store.set(this._now())
+        this._setStatus({
+          state: 'up-to-date',
+          checkSource: source,
+          latestVersion: undefined,
+          releaseUrl: undefined,
+          downloadProgress: undefined,
+          errorCode: undefined,
+          errorMessage: undefined
+        })
+        return this.status
+      }
+      if (isMissingReleaseArtifactError(error)) {
+        log.info(`Update metadata unavailable; treating check as no update: ${errorMessage}`)
+        this._setStatus({
+          state: 'up-to-date',
+          checkSource: source,
+          latestVersion: undefined,
+          releaseUrl: undefined,
+          downloadProgress: undefined,
+          errorCode: undefined,
+          errorMessage: undefined
+        })
+        return this.status
+      }
       log.warn(`Update NETWORK_ERROR: ${errorMessage}`)
       this._setStatus({ state: 'error', errorCode: 'NETWORK_ERROR', errorMessage })
       return this.status

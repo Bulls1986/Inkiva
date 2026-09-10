@@ -63,7 +63,7 @@ describe('WindowsUpdateProvider', () => {
     await expect(provider.checkForUpdates()).resolves.toEqual({ candidates: [] })
   })
 
-  it('keeps missing artifacts and transport failures as errors', async() => {
+  it('keeps missing channel metadata as an error for the provider caller', async() => {
     const updater = {
       autoDownload: false,
       allowPrerelease: false,

@@ -132,6 +132,22 @@ describe('UpdateManager', () => {
     expect(store.get()).toBeUndefined()
   })
 
+  it('treats missing release metadata as no available update without caching it', async() => {
+    const { manager, provider, store } = createManager()
+    provider.checkForUpdates = vi.fn(async() => {
+      throw Object.assign(new Error('latest.yml is missing'), {
+        code: 'ERR_UPDATER_CHANNEL_FILE_NOT_FOUND'
+      })
+    })
+
+    await expect(manager.checkForUpdate('manual')).resolves.toMatchObject({
+      state: 'up-to-date',
+      checkSource: 'manual',
+      currentVersion: '1.0.0'
+    })
+    expect(store.get()).toBeUndefined()
+  })
+
   it('deduplicates concurrent checks into one provider request', async() => {
     const { manager, provider } = createManager()
     let resolve: ((result: UpdateCheckResult) => void) | undefined
