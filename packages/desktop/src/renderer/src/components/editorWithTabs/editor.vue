@@ -77,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted, onBeforeUnmount, nextTick, markRaw } from 'vue'
+import { ref, reactive, watch, onMounted, onBeforeUnmount, nextTick, markRaw, toRaw } from 'vue'
 import log from 'electron-log'
 import {
   Muya,
@@ -1497,16 +1497,44 @@ interface FileLoadedPayload {
   id?: string
   markdown?: string
   cursor?: unknown
+  contentAlreadyLoaded?: boolean
+}
+
+type EditorSetContentSource = 'markdown' | 'blocks'
+
+const recordEditorSetContent = (source: EditorSetContentSource): void => {
+  if (window.electron?.process?.env?.PERF_TESTING !== 'true') return
+
+  const globalState = globalThis as typeof globalThis & {
+    __inkiva_e2e_editor_metrics__?: {
+      setContentCalls: number
+      setContentSources: EditorSetContentSource[]
+    }
+  }
+  const metrics = (globalState.__inkiva_e2e_editor_metrics__ ??= {
+    setContentCalls: 0,
+    setContentSources: []
+  })
+  metrics.setContentCalls += 1
+  metrics.setContentSources.push(source)
 }
 
 // listen for `open-single-file` event, it will call this method only when open a new file.
 const setMarkdownToEditor = (payload: unknown) => {
-  const { id, markdown: newMarkdown, cursor: newCursor } = (payload ?? {}) as FileLoadedPayload
+  const {
+    id,
+    markdown: newMarkdown,
+    cursor: newCursor,
+    contentAlreadyLoaded
+  } = (payload ?? {}) as FileLoadedPayload
   if (editor.value) {
     clearPendingScrollRestore()
-    // `setContent` resets the document and clears the undo history; only set a
-    // cursor afterwards (a freshly-opened file has no history to restore).
-    editor.value.setContent(newMarkdown ?? '')
+    if (!contentAlreadyLoaded) {
+      // `setContent` resets the document and clears the undo history; only set
+      // a cursor afterwards (a freshly-opened file has no history to restore).
+      recordEditorSetContent('markdown')
+      editor.value.setContent(newMarkdown ?? '')
+    }
     // The freshly loaded content is this tab's clean baseline (id 0). Re-seed
     // the monotonic save-tracking allocator so undoing an edit back to this
     // content reads as clean again (matches the store's `lastSavedHistoryId: 0`).
@@ -1545,6 +1573,14 @@ interface FileChangePayload {
   isReload?: boolean
 }
 
+const isReusableBlocksSnapshot = (blocks: unknown): blocks is unknown[] => {
+  if (!Array.isArray(blocks)) return false
+  return blocks.every((block) => {
+    if (block == null || typeof block !== 'object') return false
+    return typeof (block as { name?: unknown }).name === 'string'
+  })
+}
+
 // listen for markdown change form source mode or change tabs etc
 const handleFileChange = (payload: unknown) => {
   const {
@@ -1554,6 +1590,7 @@ const handleFileChange = (payload: unknown) => {
     muyaIndexCursor,
     history: payloadHistory,
     scrollTop,
+    blocks,
     isReload
   } = (payload ?? {}) as FileChangePayload
   if (!editor.value) return
@@ -1622,7 +1659,21 @@ const handleFileChange = (payload: unknown) => {
       // per-tab) afterwards — preserves undo/redo on in-session tab switch. The
       // `history` in the payload is the synthetic desktop-shaped history used
       // for save tracking, not the engine history.
-      editor.value.setContent(newMarkdown)
+      // Tabs that have already been edited in WYSIWYG mode carry a serialized
+      // block tree in the store. Reusing it avoids parsing the same Markdown
+      // again on every return to the tab. Source-mode handoffs and external
+      // reloads do not enter this branch, and invalid snapshots fall back to
+      // the Markdown path.
+      const reusableBlocks = isReusableBlocksSnapshot(blocks) ? blocks : null
+      if (reusableBlocks) {
+        recordEditorSetContent('blocks')
+        // `blocks` came through Pinia and may be reactive. Give Muya the raw
+        // snapshot so its document model does not retain Vue proxies.
+        editor.value.setContent(toRaw(reusableBlocks))
+      } else {
+        recordEditorSetContent('markdown')
+        editor.value.setContent(newMarkdown)
+      }
       // Tab switch swaps content without firing `json-change`, so re-seed the
       // TOC (otherwise returning to an open tab keeps the other tab's TOC).
       editorStore.UPDATE_TOC(editor.value.getTOC())
