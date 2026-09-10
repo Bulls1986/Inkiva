@@ -1170,22 +1170,83 @@ const getScrollContainer = (): HTMLElement | null =>
 type PendingScrollRestore = {
   element: HTMLElement
   target: number
-  basePaddingBottom: number
+  startedAt: number
+  expectedScrollTop: number
+  timer: ReturnType<typeof setTimeout> | null
+  frame: number | null
+  mutationObserver: MutationObserver
+  resizeObserver: ResizeObserver
 }
 
-// `scrollToCords` may temporarily replace the editor's normal bottom padding
-// while a document is being laid out. Keep the target and the padding that was
-// replaced together so the observer can decide when it is safe to restore the
-// normal document height.
+const SCROLL_RESTORE_FALLBACK_MS = 250
+const SCROLL_RESTORE_TIMEOUT_MS = 3000
+
+// The editor rebuilds its block tree synchronously, but diagrams and other
+// media can change the document height after their asynchronous render. Do not
+// add synthetic bottom padding to make a saved position writable: that padding
+// becomes part of the scrollbar range when a later layout change is not
+// observable by ResizeObserver. Instead, clamp to the real range now and retry
+// the saved position briefly while the layout settles.
 let pendingScrollRestore: PendingScrollRestore | null = null
 
 const clearPendingScrollRestore = (): void => {
   const pending = pendingScrollRestore
   if (!pending) return
 
-  pending.element.style.paddingBottom = ''
-  resizeObserverForEditor.unobserve(pending.element)
+  if (pending.timer !== null) clearTimeout(pending.timer)
+  if (pending.frame !== null) cancelAnimationFrame(pending.frame)
+  pending.mutationObserver.disconnect()
+  pending.resizeObserver.disconnect()
   pendingScrollRestore = null
+}
+
+const getMaxScrollTop = (container: HTMLElement): number =>
+  Math.max(0, container.scrollHeight - container.clientHeight)
+
+const checkPendingScrollRestore = (): void => {
+  const pending = pendingScrollRestore
+  const container = getScrollContainer()
+  const editorRoot = container?.firstElementChild as HTMLElement | null
+  if (!pending || !container || !editorRoot || pending.element !== editorRoot) {
+    clearPendingScrollRestore()
+    return
+  }
+
+  if (pending.timer !== null) {
+    clearTimeout(pending.timer)
+    pending.timer = null
+  }
+
+  const maxScrollTop = getMaxScrollTop(container)
+  const restoredScrollTop = Math.min(pending.target, maxScrollTop)
+  pending.expectedScrollTop = restoredScrollTop
+  if (container.scrollTop !== restoredScrollTop) {
+    container.scrollTop = restoredScrollTop
+  }
+
+  const timedOut = Date.now() - pending.startedAt >= SCROLL_RESTORE_TIMEOUT_MS
+  if (maxScrollTop >= pending.target || timedOut) {
+    // A stale position can belong to a document that is now shorter. Persist
+    // the actual boundary after the retry window so the next switch does not
+    // repeat the same clamp cycle.
+    if (maxScrollTop < pending.target && currentFile.value?.id) {
+      editorStore.updateScrollPosition(currentFile.value.id, restoredScrollTop)
+    }
+    clearPendingScrollRestore()
+    return
+  }
+
+  pending.timer = setTimeout(checkPendingScrollRestore, SCROLL_RESTORE_FALLBACK_MS)
+}
+
+const schedulePendingScrollRestoreCheck = (): void => {
+  const pending = pendingScrollRestore
+  if (!pending || pending.frame !== null) return
+
+  pending.frame = requestAnimationFrame(() => {
+    pending.frame = null
+    checkPendingScrollRestore()
+  })
 }
 
 // Viewport-relative caret rect (mirrors the engine's `Selection.getCursorCoords`
@@ -1220,43 +1281,39 @@ const scrollToCords = (y: number) => {
   const container = getScrollContainer()
   if (!container) return
 
-  // A previous document may have needed temporary padding. It must not become
-  // part of the next document's scroll range when the editor root is reused.
+  // Cancel any restore watcher from the previous document before reusing the
+  // editor root for this document.
   clearPendingScrollRestore()
 
   const target = Math.max(0, y)
   const editorRoot = container.firstElementChild as HTMLElement | null
-  const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
-
-  // Depending on how much the user previously scrolled, sometimes the container has not fully rendered all elements.
-  // Hence, container.scrollHeight < [saved scrollTop]
-  // What we need to do is to temporarily add a padding to the editor root so
-  // that we can actually set the scrollTop without getting clamped. The root
-  // already has intentional bottom padding (currently 100vh), so calculate the
-  // replacement from the computed value instead of assuming it is 100px.
-  // A saved position that is more than one viewport beyond the current
-  // boundary belongs to an older/shorter document, not to a few pixels of
-  // pending layout. Do not manufacture a huge blank scroll range for it —
-  // letting the browser clamp to the real boundary is the correct behavior.
-  const missingScrollDistance = target - maxScrollTop
-  if (editorRoot && missingScrollDistance > 0 && missingScrollDistance <= container.clientHeight) {
-    const basePaddingBottom = Number.parseFloat(getComputedStyle(editorRoot).paddingBottom) || 0
-    editorRoot.style.paddingBottom = `${target - maxScrollTop + basePaddingBottom}px`
-    pendingScrollRestore = {
+  if (editorRoot) {
+    const pending: PendingScrollRestore = {
       element: editorRoot,
       target,
-      basePaddingBottom
+      startedAt: Date.now(),
+      expectedScrollTop: Math.min(target, getMaxScrollTop(container)),
+      timer: null,
+      frame: null,
+      mutationObserver: new MutationObserver(schedulePendingScrollRestoreCheck),
+      resizeObserver: new ResizeObserver(schedulePendingScrollRestoreCheck)
     }
-    // Attach a resize observer so we know when the document has reached the
-    // restored position and the temporary padding can be removed.
-    resizeObserverForEditor.observe(editorRoot)
+    pending.mutationObserver.observe(editorRoot, {
+      attributes: true,
+      childList: true,
+      subtree: true
+    })
+    pending.resizeObserver.observe(editorRoot)
+    pendingScrollRestore = pending
   }
   requestAnimationFrame(() => {
     if (!container) return
-    // wait for the padding to be applied (if any)
+    // Reveal after the first real layout. If an async block later increases
+    // scrollHeight, the background retry restores the saved position without
+    // making the user wait for the renderer.
     container.style.visibility = 'visible'
     container.style.pointerEvents = 'auto'
-    container.scrollTop = target
+    checkPendingScrollRestore()
   })
 }
 
@@ -1717,41 +1774,12 @@ const handleScreenShot = (filePath?: unknown) => {
   }
 }
 
-const handleResetPaddingBottom = () => {
-  const container = getScrollContainer()
-  if (!container) return
-  const firstChild = container.firstElementChild as HTMLElement | null
-  if (!firstChild) return
-  const pending = pendingScrollRestore
-  if (!pending || pending.element !== firstChild) return
-
-  const temporaryPaddingBottom = Number.parseFloat(firstChild.style.paddingBottom)
-  if (!Number.isFinite(temporaryPaddingBottom)) {
-    clearPendingScrollRestore()
-    return
-  }
-
-  // The inline padding replaces the root's normal padding. Add the replaced
-  // base padding back before deciding whether the real document is tall
-  // enough for the saved position.
-  const naturalMaxScrollTop =
-    container.scrollHeight -
-    container.clientHeight -
-    temporaryPaddingBottom +
-    pending.basePaddingBottom
-
-  if (naturalMaxScrollTop >= pending.target) {
-    clearPendingScrollRestore()
-  }
-}
-
 const handleLanguageChanged = (newLocale?: unknown) => {
   if (editor.value) {
     const locale = typeof newLocale === 'string' ? newLocale : language.value
     editor.value.locale(getMuyaLocale(locale))
   }
 }
-const resizeObserverForEditor = new ResizeObserver(handleResetPaddingBottom)
 
 onMounted(() => {
   printer = new Printer()
@@ -1951,6 +1979,14 @@ onMounted(() => {
   // The engine does not emit `scroll`; listen on the scroll container directly
   // so the desktop can persist each tab's scroll position.
   scrollHandler = () => {
+    const pending = pendingScrollRestore
+    if (pending) {
+      // Ignore the scroll event caused by the restore itself. A real user
+      // scroll cancels the retry so it is never fought by the background
+      // layout watcher.
+      if (Math.abs(container.scrollTop - pending.expectedScrollTop) <= 1) return
+      clearPendingScrollRestore()
+    }
     if (currentFile.value) {
       editorStore.updateScrollPosition(currentFile.value.id, container.scrollTop)
     }
@@ -2080,7 +2116,7 @@ onBeforeUnmount(() => {
   }
   scrollHandler = null
 
-  resizeObserverForEditor.disconnect()
+  clearPendingScrollRestore()
 
   if (imageViewer) {
     imageViewer.destroy()
