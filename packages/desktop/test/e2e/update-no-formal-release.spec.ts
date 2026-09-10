@@ -20,12 +20,12 @@ const noReleaseScenarios = [
   ['no formal release', 'no-release'],
   ['prerelease-only release', 'prerelease-only'],
   ['draft-only release', 'draft-only'],
-  ['malformed release metadata', 'malformed-release']
+  ['malformed release metadata', 'malformed-release'],
+  ['missing update artifact', 'missing-artifact']
 ] as const
 
 const failedCheckScenarios = [
-  ['network failure', 'network-error', 'network unavailable'],
-  ['missing update artifact', 'missing-artifact', 'latest.yml is missing']
+  ['network failure', 'network-error', 'network unavailable']
 ] as const
 
 const getUpdateStatuses = async(app: ElectronApplication) =>

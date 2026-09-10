@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isStableVersion,
+  isMissingReleaseArtifactError,
   isNoFormalReleaseError,
   selectNewestStableRelease,
   type ReleaseCandidate
@@ -64,7 +65,7 @@ describe('stable release filtering', () => {
 })
 
 describe('no formal release errors', () => {
-  it('recognizes electron-updater empty-feed errors', () => {
+  it('recognizes electron-updater no-release errors', () => {
     expect(isNoFormalReleaseError({ code: 'ERR_UPDATER_NO_PUBLISHED_VERSIONS' })).toBe(true)
     expect(isNoFormalReleaseError({
       code: 'ERR_UPDATER_LATEST_VERSION_NOT_FOUND',
@@ -72,7 +73,7 @@ describe('no formal release errors', () => {
     })).toBe(true)
   })
 
-  it('does not hide network or missing-artifact errors', () => {
+  it('does not hide network or missing-artifact errors at the release filter layer', () => {
     expect(isNoFormalReleaseError({
       code: 'ERR_UPDATER_LATEST_VERSION_NOT_FOUND',
       message: 'connect ETIMEDOUT api.github.com'
@@ -81,5 +82,9 @@ describe('no formal release errors', () => {
       code: 'ERR_UPDATER_CHANNEL_FILE_NOT_FOUND',
       message: 'latest.yml is missing'
     })).toBe(false)
+    expect(isMissingReleaseArtifactError({
+      code: 'ERR_UPDATER_CHANNEL_FILE_NOT_FOUND',
+      message: 'latest.yml is missing'
+    })).toBe(true)
   })
 })

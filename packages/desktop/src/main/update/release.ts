@@ -29,8 +29,6 @@ const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
  *
  * ERR_UPDATER_LATEST_VERSION_NOT_FOUND is also used for transport failures,
  * so only its explicit HTTP-404 form is treated as an empty release feed.
- * Missing channel artifacts and all other errors must remain visible to the
- * caller.
  */
 export const isNoFormalReleaseError = (error: unknown): boolean => {
   if (!error || typeof error !== 'object') return false
@@ -43,6 +41,19 @@ export const isNoFormalReleaseError = (error: unknown): boolean => {
   if (statusCode === 404 || statusCode === '404') return true
 
   return typeof candidate.message === 'string' && /\b404\b/.test(candidate.message)
+}
+
+/**
+ * A published GitHub release without latest.yml is not a usable updater
+ * release. This happens while a release is being repaired or after an
+ * incomplete/deleted release becomes the repository's latest release. It is
+ * safe to handle it as "no available update" at the application boundary,
+ * while keeping it separate from a successful no-release check so it is not
+ * cached for the full background-check interval.
+ */
+export const isMissingReleaseArtifactError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false
+  return (error as UpdateProviderError).code === 'ERR_UPDATER_CHANNEL_FILE_NOT_FOUND'
 }
 
 const parseVersion = (value: string | undefined): ParsedVersion | undefined => {
