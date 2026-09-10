@@ -864,9 +864,7 @@ figure.mu-diagram-block.mu-diagram-preview-only > .mu-diagram-container {
     width: 0;
     height: 0;
     margin: 0;
-    /* The source is hidden after a successful render and must not extend the
-       editor's scrollable overflow. Keep overflow visible only while editing. */
-    overflow: hidden;
+    overflow: visible;
 
     opacity: 0;
 
