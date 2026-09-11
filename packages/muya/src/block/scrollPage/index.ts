@@ -97,11 +97,20 @@ export class ScrollPage extends Parent {
         const { muya } = this;
         // Empty scrollPage dom
         this.empty();
-        this.append(
-            ...state.map((block) => {
-                return ScrollPage.loadBlock(block.name).create(muya, block);
-            }),
-        );
+        const blocks = state.map((block) => {
+            return ScrollPage.loadBlock(block.name).create(muya, block);
+        });
+
+        // Build the block tree while detached, then mount it with one DOM
+        // insertion. This keeps the linked-list state and the DOM in sync
+        // without forcing a layout opportunity for every block.
+        const fragment = document.createDocumentFragment();
+        blocks.forEach((block) => {
+            block.parent = this;
+            fragment.appendChild(block.domNode!);
+        });
+        this.children.append(...blocks);
+        this.domNode!.appendChild(fragment);
     }
 
     /**
