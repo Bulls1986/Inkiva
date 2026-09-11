@@ -1168,7 +1168,7 @@ const getScrollContainer = (): HTMLElement | null =>
   (editor.value?.domNode as HTMLElement | undefined) ?? null
 
 type PendingScrollRestore = {
-  element: HTMLElement
+  container: HTMLElement
   target: number
   startedAt: number
   expectedScrollTop: number
@@ -1206,8 +1206,7 @@ const getMaxScrollTop = (container: HTMLElement): number =>
 const checkPendingScrollRestore = (): void => {
   const pending = pendingScrollRestore
   const container = getScrollContainer()
-  const editorRoot = container?.firstElementChild as HTMLElement | null
-  if (!pending || !container || !editorRoot || pending.element !== editorRoot) {
+  if (!pending || !container || pending.container !== container) {
     clearPendingScrollRestore()
     return
   }
@@ -1286,26 +1285,25 @@ const scrollToCords = (y: number) => {
   clearPendingScrollRestore()
 
   const target = Math.max(0, y)
-  const editorRoot = container.firstElementChild as HTMLElement | null
-  if (editorRoot) {
-    const pending: PendingScrollRestore = {
-      element: editorRoot,
-      target,
-      startedAt: Date.now(),
-      expectedScrollTop: Math.min(target, getMaxScrollTop(container)),
-      timer: null,
-      frame: null,
-      mutationObserver: new MutationObserver(schedulePendingScrollRestoreCheck),
-      resizeObserver: new ResizeObserver(schedulePendingScrollRestoreCheck)
-    }
-    pending.mutationObserver.observe(editorRoot, {
-      attributes: true,
-      childList: true,
-      subtree: true
-    })
-    pending.resizeObserver.observe(editorRoot)
-    pendingScrollRestore = pending
+  const pending: PendingScrollRestore = {
+    container,
+    target,
+    startedAt: Date.now(),
+    expectedScrollTop: Math.min(target, getMaxScrollTop(container)),
+    timer: null,
+    frame: null,
+    mutationObserver: new MutationObserver(schedulePendingScrollRestoreCheck),
+    resizeObserver: new ResizeObserver(schedulePendingScrollRestoreCheck)
   }
+  // Diagram rendering may replace the editor's first child. Observe the stable
+  // scroll container instead so a rebuilt content root cannot cancel restore.
+  pending.mutationObserver.observe(container, {
+    attributes: true,
+    childList: true,
+    subtree: true
+  })
+  pending.resizeObserver.observe(container)
+  pendingScrollRestore = pending
   requestAnimationFrame(() => {
     if (!container) return
     // Reveal after the first real layout. If an async block later increases
