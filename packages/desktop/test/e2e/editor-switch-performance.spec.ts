@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
+import type { Page } from 'playwright'
 import {
   launchWithMarkdown,
   placeCaretInEditor,
-  sendIpcToRenderer,
-  typeIntoEditor
+  sendIpcToRenderer
 } from './helpers'
 
 type EditorMetrics = {
@@ -11,7 +11,7 @@ type EditorMetrics = {
   setContentSources: string[]
 }
 
-const readEditorMetrics = (page: import('playwright').Page): Promise<EditorMetrics> =>
+const readEditorMetrics = (page: Page): Promise<EditorMetrics> =>
   page.evaluate(() => {
     const state = (
       globalThis as typeof globalThis & {
@@ -21,7 +21,7 @@ const readEditorMetrics = (page: import('playwright').Page): Promise<EditorMetri
     return state ?? { setContentCalls: 0, setContentSources: [] }
   })
 
-const resetEditorMetrics = (page: import('playwright').Page): Promise<void> =>
+const resetEditorMetrics = (page: Page): Promise<void> =>
   page.evaluate(() => {
     const state = (
       globalThis as typeof globalThis & {
@@ -34,8 +34,16 @@ const resetEditorMetrics = (page: import('playwright').Page): Promise<void> =>
     }
   })
 
+const typeAtCommittedCaret = async(page: Page, text: string): Promise<void> => {
+  await page.keyboard.type(text, { delay: 30 })
+  await page.waitForTimeout(150)
+}
+
+const readEditorText = (page: Page): Promise<string> =>
+  page.evaluate(() => document.querySelector('.editor-component')?.textContent ?? '')
+
 test.describe('editor switch rebuild performance', () => {
-  test('opening a new document mounts its content only once', async () => {
+  test('opening a new document mounts its content only once', async() => {
     const { app, page } = await launchWithMarkdown('# Base\n')
 
     try {
@@ -50,23 +58,31 @@ test.describe('editor switch rebuild performance', () => {
     }
   })
 
-  test('switching back to an edited tab reuses its blocks snapshot', async () => {
+  test('switching back to an edited tab reuses its blocks snapshot', async() => {
     const { app, page } = await launchWithMarkdown('# Base\n')
 
     try {
       await sendIpcToRenderer(app, 'mt::new-untitled-tab', true, 'tab B\n')
-      await expect(page.locator('.mu-paragraph-content').first()).toContainText('tab B')
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('tab B')
 
       await placeCaretInEditor(page)
-      await typeIntoEditor(page, ' edited')
-      await expect(page.locator('.mu-paragraph-content').first()).toContainText('edited')
+      await typeAtCommittedCaret(page, ' edited')
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('edited')
 
       await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 0)
-      await expect(page.locator('.mu-paragraph-content').first()).toContainText('Base')
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('Base')
 
       await resetEditorMetrics(page)
       await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 1)
-      await expect(page.locator('.mu-paragraph-content').first()).toContainText('edited')
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('edited')
 
       const metrics = await readEditorMetrics(page)
       expect(metrics.setContentCalls).toBe(1)
