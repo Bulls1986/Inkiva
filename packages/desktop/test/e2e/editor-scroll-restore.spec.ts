@@ -47,7 +47,7 @@ const readScrollMetrics = (
   })
 
 test.describe('Editor scroll restoration', () => {
-  test('restores a tab position after an asynchronous diagram layout settles', async () => {
+  test('restores a tab position after an asynchronous diagram layout settles', async() => {
     const { app, page } = await launchWithMarkdown(TALL_MERMAID_DOCUMENT)
 
     try {
@@ -86,7 +86,7 @@ test.describe('Editor scroll restoration', () => {
       await expect(page.locator('.mu-diagram-block').first()).toHaveClass(/mu-diagram-preview-only/)
 
       await expect
-        .poll(async () => (await readScrollMetrics(page))?.scrollTop ?? -1, { timeout: 5000 })
+        .poll(async() => (await readScrollMetrics(page))?.scrollTop ?? -1, { timeout: 5000 })
         .toBeGreaterThan(captured - 2)
 
       const restored = await readScrollMetrics(page)
