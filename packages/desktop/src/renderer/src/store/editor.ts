@@ -1284,7 +1284,11 @@ export const useEditorStore = defineStore('editor', {
       if (selected) {
         const { id, markdown } = fileState
         this.UPDATE_CURRENT_FILE(fileState)
-        bus.emit('file-loaded', { id, markdown })
+        // UPDATE_CURRENT_FILE already sends the document through the
+        // `file-changed` path. Keep this event for the new-tab focus and
+        // baseline work, but tell the editor not to build the same document a
+        // second time.
+        bus.emit('file-loaded', { id, markdown, contentAlreadyLoaded: true })
       } else {
         this.tabs.push(fileState)
         this.updateTabIdToIndex()
@@ -1349,7 +1353,11 @@ export const useEditorStore = defineStore('editor', {
 
       if (selected) {
         this.UPDATE_CURRENT_FILE(docState)
-        bus.emit('file-loaded', { id, markdown, cursor })
+        // UPDATE_CURRENT_FILE already sends the document through the
+        // `file-changed` path. Keep this event for the new-tab focus and
+        // baseline work, but tell the editor not to build the same document a
+        // second time.
+        bus.emit('file-loaded', { id, markdown, cursor, contentAlreadyLoaded: true })
       } else {
         this.tabs.push(docState)
         this.updateTabIdToIndex()
