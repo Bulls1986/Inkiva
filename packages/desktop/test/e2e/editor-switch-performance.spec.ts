@@ -39,6 +39,9 @@ const typeAtCommittedCaret = async(page: Page, text: string): Promise<void> => {
   await page.waitForTimeout(150)
 }
 
+const readEditorText = (page: Page): Promise<string> =>
+  page.evaluate(() => document.querySelector('.editor-component')?.textContent ?? '')
+
 test.describe('editor switch rebuild performance', () => {
   test('opening a new document mounts its content only once', async() => {
     const { app, page } = await launchWithMarkdown('# Base\n')
@@ -60,18 +63,26 @@ test.describe('editor switch rebuild performance', () => {
 
     try {
       await sendIpcToRenderer(app, 'mt::new-untitled-tab', true, 'tab B\n')
-      await expect(page.locator('.mu-paragraph-content').first()).toContainText('tab B')
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('tab B')
 
       await placeCaretInEditor(page)
       await typeAtCommittedCaret(page, ' edited')
-      await expect(page.locator('.mu-paragraph-content').first()).toContainText('edited')
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('edited')
 
       await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 0)
-      await expect(page.locator('.mu-paragraph-content').first()).toContainText('Base')
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('Base')
 
       await resetEditorMetrics(page)
       await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 1)
-      await expect(page.locator('.mu-paragraph-content').first()).toContainText('edited')
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('edited')
 
       const metrics = await readEditorMetrics(page)
       expect(metrics.setContentCalls).toBe(1)
