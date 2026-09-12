@@ -187,22 +187,10 @@ const handleLeftBottomClick = (name: string): void => {
   min-width: 220px;
   box-sizing: border-box;
   position: relative;
-  color: var(--sideBarColor);
+  color: var(--text-secondary);
   user-select: none;
-  /*
-   * The native application menu occupies the first title-bar-height pixels
-   * of the window. Keep that strip on the editor background so the sidebar
-   * color does not bleed through the menu area. The sidebar content already
-   * reserves this space through its existing top offsets.
-   */
-  background: linear-gradient(
-    to bottom,
-    var(--editorBgColor) 0,
-    var(--editorBgColor) var(--titleBarHeight),
-    var(--sideBarBgColor) var(--titleBarHeight),
-    var(--sideBarBgColor) 100%
-  );
-  border-right: 1px solid var(--itemBgColor);
+  background: var(--surface-chrome);
+  border-right: 1px solid var(--border-subtle);
 }
 
 /*
@@ -220,7 +208,7 @@ const handleLeftBottomClick = (name: string): void => {
 }
 
 .side-bar .left-column svg {
-  color: var(--iconColor);
+  color: var(--icon-secondary);
 }
 
 .left-column {
@@ -259,13 +247,17 @@ const handleLeftBottomClick = (name: string): void => {
 .left-column ul > li > svg {
   width: 18px;
   height: 18px;
-  color: var(--sideBarIconColor);
+  color: var(--icon-secondary);
   opacity: 1;
-  transition: transform 0.25s ease-in-out;
+  transition: color var(--motion-fast), opacity var(--motion-fast), transform var(--motion-fast);
 }
 
 .left-column ul > li.active > svg {
-  color: var(--themeColor);
+  color: var(--color-accent);
+}
+
+.left-column ul > li:hover > svg {
+  color: var(--icon-primary);
 }
 
 .side-bar:hover .left-column ul li svg {
@@ -274,7 +266,7 @@ const handleLeftBottomClick = (name: string): void => {
 
 .right-column {
   flex: 1;
-  width: calc(100% - 50px);
+  width: calc(100% - 45px);
   overflow: hidden;
 }
 
@@ -284,11 +276,13 @@ const handleLeftBottomClick = (name: string): void => {
   right: 0;
   bottom: 0;
   height: 100%;
-  width: 3px;
+  width: 5px;
   cursor: col-resize;
+  border-right: 1px solid transparent;
+  transition: border-right-color var(--motion-fast);
 }
 
 .drag-bar:hover {
-  border-right: 2px solid var(--iconColor);
+  border-right-color: var(--color-accent);
 }
 </style>
