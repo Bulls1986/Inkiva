@@ -63,7 +63,7 @@ export default function Hero() {
             <h2>What changed</h2>
             <ul>
               <li>Seamless real-time rendering with no preview pane</li>
-              <li>33 built-in themes plus full custom CSS</li>
+              <li>Three focused appearances: Inkiva Light, Inkiva Dark, and Inkiva Paper</li>
               <li>Tables, math, footnotes &amp; diagrams out of the box</li>
             </ul>
             <blockquote>Write once. See the meaning.</blockquote>

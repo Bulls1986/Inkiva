@@ -36,12 +36,9 @@ import {
 const ZH_MENU = ['文件', '编辑', '段落', '格式', '视图', '主题', '窗口', '帮助']
 
 const SWATCHES = [
-  { name: 'Cadmium Light', bg: '#fff', fg: '#333', accent: '#3a86ff', bgBorder: '#ddd' },
-  { name: 'Dark', bg: '#161a22', fg: '#d8e3f2', accent: '#3b8dff' },
-  { name: 'Graphite Light', bg: '#fdf6e3', fg: '#586e75', accent: '#b58900', bgBorder: '#e8dcc0' },
-  { name: 'Material Dark', bg: '#101722', fg: '#b9c9dc', accent: '#6eaefe' },
-  { name: 'Ulysses Light', bg: '#f7f3ee', fg: '#5b5147', accent: '#c75e3a', bgBorder: '#e6ddcf' },
-  { name: 'One Dark', bg: '#282c34', fg: '#abb2bf', accent: '#61a8ff' }
+  { name: 'Inkiva Light', bg: '#ffffff', fg: '#2f3540', accent: '#0b63e5', bgBorder: '#e7e9ed' },
+  { name: 'Inkiva Dark', bg: '#1b1d21', fg: '#f3f5f8', accent: '#6eaefe' },
+  { name: 'Inkiva Paper', bg: '#fffdf8', fg: '#3d3a35', accent: '#0b63e5', bgBorder: '#e9e4da' }
 ]
 
 export default function ChineseHomePage() {
@@ -79,7 +76,7 @@ export default function ChineseHomePage() {
           </div>
           <div className={revealClass('d4', 'hero-note')}>
             <span><CheckIcon /> 所见即所得，实时呈现</span>
-            <span><CheckIcon /> Windows · macOS</span>
+            <span><CheckIcon /> Windows · macOS · Linux</span>
             <span><CheckIcon /> GPL-3.0 · 开源</span>
           </div>
 
@@ -101,7 +98,7 @@ export default function ChineseHomePage() {
               <h2>本次变化</h2>
               <ul>
                 <li>无需预览窗格的实时渲染</li>
-                <li>33 个内置主题及完整自定义 CSS</li>
+                <li>三套主外观：Inkiva Light、Inkiva Dark 与 Inkiva Paper</li>
                 <li>开箱支持表格、数学公式、脚注和图表</li>
               </ul>
               <blockquote>写一次，看见意义。</blockquote>
@@ -115,7 +112,7 @@ export default function ChineseHomePage() {
           <div className="stats">
             {[
               ['WYSIWYG', '原位编辑', ''],
-              ['33+', '内置主题', 'd1'],
+              ['3', '主外观', 'd1'],
               ['3', '编辑模式', 'd2'],
               ['GPL-3.0', '开源许可', 'd3']
             ].map(([value, label, delay]) => (
@@ -205,11 +202,11 @@ export default function ChineseHomePage() {
               <div className="sec-head reveal">
                 <span className="kicker">主题</span>
                 <h2 className="sec-title">做成你的样子。</h2>
-                <p className="sec-desc">33 个内置主题，支持浅色和深色。每个主题都只是 CSS，也可以从零编写自己的主题。</p>
+                <p className="sec-desc">Inkiva Light、Inkiva Dark 与 Inkiva Paper 三套主外观，围绕安静、清晰的写作体验设计。</p>
               </div>
               <div className="feat-list">
-                <FeatItem delay="d1" icon={<SunIcon />} title="浅色与深色即时切换" description="使用快捷键切换，也可以跟随系统外观。" />
-                <FeatItem delay="d2" icon={<CodeIcon />} title="使用纯 CSS 定制" description="没有私有格式。只要了解 CSS，就能制作自己的主题。" />
+                <FeatItem delay="d1" icon={<SunIcon />} title="浅色、深色与纸张" description="可在 Inkiva Light、Inkiva Dark 与 Inkiva Paper 之间切换；浅色和深色也可以跟随系统外观。" />
+                <FeatItem delay="d2" icon={<CodeIcon />} title="为写作而设计的界面" description="每种外观都让界面保持克制，把注意力留给文档。" />
               </div>
             </div>
             <div className="reveal d2">
@@ -230,7 +227,7 @@ export default function ChineseHomePage() {
                   </div>
                 ))}
               </div>
-              <div className="theme-more reveal d1"><span>+27 个内置主题</span></div>
+              <div className="theme-more reveal d1"><span>三套主外观，专为专注写作设计</span></div>
             </div>
           </div>
         </div>

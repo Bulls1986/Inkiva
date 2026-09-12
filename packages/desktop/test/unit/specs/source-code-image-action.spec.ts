@@ -55,8 +55,7 @@ const loadComponent = (deps: Record<string, unknown>) => {
     'module',
     `const { _defineComponent, ref, watch, onMounted, onBeforeUnmount, nextTick,
       useEditorStore, usePreferencesStore, storeToRefs, codeMirror,
-      setCursorAtFirstLine, setTextDirection, getWordCount, adjustCursor, bus,
-      oneDarkThemes, railscastsThemes } = __deps
+      setCursorAtFirstLine, setTextDirection, getWordCount, adjustCursor, bus } = __deps
     ${js}
     return module.exports`
   ) as (deps: Record<string, unknown>, exports: object, module: object) => SetupModule
@@ -81,8 +80,6 @@ const makeDeps = (over: Record<string, unknown> = {}) => ({
   getWordCount: () => 0,
   adjustCursor: (c: unknown) => c,
   bus: { on: () => {}, off: () => {}, emit: () => {} },
-  oneDarkThemes: [],
-  railscastsThemes: [],
   ...over
 })
 
