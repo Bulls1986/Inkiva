@@ -7,6 +7,7 @@ import {
   launchElectron,
   launchWithMarkdown,
   showSidebarPanel,
+  waitForEditor,
   waitForMenuReady
 } from './helpers'
 
@@ -78,6 +79,7 @@ test.describe('Typora-style workspace search', () => {
     const launched = await launchElectron([root])
     app = launched.app
     const { page } = launched
+    await waitForEditor(page)
     await waitForMenuReady(app)
 
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+P' : 'Control+P')
@@ -104,6 +106,7 @@ test.describe('Typora-style workspace search', () => {
     const launched = await launchElectron([root])
     app = launched.app
     const { page } = launched
+    await waitForEditor(page)
     await waitForMenuReady(app)
     await showSidebarPanel(app, page, 'search')
 
