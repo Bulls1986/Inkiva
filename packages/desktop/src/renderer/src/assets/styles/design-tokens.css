@@ -30,6 +30,18 @@
   --surface-selected: rgb(11 99 229 / 10%);
   --surface-elevated: #ffffff;
 
+  /* Markdown document layer — kept separate from application chrome so the
+     editor can evolve without allowing a document theme to recolor the UI. */
+  --markdown-content-width: 780px;
+  --markdown-text-primary: var(--text-primary);
+  --markdown-text-secondary: var(--text-secondary);
+  --markdown-text-muted: var(--text-tertiary);
+  --markdown-surface-code: var(--surface-chrome);
+  --markdown-border-subtle: var(--border-subtle);
+  --markdown-accent-soft: rgb(11 99 229 / 4%);
+  --markdown-accent-muted: rgb(11 99 229 / 50%);
+  --markdown-selection: rgb(11 99 229 / 12%);
+
   /* Border and icons */
   --border-subtle: #E7E9ED;
   --border-default: #DADDE3;
@@ -89,6 +101,10 @@
   --surface-selected: rgb(45 128 255 / 18%);
   --surface-elevated: #25282e;
 
+  --markdown-accent-soft: rgb(91 156 255 / 8%);
+  --markdown-accent-muted: rgb(91 156 255 / 55%);
+  --markdown-selection: rgb(45 128 255 / 20%);
+
   --border-subtle: #2B2F36;
   --border-default: #363A42;
   --border-focus: #5B9CFF;
@@ -114,6 +130,10 @@
   --surface-hover: #F0ECE3;
   --surface-selected: rgb(11 99 229 / 9%);
   --surface-elevated: #FFFDF8;
+
+  --markdown-accent-soft: rgb(11 99 229 / 4%);
+  --markdown-accent-muted: rgb(11 99 229 / 50%);
+  --markdown-selection: rgb(11 99 229 / 12%);
 
   --border-subtle: #E9E2D6;
   --border-default: #DCD2C3;

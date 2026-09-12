@@ -18,7 +18,8 @@ describe('private build first-run defaults', () => {
       autoSave: true,
       language: 'zh-CN',
       shortcutStyle: 'typora',
-      paragraphSpacing: 0.5,
+      lineHeight: 1.7,
+      paragraphSpacing: 0.75,
       editorLineWidth: '80%',
       sideBarVisibility: true,
       tabBarVisibility: true

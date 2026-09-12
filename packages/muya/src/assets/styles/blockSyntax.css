@@ -1,7 +1,7 @@
 .mu-editor {
     font-size: var(--mu-font-size, 16px);
     font-family: var(--mu-font-family, 'Open Sans', 'Clear Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif);
-    line-height: var(--mu-line-height, 1.6);
+    line-height: var(--mu-line-height, var(--line-height-body, 1.7));
 
     outline: none;
 }
@@ -15,12 +15,12 @@
 
 .mu-container {
     box-sizing: border-box;
-    max-width: var(--editor-area-width, 800px);
+    max-width: var(--editor-area-width, var(--markdown-content-width, 780px));
     min-height: 100%;
     margin: 0 auto;
     padding: 0 50px 100px;
 
-    color: var(--editor-color);
+    color: var(--markdown-text-primary, var(--editor-color));
 }
 
 .mu-container p,
@@ -30,15 +30,22 @@
 .mu-container dl,
 .mu-container table,
 .mu-container figure:not(.mu-table) {
-    margin: 0.5em 0;
+    margin: 0.75em 0;
     padding: 0;
 }
 
 /* Keep paragraph spacing independently adjustable from line height. The
-   default matches the original 0.5em margin, while the CSS variable lets the
-   desktop preferences pane update spacing without rebuilding the block tree. */
+   default gives paragraphs enough air for long-form writing, while the CSS
+   variable lets the desktop preferences pane update spacing without rebuilding
+   the block tree. */
 .mu-container p {
-    margin-block: var(--mu-paragraph-spacing, 0.5em);
+    margin-block: var(--mu-paragraph-spacing, 0.75em);
+}
+
+/* Element Plus resets `p:first-child` to zero margin. Keep the first document
+   paragraph on the same configurable rhythm as the rest of the writing area. */
+.mu-container > p.mu-paragraph {
+    margin-block: var(--mu-paragraph-spacing, 0.75em);
 }
 
 .mu-container h1,
@@ -49,44 +56,44 @@
 .mu-container h6 {
     position: relative;
 
-    margin: 1rem 0;
+    margin: 1.65em 0 0.55em;
     padding: 0;
 
-    color: var(--editor-color-80);
-    font-weight: bold;
-    line-height: 1.4;
+    color: var(--markdown-text-primary, var(--editor-color-80));
+    font-weight: 600;
+    line-height: 1.3;
 
     cursor: text;
 }
 
 .mu-container h1 {
-    color: var(--h1-color, var(--editor-color-80));
     font-size: 1.875em;
 }
 
 .mu-container h2 {
-    color: var(--h2-color, var(--editor-color-80));
     font-size: 1.5em;
 }
 
 .mu-container h3 {
-    color: var(--h3-color, var(--editor-color-80));
-    font-size: 1.375em;
+    font-size: 1.35em;
 }
 
 .mu-container h4 {
-    color: var(--h4-color, var(--editor-color-80));
-    font-size: 1.25em;
+    font-size: 1.2em;
 }
 
 .mu-container h5 {
-    color: var(--h5-color, var(--editor-color-80));
-    font-size: 1.125em;
+    color: var(--markdown-text-secondary, var(--editor-color-50));
+    font-size: 1.05em;
 }
 
 .mu-container h6 {
-    color: var(--h6-color, var(--editor-color-80));
+    color: var(--markdown-text-secondary, var(--editor-color-50));
     font-size: 1em;
+}
+
+.mu-container > :first-child {
+    margin-top: 0;
 }
 
 /* heading copy-anchor affordance — revealed on heading hover, sits in the
@@ -107,12 +114,14 @@
     width: 18px;
     height: 18px;
 
+    transform: translateY(calc(0.7em - 9px));
     cursor: pointer;
 
-    transform: translateY(calc(0.7em - 9px));
     opacity: 0;
 
-    transition: opacity 0.2s ease;
+    transition:
+        opacity var(--motion-fast, 120ms) ease,
+        color var(--motion-fast, 120ms) ease;
 
     user-select: none;
 }
@@ -132,6 +141,8 @@
 .mu-container h4 > .mu-copy-header-link:hover,
 .mu-container h5 > .mu-copy-header-link:hover,
 .mu-container h6 > .mu-copy-header-link:hover {
+    color: var(--color-accent, var(--theme-color));
+
     opacity: 1;
 }
 
@@ -148,9 +159,12 @@
     margin-left: 0;
     padding: 0 30px;
 
-    color: var(--blockquote-text-color, var(--editor-color-50));
+    color: var(--markdown-text-secondary, var(--blockquote-text-color, var(--editor-color-50)));
 
     font-size: 1em;
+
+    background: var(--markdown-accent-soft, rgb(11 99 229 / 4%));
+    border-radius: var(--radius-sm, 4px);
 }
 
 .mu-container blockquote::before {
@@ -162,13 +176,23 @@
     width: 2px;
     height: 100%;
 
-    background: var(--blockquote-border-color, var(--editor-color-30));
+    background: var(--markdown-accent-muted, var(--blockquote-border-color, var(--editor-color-30)));
 
     content: '';
 }
 
 .mu-container blockquote blockquote {
     padding-right: 0;
+}
+
+/* content */
+.mu-content {
+    display: block;
+
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+
+    outline: none;
 }
 
 /* thematic break */
@@ -183,10 +207,10 @@
 
     display: block;
     width: 100%;
-    height: 2px;
+    height: 1px;
 
     background: none;
-    border-top: 2px dashed var(--hr-color, var(--editor-color-10));
+    border-top: 1px solid var(--markdown-border-subtle, var(--hr-color, var(--editor-color-10)));
     transform: translateY(-50%);
 
     content: '';
@@ -208,17 +232,18 @@
 .mu-diagram-container {
     position: relative;
 
-    margin-top: 1.5em;
+    margin-top: 1.25em;
     padding: 1em;
 
-    color: var(--editor-color-50);
+    color: var(--markdown-text-secondary, var(--editor-color-50));
     font-size: 90%;
     font-family: 'DejaVu Sans Mono', 'Source Code Pro', 'Droid Sans Mono', Consolas, monospace;
     line-height: 1.6;
 
-    background: var(--code-block-bg-color);
-    border: 1px solid var(--editor-color-10);
-    border-radius: 3px;
+    background: var(--markdown-surface-code, var(--code-block-bg-color));
+    border: 1px solid var(--markdown-border-subtle, var(--editor-color-10));
+    border-radius: var(--radius-md, 6px);
+    box-shadow: none;
 }
 
 /* Code-block font via `--mu-code-*`; code blocks only (inline code untouched). */
@@ -252,8 +277,8 @@
 
 .mu-code-block .mu-code::-webkit-scrollbar {
     display: block;
-    height: 6px;
     width: 3px;
+    height: 6px;
 }
 
 .mu-code-block .mu-content {
@@ -269,11 +294,14 @@
     width: 20px;
     height: 20px;
 
-    border-radius: 4px;
+    border-radius: var(--radius-sm, 4px);
     cursor: pointer;
     opacity: 0;
 
-    transition: opacity 0.2s ease-in-out;
+    transition:
+        opacity var(--motion-fast, 120ms) ease,
+        color var(--motion-fast, 120ms) ease,
+        background-color var(--motion-fast, 120ms) ease;
 }
 
 .mu-code.mu-active .mu-code-copy {
@@ -281,6 +309,9 @@
 }
 
 code.mu-code .mu-code-copy:hover {
+    color: var(--color-accent, var(--theme-color));
+
+    background: var(--surface-hover, var(--markdown-surface-code));
     opacity: 1 !important;
 }
 
@@ -352,6 +383,7 @@ code.mu-code .mu-code-copy:hover {
 .mu-line-numbers-rows > span {
     position: absolute;
     left: 0;
+
     width: 100%;
 
     counter-increment: mu-linenumber;
@@ -402,11 +434,11 @@ figure.mu-diagram-block.mu-active .mu-language-input:empty::after {
     content: attr(hint);
 }
 
-.mu-code-block.mu-fenced-code.mu-active .mu-language-input {
+figure.mu-diagram-block.mu-active .mu-language-input {
     left: 20px;
 }
 
-figure.mu-diagram-block.mu-active .mu-language-input {
+.mu-code-block.mu-fenced-code.mu-active .mu-language-input {
     left: 20px;
 }
 
@@ -512,7 +544,7 @@ li.mu-task-list-item > span.mu-task-list-checkbox {
        `font-size: inherit`, so `em` here would be frozen and the marker would
        stop tracking the editor font. Custom properties still inherit into the
        input, so this stays aligned at every font size. */
-    top: calc(var(--mu-line-height, 1.6) * 0.5 * var(--mu-font-size, 16px) - 7px);
+    top: calc(var(--mu-line-height, 1.7) * 0.5 * var(--mu-font-size, 16px) - 7px);
 
     width: 12px;
     height: 12px;
@@ -524,7 +556,7 @@ li.mu-task-list-item > span.mu-task-list-checkbox {
     transform-origin: center;
     cursor: pointer;
 
-    transition: all 0.2s ease;
+    transition: transform var(--motion-fast, 120ms) ease;
 
     appearance: none;
     inset-inline-start: -23px;
@@ -550,7 +582,9 @@ li.mu-task-list-item > span.mu-task-list-checkbox::before {
     border: 2px solid var(--editor-color-50);
     border-radius: 50%;
 
-    transition: all 0.2s ease;
+    transition:
+        background-color var(--motion-fast, 120ms) ease,
+        border-color var(--motion-fast, 120ms) ease;
 
     content: '';
 }
@@ -572,7 +606,7 @@ li.mu-task-list-item > span.mu-task-list-checkbox::after {
     transform: rotate(-45deg) scale(0);
     transform-origin: bottom;
 
-    transition: all 0.2s ease;
+    transition: transform var(--motion-fast, 120ms) ease;
 
     content: '';
 }
@@ -584,14 +618,13 @@ li.mu-task-list-item > span.mu-checkbox-checked::after {
 
 li.mu-task-list-item > input.mu-checkbox-checked::before,
 li.mu-task-list-item > span.mu-checkbox-checked::before {
-    background: var(--theme-color);
-    border-color: var(--theme-color);
-    box-shadow: 0 3px 12px 0 var(--selection-color);
+    background: var(--color-accent, var(--theme-color));
+    border-color: var(--color-accent, var(--theme-color));
 }
 
 /* table */
 .mu-table {
-    margin: 0.5em 0 0;
+    margin: 0.75em 0 0;
     padding: 0.5em 0;
 }
 
@@ -614,8 +647,11 @@ li.mu-task-list-item > span.mu-checkbox-checked::before {
     margin: 0;
     padding: 6px 13px;
 
-    font-weight: bold;
+    color: var(--markdown-text-primary, var(--editor-color-80));
+    font-weight: 600;
     text-align: left;
+
+    background: var(--markdown-surface-code, var(--code-block-bg-color));
 }
 
 .mu-table-inner tr td {
@@ -628,22 +664,28 @@ li.mu-task-list-item > span.mu-checkbox-checked::before {
 }
 
 .mu-table-inner tr:first-child td {
-    font-weight: bold;
+    color: var(--markdown-text-primary, var(--editor-color-80));
+    font-weight: 600;
+
+    background: var(--markdown-surface-code, var(--code-block-bg-color));
 }
 
 .mu-table-inner tr th::before,
 .mu-table-inner tr td::before {
     position: absolute;
-    inset: 0;
 
     box-sizing: border-box;
+
     width: calc(100% + 1px);
     height: calc(100% + 1px);
 
-    border: 1px solid var(--table-border-color);
+    border: 1px solid var(--markdown-border-subtle, var(--table-border-color));
 
     content: '';
+
     pointer-events: none;
+
+    inset: 0;
 }
 
 .mu-table-inner tr th:first-child,
@@ -664,7 +706,7 @@ li.mu-task-list-item > span.mu-checkbox-checked::before {
 .mu-table-inner tr td.mu-table-cell-selected::before {
     z-index: 0;
 
-    background: var(--selection-color);
+    background: var(--markdown-selection, var(--selection-color));
 }
 
 .mu-table-inner tr td.mu-table-cell-border-top::before {
@@ -871,6 +913,7 @@ figure.mu-diagram-block.mu-diagram-preview-only > .mu-diagram-container {
     width: 0;
     height: 0;
     margin: 0;
+
     /* The source is hidden after a successful render and must not extend the
        editor's scrollable overflow. Keep overflow visible only while editing. */
     overflow: hidden;
@@ -1034,16 +1077,6 @@ pre.mu-active.mu-fenced-code::after {
     overflow-wrap: break-word;
 
     opacity: 0.7;
-}
-
-/* content */
-.mu-content {
-    display: block;
-
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
-
-    outline: none;
 }
 
 .mu-content:empty::after {
