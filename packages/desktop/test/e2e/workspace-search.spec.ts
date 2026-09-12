@@ -7,8 +7,8 @@ import {
   launchElectron,
   launchWithMarkdown,
   showSidebarPanel,
-  waitForEditor,
-  waitForMenuReady
+  waitForMenuReady,
+  waitForWorkspaceReady
 } from './helpers'
 
 const SEARCH_BUDGET_MS = 5000
@@ -79,7 +79,7 @@ test.describe('Typora-style workspace search', () => {
     const launched = await launchElectron([root])
     app = launched.app
     const { page } = launched
-    await waitForEditor(page)
+    await waitForWorkspaceReady(page)
     await waitForMenuReady(app)
 
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+P' : 'Control+P')
@@ -106,7 +106,7 @@ test.describe('Typora-style workspace search', () => {
     const launched = await launchElectron([root])
     app = launched.app
     const { page } = launched
-    await waitForEditor(page)
+    await waitForWorkspaceReady(page)
     await waitForMenuReady(app)
     await showSidebarPanel(app, page, 'search')
 
@@ -152,6 +152,7 @@ test.describe('Typora-style workspace search', () => {
     const launched = await launchElectron([root])
     app = launched.app
     const { page } = launched
+    await waitForWorkspaceReady(page)
     await waitForMenuReady(app)
 
     const quickOpenStarted = Date.now()
