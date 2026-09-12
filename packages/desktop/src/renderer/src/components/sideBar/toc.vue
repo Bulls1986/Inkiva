@@ -54,8 +54,8 @@
     >
       <template #default="{ data }">
         <span
-          class="toc-node-label"
-          :class="{ 'is-active': data.slug === activeTocSlug }"
+          class="el-tree-node__label"
+          :class="['toc-node-label', { 'is-active': data.slug === activeTocSlug }]"
           :aria-current="data.slug === activeTocSlug ? 'location' : undefined"
           data-testid="toc-node-label"
         >
@@ -94,7 +94,16 @@ const { toc, activeTocSlug } = storeToRefs(editorStore)
 const { wordWrapInToc } = storeToRefs(preferencesStore)
 
 const searchQuery = ref('')
-const treeRef = ref<{ setExpandedKeys?: (keys: string[]) => void } | null>(null)
+type TocTreeNode = {
+  expand: () => void
+  collapse: () => void
+}
+
+type TocTree = {
+  getNode?: (key: string) => TocTreeNode | null
+}
+
+const treeRef = ref<TocTree | null>(null)
 
 // Stable per-node key so el-tree preserves the user's expand/collapse state
 // across content edits (#3028) and tab switches (#3791). See deriveKeyedToc.
@@ -140,7 +149,16 @@ watch(
   expandedKeys,
   async (keys) => {
     await nextTick()
-    treeRef.value?.setExpandedKeys?.(keys)
+    const tree = treeRef.value
+    if (!tree?.getNode) return
+
+    const expanded = new Set(keys)
+    for (const key of getExpandableTocKeys(filteredToc.value)) {
+      const node = tree.getNode(key)
+      if (!node) continue
+      if (expanded.has(key)) node.expand()
+      else node.collapse()
+    }
   },
   { flush: 'post' }
 )
