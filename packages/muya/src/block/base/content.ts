@@ -96,9 +96,19 @@ function extractWord(
 function shouldRemoveClosingChar(
     inputChar: string,
     preInputChar: string,
-    options: { autoPairBracket: boolean; autoPairMarkdownSyntax: boolean; autoPairQuote: boolean },
+    options: {
+        autoPairBracket: boolean;
+        autoPairMarkdownSyntax: boolean;
+        autoPairQuote: boolean;
+        superSubScript: boolean;
+    },
 ) {
-    const { autoPairBracket, autoPairMarkdownSyntax, autoPairQuote } = options;
+    const {
+        autoPairBracket,
+        autoPairMarkdownSyntax,
+        autoPairQuote,
+        superSubScript,
+    } = options;
 
     return (
         (autoPairQuote && /'/.test(inputChar))
@@ -106,7 +116,8 @@ function shouldRemoveClosingChar(
         || (autoPairBracket && /[}\])]/.test(inputChar))
         || (autoPairMarkdownSyntax && /\$/.test(inputChar))
         || (autoPairMarkdownSyntax
-            && /[*$`~_]/.test(inputChar)
+            && (!/\^/.test(inputChar) || superSubScript)
+            && /[*$`~_^]/.test(inputChar)
             && preInputChar !== inputChar)
     );
 }
@@ -119,6 +130,7 @@ function shouldInsertClosingPair(
         autoPairBracket: boolean;
         autoPairMarkdownSyntax: boolean;
         autoPairQuote: boolean;
+        superSubScript: boolean;
         isInInlineMath: boolean;
         isInInlineCode: boolean;
         type: string;
@@ -128,6 +140,7 @@ function shouldInsertClosingPair(
         autoPairBracket,
         autoPairMarkdownSyntax,
         autoPairQuote,
+        superSubScript,
         isInInlineMath,
         isInInlineCode,
         type,
@@ -144,8 +157,9 @@ function shouldInsertClosingPair(
             && !isInInlineMath
             && !isInInlineCode
             && autoPairMarkdownSyntax
+            && (!/\^/.test(inputChar) || superSubScript)
             && !/[a-z0-9]/i.test(preInputChar)
-            && /[*$`~_]/.test(inputChar))
+            && /[*$`~_^]/.test(inputChar))
     );
 }
 
@@ -155,6 +169,7 @@ function selectionPairForKey(
         autoPairBracket: boolean;
         autoPairMarkdownSyntax: boolean;
         autoPairQuote: boolean;
+        superSubScript: boolean;
     },
     type: string,
 ) {
@@ -170,8 +185,14 @@ function selectionPairForKey(
         return { open: key, close };
     if (autoPairBracket && /[{[(]/.test(key))
         return { open: key, close };
-    if (type === 'format' && autoPairMarkdownSyntax && /[*$~_`]/.test(key))
+    if (
+        type === 'format'
+        && autoPairMarkdownSyntax
+        && (!/\^/.test(key) || options.superSubScript)
+        && /[*$~_^`]/.test(key)
+    ) {
         return { open: key, close };
+    }
 
     return null;
 }
@@ -182,6 +203,7 @@ interface IAutoPairCollapsedContext {
         autoPairBracket: boolean;
         autoPairMarkdownSyntax: boolean;
         autoPairQuote: boolean;
+        superSubScript: boolean;
     };
     isInInlineMath: boolean;
     isInInlineCode: boolean;
@@ -264,6 +286,7 @@ function collapsedInputAutoPair(
             autoPairBracket,
             autoPairMarkdownSyntax,
             autoPairQuote,
+            superSubScript: options.superSubScript,
             isInInlineMath,
             isInInlineCode,
             type,
@@ -295,20 +318,25 @@ function collapsedInputAutoPair(
 }
 
 function lineBreakAutoPair(
-    event: InputEvent,
+    event: Event,
     text: string,
     start: INodeOffset,
     end: INodeOffset,
     oldStart: INodeOffset,
     blockText: string,
 ) {
+    const inputType = 'inputType' in event && typeof event.inputType === 'string'
+        ? event.inputType
+        : '';
+    const eventData = 'data' in event && typeof event.data === 'string' ? event.data : '';
+
     // Just work for `Shift + Enter` to create a soft and hard line break.
     if (
         blockText.endsWith('\n')
         && start.offset === text.length
-        && (event.inputType === 'insertText' || event.type === 'compositionend')
+        && (inputType === 'insertText' || event.type === 'compositionend')
     ) {
-        text = blockText + event.data;
+        text = blockText + eventData;
         // I don't know why firefox don't need to offset++
         // For more info: https://github.com/marktext/muya/issues/130
         if (!isFirefox) {
@@ -319,7 +347,7 @@ function lineBreakAutoPair(
     else if (
         blockText.length === oldStart.offset
         && blockText[oldStart.offset - 2] === '\n'
-        && event.inputType === 'deleteContentBackward'
+        && inputType === 'deleteContentBackward'
     ) {
         text = blockText.substring(0, oldStart.offset - 1);
         start.offset = text.length;
@@ -627,16 +655,21 @@ class Content extends TreeNode {
     ) {
     // TODO: @JOCS, remove use this selection directly.
         const { anchor, focus } = this.selection;
-        const oldStart = anchor!.offset <= focus!.offset ? anchor : focus;
+        const oldStart = anchor && focus
+            ? anchor.offset <= focus.offset ? anchor : focus
+            : null;
         let needRender = false;
 
         // The event will not be input event, when click task list item input element.
-        if (!isInputEvent(event) || !oldStart)
+        // CompositionEvent is the one intentional exception: the composition
+        // handler invokes inputHandler itself after the IME commits, and native
+        // CompositionEvent instances do not expose `inputType`.
+        if ((!isInputEvent(event) && event.type !== 'compositionend') || !oldStart)
             return { text, needRender };
 
         if (this.text !== text) {
             if (start.offset === end.offset && event.type === 'input') {
-                const collapsed = collapsedInputAutoPair(event, text, start, end, {
+                const collapsed = collapsedInputAutoPair(event as InputEvent, text, start, end, {
                     blockText: this.text,
                     options: this.muya.options,
                     isInInlineMath,
