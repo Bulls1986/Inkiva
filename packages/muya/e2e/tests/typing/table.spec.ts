@@ -89,6 +89,27 @@ test.describe('table', () => {
         expect(md).toContain('cell-text');
     });
 
+    test('Tab from the last cell appends a row and focuses its first cell', async ({ page }) => {
+        const table = await makeTwoByTwoTable(page);
+        const lastCell = table.locator('tr').last().locator('td').last();
+        await lastCell.locator('.mu-table-cell-content').click();
+        await page.keyboard.press('End');
+        await page.keyboard.press('Tab');
+
+        await expect(table.locator('tr')).toHaveCount(3);
+        await expect.poll(() => page.evaluate(() => {
+            const selection = window.muya!.editor.selection.getSelection();
+            const block = selection?.anchor?.block;
+            const cell = (block?.domNode as HTMLElement | undefined)?.closest('td.mu-table-cell');
+            const row = cell?.closest('tr');
+            const rows = [...document.querySelectorAll('figure.mu-table tr')];
+            return block?.blockName === 'table.cell.content'
+                && row != null
+                && rows[rows.length - 1] === row
+                && row.querySelector('td.mu-table-cell') === cell;
+        })).toBe(true);
+    });
+
     test('typing `**b**` in a cell renders an inline strong run and round-trips to markdown', async ({ page }) => {
         const table = await makeTwoByTwoTable(page);
 

@@ -243,6 +243,19 @@ class TableCellContent extends Format {
         // always pass a KeyboardEvent in practice. The structural check just
         // keeps unit tests that pass a partial event object passing.
         const isShiftTab = 'shiftKey' in event && event.shiftKey === true;
+        if (!isShiftTab && typeof this.closestBlock === 'function') {
+            const table = this.closestBlock('table') as Table;
+            const row = this.closestBlock('table.row') as Row;
+            const cell = this.closestBlock('table.cell') as Cell;
+            // Keep this check local to the current cell so ordinary
+            // navigation does not scan or rebuild the table.
+            if (row.next == null && row.offset(cell) === table.columnCount - 1) {
+                const cursorBlock = table.insertRow(table.rowCount);
+                cursorBlock.setCursor(0, 0, true);
+                return;
+            }
+        }
+
         const cursorBlock = isShiftTab
             ? this.previousContentInContext()
             : this.nextContentInContext();
