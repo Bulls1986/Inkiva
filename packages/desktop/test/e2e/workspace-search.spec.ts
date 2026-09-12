@@ -58,13 +58,24 @@ const focusWindow = async(app: ElectronApplication, page: Page): Promise<void> =
   })
 }
 
+const pressQuickOpenShortcut = async(app: ElectronApplication, page: Page): Promise<void> => {
+  await focusWindow(app, page)
+  await app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    if (!win || win.isDestroyed()) throw new Error('No focused editor window found')
+
+    const modifier = process.platform === 'darwin' ? 'meta' : 'control'
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'P', modifiers: [modifier] })
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'P', modifiers: [modifier] })
+  })
+}
+
 const openQuickOpen = async(
   app: ElectronApplication,
   page: Page,
   query: string
 ): Promise<void> => {
-  await focusWindow(app, page)
-  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+P' : 'Control+P')
+  await pressQuickOpenShortcut(app, page)
   const input = page.locator('input.search').first()
   await expect(input).toBeVisible({ timeout: 5000 })
   await input.fill(query)
@@ -95,8 +106,7 @@ test.describe('Typora-style workspace search', () => {
     await waitForWorkspaceReady(page)
     await waitForMenuReady(app)
 
-    await focusWindow(app, page)
-    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+P' : 'Control+P')
+    await pressQuickOpenShortcut(app, page)
     const quickOpenInput = page.locator('input.search').first()
     await expect(quickOpenInput).toBeVisible({ timeout: 5000 })
     // Two consecutive input events must leave only the newest request visible.
