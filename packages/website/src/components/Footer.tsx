@@ -19,7 +19,7 @@ export default function Footer() {
           <div className="foot-col">
             <h5>Product</h5>
             <a href={hash(SECTIONS.preview)}>Real-time preview</a>
-            <a href={hash(SECTIONS.themes)}>Themes</a>
+            <a href={hash(SECTIONS.themes)}>Appearances</a>
             <a href={hash(SECTIONS.extensions)}>Markdown support</a>
             <a href={hash(SECTIONS.download)}>Download</a>
           </div>

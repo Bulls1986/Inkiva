@@ -80,8 +80,8 @@
 
 :root[data-inkiva-appearance='dark'] {
   --color-accent: #0B63E5;
-  --color-accent-hover: #2D80FF;
-  --color-accent-active: #5B9CFF;
+  --color-accent-hover: #0959D0;
+  --color-accent-active: #084DB5;
   --color-accent-soft: rgb(45 128 255 / 14%);
   --color-accent-selected: rgb(45 128 255 / 18%);
   --color-accent-focus: rgb(91 156 255 / 32%);

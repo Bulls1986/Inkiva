@@ -25,7 +25,7 @@ export default function Nav({ locale = 'en' }: Props) {
   const labels = isChinese
     ? {
         features: '功能',
-        themes: '主题',
+        themes: '外观',
         markdown: 'Markdown',
         docs: '文档',
         download: '下载',
@@ -37,7 +37,7 @@ export default function Nav({ locale = 'en' }: Props) {
       }
     : {
         features: 'Features',
-        themes: 'Themes',
+        themes: 'Appearances',
         markdown: 'Markdown',
         docs: 'Docs',
         download: 'Download',

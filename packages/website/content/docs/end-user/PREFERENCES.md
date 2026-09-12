@@ -65,14 +65,14 @@ Preferences can be controlled and modified in the settings window or via the `pr
 | isGitlabCompatibilityEnabled | Boolean | `false` | Enable GitLab compatibility mode.                                                                                                    |
 | sequenceTheme                | String  | `hand`  | Theme for [js-sequence-diagrams](https://bramp.github.io/js-sequence-diagrams/): `hand` or `simple`.                                 |
 
-#### Theme
+#### Appearance
 
-| Key               | Type    | Default | Description                                                                                                                  |
-| ----------------- | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| theme             | String  | `light` | The current theme id. See [Themes](THEMES.md) for the full list.                                                             |
-| followSystemTheme | Boolean | `false` | Follow the system light/dark mode and switch automatically.                                                                  |
-| lightModeTheme    | String  | `light` | Theme id used when the system is in light mode (only when `followSystemTheme` is `true`).                                    |
-| darkModeTheme     | String  | `dark`  | Theme id used when the system is in dark mode (only when `followSystemTheme` is `true`).                                     |
+| Key               | Type    | Default | Description                                                                                                                     |
+| ----------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| theme             | String  | `light` | The current application appearance: `light`, `dark`, or `paper`. See [Appearances](THEMES.md).                                 |
+| followSystemTheme | Boolean | `false` | Follow the system light/dark mode and switch automatically.                                                                     |
+| lightModeTheme    | String  | `light` | Appearance id used when the system is in light mode (only when `followSystemTheme` is `true`).                                 |
+| darkModeTheme     | String  | `dark`  | Appearance id used when the system is in dark mode (only when `followSystemTheme` is `true`).                                  |
 
 #### Spelling
 
@@ -113,7 +113,7 @@ These entries are marked `--internal` in the schema. They have no UI control and
 
 | Key       | Type   | Default | Description                                            |
 | --------- | ------ | ------- | ------------------------------------------------------ |
-| customCss | String | `""`    | Extra CSS appended after the active theme stylesheet.  |
+| customCss | String | `""`    | Extra CSS appended after the active application appearance stylesheet. |
 
 ##### File system / Searcher
 

@@ -31,7 +31,7 @@ const CARDS: Card[] = [
         <span>Preview</span>
         <span>✓</span>
         <span>✓</span>
-        <span>Themes</span>
+        <span>Appearances</span>
         <span>✓</span>
         <span>✓</span>
       </div>

@@ -1,7 +1,7 @@
 <template>
   <div class="pref-theme">
     <h4>{{ t('preferences.theme.title') }}</h4>
-    <section class="offcial-themes">
+    <section class="official-themes">
       <div
         v-for="themeItem of themes"
         :key="themeItem.name"
@@ -141,354 +141,164 @@ const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
 </script>
 
 <style>
-.offcial-themes {
-  margin-top: 12px;
+.official-themes {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  & .theme {
-    cursor: pointer;
-    width: 100%;
-    height: 110px;
-    margin: 0;
-    padding: 16px 18px 16px 32px;
-    overflow: hidden;
-    background: var(--editorBgColor);
-    color: var(--editorColor);
-    box-sizing: border-box;
-    box-shadow: 0 9px 28px -9px rgba(0, 0, 0, 0.4);
-    border-radius: 5px;
-    transition: opacity 0.2s ease;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
 
-    &.dark {
-      color: rgba(255, 255, 255, 0.7);
-      background: #282828;
-      & a {
-        color: #409eff;
-      }
-    }
-    &.light {
-      color: rgba(0, 0, 0, 0.7);
-      background: rgba(255, 255, 255, 1);
-      & a {
-        color: rgba(33, 181, 111, 1);
-      }
-    }
-    &.paper {
-      color: #2e2b27;
-      background: #fffdf8;
-      & a {
-        color: #0b63e5;
-      }
-    }
-    &.graphite {
-      color: rgba(43, 48, 50, 0.7);
-      background: #f7f7f7;
-      & a {
-        color: rgb(104, 134, 170);
-      }
-    }
-    &.material-dark {
-      color: rgba(171, 178, 191, 0.8);
-      background: #34393f;
-      & a {
-        color: #f48237;
-      }
-    }
-    &.one-dark {
-      color: #9da5b4;
-      background: #282c34;
-      & a {
-        color: rgba(226, 192, 141, 1);
-      }
-    }
-    &.ulysses {
-      color: rgba(101, 101, 101, 0.7);
-      background: #f3f3f3;
-      & a {
-        color: rgb(12, 139, 186);
-      }
-    }
+.official-themes .theme {
+  box-sizing: border-box;
+  width: 100%;
+  height: 110px;
+  margin: 0;
+  padding: var(--space-4) 18px var(--space-4) 32px;
+  overflow: hidden;
+  cursor: pointer;
+  color: var(--text-secondary);
+  background: var(--surface-editor);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition:
+    color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    opacity var(--motion-fast) ease;
+}
 
-    /* New gogh themes - Dark */
-    &.dracula {
-      color: #f8f8f2;
-      background: #282a36;
-      & a {
-        color: #bd93f9;
-      }
-    }
-    &.nord {
-      color: #d8dee9;
-      background: #2e3440;
-      & a {
-        color: #81a1c1;
-      }
-    }
-    &.catppuccin-mocha {
-      color: #cdd6f4;
-      background: #1e1e2e;
-      & a {
-        color: #89b4fa;
-      }
-    }
-    &.gruvbox-dark {
-      color: #ebdbb2;
-      background: #282828;
-      & a {
-        color: #83a598;
-      }
-    }
-    &.tokyo-night {
-      color: #c0caf5;
-      background: #1a1b26;
-      & a {
-        color: #7aa2f7;
-      }
-    }
-    &.tokyo-night-storm {
-      color: #c0caf5;
-      background: #24283b;
-      & a {
-        color: #7aa2f7;
-      }
-    }
-    &.solarized-dark {
-      color: #839496;
-      background: #002b36;
-      & a {
-        color: #268bd2;
-      }
-    }
-    &.ayu-dark {
-      color: #b3b1ad;
-      background: #0a0e14;
-      & a {
-        color: #39bae6;
-      }
-    }
-    &.ayu-mirage {
-      color: #cbccc6;
-      background: #1f2430;
-      & a {
-        color: #ffcc66;
-      }
-    }
-    &.everforest-dark {
-      color: #d3c6aa;
-      background: #2d353b;
-      & a {
-        color: #a7c080;
-      }
-    }
-    &.rose-pine {
-      color: #e0def4;
-      background: #191724;
-      & a {
-        color: #c4a7e7;
-      }
-    }
-    &.rose-pine-moon {
-      color: #e0def4;
-      background: #232136;
-      & a {
-        color: #c4a7e7;
-      }
-    }
-    &.monokai-pro {
-      color: #fcfcfa;
-      background: #2d2a2e;
-      & a {
-        color: #ffd866;
-      }
-    }
-    &.synthwave-84 {
-      color: #ffffff;
-      background: #262335;
-      & a {
-        color: #ff7edb;
-      }
-    }
-    &.horizon-dark {
-      color: #d5d8da;
-      background: #1c1e26;
-      & a {
-        color: #e95678;
-      }
-    }
-    &.palenight {
-      color: #a6accd;
-      background: #292d3e;
-      & a {
-        color: #82aaff;
-      }
-    }
-    &.oxocarbon-dark {
-      color: #f2f4f8;
-      background: #161616;
-      & a {
-        color: #78a9ff;
-      }
-    }
-    &.kanagawa {
-      color: #dcd7ba;
-      background: #1f1f28;
-      & a {
-        color: #7e9cd8;
-      }
-    }
-    &.nightfox {
-      color: #cdcecf;
-      background: #192330;
-      & a {
-        color: #719cd6;
-      }
-    }
-    &.cyberdream {
-      color: #ffffff;
-      background: #16181a;
-      & a {
-        color: #5ea1ff;
-      }
-    }
+.official-themes .theme:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-default);
+}
 
-    /* New gogh themes - Light */
-    &.catppuccin-latte {
-      color: #4c4f69;
-      background: #eff1f5;
-      & a {
-        color: #1e66f5;
-      }
-    }
-    &.gruvbox-light {
-      color: #3c3836;
-      background: #fbf1c7;
-      & a {
-        color: #458588;
-      }
-    }
-    &.tokyo-night-light {
-      color: #343b58;
-      background: #d5d6db;
-      & a {
-        color: #34548a;
-      }
-    }
-    &.solarized-light {
-      color: #657b83;
-      background: #fdf6e3;
-      & a {
-        color: #268bd2;
-      }
-    }
-    &.ayu-light {
-      color: #575f66;
-      background: #fafafa;
-      & a {
-        color: #399ee6;
-      }
-    }
-    &.everforest-light {
-      color: #5c6a72;
-      background: #fdf6e3;
-      & a {
-        color: #8da101;
-      }
-    }
-    &.rose-pine-dawn {
-      color: #575279;
-      background: #faf4ed;
-      & a {
-        color: #907aa9;
-      }
-    }
+.official-themes .theme.light {
+  color: #59636e;
+  background: #fff;
+}
 
-    /* Disabled state when followSystemTheme is on */
-    &.disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
+.official-themes .theme.light a {
+  color: #0b63e5;
+}
 
-    /* Active theme - use outline instead of border to avoid layout shift? */
-    &.active {
-      box-shadow: var(--floatShadow);
-      outline: 2px solid var(--themeColor);
-      outline-offset: -2px;
-    }
+.official-themes .theme.dark {
+  color: #e8ebf0;
+  background: #1b1d21;
+}
 
-    /* Active + disabled: slightly more visible */
-    &.disabled.active {
-      opacity: 0.7;
-    }
-  }
-  & h3 {
-    position: relative;
-    margin: 0;
-    font-size: 16px;
-    color: currentColor;
-    cursor: pointer;
-    &::before {
-      content: 'h3';
-      position: absolute;
-      top: 4px;
-      left: -20px;
-      display: block;
-      width: 10px;
-      height: 10px;
-      font-size: 12px;
-      opacity: 0.5;
-    }
-  }
-  & p {
-    margin: 6px 0 0;
-    font-size: 12px;
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+.official-themes .theme.dark a {
+  color: #5b9cff;
+}
+
+.official-themes .theme.paper {
+  color: #6e665b;
+  background: #fffdf8;
+}
+
+.official-themes .theme.paper a {
+  color: #0b63e5;
+}
+
+.official-themes .theme.disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.official-themes .theme.disabled:hover {
+  background: initial;
+  border-color: var(--border-subtle);
+}
+
+.official-themes .theme.active {
+  border-color: var(--color-accent);
+  outline: 2px solid var(--color-accent-soft);
+  outline-offset: -2px;
+}
+
+.official-themes .theme.disabled.active {
+  opacity: 0.72;
+}
+
+.official-themes h3 {
+  position: relative;
+  margin: 0;
+  color: currentColor;
+  cursor: pointer;
+  font-size: var(--font-ui-lg);
+}
+
+.official-themes h3::before {
+  position: absolute;
+  top: 4px;
+  left: -20px;
+  display: block;
+  width: 10px;
+  height: 10px;
+  color: currentColor;
+  content: 'h3';
+  font-size: var(--font-ui-sm);
+  opacity: 0.5;
+}
+
+.official-themes p {
+  display: -webkit-box;
+  margin: var(--space-1) 0 0;
+  overflow: hidden;
+  color: currentColor;
+  font-size: var(--font-ui-sm);
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .custom-css {
-  margin: 20px 0;
-  font-size: 14px;
-  color: var(--editorColor);
-  & .description {
-    margin-bottom: 10px;
-  }
-  & .custom-css-input {
-    width: 100%;
-    background: transparent;
-    color: var(--editorColor);
-    border: 1px solid var(--editorColor10);
-    border-radius: 4px;
-    padding: 8px 10px;
-    font-family: 'DejaVu Sans Mono', 'Source Code Pro', 'Droid Sans Mono', Consolas, monospace;
-    font-size: 12px;
-    line-height: 1.5;
-    box-sizing: border-box;
-    resize: vertical;
-  }
-  & .custom-css-input:focus {
-    outline: none;
-    border-color: var(--themeColor);
-  }
+  margin: var(--space-6) 0;
+  color: var(--text-primary);
+  font-size: var(--font-ui-lg);
+}
+
+.custom-css .description {
+  margin-bottom: var(--space-2);
+}
+
+.custom-css .custom-css-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-2) 10px;
+  resize: vertical;
+  color: var(--text-primary);
+  background: var(--surface-editor);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-family: 'DejaVu Sans Mono', 'Source Code Pro', 'Droid Sans Mono', Consolas, monospace;
+  font-size: var(--font-ui-sm);
+  line-height: 1.5;
+  transition:
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease;
+}
+
+.custom-css .custom-css-input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-ring);
 }
 
 .import-themes {
-  padding: 10px 0;
   display: flex;
   justify-content: space-around;
-  color: var(--editorColor);
-  & > div {
-    display: flex;
-    flex-direction: column;
-    & > span {
-      display: inline-block;
-      margin-bottom: 20px;
-    }
-  }
+  padding: 10px 0;
+  color: var(--text-secondary);
+}
+
+.import-themes > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.import-themes > div > span {
+  display: inline-block;
+  margin-bottom: var(--space-6);
 }
 </style>

@@ -24,7 +24,7 @@ Welcome to the end-user documentation of Inkiva.
 - [Key bindings](end-user/KEYBINDINGS.md)
 - [Portable mode](end-user/PORTABLE.md)
 - [Preferences](end-user/PREFERENCES.md)
-- [Themes](end-user/THEMES.md)
+- [Appearances](end-user/THEMES.md)
 - [Themes for exporting](end-user/EXPORT_THEMES.md)
 
 Interested in developer documentation? Please see [here](dev/README.md).

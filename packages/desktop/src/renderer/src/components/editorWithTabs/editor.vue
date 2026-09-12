@@ -133,14 +133,13 @@ import { useEditorStore } from '@/store/editor'
 import { useProjectStore } from '@/store/project'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
+import { getApplicationAppearance } from 'common/theme'
 import { SyntheticHistory, type IFileHistoryLike } from './syntheticHistory'
 
 // Importing the engine entrypoint auto-injects its editor CSS (the muya.ts
-// module imports its stylesheets at load time). Desktop themes still target the
-// legacy `ag-*` DOM (theme migration is a separate phase), so minor visual
-// differences against the new `mu-*` DOM are expected.
+// module imports its stylesheets at load time). Inkiva owns the application
+// appearance layer; the engine remains responsible for editor primitives.
 import '@muyajs/core'
-import '@/assets/themes/codemirror/one-dark.css'
 import { Close as CloseIcon } from '@element-plus/icons-vue'
 import { type InputNumberInstance } from 'element-plus'
 
@@ -2047,7 +2046,7 @@ onMounted(() => {
     getPathForFile: (file: File) => window.electron.webUtils.getPathForFile(file)
   }
 
-  if (/dark/i.test(theme.value)) {
+  if (getApplicationAppearance(theme.value) === 'dark') {
     Object.assign(options, {
       mermaidTheme: 'dark',
       vegaTheme: 'dark'

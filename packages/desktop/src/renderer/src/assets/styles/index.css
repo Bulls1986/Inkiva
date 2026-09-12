@@ -1,109 +1,108 @@
-/* Common CSS use by both light and dark themes */
+/* Common CSS used by all three application appearances. */
 :root {
   --titleBarHeight: 32px;
-  --editorAreaWidth: 750px;
+  --editorAreaWidth: var(--markdown-content-width, 780px);
 
-  /* Inkiva · 墨映 default palette: charcoal ink, display blue and cool paper surfaces */
-  --themeColor: rgba(11, 99, 229, 1);
-  --themeColor90: rgba(11, 99, 229, 0.9);
-  --themeColor80: rgba(11, 99, 229, 0.8);
-  --themeColor70: rgba(11, 99, 229, 0.7);
-  --themeColor60: rgba(11, 99, 229, 0.6);
-  --themeColor50: rgba(11, 99, 229, 0.5);
-  --themeColor40: rgba(11, 99, 229, 0.4);
-  --themeColor30: rgba(11, 99, 229, 0.3);
-  --themeColor20: rgba(11, 99, 229, 0.2);
-  --themeColor10: rgba(11, 99, 229, 0.1);
-  --highlightThemeColor: var(--themeColor);
+  /* Legacy component bridge: components consume semantic tokens through these
+     names while the editor engine completes its kebab-case migration. */
+  --themeColor: var(--color-accent, #0B63E5);
+  --themeColor90: var(--color-accent-hover, #0959D0);
+  --themeColor80: var(--color-accent-hover, #0959D0);
+  --themeColor70: var(--color-accent, #0B63E5);
+  --themeColor60: var(--color-accent, #0B63E5);
+  --themeColor50: var(--markdown-accent-muted, rgb(11 99 229 / 50%));
+  --themeColor40: var(--color-accent-focus, rgb(11 99 229 / 22%));
+  --themeColor30: var(--color-accent-soft, rgb(11 99 229 / 8%));
+  --themeColor20: var(--color-accent-selected, rgb(11 99 229 / 10%));
+  --themeColor10: var(--color-accent-soft, rgb(11 99 229 / 8%));
+  --highlightThemeColor: var(--color-accent, #0B63E5);
+  --highlightColor: var(--color-accent-focus, rgb(11 99 229 / 22%));
+  --selectionColor: var(--markdown-selection, rgb(11 99 229 / 12%));
+  --editorColor: var(--markdown-text-primary, var(--text-primary, #1f2329));
+  --editorColor80: var(--text-primary, #1f2329);
+  --editorColor60: var(--text-secondary, #59636e);
+  --editorColor50: var(--markdown-text-secondary, var(--text-secondary, #59636e));
+  --editorColor40: var(--text-tertiary, #7b8794);
+  --editorColor30: var(--markdown-text-muted, var(--text-tertiary, #7b8794));
+  --editorColor10: var(--border-subtle, #E7E9ED);
+  --editorColor04: var(--surface-chrome, #F7F8FA);
+  --editorBgColor: var(--surface-editor, #FFFFFF);
+  --deleteColor: var(--color-danger, #d64545);
+  --iconColor: var(--icon-secondary, #7b8794);
+  --codeBgColor: var(--surface-hover, #F0F2F5);
+  --codeBlockBgColor: var(--markdown-surface-code, var(--surface-chrome, #F7F8FA));
+  --footnoteBgColor: var(--surface-chrome, #F7F8FA);
+  --inputBgColor: var(--surface-editor, #FFFFFF);
+  --focusColor: var(--color-accent, #0B63E5);
 
-  --highlightColor: rgba(11, 99, 229, 0.28);
-  --selectionColor: rgba(11, 99, 229, 0.16);
-  --editorColor: #3e4754;
-  --editorColor80: #171a1f;
-  --editorColor60: #4c5664;
-  --editorColor50: #6c7786;
-  --editorColor40: #8b96a4;
-  --editorColor30: #abb4c0;
-  --editorColor10: #e1e6ec;
-  --editorColor04: #f4f6f8;
-  --editorBgColor: #ffffff;
-  --deleteColor: #ff453a;
-  --iconColor: #7b8794;
-  --codeBgColor: #eef3f8;
-  --codeBlockBgColor: #f4f6f8;
-  --footnoteBgColor: #f5f7fa;
-  --inputBgColor: #f2f5f8;
-  --focusColor: var(--themeColor);
-
-  --buttonFontColor: var(--editorColor);
-  --buttonBgColor: #ffffff;
-  --buttonBorder: 1px solid #d7dde5;
-  --buttonShadow: 0 1px 1px rgba(23, 26, 31, 0.02);
-  --buttonFontColorHover: var(--editorColor80);
-  --buttonBgColorHover: var(--surface-hover);
-  --buttonBorderHover: 1px solid #bfc8d4;
-  --buttonFontColorActive: var(--editorColor80);
-  --buttonBgColorActive: #edf2f8;
-  --buttonBorderActive: 1px solid #c8d2de;
-  --buttonFocusBorder: 1px solid var(--themeColor);
+  --buttonFontColor: var(--text-secondary, #59636e);
+  --buttonBgColor: var(--surface-editor, #FFFFFF);
+  --buttonBorder: 1px solid var(--border-default, #DADDE3);
+  --buttonShadow: var(--elevation-none, none);
+  --buttonFontColorHover: var(--text-primary, #1f2329);
+  --buttonBgColorHover: var(--surface-hover, #F0F2F5);
+  --buttonBorderHover: 1px solid var(--border-default, #DADDE3);
+  --buttonFontColorActive: var(--text-primary, #1f2329);
+  --buttonBgColorActive: var(--surface-selected, rgb(11 99 229 / 10%));
+  --buttonBorderActive: 1px solid var(--border-default, #DADDE3);
+  --buttonFocusBorder: 1px solid var(--border-focus, #0B63E5);
 
   --buttonPrimaryFontColor: #ffffff;
-  --buttonPrimaryBgColor: var(--themeColor);
+  --buttonPrimaryBgColor: var(--color-accent, #0B63E5);
   --buttonPrimaryBorder: none;
-  --buttonPrimaryShadow: 0 2px 6px rgba(11, 99, 229, 0.18);
+  --buttonPrimaryShadow: var(--elevation-none, none);
   --buttonPrimaryFontColorHover: var(--buttonPrimaryFontColor);
-  --buttonPrimaryBgColorHover: #0757f2;
+  --buttonPrimaryBgColorHover: var(--color-accent-hover, #0959D0);
   --buttonPrimaryBorderHover: var(--buttonPrimaryBorder);
   --buttonPrimaryFontColorActive: var(--buttonPrimaryFontColor);
-  --buttonPrimaryBgColorActive: #0647c7;
+  --buttonPrimaryBgColorActive: var(--color-accent-active, #084DB5);
   --buttonPrimaryBorderActive: var(--buttonPrimaryBorder);
   --buttonPrimaryFocusBorder: none;
-  --buttonPrimaryFocusShadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35), 0 0 0 3px rgba(11, 99, 229, 0.2);
-  --tableBorderColor: #e1e6ec;
+  --buttonPrimaryFocusShadow: var(--focus-ring, 0 0 0 2px rgb(11 99 229 / 22%));
+  --tableBorderColor: var(--markdown-border-subtle, var(--border-subtle, #E7E9ED));
 
-  /* Markdown element colors */
-  --headingColor: #171a1f;
-  --h1Color: #171a1f;
-  --h2Color: #242a32;
-  --h3Color: #343d49;
-  --h4Color: #4b5665;
-  --h5Color: #657285;
-  --h6Color: #7b8794;
-  --blockquoteTextColor: #6c7786;
-  --blockquoteBorderColor: var(--themeColor);
-  --hrColor: #e1e6ec;
-  --linkColor: var(--themeColor);
-  --strongColor: #171a1f;
-  --emColor: #0b63e5;
-  --listMarkerColor: #7b8794;
+  /* Markdown aliases remain scoped through the Markdown token layer. */
+  --headingColor: var(--markdown-text-primary, var(--text-primary, #1f2329));
+  --h1Color: var(--markdown-text-primary, var(--text-primary, #1f2329));
+  --h2Color: var(--markdown-text-primary, var(--text-primary, #1f2329));
+  --h3Color: var(--markdown-text-primary, var(--text-primary, #1f2329));
+  --h4Color: var(--markdown-text-primary, var(--text-primary, #1f2329));
+  --h5Color: var(--markdown-text-secondary, var(--text-secondary, #59636e));
+  --h6Color: var(--markdown-text-secondary, var(--text-secondary, #59636e));
+  --blockquoteTextColor: var(--markdown-text-secondary, var(--text-secondary, #59636e));
+  --blockquoteBorderColor: var(--markdown-accent-muted, rgb(11 99 229 / 50%));
+  --hrColor: var(--markdown-border-subtle, var(--border-subtle, #E7E9ED));
+  --linkColor: var(--color-accent, #0B63E5);
+  --strongColor: var(--markdown-text-primary, var(--text-primary, #1f2329));
+  --emColor: var(--color-accent-hover, #0959D0);
+  --listMarkerColor: var(--markdown-text-muted, var(--text-tertiary, #7b8794));
 
-  /* Sidebar and application chrome */
-  --sideBarColor: #3e4754;
-  --sideBarIconColor: var(--iconColor);
-  --sideBarTitleColor: #171a1f;
-  --sideBarTextColor: #7b8794;
-  --sideBarBgColor: #f6f8fa;
-  --sideBarItemHoverBgColor: rgba(23, 26, 31, 0.05);
-  --itemBgColor: rgba(255, 255, 255, 0.82);
+  /* Application chrome */
+  --sideBarColor: var(--text-secondary, #59636e);
+  --sideBarIconColor: var(--icon-secondary, #7b8794);
+  --sideBarTitleColor: var(--text-primary, #1f2329);
+  --sideBarTextColor: var(--text-secondary, #59636e);
+  --sideBarBgColor: var(--surface-chrome, #F7F8FA);
+  --sideBarItemHoverBgColor: var(--surface-hover, #F0F2F5);
+  --itemBgColor: var(--surface-editor, #FFFFFF);
 
-  /* Floating surfaces */
-  --floatFontColor: #3e4754;
-  --floatBgColor: #ffffff;
-  --floatHoverColor: rgba(23, 26, 31, 0.05);
-  --floatBorderColor: rgba(23, 26, 31, 0.12);
-  --floatShadow:
-    rgba(23, 26, 31, 0.04) 0px 0px 0px 1px, rgba(23, 26, 31, 0.08) 0px 8px 24px;
-  --maskColor: rgba(235, 239, 244, 0.86);
+  /* Floating surfaces are the only elevated application layer. */
+  --floatFontColor: var(--text-primary, #1f2329);
+  --floatBgColor: var(--surface-elevated, #FFFFFF);
+  --floatHoverColor: var(--surface-hover, #F0F2F5);
+  --floatBorderColor: var(--border-subtle, #E7E9ED);
+  --floatShadow: var(--elevation-floating, 0 8px 28px rgb(15 23 42 / 14%));
+  --maskColor: rgb(15 23 42 / 20%);
 
-  /* Notification colors */
+  /* Feedback colors stay semantic instead of recolouring whole surfaces. */
   --notificationPrimaryColor: #ffffff;
-  --notificationPrimaryBg: var(--themeColor);
+  --notificationPrimaryBg: var(--color-accent, #0B63E5);
   --notificationInfoColor: #ffffff;
-  --notificationInfoBg: #64748b;
+  --notificationInfoBg: var(--color-info, #3978b8);
   --notificationWarningColor: #ffffff;
-  --notificationWarningBg: #ff9f0a;
+  --notificationWarningBg: var(--color-warning, #b7791f);
   --notificationErrorColor: #ffffff;
-  --notificationErrorBg: #ff453a;
+  --notificationErrorBg: var(--color-danger, #d64545);
 }
 
 ::-webkit-scrollbar,
@@ -173,16 +172,16 @@ body {
 }
 
 .el-tooltip__popper[data-popper-placement^='left'] .popper__arrow {
-  border-left-color: #303133;
+  border-left-color: var(--surface-elevated);
 }
 .el-tooltip__popper[data-popper-placement^='top'] .popper__arrow {
-  border-top-color: #303133;
+  border-top-color: var(--surface-elevated);
 }
 .el-tooltip__popper[data-popper-placement^='right'] .popper__arrow {
-  border-right-color: #303133;
+  border-right-color: var(--surface-elevated);
 }
 .el-tooltip__popper[data-popper-placement^='bottom'] .popper__arrow {
-  border-bottom-color: #303133;
+  border-bottom-color: var(--surface-elevated);
 }
 
 .el-button:hover,

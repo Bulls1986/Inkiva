@@ -1,109 +1,108 @@
 :root {
   --titleBarHeight: 32px;
-  --editorAreaWidth: 750px;
+  --editorAreaWidth: var(--markdown-content-width, 780px);
 
-  /* Inkiva · 墨映 dark palette: charcoal canvas with a clear display-blue accent */
-  --themeColor: #2d80ff;
-  --themeColor90: rgba(45, 128, 255, 0.9);
-  --themeColor80: rgba(45, 128, 255, 0.8);
-  --themeColor70: rgba(45, 128, 255, 0.7);
-  --themeColor60: rgba(45, 128, 255, 0.6);
-  --themeColor50: rgba(45, 128, 255, 0.5);
-  --themeColor40: rgba(45, 128, 255, 0.4);
-  --themeColor30: rgba(45, 128, 255, 0.3);
-  --themeColor20: rgba(45, 128, 255, 0.2);
-  --themeColor10: rgba(45, 128, 255, 0.1);
+  /* Dark appearance aliases resolve to the shared semantic token system. */
+  --themeColor: var(--color-accent, #0B63E5);
+  --themeColor90: var(--color-accent-hover, #0959D0);
+  --themeColor80: var(--color-accent-hover, #0959D0);
+  --themeColor70: var(--color-accent, #0B63E5);
+  --themeColor60: var(--color-accent, #0B63E5);
+  --themeColor50: var(--markdown-accent-muted, rgb(91 156 255 / 55%));
+  --themeColor40: var(--color-accent-focus, rgb(91 156 255 / 32%));
+  --themeColor30: var(--color-accent-soft, rgb(45 128 255 / 14%));
+  --themeColor20: var(--color-accent-selected, rgb(45 128 255 / 18%));
+  --themeColor10: var(--color-accent-soft, rgb(45 128 255 / 14%));
+  --highlightThemeColor: var(--color-accent);
+  --highlightColor: var(--color-accent-focus, rgb(91 156 255 / 32%));
+  --selectionColor: var(--markdown-selection, rgb(45 128 255 / 20%));
+  --editorColor: var(--markdown-text-primary, #e8ebf0);
+  --editorColor80: var(--text-primary, #e8ebf0);
+  --editorColor60: var(--text-secondary, #aeb6c2);
+  --editorColor50: var(--markdown-text-secondary, #aeb6c2);
+  --editorColor40: var(--text-tertiary, #7f8996);
+  --editorColor30: var(--markdown-text-muted, #7f8996);
+  --editorColor10: var(--border-subtle, #2B2F36);
+  --editorColor04: var(--surface-chrome, #181A1E);
+  --editorBgColor: var(--surface-editor, #1B1D21);
+  --deleteColor: var(--color-danger, #d64545);
+  --iconColor: var(--icon-secondary, #8d98a6);
+  --codeBgColor: var(--surface-hover, #24272D);
+  --codeBlockBgColor: var(--markdown-surface-code, #24272D);
+  --footnoteBgColor: var(--surface-chrome, #181A1E);
+  --inputBgColor: var(--surface-editor, #1B1D21);
+  --focusColor: var(--color-accent);
 
-  --highlightColor: rgba(90, 168, 255, 0.55);
-  --selectionColor: rgba(45, 128, 255, 0.28);
-  --editorColor: rgba(245, 247, 250, 0.82);
-  --editorColor80: rgba(245, 247, 250, 0.9);
-  --editorColor60: rgba(245, 247, 250, 0.68);
-  --editorColor50: rgba(245, 247, 250, 0.55);
-  --editorColor40: rgba(245, 247, 250, 0.43);
-  --editorColor30: rgba(245, 247, 250, 0.3);
-  --editorColor10: rgba(245, 247, 250, 0.12);
-  --editorColor04: rgba(245, 247, 250, 0.06);
-  --editorBgColor: #1c1d20;
-  --deleteColor: #ff453a;
-  --iconColor: rgba(245, 247, 250, 0.58);
-  --codeBgColor: #2b3037;
-  --codeBlockBgColor: #24282e;
-  --footnoteBgColor: rgba(36, 40, 46, 0.78);
-  --inputBgColor: #252a31;
-
-  --focusColor: var(--themeColor);
-
-  --buttonFontColor: rgba(245, 247, 250, 0.82);
-  --buttonBgColor: #252a31;
-  --buttonBorder: 1px solid rgba(255, 255, 255, 0.1);
-  --buttonShadow: none;
-  --buttonFontColorHover: rgba(245, 247, 250, 0.95);
-  --buttonBgColorHover: #30363f;
-  --buttonBorderHover: 1px solid rgba(255, 255, 255, 0.16);
-  --buttonFontColorActive: rgba(245, 247, 250, 0.95);
-  --buttonBgColorActive: #1f242a;
-  --buttonBorderActive: 1px solid rgba(255, 255, 255, 0.12);
+  --buttonFontColor: var(--text-secondary, #aeb6c2);
+  --buttonBgColor: var(--surface-editor, #1B1D21);
+  --buttonBorder: 1px solid var(--border-default, #363A42);
+  --buttonShadow: var(--elevation-none, none);
+  --buttonFontColorHover: var(--text-primary, #e8ebf0);
+  --buttonBgColorHover: var(--surface-hover, #24272D);
+  --buttonBorderHover: 1px solid var(--border-default, #363A42);
+  --buttonFontColorActive: var(--text-primary, #e8ebf0);
+  --buttonBgColorActive: var(--surface-selected, rgb(45 128 255 / 18%));
+  --buttonBorderActive: 1px solid var(--border-default, #363A42);
+  --buttonFocusBorder: 1px solid var(--border-focus, #5B9CFF);
 
   --buttonPrimaryFontColor: #ffffff;
-  --buttonPrimaryBgColor: var(--themeColor);
+  --buttonPrimaryBgColor: var(--color-accent, #0B63E5);
   --buttonPrimaryBorder: none;
-  --buttonPrimaryShadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --buttonPrimaryShadow: var(--elevation-none, none);
   --buttonPrimaryFontColorHover: var(--buttonPrimaryFontColor);
-  --buttonPrimaryBgColorHover: #3d8cff;
+  --buttonPrimaryBgColorHover: var(--color-accent-hover, #0959D0);
   --buttonPrimaryBorderHover: var(--buttonPrimaryBorder);
   --buttonPrimaryFontColorActive: var(--buttonPrimaryFontColor);
-  --buttonPrimaryBgColorActive: #1f6fe5;
+  --buttonPrimaryBgColorActive: var(--color-accent-active, #084DB5);
   --buttonPrimaryBorderActive: var(--buttonPrimaryBorder);
   --buttonPrimaryFocusBorder: none;
-  --buttonPrimaryFocusShadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35), 0 0 0 3px rgba(45, 128, 255, 0.28);
-  --tableBorderColor: #333840;
+  --buttonPrimaryFocusShadow: var(--focus-ring, 0 0 0 2px rgb(91 156 255 / 32%));
+  --tableBorderColor: var(--markdown-border-subtle, var(--border-subtle, #2B2F36));
 
-  /* Markdown element colors */
-  --headingColor: #f5f7fa;
-  --h1Color: #f5f7fa;
-  --h2Color: #e3e7ee;
-  --h3Color: #cbd2dc;
-  --h4Color: #aeb8c5;
-  --h5Color: #8d9aaa;
-  --h6Color: #738093;
-  --blockquoteTextColor: rgba(245, 247, 250, 0.58);
-  --blockquoteBorderColor: var(--themeColor);
-  --hrColor: rgba(245, 247, 250, 0.12);
-  --linkColor: #5aa8ff;
-  --strongColor: rgba(245, 247, 250, 0.9);
-  --emColor: #5aa8ff;
-  --listMarkerColor: #9ba7b7;
+  /* Markdown aliases remain in the document layer. */
+  --headingColor: var(--markdown-text-primary, #e8ebf0);
+  --h1Color: var(--markdown-text-primary, #e8ebf0);
+  --h2Color: var(--markdown-text-primary, #e8ebf0);
+  --h3Color: var(--markdown-text-primary, #e8ebf0);
+  --h4Color: var(--markdown-text-primary, #e8ebf0);
+  --h5Color: var(--markdown-text-secondary, #aeb6c2);
+  --h6Color: var(--markdown-text-secondary, #aeb6c2);
+  --blockquoteTextColor: var(--markdown-text-secondary, #aeb6c2);
+  --blockquoteBorderColor: var(--markdown-accent-muted, rgb(91 156 255 / 55%));
+  --hrColor: var(--markdown-border-subtle, var(--border-subtle, #2B2F36));
+  --linkColor: #5B9CFF;
+  --strongColor: var(--markdown-text-primary, #e8ebf0);
+  --emColor: #5B9CFF;
+  --listMarkerColor: var(--markdown-text-muted, #7f8996);
 
-  /* Sidebar and application chrome */
-  --sideBarColor: rgba(245, 247, 250, 0.78);
-  --sideBarIconColor: var(--iconColor);
-  --sideBarTitleColor: rgba(245, 247, 250, 0.92);
-  --sideBarTextColor: rgba(245, 247, 250, 0.5);
-  --sideBarBgColor: #17191d;
-  --sideBarItemHoverBgColor: rgba(255, 255, 255, 0.055);
-  --itemBgColor: #252a31;
+  /* Application chrome */
+  --sideBarColor: var(--text-secondary, #aeb6c2);
+  --sideBarIconColor: var(--icon-secondary, #8d98a6);
+  --sideBarTitleColor: var(--text-primary, #e8ebf0);
+  --sideBarTextColor: var(--text-secondary, #aeb6c2);
+  --sideBarBgColor: var(--surface-chrome, #181A1E);
+  --sideBarItemHoverBgColor: var(--surface-hover, #24272D);
+  --itemBgColor: var(--surface-editor, #1B1D21);
 
-  /* Floating surfaces */
-  --floatFontColor: rgba(245, 247, 250, 0.82);
-  --floatBgColor: #252a31;
-  --floatHoverColor: rgba(255, 255, 255, 0.06);
-  --floatBorderColor: rgba(255, 255, 255, 0.12);
-  --floatShadow:
-    rgba(0, 0, 0, 0.28) 0px 0px 0px 1px, rgba(0, 0, 0, 0.35) 0px 8px 24px;
-  --maskColor: rgba(0, 0, 0, 0.7);
+  /* Floating surfaces are the only elevated application layer. */
+  --floatFontColor: var(--text-primary, #e8ebf0);
+  --floatBgColor: var(--surface-elevated, #25282E);
+  --floatHoverColor: var(--surface-hover, #24272D);
+  --floatBorderColor: var(--border-subtle, #2B2F36);
+  --floatShadow: var(--elevation-floating, 0 8px 28px rgb(0 0 0 / 36%));
+  --maskColor: rgb(0 0 0 / 70%);
 
-  /* Notification colors */
+  /* Feedback colors stay semantic instead of recolouring whole surfaces. */
   --notificationPrimaryColor: #ffffff;
-  --notificationPrimaryBg: var(--themeColor);
+  --notificationPrimaryBg: var(--color-accent, #0B63E5);
   --notificationInfoColor: #ffffff;
-  --notificationInfoBg: #64748b;
+  --notificationInfoBg: var(--color-info, #3978b8);
   --notificationWarningColor: #ffffff;
-  --notificationWarningBg: #ff9f0a;
+  --notificationWarningBg: var(--color-warning, #b7791f);
   --notificationErrorColor: #ffffff;
-  --notificationErrorBg: #ff453a;
+  --notificationErrorBg: var(--color-danger, #d64545);
 
-  /* @muyajs/core (kebab-case) editor variables */
+  /* @muyajs/core editor variables */
   --theme-color: var(--themeColor);
   --highlight-color: var(--highlightColor);
   --selection-color: var(--selectionColor);
@@ -127,11 +126,11 @@
   --button-border-hover: var(--buttonBorderHover);
   --button-bg-color-active: var(--buttonBgColorActive);
   --button-border-active: var(--buttonBorderActive);
-  --button-border-focus: var(--button-border);
+  --button-border-focus: var(--buttonFocusBorder);
   --float-bg-color: var(--floatBgColor);
   --float-hover-color: var(--floatHoverColor);
   --float-border-color: var(--floatBorderColor);
-  --float-shadow: rgb(15 15 15 / 3%) 0 0 0 1px, rgb(15 15 15 / 4%) 0 3px 6px;
+  --float-shadow: var(--floatShadow);
   --link-color: var(--linkColor);
   --h1-color: var(--h1Color);
   --h2-color: var(--h2Color);
@@ -146,84 +145,32 @@
   --list-marker-color: var(--listMarkerColor);
   --hr-color: var(--hrColor);
 }
+
 ::-webkit-scrollbar {
-  background: var(--editorBgColor);
+  background: var(--surface-editor);
 }
 
 .mu-front-menu,
 .mu-float-wrapper {
-  box-shadow: 0 4px 8px 0 var(--floatShadow) !important;
+  box-shadow: var(--elevation-floating, 0 8px 28px rgb(0 0 0 / 36%)) !important;
 }
 
 .title-bar .frameless-titlebar-button > div > svg {
   fill: #ffffff;
 }
+
 .title-bar .frameless-titlebar-minimize:hover,
 .title-bar .frameless-titlebar-toggle:hover {
-  background-color: rgb(255, 255, 255, 0.05);
+  background-color: rgb(255 255 255 / 5%);
 }
 
 .side-bar {
-  border-right: 1px solid #24272d !important;
+  border-right: 1px solid var(--border-subtle) !important;
 }
 
 .recent-files-projects a,
-.open-project a {
-  box-shadow: none !important;
-}
-
-.editor-tabs {
-  box-shadow: none !important;
-}
-.editor-tabs:after {
-  position: absolute;
-  content: '';
-  border-bottom: 1px solid #24272d;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 1;
-}
-.editor-tabs ul.tabs-container:after {
-  position: absolute;
-  content: '';
-  border-bottom: 1px solid #24272d;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 2;
-}
-
-.tabs-container > li,
-.tabs-container > li.active {
-  background: var(--editorBgColor) !important;
-}
-
+.open-project a,
 .open-project button,
 .recent-files-projects button {
   box-shadow: none !important;
 }
-
-/* ------------------------------------ */
-
-:not(pre) > code[class*='language-'],
-pre:not(.CodeMirror-line),
-pre[class*='language-'],
-pre.mu-code-block {
-  background: var(--codeBlockBgColor) !important;
-  border: none !important;
-}
-.mu-thematic-break:not(.mu-active)::before {
-  border-top: 2px dashed var(--editorColor10) !important;
-  background: none !important;
-}
-figure.mu-active.mu-math-block > div.mu-math-preview,
-figure.mu-active.mu-diagram-block > div.mu-diagram-preview {
-  box-shadow: 0 3px 8px 0 var(--floatShadow) !important;
-}
-
-/*
- * Prism.js theme (override light theme)
- */
-
-/* @import url("prismjs/dark.theme.css"); */
