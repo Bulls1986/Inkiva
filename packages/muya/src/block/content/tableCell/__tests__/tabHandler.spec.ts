@@ -25,6 +25,38 @@ function makeFakeCell(prev: IFakeNeighbour | null, next: IFakeNeighbour | null) 
     };
 }
 
+function makeLastCellForAppend() {
+    const appended = makeFakeNeighbour();
+    const table = {
+        rowCount: 2,
+        columnCount: 2,
+        insertRow: vi.fn(() => appended),
+    };
+    const row = {
+        next: null,
+        offset: vi.fn(() => 1),
+    };
+    const cell = {};
+    const fakeThis = {
+        nextContentInContext: vi.fn(() => null),
+        previousContentInContext: vi.fn(() => makeFakeNeighbour()),
+        closestBlock: vi.fn((name: string) => {
+            if (name === 'table') {
+                return table;
+            }
+            if (name === 'table.row') {
+                return row;
+            }
+            if (name === 'table.cell') {
+                return cell;
+            }
+            return null;
+        }),
+    };
+
+    return { appended, table, fakeThis };
+}
+
 function makeFakeNeighbour() {
     return {
         setCursor: vi.fn(),
@@ -85,5 +117,17 @@ describe('tableCellContent.tabHandler — 5fb130d9 shift+tab backward navigation
         }).not.toThrow();
 
         expect(next.setCursor).not.toHaveBeenCalled();
+    });
+
+    it('appends a row and moves to its first cell on Tab from the last cell', () => {
+        const { appended, table, fakeThis } = makeLastCellForAppend();
+
+        TableCellContent.prototype.tabHandler.call(
+            fakeThis as unknown as TableCellContent,
+            makeKeyEvent(false),
+        );
+
+        expect(table.insertRow).toHaveBeenCalledWith(2);
+        expect(appended.setCursor).toHaveBeenCalledWith(0, 0, true);
     });
 });
