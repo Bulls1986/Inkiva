@@ -53,15 +53,17 @@ const readCurrentPath = (page: Page): Promise<string | null> =>
 const focusWindow = async(app: ElectronApplication, page: Page): Promise<void> => {
   await page.bringToFront()
   await app.evaluate(({ BrowserWindow }) => {
-    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-    if (win && !win.isDestroyed()) win.focus()
+    const win = BrowserWindow.getAllWindows()[0]
+    if (!win || win.isDestroyed()) throw new Error('No editor window found')
+    if (!win.isVisible()) win.show()
+    win.focus()
   })
 }
 
 const pressQuickOpenShortcut = async(app: ElectronApplication, page: Page): Promise<void> => {
   await focusWindow(app, page)
   await app.evaluate(({ BrowserWindow }) => {
-    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    const win = BrowserWindow.getAllWindows()[0]
     if (!win || win.isDestroyed()) throw new Error('No focused editor window found')
 
     const modifier = process.platform === 'darwin' ? 'meta' : 'control'
