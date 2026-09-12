@@ -415,7 +415,7 @@ export const typeIntoEditor = async(page: Page, text: string): Promise<void> => 
 // `activeContentBlock` from `click`/`input`/`keydown`/`keyup` events on the
 // editor root (see editor/index.ts), so a bare `selectionchange` is not enough
 // — we dispatch a synthetic `keyup` on the editor so the active block updates.
-const commitSelection = (collapse: boolean) => {
+const commitSelection = (collapse: boolean, useTextNodeBoundaries = false) => {
   const root = document.querySelector('.editor-component') as HTMLElement | null
   if (!root) return false
   root.focus()
@@ -430,20 +430,25 @@ const commitSelection = (collapse: boolean) => {
   target = target || spans[0] || null
   if (!target) return false
   const range = document.createRange()
-  const textNodes: Text[] = []
-  const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT)
-  let current: Node | null
-  while ((current = walker.nextNode())) textNodes.push(current as Text)
+  if (useTextNodeBoundaries) {
+    const textNodes: Text[] = []
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT)
+    let current: Node | null
+    while ((current = walker.nextNode())) textNodes.push(current as Text)
 
-  if (textNodes.length > 0) {
-    const first = textNodes[0]
-    const last = textNodes[textNodes.length - 1]
-    if (collapse) {
-      range.setStart(last, last.data.length)
-      range.collapse(true)
+    if (textNodes.length > 0) {
+      const first = textNodes[0]
+      const last = textNodes[textNodes.length - 1]
+      if (collapse) {
+        range.setStart(last, last.data.length)
+        range.collapse(true)
+      } else {
+        range.setStart(first, 0)
+        range.setEnd(last, last.data.length)
+      }
     } else {
-      range.setStart(first, 0)
-      range.setEnd(last, last.data.length)
+      range.selectNodeContents(target)
+      if (collapse) range.collapse(false)
     }
   } else {
     range.selectNodeContents(target)
@@ -468,6 +473,16 @@ export const focusEditor = async(page: Page): Promise<void> => {
 
 export const placeCaretInEditor = async(page: Page): Promise<void> => {
   await page.evaluate(commitSelection, true)
+  await page.waitForTimeout(150)
+}
+
+export const focusEditorAtTextBoundary = async(page: Page): Promise<void> => {
+  await page.evaluate(() => commitSelection(false, true))
+  await page.waitForTimeout(150)
+}
+
+export const placeCaretAtTextBoundary = async(page: Page): Promise<void> => {
+  await page.evaluate(() => commitSelection(true, true))
   await page.waitForTimeout(150)
 }
 
