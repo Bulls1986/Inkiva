@@ -50,7 +50,20 @@ const readCurrentPath = (page: Page): Promise<string | null> =>
     return pinia?._s?.get('editor')?.currentFile?.pathname ?? null
   })
 
-const openQuickOpen = async(page: Page, query: string): Promise<void> => {
+const focusWindow = async(app: ElectronApplication, page: Page): Promise<void> => {
+  await page.bringToFront()
+  await app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    if (win && !win.isDestroyed()) win.focus()
+  })
+}
+
+const openQuickOpen = async(
+  app: ElectronApplication,
+  page: Page,
+  query: string
+): Promise<void> => {
+  await focusWindow(app, page)
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+P' : 'Control+P')
   const input = page.locator('input.search').first()
   await expect(input).toBeVisible({ timeout: 5000 })
@@ -82,6 +95,7 @@ test.describe('Typora-style workspace search', () => {
     await waitForWorkspaceReady(page)
     await waitForMenuReady(app)
 
+    await focusWindow(app, page)
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+P' : 'Control+P')
     const quickOpenInput = page.locator('input.search').first()
     await expect(quickOpenInput).toBeVisible({ timeout: 5000 })
@@ -92,7 +106,7 @@ test.describe('Typora-style workspace search', () => {
     await expect.poll(() => readCurrentPath(page), { timeout: 5000 }).toBe(target)
     await expect(page.locator('.tabs-container > li')).toHaveCount(1)
 
-    await openQuickOpen(page, 'ntgd')
+    await openQuickOpen(app, page, 'ntgd')
     await chooseCommand(page, 'notes/nested-guide.md')
     await expect.poll(() => readCurrentPath(page), { timeout: 5000 }).toBe(target)
     await expect(page.locator('.tabs-container > li')).toHaveCount(1)
@@ -156,7 +170,7 @@ test.describe('Typora-style workspace search', () => {
     await waitForMenuReady(app)
 
     const quickOpenStarted = Date.now()
-    await openQuickOpen(page, 'indexed-note-1199')
+    await openQuickOpen(app, page, 'indexed-note-1199')
     await expect(
       page.locator('ul.commands li').filter({ hasText: 'indexed-note-1199.md' })
     ).toBeVisible({ timeout: SEARCH_BUDGET_MS })
