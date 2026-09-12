@@ -376,7 +376,7 @@ onBeforeUnmount(() => {
   top: 0;
   right: 0;
   z-index: 2;
-  transition: color 0.4s ease-in-out;
+  transition: color var(--motion-normal) ease;
   cursor: default;
 }
 .active {
@@ -393,9 +393,9 @@ img {
   line-height: var(--titleBarHeight);
   font-size: 14px;
   text-align: center;
-  transition: all 0.25s ease-in-out;
+  transition: color var(--motion-normal) ease;
   & .filename {
-    transition: all 0.25s ease-in-out;
+    transition: color var(--motion-normal) ease;
   }
   &::after {
     content: '';
@@ -426,7 +426,7 @@ div.title > span {
 }
 
 .title-bar .title .filename.isOsx:hover {
-  color: var(--themeColor);
+  color: var(--color-accent);
 }
 
 .active .save-dot {
@@ -443,7 +443,7 @@ div.title > span {
   visibility: visible;
 }
 .title:hover {
-  color: var(--sideBarTitleColor);
+  color: var(--text-primary);
 }
 
 .menu-bar {
@@ -463,31 +463,26 @@ div.title > span {
   -webkit-app-region: no-drag;
   appearance: none;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--sideBarColor);
+  color: var(--text-secondary);
   cursor: pointer;
   font: inherit;
   font-size: 13px;
   line-height: 1;
-  padding: 6px 10px;
+  padding: 5px 8px;
   white-space: nowrap;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 .menu-bar-item:hover,
 .menu-bar-item.active {
-  background: var(--sideBarItemHoverBgColor);
-  color: var(--sideBarTitleColor);
-}
-
-.menu-bar-item.active {
-  background: rgba(11, 99, 229, 0.12);
-  color: var(--themeColor);
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .menu-bar-item:focus-visible {
-  outline: 2px solid var(--themeColor);
+  outline: 2px solid var(--color-accent-focus);
   outline-offset: -2px;
 }
 
@@ -530,14 +525,14 @@ div.title > span {
   line-height: 24px;
   padding: 0 5px;
   box-sizing: border-box;
-  transition: all 0.25s ease-in-out;
+  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
   & > .text-center-vertical {
     padding: 2px 5px;
     border-radius: 3px;
   }
   &:hover > span {
-    background: var(--sideBarBgColor);
-    color: var(--sideBarTitleColor);
+    background: var(--surface-hover);
+    color: var(--text-primary);
   }
 }
 
