@@ -56,9 +56,9 @@ Inkiva also has support to open a directory via <kbd>CmdOrCtrl</kbd>+<kbd>Shift<
 
 ![](../assets/inkiva-interface-2.png)
 
-## Themes
+## Appearances
 
-You can change the application theme by clicking on an entry under the themes application menu.
+You can change the application appearance by selecting Inkiva Light, Inkiva Dark, or Inkiva Paper from the `Theme` menu. Inkiva Light and Inkiva Dark can also follow the system appearance.
 
 ## Preferences
 
@@ -67,7 +67,7 @@ You can control and modify all preferences in the settings window or edit `prefe
 - General application settings
 - Settings that control the editor appearance
 - Markdown related settings
-- The application theme
+- The application appearance
 - Options how images are handled
 
 ![](../assets/inkiva-settings.png)

@@ -1,20 +1,17 @@
 export type ApplicationAppearance = 'light' | 'dark' | 'paper'
 
 export const isDarkThemeId = (theme: unknown): theme is string => {
-  return theme === 'dark' || theme === 'inkiva-dark'
+  return theme === 'dark'
 }
 
 export const getApplicationAppearance = (theme: unknown): ApplicationAppearance => {
-  if (theme === 'paper' || theme === 'inkiva-paper') return 'paper'
+  if (theme === 'paper') return 'paper'
   return isDarkThemeId(theme) ? 'dark' : 'light'
 }
 
-// Each built-in theme's editor background colour, kept in sync with the
-// `--editorBgColor` of the matching renderer theme (renderer/src/assets/themes/
-// *.theme.css; the default light theme lives in styles/index.css and is handled
-// by the white fallback below). The main process paints a freshly-created window
-// with this colour before the renderer loads, so a dark theme no longer flashes
-// white on launch (#3957).
+// Canonical appearance backgrounds used by the main process before the renderer
+// loads. Keeping this bridge small prevents a document theme from recolouring
+// the application chrome or reintroducing retired appearance IDs.
 const themeBackgroundColors: ReadonlyMap<string, string> = new Map([
   ['dark', '#1b1d21'],
   ['paper', '#fffdf8']
@@ -25,9 +22,8 @@ const LIGHT_FALLBACK_BACKGROUND = '#ffffff'
 
 /**
  * Background colour to paint a freshly-created window before the renderer
- * loads, so the window matches the active theme instead of flashing white
- * (#3957). Falls back by dark/light classification for any theme without an
- * explicit colour (e.g. the default light theme or a future custom theme).
+ * loads, so the window matches the active appearance instead of flashing white
+ * (#3957). Unknown values intentionally use the Light fallback.
  */
 export const getThemeBackgroundColor = (theme: string | undefined): string => {
   const exact = typeof theme === 'string' ? themeBackgroundColors.get(theme) : undefined

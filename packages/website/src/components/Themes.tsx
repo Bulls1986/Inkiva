@@ -23,7 +23,7 @@ export default function Themes() {
         <div className="split rev">
           <div className="split-text">
             <div className="sec-head reveal">
-              <span className="kicker">Themes</span>
+              <span className="kicker">Appearances</span>
               <h2 className="sec-title">Make it yours.</h2>
               <p className="sec-desc">
                 Three focused appearances — Inkiva Light, Inkiva Dark, and Inkiva Paper — designed to
