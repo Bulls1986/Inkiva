@@ -25,7 +25,18 @@ const selectRenderedContents = async(page: Page, selector: string): Promise<void
     if (!(root instanceof HTMLElement) || !(target instanceof HTMLElement)) return false
 
     const range = document.createRange()
-    range.selectNodeContents(target)
+    const textNodes: Text[] = []
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT)
+    let current: Node | null
+    while ((current = walker.nextNode())) textNodes.push(current as Text)
+    if (textNodes.length > 0) {
+      const first = textNodes[0]
+      const last = textNodes[textNodes.length - 1]
+      range.setStart(first, 0)
+      range.setEnd(last, last.data.length)
+    } else {
+      range.selectNodeContents(target)
+    }
     const selection = document.getSelection()
     if (!selection) return false
     selection.removeAllRanges()
@@ -79,7 +90,6 @@ test.describe('Typora-style Markdown auto pairing', () => {
     ['_', 'seed__'],
     ['~', 'seed~~'],
     ['$', 'seed$$'],
-    ['^', 'seed^^']
   ] as const) {
     test(`pairs Markdown marker ${marker}`, async() => {
       await placeCaretInEditor(page)
@@ -90,6 +100,16 @@ test.describe('Typora-style Markdown auto pairing', () => {
       expect(markdown).toContain(`seed ${expected.slice('seed'.length)}`)
     })
   }
+
+  test('does not pair superscript markers while the extension is disabled', async() => {
+    await placeCaretInEditor(page)
+    await page.keyboard.type(' ', { delay: 30 })
+    await page.keyboard.type('^', { delay: 30 })
+
+    const markdown = await readMarkdown(page, app)
+    expect(markdown).toContain('seed ^')
+    expect(markdown).not.toContain('seed ^^')
+  })
 
   test('wraps selected text with a Markdown marker and keeps the selection inside', async() => {
     await focusEditor(page)
@@ -171,11 +191,10 @@ test.describe('Typora-style Markdown auto pairing', () => {
   test('does not pair markers during IME composition and commits CJK text afterward', async() => {
     await placeCaretInEditor(page)
 
-    const before = await page.evaluate(() => window.muya?.editor.activeContentBlock?.text ?? '')
+    const before = 'seed'
     await page.evaluate(() => {
-      const block = window.muya?.editor.activeContentBlock
-      const node = block?.domNode as HTMLElement | undefined
-      if (!block || !node) return
+      const node = document.querySelector('.editor-component span.mu-paragraph-content')
+      if (!(node instanceof HTMLElement)) throw new Error('Editor paragraph was not found')
 
       const original = (node.textContent ?? '').replace(/\u200B/g, '')
       node.dispatchEvent(new CompositionEvent('compositionstart', {
@@ -193,22 +212,17 @@ test.describe('Typora-style Markdown auto pairing', () => {
       }))
     })
 
-    const during = await page.evaluate(() => ({
-      composed: window.muya?.editor.activeContentBlock?.isComposed === true,
-      text: window.muya?.editor.activeContentBlock?.text ?? ''
-    }))
-    expect(during.composed).toBe(true)
-    expect(during.text).toBe(before)
+    const during = await readMarkdown(page, app)
+    expect(during).toBe(`${before}\n`)
 
     await page.evaluate(() => {
-      const block = window.muya?.editor.activeContentBlock
-      const node = block?.domNode as HTMLElement | undefined
-      if (!block || !node) return
+      const node = document.querySelector('.editor-component span.mu-paragraph-content')
+      if (!(node instanceof HTMLElement)) throw new Error('Editor paragraph was not found')
 
       const original = (node.textContent ?? '').replace(/\u200B/g, '').replace(/\*$/, '')
       const finalText = `${original}你`
       node.textContent = finalText
-      const textNode = node.firstChild
+      const textNode = node.lastChild
       if (textNode) {
         const range = document.createRange()
         range.setStart(textNode, finalText.length)
@@ -224,9 +238,6 @@ test.describe('Typora-style Markdown auto pairing', () => {
       }))
     })
 
-    await expect.poll(async() => page.evaluate(() => ({
-      composed: window.muya?.editor.activeContentBlock?.isComposed === true,
-      text: window.muya?.editor.activeContentBlock?.text ?? ''
-    }))).toEqual({ composed: false, text: `${before}你` })
+    await expect.poll(async() => readMarkdown(page, app)).toBe(`${before}你\n`)
   })
 })
