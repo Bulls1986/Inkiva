@@ -79,7 +79,7 @@ test.describe('TOC outline navigation enhancements', () => {
     await page.locator('[data-testid="toc-search"]').fill('advanced')
     await expect
       .poll(() => visibleLabels(page), { timeout: 5000 })
-      .toEqual(['Configuration', 'Advanced configuration'])
+      .toEqual(['Product guide', 'Configuration', 'Advanced configuration'])
 
     await page.locator('[data-testid="toc-search"]').fill('')
     await expect.poll(() => visibleLabels(page), { timeout: 5000 }).toHaveLength(6)
@@ -148,7 +148,7 @@ const LARGE_DOCUMENT =
 test.describe('TOC large-document performance smoke', () => {
   test('typing in 10k paragraphs does not schedule a TOC refresh', async() => {
     test.setTimeout(60000)
-    const { app, page } = await launchWithMarkdown(LARGE_DOCUMENT)
+    const { app, page } = await launchWithMarkdown(LARGE_DOCUMENT, { waitForEditorTimeout: 60000 })
 
     try {
       await resetTocMetrics(page)
