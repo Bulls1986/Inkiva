@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 
+import type { TState } from '../types';
 import * as json1 from 'ot-json1';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { asDoc } from '../index';
 import { Muya } from '../../muya';
+import { asDoc } from '../index';
 import { isTopLevelTocChange } from '../tocChange';
-import type { TState } from '../types';
 
 const bootedHosts: HTMLElement[] = [];
 
@@ -28,16 +28,20 @@ function bootMuya(markdown: string): Muya {
     return muya;
 }
 
-const paragraph = (text: string): TState => ({
-    name: 'paragraph',
-    text,
-} as TState);
+function paragraph(text: string): TState {
+    return {
+        name: 'paragraph',
+        text,
+    } as TState;
+}
 
-const heading = (text: string, level = 1): TState => ({
-    name: 'atx-heading',
-    meta: { level },
-    text,
-} as TState);
+function heading(text: string, level = 1): TState {
+    return {
+        name: 'atx-heading',
+        meta: { level },
+        text,
+    } as TState;
+}
 
 describe('isTopLevelTocChange', () => {
     it('ignores edits inside a non-heading top-level block', () => {
