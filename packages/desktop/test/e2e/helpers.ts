@@ -358,6 +358,38 @@ export const waitForEditor = async(page: Page, timeout = 15000): Promise<void> =
   )
 }
 
+export const waitForWorkspaceReady = async(page: Page): Promise<void> => {
+  await page.waitForFunction(
+    () => {
+      const root = document.querySelector('#app') as
+        | (Element & {
+          __vue_app__?: {
+            config?: { globalProperties?: Record<string, unknown> }
+          }
+        })
+        | null
+      const pinia = root?.__vue_app__?.config?.globalProperties?.$pinia as
+        | {
+          _s?: Map<string, {
+            init?: boolean
+            projectTree?: unknown
+            rootCommand?: { subcommands?: Array<{ id?: string }> }
+          }>
+        }
+        | undefined
+      const stores = pinia?._s
+      const commandCenter = stores?.get('commandCenter')
+      return (
+        stores?.get('main')?.init === true &&
+        stores?.get('project')?.projectTree != null &&
+        commandCenter?.rootCommand?.subcommands?.some((command) => command.id === 'file.quick-open') === true
+      )
+    },
+    null,
+    { timeout: 15000 }
+  )
+}
+
 export const enterSourceMode = async(page: Page, app: ElectronApplication): Promise<void> => {
   const already = await page.evaluate(() => !!document.querySelector('.source-code .CodeMirror'))
   if (already) return
