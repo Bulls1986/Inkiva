@@ -70,6 +70,8 @@ export interface LaunchOptions {
   env?: Record<string, string>
   /** Use a prepared profile when testing persisted startup state. */
   userDataDir?: string
+  /** Override the editor bootstrap wait for intentionally large fixtures. */
+  waitForEditorTimeout?: number
 }
 
 export const launchElectron = async(
@@ -482,7 +484,7 @@ export const launchWithDoc = async(
   options: LaunchOptions = {}
 ): Promise<LaunchResult> => {
   const { app, page } = await launchElectron([relativeFixture], options)
-  await waitForEditor(page)
+  await waitForEditor(page, options.waitForEditorTimeout)
   await waitForMenuReady(app)
   return { app, page }
 }
@@ -497,7 +499,7 @@ export const launchWithMarkdown = async(
 ): Promise<LaunchWithMarkdownResult> => {
   const filePath = writeTempMarkdown(markdown)
   const { app, page } = await launchElectron([filePath], options)
-  await waitForEditor(page)
+  await waitForEditor(page, options.waitForEditorTimeout)
   await waitForMenuReady(app)
   return { app, page, filePath }
 }
