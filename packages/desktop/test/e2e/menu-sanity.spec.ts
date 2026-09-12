@@ -64,8 +64,7 @@ test.describe('Application menu wiring', () => {
       'autoSaveMenuItem',
       'dark',
       'light',
-      'dracula',
-      'nord'
+      'paper'
     ]
     const present = await app.evaluate(({ Menu }, ids) => {
       const menu = Menu.getApplicationMenu()

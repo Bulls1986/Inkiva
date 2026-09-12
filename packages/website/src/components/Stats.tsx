@@ -4,7 +4,7 @@ type Stat = { value: string; label: string; delay?: RevealDelay }
 
 const STATS: Stat[] = [
   { value: 'WYSIWYG', label: 'editing in place' },
-  { value: '33+', label: 'built-in themes', delay: 'd1' },
+  { value: '3', label: 'core appearances', delay: 'd1' },
   { value: '3', label: 'editor modes', delay: 'd2' },
   { value: 'GPL-3.0', label: 'open source', delay: 'd3' }
 ]
