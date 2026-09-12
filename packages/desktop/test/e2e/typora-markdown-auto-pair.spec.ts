@@ -2,10 +2,10 @@ import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
 import {
   closeElectron,
-  focusEditor,
+  focusEditorAtTextBoundary,
   getMarkdownContent,
   launchWithMarkdown,
-  placeCaretInEditor,
+  placeCaretAtTextBoundary,
   waitForEditor
 } from './helpers'
 
@@ -71,7 +71,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
   })
 
   test('pairs brackets and quotes and absorbs a manually typed closer', async() => {
-    await placeCaretInEditor(page)
+    await placeCaretAtTextBoundary(page)
     await page.keyboard.type('(', { delay: 30 })
     await page.keyboard.type('abc', { delay: 30 })
     await page.keyboard.type(')', { delay: 30 })
@@ -79,7 +79,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
     const markdown = await readMarkdown(page, app)
     expect(markdown).toContain('seed(abc)')
 
-    await placeCaretInEditor(page)
+    await placeCaretAtTextBoundary(page)
     await page.keyboard.type('"', { delay: 30 })
     const quoted = await readMarkdown(page, app)
     expect(quoted).toContain('seed(abc)""')
@@ -92,7 +92,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
     ['$', 'seed$$'],
   ] as const) {
     test(`pairs Markdown marker ${marker}`, async() => {
-      await placeCaretInEditor(page)
+      await placeCaretAtTextBoundary(page)
       await page.keyboard.type(' ', { delay: 30 })
       await page.keyboard.type(marker, { delay: 30 })
 
@@ -102,7 +102,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
   }
 
   test('does not pair superscript markers while the extension is disabled', async() => {
-    await placeCaretInEditor(page)
+    await placeCaretAtTextBoundary(page)
     await page.keyboard.type(' ', { delay: 30 })
     await page.keyboard.type('^', { delay: 30 })
 
@@ -112,7 +112,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
   })
 
   test('wraps selected text with a Markdown marker and keeps the selection inside', async() => {
-    await focusEditor(page)
+    await focusEditorAtTextBoundary(page)
     await page.keyboard.type('*', { delay: 30 })
 
     const markdown = await readMarkdown(page, app)
@@ -120,7 +120,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
   })
 
   test('deletes an empty auto-paired bracket as one unit', async() => {
-    await placeCaretInEditor(page)
+    await placeCaretAtTextBoundary(page)
     await page.keyboard.type('(', { delay: 30 })
     await page.keyboard.press('Backspace')
 
@@ -129,7 +129,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
   })
 
   test('does not pair an escaped Markdown marker', async() => {
-    await placeCaretInEditor(page)
+    await placeCaretAtTextBoundary(page)
     await page.keyboard.type('\\*', { delay: 30 })
 
     const markdown = await readMarkdown(page, app)
@@ -189,7 +189,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
   })
 
   test('does not pair markers during IME composition and commits CJK text afterward', async() => {
-    await placeCaretInEditor(page)
+    await placeCaretAtTextBoundary(page)
 
     const before = 'seed'
     await page.evaluate(() => {
