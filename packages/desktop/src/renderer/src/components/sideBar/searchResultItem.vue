@@ -169,7 +169,9 @@ const handleSearchResultClick = (searchMatch: SearchMatch): void => {
   position: relative;
   user-select: none;
   padding: 0 10px 8px 10px;
-  color: var(--sideBarColor);
+  margin-inline: 6px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
   font-size: 14px;
 }
 .search-result-item > .search-result {
@@ -203,15 +205,15 @@ const handleSearchResultClick = (searchMatch: SearchMatch): void => {
   font-size: 0;
 }
 .search-result-item .matches ul li .highlight {
-  background: var(--highlightColor);
+  background: var(--color-accent-selected);
   line-height: 16px;
   height: 16px;
   display: inline-block;
-  color: var(--sideBarTextColor);
-  border-radius: 1px;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
 }
 .search-result-item .matches ul li:hover {
-  background: var(--sideBarItemHoverBgColor);
+  background: var(--surface-hover);
 }
 .search-result-item .matches ul li span {
   font-size: 13px;
@@ -226,21 +228,21 @@ const handleSearchResultClick = (searchMatch: SearchMatch): void => {
   font-weight: 600;
 }
 .search-result-item.active .title {
-  color: var(--themeColor);
+  color: var(--text-primary);
 }
-.search-result-item.active::before {
-  height: 100%;
+.search-result-item.active {
+  background: var(--color-accent-soft);
 }
 .title {
   display: flex;
   align-items: center;
-  color: var(--sideBarTextColor);
+  color: var(--text-secondary);
 }
 .title .filename {
   flex: 1;
 }
 .title .filename .extension {
-  color: var(--sideBarTextColor);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 .title .match-count {
@@ -251,10 +253,10 @@ const handleSearchResultClick = (searchMatch: SearchMatch): void => {
   min-width: 16px;
   height: 16px;
   padding: 0 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
-  background: var(--itemBgColor);
-  color: var(--sideBarTextColor);
+  background: var(--surface-hover);
+  color: var(--text-secondary);
 }
 
 .folder-path {
@@ -268,13 +270,13 @@ const handleSearchResultClick = (searchMatch: SearchMatch): void => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--sideBarTextColor);
+  color: var(--text-tertiary);
 }
 
 .icon-arrow {
-  transition: transform 0.25s ease-out;
+  transition: transform var(--motion-normal);
   transform: rotate(90deg);
-  color: var(--sideBarTextColor);
+  color: var(--icon-secondary);
   cursor: pointer;
 }
 .icon-arrow.fold {

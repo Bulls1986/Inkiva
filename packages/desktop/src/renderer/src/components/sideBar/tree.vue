@@ -290,7 +290,7 @@ onMounted(() => {
 
 .list-enter-active,
 .list-leave-active {
-  transition: all 0.2s;
+  transition: opacity var(--motion-normal), transform var(--motion-normal);
 }
 .list-enter, .list-leave-to
   /* .list-leave-active for below version 2.1.8 */ {
@@ -299,7 +299,7 @@ onMounted(() => {
 }
 .tree-view {
   font-size: 14px;
-  color: var(--sideBarColor);
+  color: var(--text-secondary);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -315,9 +315,9 @@ onMounted(() => {
 
 .icon-arrow {
   margin-right: 5px;
-  transition: transform 0.25s ease-out;
+  transition: transform var(--motion-normal);
   transform: rotate(90deg);
-  color: var(--sideBarTextColor);
+  color: var(--icon-secondary);
   cursor: pointer;
 }
 
@@ -345,7 +345,7 @@ onMounted(() => {
 .opened-files .title > a {
   display: none;
   text-decoration: none;
-  color: var(--sideBarColor);
+  color: var(--icon-secondary);
   margin-left: 8px;
 }
 .opened-files div.title:hover > a,
@@ -355,7 +355,7 @@ onMounted(() => {
 
 .opened-files div.title:hover > a:hover,
 .opened-files div.title > a:hover:hover {
-  color: var(--highlightThemeColor);
+  color: var(--color-accent);
 }
 .opened-files {
   display: flex;
@@ -396,16 +396,17 @@ onMounted(() => {
   pointer-events: auto;
   cursor: pointer;
   margin-left: 8px;
-  color: var(--sideBarIconColor);
+  color: var(--icon-secondary);
   opacity: 0;
+  transition: color var(--motion-fast), opacity var(--motion-fast);
 }
 
 .project-tree > .title > a:hover {
-  color: var(--highlightThemeColor);
+  color: var(--color-accent);
 }
 
 .project-tree > .title > a.active {
-  color: var(--highlightThemeColor);
+  color: var(--color-accent);
 }
 
 .project-tree > .tree-wrapper {
@@ -442,6 +443,8 @@ onMounted(() => {
   background-color: var(--buttonPrimaryBgColor);
   color: var(--buttonPrimaryFontColor);
   border-color: transparent;
+  box-shadow: none;
+  transition: background-color var(--motion-fast), color var(--motion-fast);
 }
 .open-project .el-button.is-text.is-has-bg:hover,
 .open-project .el-button.is-text.is-has-bg:focus,
@@ -455,11 +458,16 @@ onMounted(() => {
   height: 22px;
   margin: 5px 0;
   padding: 0 6px;
-  color: var(--sideBarColor);
-  border: 1px solid var(--floatBorderColor);
-  background: var(--inputBgColor);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  background: var(--surface-editor);
   width: calc(100% - 45px);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
+  transition: border-color var(--motion-fast), background-color var(--motion-fast);
+}
+
+.new-input:focus {
+  border-color: var(--border-focus);
 }
 .tree-wrapper {
   position: relative;
@@ -470,14 +478,14 @@ onMounted(() => {
   flex-direction: column;
   padding-top: 40px;
   align-items: center;
-  color: var(--sideBarTextColor);
+  color: var(--text-secondary);
   & button {
     margin-top: 10px;
   }
 }
 
 .empty-project > a {
-  color: var(--highlightThemeColor);
+  color: var(--color-accent);
   text-align: center;
   margin-top: 15px;
   text-decoration: none;
