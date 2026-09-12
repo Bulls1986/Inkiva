@@ -242,7 +242,12 @@
       "openFolder": "打开文件夹"
     },
     "toc": {
-      "title": "目录"
+      "title": "目录",
+      "search": "搜索标题…",
+      "expandAll": "展开全部",
+      "collapseAll": "折叠全部",
+      "noMatches": "没有匹配的标题",
+      "empty": "文档中没有标题"
     },
     "icons": {
       "files": "文件",

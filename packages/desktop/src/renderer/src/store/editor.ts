@@ -149,6 +149,7 @@ export interface EditorState {
   tabIdToIndex: Record<string, number>
   listToc: TocItem[]
   toc: TocTreeNode[]
+  activeTocSlug: string | null
 }
 
 const autoSaveTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -159,7 +160,8 @@ export const useEditorStore = defineStore('editor', {
     tabs: [],
     tabIdToIndex: {},
     listToc: [], // Used for equal check and for searching for the correct github-slug to jump to
-    toc: []
+    toc: [],
+    activeTocSlug: null
   }),
 
   actions: {
@@ -206,6 +208,7 @@ export const useEditorStore = defineStore('editor', {
         s.tabIdToIndex = {}
         s.listToc = []
         s.toc = []
+        s.activeTocSlug = null
       })
 
       this.updateTabIdToIndex()
@@ -420,6 +423,7 @@ export const useEditorStore = defineStore('editor', {
         for (const item of this.listToc) {
           if (item.githubSlug === anchorSlug) {
             // Scroll to the corresponding element that matches this github-slug
+            this.UPDATE_ACTIVE_TOC(item.slug ?? null)
             bus.emit('scroll-to-header', item.slug)
             return
           }
@@ -1063,6 +1067,7 @@ export const useEditorStore = defineStore('editor', {
       if (this.tabs.length === 0) {
         this.listToc = []
         this.toc = []
+        this.activeTocSlug = null
       }
 
       const { pathname } = file
@@ -1151,6 +1156,7 @@ export const useEditorStore = defineStore('editor', {
       if (this.tabs.length === 0) {
         this.listToc = []
         this.toc = []
+        this.activeTocSlug = null
       }
       debouncedSendBufferedState()
     },
@@ -1406,15 +1412,33 @@ export const useEditorStore = defineStore('editor', {
      *
      * Used on file load and tab switch, where the engine fires no `json-change`
      * event (so `LISTEN_FOR_CONTENT_CHANGE` never runs and the TOC would
-     * otherwise stay empty until the first edit). Assigns unconditionally: this
-     * is a re-seed on load/switch, so there is no `equal` guard to short-circuit
-     * — the incoming snapshot always wins, even if it happens to deep-equal the
-     * current TOC.
+     * otherwise stay empty until the first edit). The default `force` behavior
+     * is an unconditional re-seed for load/switch. The debounced edit path can
+     * pass `false` to avoid rebuilding the tree when the heading snapshot is
+     * unchanged.
      * @param toc Flat list of headings returned by `muya.getTOC()`.
+     * @param force Rebuild even when the incoming snapshot deep-equals the old one.
      */
-    UPDATE_TOC(toc: TocItem[]): void {
-      this.listToc = toc ?? []
-      this.toc = listToTree<TocItem>(toc ?? [])
+    UPDATE_TOC(toc: TocItem[], force = true): boolean {
+      const nextToc = toc ?? []
+      if (!force && equal(nextToc, this.listToc)) return false
+
+      this.listToc = nextToc
+      this.toc = listToTree<TocItem>(nextToc)
+      if (this.activeTocSlug && !nextToc.some((item) => item.slug === this.activeTocSlug)) {
+        this.activeTocSlug = null
+      }
+      return true
+    },
+
+    UPDATE_ACTIVE_TOC(slug: string | null): void {
+      if (slug === null) {
+        this.activeTocSlug = null
+        return
+      }
+      if (this.listToc.some((item) => item.slug === slug)) {
+        this.activeTocSlug = slug
+      }
     },
 
     // Content change from realtime preview editor and source code editor
@@ -1462,8 +1486,7 @@ export const useEditorStore = defineStore('editor', {
 
       // Only update TOC if it's the current file
       if (id === this.currentFile?.id && toc && !equal(toc, this.listToc)) {
-        this.listToc = toc
-        this.toc = listToTree<TocItem>(toc)
+        this.UPDATE_TOC(toc, false)
       }
 
       const lastEditIndex = tab.history.lastEditIndex

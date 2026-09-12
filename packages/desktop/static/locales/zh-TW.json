@@ -242,7 +242,12 @@
       "openFolder": "開啟資料夾"
     },
     "toc": {
-      "title": "目錄"
+      "title": "目錄",
+      "search": "搜尋標題…",
+      "expandAll": "全部展開",
+      "collapseAll": "全部摺疊",
+      "noMatches": "沒有符合的標題",
+      "empty": "文件中沒有標題"
     },
     "icons": {
       "files": "檔案",

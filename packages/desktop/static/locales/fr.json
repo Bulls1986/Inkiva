@@ -242,7 +242,12 @@
       "openFolder": "Ouvrir un dossier"
     },
     "toc": {
-      "title": "Table des matières"
+      "title": "Table des matières",
+      "search": "Rechercher des titres…",
+      "expandAll": "Tout développer",
+      "collapseAll": "Tout réduire",
+      "noMatches": "Aucun titre ne correspond à la recherche.",
+      "empty": "Aucun titre dans ce document"
     },
     "icons": {
       "files": "Fichiers",

@@ -242,7 +242,12 @@
       "openFolder": "Open Folder"
     },
     "toc": {
-      "title": "Table Of Contents"
+      "title": "Table Of Contents",
+      "search": "Search headings...",
+      "expandAll": "Expand all",
+      "collapseAll": "Collapse all",
+      "noMatches": "No headings match your search.",
+      "empty": "No headings in this document"
     },
     "icons": {
       "files": "Files",

@@ -242,7 +242,12 @@
       "openFolder": "Abrir Carpeta"
     },
     "toc": {
-      "title": "Tabla de Contenidos"
+      "title": "Tabla de Contenidos",
+      "search": "Buscar títulos...",
+      "expandAll": "Expandir todo",
+      "collapseAll": "Contraer todo",
+      "noMatches": "Ningún título coincide con la búsqueda.",
+      "empty": "No hay títulos en este documento"
     },
     "icons": {
       "files": "Archivos",

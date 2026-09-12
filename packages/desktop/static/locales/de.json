@@ -242,7 +242,12 @@
       "openFolder": "Ordner öffnen"
     },
     "toc": {
-      "title": "Inhaltsverzeichnis"
+      "title": "Inhaltsverzeichnis",
+      "search": "Überschriften suchen...",
+      "expandAll": "Alle ausklappen",
+      "collapseAll": "Alle einklappen",
+      "noMatches": "Keine Überschrift entspricht der Suche.",
+      "empty": "Keine Überschriften in diesem Dokument"
     },
     "icons": {
       "files": "Dateien",
