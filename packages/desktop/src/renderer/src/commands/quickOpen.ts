@@ -1,11 +1,18 @@
 import bus from '../bus'
 import { delay } from '@/util'
 import FileSearcher from '@/node/fileSearcher'
+import {
+  fuzzySearchPaths,
+  SearchAbortError,
+  SearchPathIndex,
+  type CancellableSearchPromise
+} from '@/node/workspaceSearch'
 import type { EditorState } from '@/store/editor'
 import getCommandDescriptionById from './descriptions'
 import { t } from '../i18n'
 
-const SPECIAL_CHARS = /[\[\]\\^$.\|\?\*\+\(\)\/]{1}/g // eslint-disable-line no-useless-escape
+const SEARCH_DEBOUNCE_MS = 220
+const QUICK_OPEN_RESULT_LIMIT = 100
 
 interface QuickOpenSubcommand {
   id: string
@@ -32,6 +39,12 @@ class QuickOpenCommand {
   private _folderState: FolderState
   private _directorySearcher: FileSearcher
   private _cancelFn: CancelFn
+  private _querySearch: CancellableSearchPromise<string[]> | null
+  private _indexSearch: CancellableSearchPromise<void> | null
+  private _indexPromise: Promise<string[]> | null
+  private _indexRootPath: string | null
+  private _pathIndex: SearchPathIndex
+  private _searchGeneration: number
 
   constructor(rootState: RootState) {
     this.id = 'file.quick-open'
@@ -48,28 +61,51 @@ class QuickOpenCommand {
 
     this._directorySearcher = new FileSearcher()
     this._cancelFn = null
+    this._querySearch = null
+    this._indexSearch = null
+    this._indexPromise = null
+    this._indexRootPath = null
+    this._pathIndex = new SearchPathIndex()
+    this._searchGeneration = 0
+
+    bus.on('project-tree-changed', this._handleProjectTreeChanged)
   }
 
   search = async(query: string): Promise<QuickOpenSubcommand[]> => {
-    // Show opened files when no query given.
-    if (!query) {
+    this._cancelActiveQuery()
+    const generation = ++this._searchGeneration
+
+    // Show opened files when no query is given.
+    if (!query.trim()) {
       return this.subcommands
     }
 
-    const { _cancelFn } = this
-    if (_cancelFn) {
-      _cancelFn()
-      this._cancelFn = null
-    }
-
-    const timeout = delay(300)
+    const timeout = delay(SEARCH_DEBOUNCE_MS)
     this._cancelFn = () => {
       timeout.cancel()
-      this._cancelFn = null
+      this._querySearch?.cancel()
     }
 
-    await timeout
-    return this._doSearch(query)
+    try {
+      await timeout
+      if (generation !== this._searchGeneration) throw new SearchAbortError()
+
+      const result = await this._doSearch(query, generation)
+      if (generation !== this._searchGeneration) throw new SearchAbortError()
+      return result
+    } catch (error) {
+      // delay.cancel() rejects without a reason. Normalize it so the command
+      // palette can silently discard superseded requests.
+      if (generation !== this._searchGeneration || !error) {
+        throw new SearchAbortError()
+      }
+      throw error
+    } finally {
+      if (generation === this._searchGeneration) {
+        this._cancelFn = null
+        this._querySearch = null
+      }
+    }
   }
 
   run = async(): Promise<void> => {
@@ -87,6 +123,13 @@ class QuickOpenCommand {
         Object.assign(item, this._getPath(pathname))
         return item
       })
+
+    const rootPath = this._getRootPath()
+    if (rootPath) {
+      // Build the path index ahead of the first keystroke. The promise stays
+      // cached across palette openings and does not run on the input event.
+      void this._ensureIndex(rootPath).catch(() => {})
+    }
   }
 
   execute = async(): Promise<void> => {
@@ -102,119 +145,118 @@ class QuickOpenCommand {
 
   unload = (): void => {
     this.subcommands = []
+    this._searchGeneration++
+    this._cancelActiveQuery()
   }
 
-  // --- private ------------------------------------------
+  private _cancelActiveQuery = (): void => {
+    if (this._cancelFn) {
+      this._cancelFn()
+      this._cancelFn = null
+    }
+    if (this._querySearch) {
+      this._querySearch.cancel()
+      this._querySearch = null
+    }
+  }
 
-  _doSearch = (query: string): QuickOpenSubcommand[] | Promise<QuickOpenSubcommand[]> => {
-    this._cancelFn = null
-    const { _editorState, _folderState } = this
-    const isRootDirOpened = !!_folderState.projectTree
-    const tabsAvailable = _editorState.tabs.length > 0
+  private _getRootPath = (): string | null => {
+    return this._folderState.projectTree?.pathname ?? null
+  }
 
-    // Only show opened files if no directory is opened.
-    if (!isRootDirOpened && !tabsAvailable) {
-      return []
+  private _handleProjectTreeChanged = (payload: unknown): void => {
+    const type =
+      payload && typeof payload === 'object' && 'type' in payload
+        ? String((payload as { type?: unknown }).type)
+        : ''
+    if (type === 'add' || type === 'unlink' || type === 'addDir' || type === 'unlinkDir') {
+      this._invalidateIndex()
+    }
+  }
+
+  private _invalidateIndex = (): void => {
+    this._indexSearch?.cancel()
+    this._indexSearch = null
+    this._indexPromise = null
+    this._indexRootPath = null
+    this._pathIndex.clear()
+  }
+
+  private _ensureIndex = (rootPath: string): Promise<string[]> => {
+    if (this._indexRootPath === rootPath && this._indexPromise) {
+      return this._indexPromise
     }
 
-    const searchResult: string[] = []
-    const rootPath: string | null = isRootDirOpened ? _folderState.projectTree!.pathname : null
-
-    // Add files that are not in the current root directory but opened.
-    if (tabsAvailable) {
-      const re = new RegExp(
-        query.replace(SPECIAL_CHARS, (p) => {
-          if (p === '*') return '.*'
-          return p === '\\' ? '\\\\' : `\\${p}`
-        }),
-        'i'
-      )
-
-      for (const tab of _editorState.tabs) {
-        const { pathname } = tab
-        if (
-          pathname &&
-          re.test(pathname) &&
-          (!rootPath || !window.fileUtils.isChildOfDirectory(rootPath, pathname))
-        ) {
-          searchResult.push(pathname)
+    this._invalidateIndex()
+    this._indexRootPath = rootPath
+    const index = new SearchPathIndex()
+    const search = this._directorySearcher.search([rootPath], '', {
+      didMatch: (payload: unknown) => {
+        const paths = Array.isArray(payload)
+          ? payload.filter((pathname): pathname is string => typeof pathname === 'string')
+          : typeof payload === 'string'
+            ? [payload]
+            : []
+        index.add(paths)
+      },
+      inclusions: window.fileUtils.MARKDOWN_INCLUSIONS
+    })
+    this._indexSearch = search
+    this._indexPromise = search
+      .then(() => {
+        if (this._indexRootPath === rootPath) {
+          this._pathIndex = index
         }
-      }
-    }
-
-    if (!isRootDirOpened) {
-      return searchResult.map((pathname) => {
-        return {
-          id: pathname,
-          description: pathname,
-          title: pathname
-        }
+        return index.values()
       })
-    }
+      .finally(() => {
+        if (this._indexSearch === search) this._indexSearch = null
+      })
+    return this._indexPromise
+  }
 
-    // Search root directory on disk.
-    return new Promise<QuickOpenSubcommand[]>((resolve, reject) => {
-      let canceled = false
-      const promises: Promise<void> & { cancel?: () => void } = this._directorySearcher
-        .search([rootPath!], '', {
-          didMatch: (result: unknown) => {
-            if (canceled) return
-            searchResult.push(result as string)
-          },
-          didSearchPaths: (numPathsFound: unknown) => {
-            // Cancel when more than 30 files were found. User should specify the search query.
-            if (!canceled && (numPathsFound as number) > 30) {
-              canceled = true
-              if (promises.cancel) {
-                promises.cancel()
-              }
-            }
-          },
+  private _doSearch = async(
+    query: string,
+    generation: number
+  ): Promise<QuickOpenSubcommand[]> => {
+    const rootPath = this._getRootPath()
+    const indexedPaths = rootPath ? await this._ensureIndex(rootPath) : []
+    if (generation !== this._searchGeneration) throw new SearchAbortError()
 
-          // Only search markdown files that contain the query string.
-          inclusions: this._getInclusions(query)
-        })
-        .then(() => {
-          this._cancelFn = null
-          resolve(
-            searchResult.map((pathname) => {
-              const item: QuickOpenSubcommand = { id: pathname }
-              Object.assign(item, this._getPath(pathname))
-              return item
-            })
-          )
-        })
-        .catch((error: unknown) => {
-          this._cancelFn = null
-          reject(error)
-        })
+    const candidates = new SearchPathIndex()
+    candidates.add(indexedPaths)
+    candidates.add(
+      this._editorState.tabs
+        .map((tab) => tab.pathname)
+        .filter((pathname): pathname is string => !!pathname)
+    )
 
-      this._cancelFn = () => {
-        this._cancelFn = null
-        canceled = true
-        if (promises.cancel) {
-          promises.cancel()
-        }
-      }
+    const searchPromise = fuzzySearchPaths(candidates.values(), query, {
+      rootPath: rootPath ?? undefined,
+      limit: QUICK_OPEN_RESULT_LIMIT,
+      getSearchText: (pathname, currentRoot) => this._getSearchText(pathname, currentRoot)
+    })
+    this._querySearch = searchPromise
+    const searchResult = await searchPromise
+    if (generation !== this._searchGeneration) throw new SearchAbortError()
+
+    return searchResult.map((pathname) => {
+      const item: QuickOpenSubcommand = { id: pathname }
+      Object.assign(item, this._getPath(pathname))
+      return item
     })
   }
 
-  _getInclusions = (query: string): string[] => {
-    // NOTE: This will fail on `foo.m` because we search for `foo.m.md`.
-    if (window.fileUtils.hasMarkdownExtension(query)) {
-      return [`*${query}`]
+  private _getSearchText = (pathname: string, rootPath?: string): string => {
+    if (!rootPath || !window.fileUtils.isChildOfDirectory(rootPath, pathname)) {
+      return pathname
     }
-
-    const inclusions: string[] = []
-    for (let i = 0; i < window.fileUtils.MARKDOWN_INCLUSIONS.length; ++i) {
-      inclusions[i] = `*${query}` + window.fileUtils.MARKDOWN_INCLUSIONS[i]
-    }
-    return inclusions
+    return window.path.relative(rootPath, pathname)
   }
 
-  _getPath = (pathname: string): { title?: string; description: string } => {
-    const rootPath: string = this._folderState.projectTree!.pathname
-    if (!window.fileUtils.isChildOfDirectory(rootPath, pathname)) {
+  private _getPath = (pathname: string): { title?: string; description: string } => {
+    const rootPath = this._getRootPath()
+    if (!rootPath || !window.fileUtils.isChildOfDirectory(rootPath, pathname)) {
       return { title: pathname, description: pathname }
     }
 

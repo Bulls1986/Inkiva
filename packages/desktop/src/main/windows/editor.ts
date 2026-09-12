@@ -52,6 +52,7 @@ class EditorWindow extends BaseWindow {
   private _markdownToOpen: string[] | null
   private _openedRootDirectory: string | null
   private _openedFiles: string[] | null
+  private _openingFiles: Set<string>
 
   public bufferStoreInfo: BufferStoreInfo | null
 
@@ -63,6 +64,7 @@ class EditorWindow extends BaseWindow {
     this._markdownToOpen = []
     this._openedRootDirectory = ''
     this._openedFiles = []
+    this._openingFiles = new Set()
     this.bufferStoreInfo = null
   }
 
@@ -297,10 +299,18 @@ class EditorWindow extends BaseWindow {
       preferences.getAll()
 
     for (const { filePath, options, selected } of fileList) {
-      if (this._openedFiles!.includes(filePath)) {
-        browserWindow!.webContents.send('mt::switch-tab-by-file_path', filePath)
+      const openedPath = this._openedFiles!.find((pathname) => isSamePathSync(pathname, filePath))
+      if (openedPath) {
+        browserWindow!.webContents.send('mt::switch-tab-by-file_path', openedPath)
         continue
       }
+
+      const openingKey = this._getOpeningPathKey(filePath)
+      if (this._openingFiles.has(openingKey)) {
+        continue
+      }
+      this._openingFiles.add(openingKey)
+
       loadMarkdownFile(
         filePath,
         eol,
@@ -311,11 +321,14 @@ class EditorWindow extends BaseWindow {
         .then((rawDocument) => {
           if (this.lifecycle === WindowLifecycle.READY) {
             this._doOpenTab(rawDocument, options, selected)
-          } else {
+          } else if (this._filesToOpen) {
             this._filesToOpen!.push({ doc: rawDocument, options, selected })
+          } else {
+            this._openingFiles.delete(openingKey)
           }
         })
         .catch((err: Error) => {
+          this._openingFiles.delete(openingKey)
           const { message, stack } = err
           log.error(`[ERROR] Cannot open file or directory: ${message}\n\n${stack}`)
           browserWindow!.webContents.send('mt::show-notification', {
@@ -366,6 +379,7 @@ class EditorWindow extends BaseWindow {
 
   addToOpenedFiles(filePath: string): void {
     const { _openedFiles, browserWindow } = this
+    if (_openedFiles!.some((pathname) => isSamePathSync(pathname, filePath))) return
     _openedFiles!.push(filePath)
     ipcMain.emit('watcher-watch-file', browserWindow, filePath)
   }
@@ -415,6 +429,7 @@ class EditorWindow extends BaseWindow {
     this._markdownToOpen = []
     this._openedRootDirectory = ''
     this._openedFiles = []
+    this._openingFiles.clear()
 
     browserWindow!.webContents.once('did-finish-load', () => {
       this.lifecycle = WindowLifecycle.READY
@@ -443,6 +458,7 @@ class EditorWindow extends BaseWindow {
     this._markdownToOpen = null
     this._openedRootDirectory = null
     this._openedFiles = null
+    this._openingFiles.clear()
   }
 
   get openedRootDirectory(): string | null {
@@ -457,10 +473,16 @@ class EditorWindow extends BaseWindow {
     const { _accessor, _openedFiles, browserWindow } = this
     const { menu: appMenu } = _accessor
     const { pathname } = rawDocument
+    this._openingFiles.delete(this._getOpeningPathKey(pathname))
     ipcMain.emit('watcher-watch-file', browserWindow, pathname)
     appMenu.addRecentlyUsedDocument(pathname)
     _openedFiles!.push(pathname)
     browserWindow!.webContents.send('mt::open-new-tab', rawDocument, options, selected)
+  }
+
+  private _getOpeningPathKey(filePath: string): string {
+    const normalized = path.normalize(filePath)
+    return isOsx || process.platform === 'win32' ? normalized.toLowerCase() : normalized
   }
 
   private _doOpenFilesToOpen(): void {
