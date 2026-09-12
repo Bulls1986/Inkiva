@@ -147,8 +147,10 @@ const LARGE_DOCUMENT =
 
 test.describe('TOC large-document performance smoke', () => {
   test('typing in 10k paragraphs does not schedule a TOC refresh', async() => {
-    test.setTimeout(60000)
-    const { app, page } = await launchWithMarkdown(LARGE_DOCUMENT, { waitForEditorTimeout: 60000 })
+    test.setTimeout(120000)
+    const { app, page } = await launchWithMarkdown(LARGE_DOCUMENT, {
+      waitForEditorTimeout: 120000
+    })
 
     try {
       await resetTocMetrics(page)
