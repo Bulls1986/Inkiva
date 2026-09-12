@@ -38,7 +38,7 @@ test.describe('TOC outline navigation enhancements', () => {
   let app: ElectronApplication
   let page: Page
 
-  test.beforeAll(async () => {
+  test.beforeAll(async() => {
     const launched = await launchWithMarkdown(DOCUMENT)
     app = launched.app
     page = launched.page
@@ -57,11 +57,11 @@ test.describe('TOC outline navigation enhancements', () => {
       ])
   })
 
-  test.afterAll(async () => {
+  test.afterAll(async() => {
     if (app) await app.close()
   })
 
-  test('tracks the heading at the current scroll position', async () => {
+  test('tracks the heading at the current scroll position', async() => {
     const activeLabel = page.locator('[data-testid="toc-node-label"].is-active')
     await expect(activeLabel).toHaveText('Product guide')
 
@@ -75,7 +75,7 @@ test.describe('TOC outline navigation enhancements', () => {
       .toBe('Troubleshooting')
   })
 
-  test('search retains ancestors and filters unrelated headings', async () => {
+  test('search retains ancestors and filters unrelated headings', async() => {
     await page.locator('[data-testid="toc-search"]').fill('advanced')
     await expect
       .poll(() => visibleLabels(page), { timeout: 5000 })
@@ -85,7 +85,7 @@ test.describe('TOC outline navigation enhancements', () => {
     await expect.poll(() => visibleLabels(page), { timeout: 5000 }).toHaveLength(6)
   })
 
-  test('expand all and collapse all preserve the complete outline', async () => {
+  test('expand all and collapse all preserve the complete outline', async() => {
     await page.locator('[data-testid="toc-collapse-all"]').click()
     await expect
       .poll(() => visibleLabels(page), { timeout: 5000 })
@@ -95,7 +95,7 @@ test.describe('TOC outline navigation enhancements', () => {
     await expect.poll(() => visibleLabels(page), { timeout: 5000 }).toHaveLength(6)
   })
 
-  test('keeps a heading runtime anchor stable after its title changes', async () => {
+  test('keeps a heading runtime anchor stable after its title changes', async() => {
     const heading = page.locator('.mu-container > h2').filter({ hasText: 'Configuration' }).first()
     const before = await heading.getAttribute('data-inkiva-toc-slug')
     expect(before).toBeTruthy()
@@ -146,7 +146,7 @@ const LARGE_DOCUMENT =
   ).join('\n\n') + '\n'
 
 test.describe('TOC large-document performance smoke', () => {
-  test('typing in 10k paragraphs does not schedule a TOC refresh', async () => {
+  test('typing in 10k paragraphs does not schedule a TOC refresh', async() => {
     test.setTimeout(60000)
     const { app, page } = await launchWithMarkdown(LARGE_DOCUMENT)
 
