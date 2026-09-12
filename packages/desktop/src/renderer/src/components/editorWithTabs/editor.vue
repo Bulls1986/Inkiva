@@ -1206,7 +1206,7 @@ type PendingScrollRestore = {
 }
 
 const SCROLL_RESTORE_FALLBACK_MS = 250
-const SCROLL_RESTORE_TIMEOUT_MS = 3000
+const SCROLL_RESTORE_TIMEOUT_MS = 10000
 
 // The editor rebuilds its block tree synchronously, but diagrams and other
 // media can change the document height after their asynchronous render. Do not
