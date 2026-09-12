@@ -6,10 +6,10 @@ import * as json1 from 'ot-json1';
 import { deepClone } from '../utils';
 import logger from '../utils/logger';
 import { getTOC } from './getTOC';
-import { isTopLevelTocChange } from './tocChange';
-
 import { MarkdownToState } from './markdownToState';
+
 import StateToMarkdown from './stateToMarkdown';
+import { isTopLevelTocChange } from './tocChange';
 
 const debug = logger('jsonState:');
 
