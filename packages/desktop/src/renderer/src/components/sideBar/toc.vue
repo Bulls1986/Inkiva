@@ -168,7 +168,10 @@ const expandAll = (): void => {
 }
 
 const collapseAll = (): void => {
-  collapsedKeys.value = new Set(getExpandableTocKeys(keyedToc.value))
+  const topLevelKeys = new Set(keyedToc.value.map((node) => node.key))
+  collapsedKeys.value = new Set(
+    getExpandableTocKeys(keyedToc.value).filter((key) => !topLevelKeys.has(key))
+  )
 }
 
 const handleClick = (data: { slug?: unknown }): void => {
