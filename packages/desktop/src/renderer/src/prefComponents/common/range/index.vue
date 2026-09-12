@@ -81,9 +81,9 @@ const select = (value: number | number[]) => {
 
 <style>
 .pref-range-item {
-  margin: 12px 0;
+  margin: 0;
   font-size: 14px;
-  color: var(--editorColor);
+  color: var(--text-secondary);
   width: 100%;
   & .value {
     text-align: right;
@@ -111,15 +111,15 @@ const select = (value: number | number[]) => {
   margin-bottom: 10px;
 
   & .value {
-    color: var(--editorColor80);
+    color: var(--text-primary);
   }
   & svg {
     cursor: pointer;
     opacity: 0.7;
-    color: var(--iconColor);
+    color: var(--icon-secondary);
   }
   & svg:hover {
-    color: var(--themeColor);
+    color: var(--color-accent);
   }
 }
 </style>

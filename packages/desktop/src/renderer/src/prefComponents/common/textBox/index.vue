@@ -102,13 +102,13 @@ const handleInput = (value: string) => {
 .pref-text-box-item {
   font-size: 14px;
   user-select: none;
-  margin: 12px 0;
-  color: var(--editorColor);
+  margin: 0;
+  color: var(--text-secondary);
   width: 100%;
   & div {
     background: transparent;
-    color: var(--editorColor);
-    border-color: var(--editorColor10);
+    color: var(--text-secondary);
+    border-color: var(--border-default);
   }
   & input.el-input__inner {
     height: 30px;
@@ -116,7 +116,7 @@ const handleInput = (value: string) => {
     border: none;
     padding-right: 15px;
     &::placeholder {
-      color: var(--editorColor30);
+      color: var(--text-tertiary);
     }
   }
   & .input {
@@ -124,7 +124,7 @@ const handleInput = (value: string) => {
   }
   & .el-input.is-active .el-input__inner,
   & .el-input__inner:focus {
-    border-color: var(--themeColor);
+    border-color: var(--border-focus);
   }
   & .el-input__icon,
   & .el-input__inner {
@@ -137,10 +137,10 @@ const handleInput = (value: string) => {
     margin-left: 4px;
     cursor: pointer;
     opacity: 0.7;
-    color: var(--iconColor);
+    color: var(--icon-secondary);
   }
   & svg:hover {
-    color: var(--themeColor);
+    color: var(--color-accent);
   }
 }
 .pref-text-box-item .el-input.error input {
