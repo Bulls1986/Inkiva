@@ -1199,13 +1199,17 @@ type PendingScrollRestore = {
   target: number
   startedAt: number
   expectedScrollTop: number
+  lastMaxScrollTop: number | null
+  stableSince: number | null
   timer: ReturnType<typeof setTimeout> | null
   frame: number | null
   mutationObserver: MutationObserver
   resizeObserver: ResizeObserver
+  removeInteractionListeners: () => void
 }
 
 const SCROLL_RESTORE_FALLBACK_MS = 250
+const SCROLL_RESTORE_SETTLE_MS = 1000
 const SCROLL_RESTORE_TIMEOUT_MS = 10000
 
 // The editor rebuilds its block tree synchronously, but diagrams and other
@@ -1224,6 +1228,7 @@ const clearPendingScrollRestore = (): void => {
   if (pending.frame !== null) cancelAnimationFrame(pending.frame)
   pending.mutationObserver.disconnect()
   pending.resizeObserver.disconnect()
+  pending.removeInteractionListeners()
   pendingScrollRestore = null
 }
 
@@ -1250,8 +1255,18 @@ const checkPendingScrollRestore = (): void => {
     container.scrollTop = restoredScrollTop
   }
 
-  const timedOut = Date.now() - pending.startedAt >= SCROLL_RESTORE_TIMEOUT_MS
-  if (maxScrollTop >= pending.target || timedOut) {
+  const now = Date.now()
+  if (pending.lastMaxScrollTop !== maxScrollTop) {
+    pending.lastMaxScrollTop = maxScrollTop
+    pending.stableSince = maxScrollTop >= pending.target ? now : null
+  } else if (maxScrollTop < pending.target) {
+    pending.stableSince = null
+  }
+
+  const timedOut = now - pending.startedAt >= SCROLL_RESTORE_TIMEOUT_MS
+  const targetIsStable =
+    pending.stableSince !== null && now - pending.stableSince >= SCROLL_RESTORE_SETTLE_MS
+  if (pending.target === 0 || targetIsStable || timedOut) {
     // A stale position can belong to a document that is now shorter. Persist
     // the actual boundary after the retry window so the next switch does not
     // repeat the same clamp cycle.
@@ -1317,10 +1332,13 @@ const scrollToCords = (y: number) => {
     target,
     startedAt: Date.now(),
     expectedScrollTop: Math.min(target, getMaxScrollTop(container)),
+    lastMaxScrollTop: null,
+    stableSince: null,
     timer: null,
     frame: null,
     mutationObserver: new MutationObserver(schedulePendingScrollRestoreCheck),
-    resizeObserver: new ResizeObserver(schedulePendingScrollRestoreCheck)
+    resizeObserver: new ResizeObserver(schedulePendingScrollRestoreCheck),
+    removeInteractionListeners: () => {}
   }
   // Diagram rendering may replace the editor's first child. Observe the stable
   // scroll container instead so a rebuilt content root cannot cancel restore.
@@ -1331,6 +1349,18 @@ const scrollToCords = (y: number) => {
   })
   pending.resizeObserver.observe(container)
   pendingScrollRestore = pending
+  const cancelOnInteraction = () => {
+    if (pendingScrollRestore === pending) clearPendingScrollRestore()
+  }
+  const interactionEvents = ['wheel', 'touchstart', 'mousedown', 'pointerdown', 'keydown'] as const
+  for (const eventName of interactionEvents) {
+    container.addEventListener(eventName, cancelOnInteraction)
+  }
+  pending.removeInteractionListeners = () => {
+    for (const eventName of interactionEvents) {
+      container.removeEventListener(eventName, cancelOnInteraction)
+    }
+  }
   requestAnimationFrame(() => {
     if (!container) return
     // Reveal after the first real layout. If an async block later increases
@@ -2153,11 +2183,11 @@ onMounted(() => {
   scrollHandler = () => {
     const pending = pendingScrollRestore
     if (pending) {
-      // Ignore the scroll event caused by the restore itself. A real user
-      // scroll cancels the retry so it is never fought by the background
-      // layout watcher.
-      if (Math.abs(container.scrollTop - pending.expectedScrollTop) <= 1) return
-      clearPendingScrollRestore()
+      // A layout pass can clamp scrollTop while diagrams or media settle. The
+      // explicit interaction listeners installed by scrollToCords cancel on
+      // real user input; a bare scroll event is not enough to distinguish
+      // programmatic layout from a user scroll, so let the watcher recover.
+      return
     }
     if (currentFile.value) {
       editorStore.updateScrollPosition(currentFile.value.id, container.scrollTop)
