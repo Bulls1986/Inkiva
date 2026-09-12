@@ -71,7 +71,7 @@ test.describe('TOC outline navigation enhancements', () => {
     })
 
     await expect
-      .poll(() => activeLabel.textContent?.trim(), { timeout: 8000 })
+      .poll(async() => (await activeLabel.textContent())?.trim(), { timeout: 8000 })
       .toBe('Troubleshooting')
   })
 
