@@ -38,10 +38,10 @@ const readCurrentPath = (page: Page): Promise<string | null> =>
   page.evaluate(() => {
     const root = document.querySelector('#app') as
       | (Element & {
-          __vue_app__?: {
-            config?: { globalProperties?: Record<string, unknown> }
-          }
-        })
+        __vue_app__?: {
+          config?: { globalProperties?: Record<string, unknown> }
+        }
+      })
       | null
     const pinia = root?.__vue_app__?.config?.globalProperties?.$pinia as
       | { _s?: Map<string, { currentFile?: { pathname?: string } | null }> }
