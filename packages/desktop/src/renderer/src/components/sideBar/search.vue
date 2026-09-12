@@ -7,7 +7,7 @@
         type="text"
         class="search-input"
         :placeholder="t('sideBar.search.searchInFolder')"
-        @keyup="search"
+        @input="handleSearchInput"
       >
       <div class="controls">
         <span
@@ -104,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useLayoutStore } from '@/store/layout'
 import { useProjectStore } from '@/store/project'
 import { useEditorStore } from '@/store/editor'
@@ -129,6 +129,8 @@ const preferencesStore = usePreferencesStore()
 
 let searcherCancelCallback: (() => void) | null = null
 const ripgrepDirectorySearcher = new RipgrepDirectorySearcher()
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+let searchGeneration = 0
 
 const keyword = ref('')
 const searchResult = ref<SearchResult[]>([])
@@ -153,6 +155,12 @@ const {
 
 const searchMatches = computed(() => currentFile.value?.searchMatches)
 
+const searchRootPath = computed(() => {
+  if (projectTree.value?.pathname) return projectTree.value.pathname
+  const currentPath = currentFile.value?.pathname
+  return currentPath ? window.path.dirname(currentPath) : ''
+})
+
 const searchResultInfo = computed(() => {
   const fileCount = searchResult.value.length
   const matchCount = searchResult.value.reduce((acc, item) => {
@@ -163,7 +171,7 @@ const searchResultInfo = computed(() => {
 })
 
 const showNoFolderOpenedMessage = computed(() => {
-  return !projectTree.value || !projectTree.value.pathname
+  return !searchRootPath.value
 })
 
 const showNoResultFoundMessage = computed(() => {
@@ -172,74 +180,100 @@ const showNoResultFoundMessage = computed(() => {
   )
 })
 
-const search = (): void => {
-  // No root directory is opened.
-  if (showNoFolderOpenedMessage.value || !projectTree.value) {
-    return
+const clearSearchTimer = (): void => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
   }
+}
 
-  const { pathname: rootDirectoryPath } = projectTree.value
-
-  if (searcherRunning.value && searcherCancelCallback) {
+const cancelActiveSearch = (): void => {
+  if (searcherCancelCallback) {
     searcherCancelCallback()
+    searcherCancelCallback = null
   }
+  searcherRunning.value = false
+  stopShowSearchCancelAreaTimer()
+}
 
-  searchErrorString.value = ''
+const finishSearch = (
+  generation: number,
+  resultMap: Map<string, SearchResult>
+): void => {
+  if (generation !== searchGeneration) return
+  searchResult.value = Array.from(resultMap.values())
+  searcherRunning.value = false
   searcherCancelCallback = null
+  stopShowSearchCancelAreaTimer()
+}
 
-  if (!keyword.value) {
-    searchResult.value = []
+const performSearch = (generation: number): void => {
+  searchTimer = null
+  if (generation !== searchGeneration) return
+
+  const rootDirectoryPath = searchRootPath.value
+  if (!rootDirectoryPath || !keyword.value.trim()) {
     searcherRunning.value = false
     return
   }
 
   let canceled = false
+  const resultMap = new Map<string, SearchResult>()
   searcherRunning.value = true
   startShowSearchCancelAreaTimer()
 
-  const newSearchResult: SearchResult[] = []
-  // Keep a handle on the cancellable thenable separately from the chained
-  // `.then().catch()` (which is a plain `Promise<void>` and loses `cancel`).
+  const appendResult = (raw: unknown): void => {
+    if (!raw || typeof raw !== 'object') return
+    const result = raw as Partial<SearchResult>
+    if (typeof result.filePath !== 'string' || !Array.isArray(result.matches)) return
+    const existing = resultMap.get(result.filePath)
+    if (existing) {
+      existing.matches.push(...result.matches)
+    } else {
+      resultMap.set(result.filePath, {
+        filePath: result.filePath,
+        matches: [...result.matches]
+      })
+    }
+  }
+
   const cancellable = ripgrepDirectorySearcher.search([rootDirectoryPath], keyword.value, {
     didMatch: (res: unknown) => {
-      if (canceled) return
-      newSearchResult.push(res as SearchResult)
+      if (canceled || generation !== searchGeneration) return
+      appendResult(res)
     },
     didSearchPaths: (numPathsFound: unknown) => {
-      // More than 100 files with (multiple) matches were found.
-      if (!canceled && typeof numPathsFound === 'number' && numPathsFound > 100) {
+      if (
+        !canceled &&
+        generation === searchGeneration &&
+        typeof numPathsFound === 'number' &&
+        numPathsFound > 100
+      ) {
         canceled = true
-        cancellable.cancel()
         searchErrorString.value = t('search.searchLimited', { count: 100 })
+        cancellable.cancel()
+        finishSearch(generation, resultMap)
       }
     },
 
-    // UI options
     isCaseSensitive: isCaseSensitive.value,
     isWholeWord: isWholeWord.value,
     isRegexp: isRegexp.value,
-
-    // Options loaded from settings
     exclusions: searchExclusions.value,
     maxFileSize: searchMaxFileSize.value || null,
     includeHidden: searchIncludeHidden.value,
     noIgnore: searchNoIgnore.value,
     followSymlinks: searchFollowSymlinks.value,
-
-    // Only search markdown files
     inclusions: window.fileUtils.MARKDOWN_INCLUSIONS
   })
 
   cancellable
     .then(() => {
-      searchResult.value = newSearchResult
-      searcherRunning.value = false
-      searcherCancelCallback = null
-      stopShowSearchCancelAreaTimer()
+      if (canceled) return
+      finishSearch(generation, resultMap)
     })
     .catch((err) => {
-      canceled = true
-      cancellable.cancel()
+      if (generation !== searchGeneration || canceled) return
       log.error('Error while searching in directory:', err)
       searchResult.value = []
       searcherRunning.value = false
@@ -247,7 +281,38 @@ const search = (): void => {
       stopShowSearchCancelAreaTimer()
     })
 
-  searcherCancelCallback = cancellable.cancel.bind(cancellable)
+  searcherCancelCallback = () => {
+    canceled = true
+    cancellable.cancel()
+  }
+}
+
+const scheduleSearch = (immediate = false): void => {
+  searchGeneration++
+  const generation = searchGeneration
+  clearSearchTimer()
+  cancelActiveSearch()
+  searchErrorString.value = ''
+  searchResult.value = []
+
+  if (!keyword.value.trim() || !searchRootPath.value) {
+    return
+  }
+
+  searcherRunning.value = true
+  if (immediate) {
+    performSearch(generation)
+  } else {
+    searchTimer = setTimeout(() => performSearch(generation), 180)
+  }
+}
+
+const search = (): void => {
+  scheduleSearch(true)
+}
+
+const handleSearchInput = (): void => {
+  scheduleSearch()
 }
 
 const handleFindInFolder = (executeSearch: boolean | unknown = true): void => {
@@ -307,9 +372,9 @@ const stopShowSearchCancelAreaTimer = (): void => {
 }
 
 const cancelSearcher = (): void => {
-  if (searcherRunning.value && searcherCancelCallback) {
-    searcherCancelCallback()
-  }
+  searchGeneration++
+  clearSearchTimer()
+  cancelActiveSearch()
 }
 
 watch(showSideBar, (value, oldValue) => {
@@ -317,18 +382,44 @@ watch(showSideBar, (value, oldValue) => {
     if (value && !oldValue) {
       handleFindInFolder(false)
     } else {
+      cancelSearcher()
       bus.emit('search-blur')
     }
   }
 })
 
+watch(searchRootPath, () => {
+  if (keyword.value.trim()) scheduleSearch()
+})
+
+const handleProjectTreeChanged = (payload: unknown): void => {
+  const type =
+    payload && typeof payload === 'object' && 'type' in payload
+      ? String((payload as { type?: unknown }).type)
+      : ''
+  if (
+    (type === 'add' || type === 'unlink' || type === 'addDir' || type === 'unlinkDir') &&
+    keyword.value.trim()
+  ) {
+    scheduleSearch()
+  }
+}
+
 onMounted(() => {
   handleFindInFolder()
   bus.on('findInFolder', handleFindInFolder)
+  bus.on('project-tree-changed', handleProjectTreeChanged)
   if (keyword.value.length > 0 && searcherRunning.value === false) {
-    searcherRunning.value = true
     search()
   }
+})
+
+onBeforeUnmount(() => {
+  searchGeneration++
+  clearSearchTimer()
+  cancelActiveSearch()
+  bus.off('findInFolder', handleFindInFolder)
+  bus.off('project-tree-changed', handleProjectTreeChanged)
 })
 </script>
 

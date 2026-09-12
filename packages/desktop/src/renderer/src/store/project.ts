@@ -196,6 +196,7 @@ export const useProjectStore = defineStore('project', () => {
         }
         break
     }
+    bus.emit('project-tree-changed', { type, change })
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

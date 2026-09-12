@@ -15,6 +15,8 @@ interface ActiveSearch {
 }
 
 const activeSearches = new Map<string, ActiveSearch>()
+const TEXT_MATCH_BATCH_SIZE = 128
+const FILE_PATH_BATCH_SIZE = 64
 
 const sendIfAlive = (
   sender: WebContents | null | undefined,
@@ -261,21 +263,67 @@ const startTextSearch = (
     let pendingLeadingContext: unknown[] = []
     let pendingTrailingContexts: Set<unknown[]> = new Set()
 
+    const flushPendingEvent = (): void => {
+      if (cancelled || !pendingEvent || pendingEvent.matches.length === 0) return
+      sendIfAlive(sender, 'mt::rg::match', {
+        searchId,
+        payload: pendingEvent
+      })
+      pendingEvent = {
+        filePath: pendingEvent.filePath,
+        matches: []
+      }
+    }
+
+    const processLine = (line: string): void => {
+      if (!line) return
+      try {
+        const message = JSON.parse(line)
+        if (message.type === 'begin') {
+          // A well-formed ripgrep stream ends a file before beginning the
+          // next one. Flush defensively in case a truncated stream omits it.
+          flushPendingEvent()
+          pendingEvent = { filePath: getText(message.data.path), matches: [] }
+          pendingLeadingContext = []
+          pendingTrailingContexts = new Set()
+        } else if (message.type === 'match') {
+          const trailingContextLines: unknown[] = []
+          pendingTrailingContexts.add(trailingContextLines)
+          processUnicodeMatch(message.data)
+          for (const submatch of message.data.submatches) {
+            const { lineText, range } = processSubmatch(
+              submatch,
+              getText(message.data.lines),
+              message.data.line_number - 1
+            )
+            pendingEvent?.matches.push({
+              matchText: getText(submatch.match),
+              lineText,
+              range,
+              leadingContextLines: [...pendingLeadingContext],
+              trailingContextLines
+            })
+            if (pendingEvent && pendingEvent.matches.length >= TEXT_MATCH_BATCH_SIZE) {
+              flushPendingEvent()
+            }
+          }
+        } else if (message.type === 'end') {
+          flushPendingEvent()
+          pendingPaths++
+          sendIfAlive(sender, 'mt::rg::progress', { searchId, num: pendingPaths })
+          pendingEvent = null
+        }
+      } catch (err) {
+        log.warn('Failed to parse ripgrep output line:', line, err)
+      }
+    }
+
     child.on('close', (code) => {
       if (code !== null && code > 1 && bufferError) {
         log.warn('Ripgrep finished with errors (exit code ' + code + '):', bufferError)
       }
       if (buffer && !cancelled) {
-        try {
-          const message = JSON.parse(buffer)
-          if (message.type === 'end' && pendingEvent) {
-            pendingPaths++
-            sendIfAlive(sender, 'mt::rg::progress', { searchId, num: pendingPaths })
-            sendIfAlive(sender, 'mt::rg::match', { searchId, payload: pendingEvent })
-          }
-        } catch {
-          /* parse error */
-        }
+        processLine(buffer)
       }
       pendingDirs--
       finishIfDone()
@@ -290,40 +338,7 @@ const startTextSearch = (
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
       for (const line of lines) {
-        if (!line) continue
-        try {
-          const message = JSON.parse(line)
-          if (message.type === 'begin') {
-            pendingEvent = { filePath: getText(message.data.path), matches: [] }
-            pendingLeadingContext = []
-            pendingTrailingContexts = new Set()
-          } else if (message.type === 'match') {
-            const trailingContextLines: unknown[] = []
-            pendingTrailingContexts.add(trailingContextLines)
-            processUnicodeMatch(message.data)
-            for (const submatch of message.data.submatches) {
-              const { lineText, range } = processSubmatch(
-                submatch,
-                getText(message.data.lines),
-                message.data.line_number - 1
-              )
-              pendingEvent?.matches.push({
-                matchText: getText(submatch.match),
-                lineText,
-                range,
-                leadingContextLines: [...pendingLeadingContext],
-                trailingContextLines
-              })
-            }
-          } else if (message.type === 'end') {
-            pendingPaths++
-            sendIfAlive(sender, 'mt::rg::progress', { searchId, num: pendingPaths })
-            sendIfAlive(sender, 'mt::rg::match', { searchId, payload: pendingEvent })
-            pendingEvent = null
-          }
-        } catch (err) {
-          log.warn('Failed to parse ripgrep output line:', line, err)
-        }
+        processLine(line)
       }
     })
   }
@@ -395,11 +410,29 @@ const startFileSearch = (
 
     let buffer = ''
     let bufferError = ''
+    const pendingPathBatch: string[] = []
+
+    const flushPathBatch = (): void => {
+      if (cancelled || pendingPathBatch.length === 0) return
+      const batch = pendingPathBatch.splice(0, pendingPathBatch.length)
+      pendingPaths += batch.length
+      sendIfAlive(sender, 'mt::rg::progress', { searchId, num: pendingPaths })
+      sendIfAlive(sender, 'mt::rg::match', { searchId, payload: batch })
+    }
+
+    const processPathLine = (line: string): void => {
+      if (!line) return
+      pendingPathBatch.push(line.endsWith('\r') ? line.slice(0, -1) : line)
+      if (pendingPathBatch.length >= FILE_PATH_BATCH_SIZE) flushPathBatch()
+    }
+
     child.on('close', (code) => {
       if (code !== null && code > 1) {
         finishIfDone(new Error(bufferError))
         return
       }
+      if (buffer && !cancelled) processPathLine(buffer)
+      flushPathBatch()
       pendingDirs--
       finishIfDone()
     })
@@ -412,11 +445,7 @@ const startFileSearch = (
       buffer += chunk
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
-      for (const line of lines) {
-        pendingPaths++
-        sendIfAlive(sender, 'mt::rg::progress', { searchId, num: pendingPaths })
-        sendIfAlive(sender, 'mt::rg::match', { searchId, payload: line })
-      }
+      for (const line of lines) processPathLine(line)
     })
   }
 }

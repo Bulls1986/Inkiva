@@ -18,7 +18,8 @@
               class="search"
               :placeholder="placeholderText"
               @keydown="handleBeforeInput"
-              @keyup="handleInput"
+              @input="handleTextInput"
+              @keyup="handleKeyup"
             >
           </div>
           <loading v-if="searcherBusy" />
@@ -111,6 +112,7 @@ const query = ref('')
 const selectedCommandIndex = ref(-1)
 const availableCommands = ref<CommandItem[]>([])
 const searcherBusy = ref(false)
+let searchRequestId = 0
 
 const commandCenterStore = useCommandCenterStore()
 
@@ -121,6 +123,11 @@ onBeforeUpdate(() => {
 const handleShow = (command?: unknown) => {
   const next = ((command as CommandItem | undefined) ??
     (commandCenterStore.rootCommand as unknown as CommandItem)) as CommandItem
+  searchRequestId++
+  searcherBusy.value = false
+  if (currentCommand.value && currentCommand.value !== next) {
+    currentCommand.value.unload?.()
+  }
   currentCommand.value = next
   const runPromise = next.run ? next.run() : Promise.resolve()
   runPromise
@@ -158,6 +165,8 @@ const handleShow = (command?: unknown) => {
 }
 
 const handleDialogClose = () => {
+  searchRequestId++
+  searcherBusy.value = false
   // Reset all settings
   selectedCommandIndex.value = -1
   query.value = ''
@@ -202,7 +211,14 @@ const handleBeforeInput = (event: KeyboardEvent) => {
   }
 }
 
-const handleInput = (event: KeyboardEvent) => {
+const handleTextInput = (event: Event) => {
+  if ((event as InputEvent).isComposing) {
+    return
+  }
+  updateCommands()
+}
+
+const handleKeyup = (event: KeyboardEvent) => {
   if (event.isComposing) {
     return
   }
@@ -227,7 +243,8 @@ const handleInput = (event: KeyboardEvent) => {
       break
     }
     default: {
-      updateCommands()
+      // Text input is handled by the input event below. Keeping keyup for
+      // Enter preserves keyboard selection without issuing duplicate searches.
       break
     }
   }
@@ -258,25 +275,27 @@ const updateCommands = () => {
   const queryString = query.value.trim()
   const cmd = currentCommand.value
   if (!cmd) return
+  const requestId = ++searchRequestId
 
   // Allow to handle search result by command (e.g. quick search).
   if (cmd.search) {
     searcherBusy.value = true
     cmd.search(queryString)
       .then((result) => {
+        if (requestId !== searchRequestId) return
         searcherBusy.value = false
         availableCommands.value = result || []
         selectedCommandIndex.value = availableCommands.value.length ? 0 : -1
       })
       .catch((error: unknown) => {
+        if (requestId !== searchRequestId) return
         // The query was cancel or restarted if `message` is null.
-        const err = error as { message?: string } | null | undefined
-        if (err && err.message) {
-          searcherBusy.value = false
-          availableCommands.value = []
-          selectedCommandIndex.value = -1
-          log.error(err)
-        }
+        const err = error as { message?: string; name?: string } | null | undefined
+        searcherBusy.value = false
+        if (!err || !err.message || err.name === 'AbortError') return
+        availableCommands.value = []
+        selectedCommandIndex.value = -1
+        log.error(err)
       })
     return
   }

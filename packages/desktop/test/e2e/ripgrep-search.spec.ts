@@ -16,6 +16,11 @@ const writeFixtureTree = (): string => {
   fs.writeFileSync(path.join(dir, 'one.md'), '# Hello\n\nmagic-needle-XYZ in body.\n')
   fs.writeFileSync(path.join(dir, 'two.md'), '# Other\n\nnothing here.\n')
   fs.writeFileSync(path.join(dir, 'three.md'), '# Third\nanother magic-needle-XYZ.\n')
+  fs.writeFileSync(path.join(dir, 'no-newline.md'), 'magic-needle-XYZ without a final newline')
+  fs.writeFileSync(
+    path.join(dir, 'many-matches.md'),
+    Array.from({ length: 300 }, (_, index) => 'line ' + index + ': magic-needle-XYZ').join('\n')
+  )
   return dir
 }
 
@@ -43,8 +48,9 @@ test.describe('Ripgrep IPC streaming', () => {
   test('text search streams matches and resolves', async() => {
     interface RgMatch {
       filePath: string
+      matches?: unknown[]
     }
-    const matches = await page.evaluate<RgMatch[], string>((directory) => {
+    const events = await page.evaluate<RgMatch[], string>((directory) => {
       return new Promise<RgMatch[]>((resolve, reject) => {
         const searchId = 'rg-test-' + Math.random().toString(36).slice(2, 8)
         const captured: RgMatch[] = []
@@ -81,10 +87,19 @@ test.describe('Ripgrep IPC streaming', () => {
       })
     }, fixtureDir as string)
 
-    expect(matches.length).toBeGreaterThanOrEqual(2)
-    const paths = matches.map((m) => m.filePath).sort()
+    expect(events.length).toBeGreaterThanOrEqual(2)
+    const paths = events.map((m) => m.filePath).sort()
     expect(paths.some((p) => p.endsWith('one.md'))).toBe(true)
     expect(paths.some((p) => p.endsWith('three.md'))).toBe(true)
+    expect(paths.some((p) => p.endsWith('no-newline.md'))).toBe(true)
+
+    const chunkedEvents = events.filter((event) => event.filePath.endsWith('many-matches.md'))
+    expect(chunkedEvents.length).toBeGreaterThan(1)
+    expect(chunkedEvents.every((event) => (event.matches?.length ?? 0) <= 128)).toBe(true)
+    expect(
+      chunkedEvents.reduce((total, event) => total + (event.matches?.length ?? 0), 0)
+    ).toBe(300)
+    expect(Math.max(...events.map((event) => JSON.stringify(event).length))).toBeLessThan(100_000)
   })
 
   test('file search (--files) streams paths', async() => {
@@ -94,7 +109,12 @@ test.describe('Ripgrep IPC streaming', () => {
         const seen: string[] = []
         const offMatch = window.ripgrep.onMatch((raw) => {
           const p = raw as { searchId?: string; payload?: unknown }
-          if (p?.searchId === searchId && typeof p.payload === 'string') seen.push(p.payload)
+          if (p?.searchId !== searchId) return
+          if (typeof p.payload === 'string') {
+            seen.push(p.payload)
+          } else if (Array.isArray(p.payload)) {
+            seen.push(...p.payload.filter((item): item is string => typeof item === 'string'))
+          }
         })
         const offDone = window.ripgrep.onDone((raw) => {
           const p = raw as { searchId?: string }
@@ -124,6 +144,8 @@ test.describe('Ripgrep IPC streaming', () => {
       })
     }, fixtureDir as string)
 
-    expect(files.length).toBeGreaterThanOrEqual(3)
+    expect(files.length).toBeGreaterThanOrEqual(5)
+    expect(files.some((file) => file.endsWith('no-newline.md'))).toBe(true)
+    expect(files.some((file) => file.endsWith('many-matches.md'))).toBe(true)
   })
 })
