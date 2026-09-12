@@ -44,6 +44,7 @@ export interface PreferencesState {
   editorFontFamily: string
   fontSize: number
   lineHeight: number
+  paragraphSpacing: number
   codeFontSize: number
   codeFontFamily: string
   codeBlockLineNumbers: boolean
@@ -163,6 +164,7 @@ export const usePreferencesStore = defineStore('preferences', {
     editorFontFamily: 'Open Sans',
     fontSize: 16,
     lineHeight: 1.6,
+    paragraphSpacing: 0.5,
     codeFontSize: 14,
     codeFontFamily: 'DejaVu Sans Mono',
     codeBlockLineNumbers: false,

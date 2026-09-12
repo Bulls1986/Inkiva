@@ -506,6 +506,7 @@
         "title": "Editor de Texto",
         "fontSize": "Tamanho da fonte",
         "lineHeight": "Altura da linha",
+        "paragraphSpacing": "Espaçamento entre parágrafos",
         "fontFamily": "Família da fonte",
         "maxWidth": "Largura máxima",
         "maxWidthNotes": "Largura máxima do conteúdo do editor"

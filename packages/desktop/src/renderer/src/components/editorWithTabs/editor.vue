@@ -224,6 +224,7 @@ const {
   isGitlabCompatibilityEnabled,
   lineHeight,
   fontSize,
+  paragraphSpacing,
   codeFontSize,
   codeFontFamily,
   codeBlockLineNumbers,
@@ -575,6 +576,15 @@ watch(fontSize, (value, oldValue) => {
 watch(lineHeight, (value, oldValue) => {
   if (value !== oldValue && editor.value) {
     editor.value.setOptions({ lineHeight: value })
+  }
+})
+
+watch(paragraphSpacing, (value, oldValue) => {
+  if (value !== oldValue && editor.value) {
+    // Appearance-only update: Muya writes one CSS custom property and avoids
+    // reparsing or rebuilding the document, which keeps preference changes
+    // cheap even for large notes.
+    editor.value.setOptions({ paragraphSpacing: value })
   }
 })
 
@@ -1879,6 +1889,7 @@ onMounted(() => {
     tabSize: tabSize.value,
     fontSize: fontSize.value,
     lineHeight: lineHeight.value,
+    paragraphSpacing: paragraphSpacing.value,
     editorFontFamily: resolveEditorFont(editorFontFamily.value),
     codeFontSize: codeFontSize.value,
     codeFontFamily: resolveCodeFont(codeFontFamily.value),

@@ -506,6 +506,7 @@
         "title": "テキストエディター",
         "fontSize": "フォントサイズ",
         "lineHeight": "行の高さ",
+        "paragraphSpacing": "段落間隔",
         "fontFamily": "フォントファミリー",
         "maxWidth": "最大幅",
         "maxWidthNotes": "エディターコンテンツの最大幅"

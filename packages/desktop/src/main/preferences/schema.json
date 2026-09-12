@@ -96,6 +96,13 @@
     "minimum": 1.2,
     "default": 1.6
   },
+  "paragraphSpacing": {
+    "description": "Editor--Spacing between ordinary paragraphs in em units",
+    "type": "number",
+    "maximum": 2,
+    "minimum": 0,
+    "default": 0.5
+  },
   "wrapCodeBlocks": {
     "description": "Editor--Wrap text inside code blocks",
     "type": "boolean",

@@ -34,6 +34,13 @@
     padding: 0;
 }
 
+/* Keep paragraph spacing independently adjustable from line height. The
+   default matches the original 0.5em margin, while the CSS variable lets the
+   desktop preferences pane update spacing without rebuilding the block tree. */
+.mu-container p {
+    margin-block: var(--mu-paragraph-spacing, 0.5em);
+}
+
 .mu-container h1,
 .mu-container h2,
 .mu-container h3,
