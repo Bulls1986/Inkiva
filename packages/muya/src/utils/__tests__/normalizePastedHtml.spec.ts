@@ -63,8 +63,11 @@ describe('normalizePastedHTML — bare URL link normalization', () => {
         const markdown = new HtmlToMarkdown({ bulletListMarker: '-' }).generate(out);
 
         expect(out).not.toContain('<script');
+        expect(out).not.toContain('alert(2)');
         expect(out).not.toContain('onclick');
         expect(out).not.toContain('onerror');
         expect(markdown).toContain('**safe**');
+        expect(markdown).not.toContain('alert(2)');
+        expect(markdown).not.toContain('alert(3)');
     });
 });
