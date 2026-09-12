@@ -3,17 +3,17 @@ import type { TState } from './types';
 
 const TOC_BLOCK_NAMES = new Set(['atx-heading', 'setext-heading']);
 
-const isHeadingState = (value: unknown): boolean => {
+function isHeadingState(value: unknown): boolean {
     if (value == null || typeof value !== 'object' || Array.isArray(value))
         return false;
 
     const name = (value as { name?: unknown }).name;
     return typeof name === 'string' && TOC_BLOCK_NAMES.has(name);
-};
+}
 
-const isHeadingComponent = (component: JSONOpComponent): boolean => (
-    isHeadingState(component.i) || isHeadingState(component.r)
-);
+function isHeadingComponent(component: JSONOpComponent): boolean {
+    return isHeadingState(component.i) || isHeadingState(component.r);
+}
 
 /**
  * Check whether an ot-json1 operation can change the top-level heading list.
@@ -23,10 +23,7 @@ const isHeadingComponent = (component: JSONOpComponent): boolean => (
  * operation path and the previous state keeps this check proportional to the
  * operation rather than parsing or walking the whole document on every edit.
  */
-const visitDescent = (
-    descent: JSONOpList,
-    previousState: TState[],
-): boolean => {
+function visitDescent(descent: JSONOpList, previousState: TState[]): boolean {
     let path: (number | string)[] = [];
 
     for (const entry of descent) {
@@ -65,7 +62,7 @@ const visitDescent = (
     }
 
     return false;
-};
+}
 
 export function isTopLevelTocChange(
     operation: JSONOp,
