@@ -41,9 +41,15 @@ function makeLastCellForAppend() {
         nextContentInContext: vi.fn(() => null),
         previousContentInContext: vi.fn(() => makeFakeNeighbour()),
         closestBlock: vi.fn((name: string) => {
-            if (name === 'table') return table;
-            if (name === 'table.row') return row;
-            if (name === 'table.cell') return cell;
+            if (name === 'table') {
+                return table;
+            }
+            if (name === 'table.row') {
+                return row;
+            }
+            if (name === 'table.cell') {
+                return cell;
+            }
             return null;
         }),
     };
