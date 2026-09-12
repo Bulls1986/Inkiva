@@ -3,16 +3,67 @@ import type { ElectronApplication, Page } from 'playwright'
 import {
   clickMenuById,
   expectNoRendererErrors,
-  focusEditor,
   getMarkdownContent,
   launchWithMarkdown,
-  placeCaretInEditor,
   setSourceMarkdown
 } from './helpers'
 
 type ClipboardPayload = { text: string, html: string }
 
 const COPY_DOC = 'A paragraph with **bold** text.\n'
+
+const commitEditorSelection = async(page: Page, collapse: boolean): Promise<void> => {
+  const committed = await page.evaluate((shouldCollapse) => {
+    const root = document.querySelector('.editor-component')
+    const target = root?.querySelector('span.mu-paragraph-content')
+    if (!(root instanceof HTMLElement) || !(target instanceof HTMLElement)) return false
+
+    root.focus()
+    const range = document.createRange()
+    const textNodes: Text[] = []
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT)
+    let current: Node | null
+    while ((current = walker.nextNode())) textNodes.push(current as Text)
+
+    if (textNodes.length > 0) {
+      const first = textNodes[0]
+      const last = textNodes[textNodes.length - 1]
+      if (shouldCollapse) {
+        range.setStart(last, last.data.length)
+        range.collapse(true)
+      } else {
+        range.setStart(first, 0)
+        range.setEnd(last, last.data.length)
+      }
+    } else {
+      range.selectNodeContents(target)
+      if (shouldCollapse) range.collapse(false)
+    }
+
+    const selection = window.getSelection()
+    if (!selection) return false
+    selection.removeAllRanges()
+    selection.addRange(range)
+    document.dispatchEvent(new Event('selectionchange'))
+    root.dispatchEvent(new KeyboardEvent('keyup', {
+      key: 'ArrowRight',
+      bubbles: true,
+      cancelable: true
+    }))
+    return true
+  }, collapse)
+
+  expect(committed).toBe(true)
+  await page.waitForTimeout(150)
+}
+
+const selectEditorText = async(page: Page): Promise<void> => {
+  await commitEditorSelection(page, false)
+}
+
+const placeEditorCaret = async(page: Page): Promise<void> => {
+  await commitEditorSelection(page, true)
+}
 
 const copyFromMenu = async(
   app: ElectronApplication,
@@ -95,7 +146,7 @@ test.describe('Typora-style intelligent copy and paste', () => {
   })
 
   test('Copy as Markdown writes portable Markdown only', async() => {
-    await focusEditor(page)
+    await selectEditorText(page)
     const copied = await copyFromMenu(app, page, 'copyAsMarkdownMenuItem')
 
     expect(copied.html).toBe('')
@@ -105,7 +156,7 @@ test.describe('Typora-style intelligent copy and paste', () => {
   })
 
   test('Copy as HTML source puts sanitized source in plain text', async() => {
-    await focusEditor(page)
+    await selectEditorText(page)
     const copied = await copyFromMenu(app, page, 'copyAsHtmlMenuItem')
 
     expect(copied.html).toBe('')
@@ -116,7 +167,7 @@ test.describe('Typora-style intelligent copy and paste', () => {
   })
 
   test('Copy as Rich keeps HTML and Markdown clipboard flavors', async() => {
-    await focusEditor(page)
+    await selectEditorText(page)
     const copied = await copyFromMenu(app, page, 'copyAsRichMenuItem')
 
     expect(copied.html).toContain('<strong>bold</strong>')
@@ -126,7 +177,7 @@ test.describe('Typora-style intelligent copy and paste', () => {
 
   test('prefers HTML over conflicting plain text and accepts HTML-only paste', async() => {
     await setSourceMarkdown(page, app, 'Target: \n')
-    await placeCaretInEditor(page)
+    await placeEditorCaret(page)
     await dispatchPaste(page, {
       html: '<p><strong>rich</strong></p>',
       text: 'plain fallback'
@@ -137,6 +188,7 @@ test.describe('Typora-style intelligent copy and paste', () => {
     }).toContain('Target: **rich**')
 
     await setSourceMarkdown(page, app, 'HTML only: \n')
+    await placeEditorCaret(page)
     await dispatchPaste(page, {
       html: '<p><em>markup</em></p>',
       text: ''
@@ -150,7 +202,7 @@ test.describe('Typora-style intelligent copy and paste', () => {
 
   test('sanitizes executable HTML before Markdown conversion', async() => {
     await setSourceMarkdown(page, app, 'Safe: \n')
-    await placeCaretInEditor(page)
+    await placeEditorCaret(page)
     await dispatchPaste(page, {
       html: '<p><strong>safe</strong><script>bad()</script>' +
         '<img src="x" onerror="bad()"></p>',
