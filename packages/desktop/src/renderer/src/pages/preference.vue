@@ -69,7 +69,9 @@ onMounted(() => {
   top: 0;
   left: 0;
   display: flex;
-  background: var(--editorBgColor);
+  color: var(--text-primary);
+  background: var(--surface-editor);
+  transition: background-color var(--motion-slow), color var(--motion-normal);
 
   & h1,
   & h2,
@@ -77,7 +79,7 @@ onMounted(() => {
   & h4,
   & h5,
   & h6 {
-    color: var(--editorColor);
+    color: var(--text-primary);
     font-weight: 500;
     line-height: 1.4;
   }
@@ -98,9 +100,10 @@ onMounted(() => {
   & .notes {
     display: block;
     margin: 8px 0 0;
-    font-style: italic;
+    font-style: normal;
     font-size: 12px;
-    color: var(--editorColor80);
+    line-height: 1.5;
+    color: var(--text-tertiary);
   }
 
   & .pref-content {
@@ -118,11 +121,13 @@ onMounted(() => {
       -webkit-app-region: drag;
     }
     & .pref-setting {
-      padding: 50px 40px;
+      padding: 48px 48px;
       padding-top: var(--titleBarHeight);
       flex: 1;
       height: calc(100vh - var(--titleBarHeight));
       overflow: auto;
+      color: var(--text-primary);
+      background: var(--surface-editor);
     }
     & span,
     & div,
@@ -139,6 +144,14 @@ onMounted(() => {
     /* Move the scrollbar below the titlebar */
     margin-top: var(--titleBarHeight);
     padding-top: 0;
+  }
+
+  & .pref-setting > h4 {
+    margin: 0 0 var(--space-6);
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.4;
   }
 }
 </style>

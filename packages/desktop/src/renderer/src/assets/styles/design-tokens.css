@@ -9,9 +9,13 @@
 
   /* Feedback */
   --color-success: #1f9d62;
+  --color-success-soft: rgb(31 157 98 / 10%);
   --color-info: #3978b8;
+  --color-info-soft: rgb(57 120 184 / 10%);
   --color-warning: #b7791f;
+  --color-warning-soft: rgb(183 121 31 / 10%);
   --color-danger: #d64545;
+  --color-danger-soft: rgb(214 69 69 / 10%);
 
   /* Text */
   --text-primary: #1f2329;
@@ -69,6 +73,10 @@
   --color-accent-soft: rgb(45 128 255 / 14%);
   --color-accent-selected: rgb(45 128 255 / 18%);
   --color-accent-focus: rgb(91 156 255 / 32%);
+  --color-success-soft: rgb(31 157 98 / 16%);
+  --color-info-soft: rgb(57 120 184 / 16%);
+  --color-warning-soft: rgb(183 121 31 / 16%);
+  --color-danger-soft: rgb(214 69 69 / 16%);
 
   --text-primary: #e8ebf0;
   --text-secondary: #aeb6c2;
@@ -92,6 +100,10 @@
 }
 
 :root[data-inkiva-appearance='paper'] {
+  --color-success-soft: rgb(31 157 98 / 9%);
+  --color-info-soft: rgb(57 120 184 / 9%);
+  --color-warning-soft: rgb(183 121 31 / 9%);
+  --color-danger-soft: rgb(214 69 69 / 9%);
   --text-primary: #2E2B27;
   --text-secondary: #6E665B;
   --text-tertiary: #918678;

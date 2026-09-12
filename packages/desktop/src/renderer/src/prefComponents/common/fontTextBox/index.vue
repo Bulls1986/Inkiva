@@ -106,46 +106,50 @@ onMounted(async () => {
 
 <style>
 .el-autocomplete-suggestion {
-  border: 1px solid var(--floatBorderColor);
-  background-color: var(--floatBgColor);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--surface-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-floating);
 }
 .el-popper[x-placement^='top'] .popper__arrow {
-  border-top-color: var(--floatBorderColor);
+  border-top-color: var(--border-subtle);
 }
 .el-popper[x-placement^='bottom'] .popper__arrow {
-  border-bottom-color: var(--floatBorderColor);
+  border-bottom-color: var(--border-subtle);
 }
 .el-popper[x-placement^='top'] .popper__arrow::after {
-  border-top-color: var(--floatBgColor);
+  border-top-color: var(--surface-elevated);
 }
 .el-popper[x-placement^='bottom'] .popper__arrow::after {
-  border-bottom-color: var(--floatBgColor);
+  border-bottom-color: var(--surface-elevated);
 }
 
 .el-autocomplete-suggestion li {
-  color: var(--editorColor);
+  color: var(--text-secondary);
+  transition: color var(--motion-fast), background-color var(--motion-fast);
 }
 .el-autocomplete-suggestion li.highlighted,
 .el-autocomplete-suggestion li:hover {
-  background: var(--floatHoverColor);
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .pref-font-input-item {
-  margin: 12px 0;
+  margin: 0;
   font-size: 14px;
-  color: var(--editorColor);
+  color: var(--text-secondary);
   & .font-autocomplete {
     width: 100%;
   }
   & input.el-input__inner {
     height: 30px;
     background: transparent;
-    color: var(--editorColor);
-    border-color: var(--editorColor10);
+    color: var(--text-primary);
+    border-color: var(--border-default);
   }
   & .el-input.is-active .el-input__inner,
   & .el-input__inner:focus {
-    border-color: var(--themeColor);
+    border-color: var(--border-focus);
   }
   & .el-input__icon,
   & .el-input__inner {
@@ -157,10 +161,10 @@ onMounted(async () => {
   & svg {
     cursor: pointer;
     opacity: 0.7;
-    color: var(--iconColor);
+    color: var(--icon-secondary);
   }
   & svg:hover {
-    color: var(--themeColor);
+    color: var(--color-accent);
   }
 }
 .pref-font-input-item .font-autocomplete-popper {

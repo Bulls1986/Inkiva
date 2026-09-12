@@ -311,7 +311,7 @@ const dumpKeyboardInformation = (): void => {
   & .keybindings {
     font-size: 14px;
     margin: 20px 0;
-    color: var(--editorColor);
+    color: var(--text-secondary);
     & .link {
       cursor: pointer;
     }
@@ -330,16 +330,16 @@ const dumpKeyboardInformation = (): void => {
     }
   }
   & .link {
-    color: var(--themeColor);
+    color: var(--color-accent);
     cursor: pointer;
     & .link-icon {
       margin-left: 2px;
       vertical-align: -2px;
       opacity: 0.7;
-      color: var(--iconColor);
+      color: var(--icon-secondary);
     }
     & .link-icon:hover {
-      color: var(--themeColor);
+      color: var(--color-accent);
     }
   }
   & button.el-button {
@@ -348,12 +348,12 @@ const dumpKeyboardInformation = (): void => {
 }
 .el-table,
 .el-table__expanded-cell {
-  background: var(--editorBgColor);
+  background: var(--surface-editor);
 }
 .el-table button {
   padding: 2px 2px;
   margin: 4px 0px;
-  color: var(--themeColor);
+  color: var(--color-accent);
   background: none;
   border: none;
 }
@@ -373,7 +373,7 @@ const dumpKeyboardInformation = (): void => {
 }
 .pref-keybindings .el-table th,
 .pref-keybindings .el-table tr {
-  background: var(--editorBgColor) !important;
+  background: var(--surface-editor) !important;
 }
 /* Element Plus colours table text with its own --el-text-color-regular grey,
    which the app never themes — so the list rendered as low-contrast grey on
@@ -382,7 +382,7 @@ const dumpKeyboardInformation = (): void => {
 .pref-keybindings .el-table,
 .pref-keybindings .el-table th.el-table__cell,
 .pref-keybindings .el-table td.el-table__cell {
-  color: var(--editorColor);
+  color: var(--text-secondary);
 }
 .pref-keybindings .el-table th.el-table__cell.is-leaf,
 .pref-keybindings .el-table th,
@@ -392,21 +392,21 @@ const dumpKeyboardInformation = (): void => {
 .pref-keybindings .el-table th.el-table__cell.is-leaf:last-child,
 .pref-keybindings .el-table th:last-child,
 .pref-keybindings .el-table td:last-child {
-  border-right: 1px solid var(--tableBorderColor);
+  border-right: 1px solid var(--border-subtle);
 }
 .pref-keybindings .el-table--border::after,
 .pref-keybindings .el-table--group::after,
 .pref-keybindings .el-table::before,
 .pref-keybindings .el-table__fixed-right::before,
 .pref-keybindings .el-table__fixed::before {
-  background: var(--tableBorderColor);
+  background: var(--border-subtle);
 }
 /* Element Plus paints the hovered row via --el-table-row-hover-bg-color, which
    defaults to the light --el-fill-color-light — a near-white bar that hides the
    theme-coloured text on dark themes. Point it at the theme's own selection
    colour so hovered rows stay readable on every theme (follow-up to #3937). */
 .pref-keybindings .el-table {
-  --el-table-row-hover-bg-color: var(--selectionColor);
+  --el-table-row-hover-bg-color: var(--surface-selected);
 }
 .pref-keybindings .el-table .el-table__cell {
   padding: 2px 0;

@@ -251,7 +251,7 @@ const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
   font-size: 14px;
   user-select: none;
   margin: 20px 0;
-  color: var(--editorColor);
+  color: var(--text-secondary);
 }
 
 .pref-editor .image-ctrl label {

@@ -25,27 +25,36 @@ defineProps<{
 .pref-compound-item {
   font-size: 14px;
   user-select: none;
-  margin: 32px 0;
-  color: var(--editorColor);
+  margin: 0;
+  margin-bottom: var(--space-8);
+  color: var(--text-primary);
 
   & .pref-compound-head h6.title {
-    padding-bottom: 6px;
+    padding-bottom: 8px;
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.4;
   }
 
   & .pref-compound-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
     padding: 0;
-    margin-top: -4px;
+    margin-top: 0;
   }
 
   & .description {
-    margin-bottom: 10px;
+    margin-bottom: 0;
+    color: var(--text-secondary);
     & i {
       cursor: pointer;
       opacity: 0.7;
-      color: var(--iconColor);
+      color: var(--icon-secondary);
     }
     & i:hover {
-      color: var(--themeColor);
+      color: var(--color-accent);
     }
   }
 }
