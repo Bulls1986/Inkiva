@@ -508,6 +508,7 @@
         "title": "Éditeur de texte",
         "fontSize": "Taille de police",
         "lineHeight": "Hauteur de ligne",
+        "paragraphSpacing": "Espacement des paragraphes",
         "fontFamily": "Famille de police",
         "maxWidth": "Largeur maximale",
         "maxWidthNotes": "Largeur maximale du contenu de l'éditeur"

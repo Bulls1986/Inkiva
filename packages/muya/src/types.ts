@@ -3,6 +3,7 @@ import type { TState } from './state/types';
 export interface IMuyaOptions {
     fontSize: number;
     lineHeight: number;
+    paragraphSpacing: number;
     editorFontFamily?: string;
     codeFontSize?: number;
     codeFontFamily?: string;

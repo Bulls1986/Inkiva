@@ -124,6 +124,7 @@ describe('muya runtime options', () => {
         muya.setOptions({
             fontSize: 18,
             lineHeight: 1.8,
+            paragraphSpacing: 0.8,
             editorFontFamily: 'Inter',
             codeFontSize: 13,
             codeFontFamily: 'Fira Code',
@@ -131,9 +132,22 @@ describe('muya runtime options', () => {
         const { style } = muya.domNode;
         expect(style.getPropertyValue('--mu-font-size')).toBe('18px');
         expect(style.getPropertyValue('--mu-line-height')).toBe('1.8');
+        expect(style.getPropertyValue('--mu-paragraph-spacing')).toBe('0.8em');
         expect(style.getPropertyValue('--mu-font-family')).toBe('Inter');
         expect(style.getPropertyValue('--mu-code-font-size')).toBe('13px');
         expect(style.getPropertyValue('--mu-code-font-family')).toBe('Fira Code');
+    });
+
+    it('updates paragraph spacing without rebuilding the document', () => {
+        const muya = bootMuya('first paragraph\n\nsecond paragraph\n');
+        const firstBlock = muya.editor.scrollPage?.firstContentInDescendant();
+
+        muya.setOptions({ paragraphSpacing: 1.2 });
+
+        expect(muya.options.paragraphSpacing).toBe(1.2);
+        expect(muya.domNode.style.getPropertyValue('--mu-paragraph-spacing')).toBe('1.2em');
+        expect(muya.editor.scrollPage?.firstContentInDescendant()).toBe(firstBlock);
+        expect(muya.getMarkdown()).toBe('first paragraph\n\nsecond paragraph\n');
     });
 
     it('setOptions toggles the .mu-code-wrap class', () => {

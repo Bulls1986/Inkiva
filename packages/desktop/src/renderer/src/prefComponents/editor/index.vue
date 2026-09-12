@@ -25,6 +25,15 @@
           :step="0.1"
           :on-change="(value) => onSelectChange('lineHeight', value)"
         />
+        <range
+          :description="t('preferences.editor.textEditor.paragraphSpacing')"
+          :value="paragraphSpacing"
+          :min="0"
+          :max="2"
+          unit="em"
+          :step="0.1"
+          :on-change="(value) => onSelectChange('paragraphSpacing', value)"
+        />
         <font-text-box
           :description="t('preferences.editor.textEditor.fontFamily')"
           :value="editorFontFamily"
@@ -210,6 +219,7 @@ const {
   fontSize,
   editorFontFamily,
   lineHeight,
+  paragraphSpacing,
   autoPairBracket,
   autoPairMarkdownSyntax,
   autoPairQuote,

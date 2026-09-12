@@ -1665,6 +1665,8 @@ function applyAppearance(domNode: HTMLElement, options: Partial<IMuyaOptions>) {
         style.setProperty('--mu-font-size', `${options.fontSize}px`);
     if (typeof options.lineHeight === 'number')
         style.setProperty('--mu-line-height', `${options.lineHeight}`);
+    if (typeof options.paragraphSpacing === 'number')
+        style.setProperty('--mu-paragraph-spacing', `${options.paragraphSpacing}em`);
     if (options.editorFontFamily)
         style.setProperty('--mu-font-family', options.editorFontFamily);
     if (typeof options.codeFontSize === 'number')

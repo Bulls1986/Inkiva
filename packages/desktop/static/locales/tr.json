@@ -508,6 +508,7 @@
         "title": "Metin Düzenleyici",
         "fontSize": "Yazı tipi boyutu",
         "lineHeight": "Satır yüksekliği",
+        "paragraphSpacing": "Paragraf aralığı",
         "fontFamily": "Yazı tipi ailesi",
         "maxWidth": "Maksimum genişlik",
         "maxWidthNotes": "Düzenleyici içeriğinin maksimum genişliği"

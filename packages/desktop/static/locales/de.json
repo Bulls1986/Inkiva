@@ -508,6 +508,7 @@
         "title": "Texteditor",
         "fontSize": "Schriftgröße",
         "lineHeight": "Zeilenhöhe",
+        "paragraphSpacing": "Absatzabstand",
         "fontFamily": "Schriftfamilie",
         "maxWidth": "Maximale Breite",
         "maxWidthNotes": "Maximale Breite des Editor-Inhalts"

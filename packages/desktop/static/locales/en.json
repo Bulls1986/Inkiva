@@ -509,6 +509,7 @@
         "title": "Text Editor",
         "fontSize": "Font size",
         "lineHeight": "Line height",
+        "paragraphSpacing": "Paragraph spacing",
         "fontFamily": "Font family",
         "maxWidth": "Max width",
         "maxWidthNotes": "Maximum width of editor content"

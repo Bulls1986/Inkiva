@@ -508,6 +508,7 @@
         "title": "텍스트 편집기",
         "fontSize": "글꼴 크기",
         "lineHeight": "줄 높이",
+        "paragraphSpacing": "문단 간격",
         "fontFamily": "글꼴 패밀리",
         "maxWidth": "최대 너비",
         "maxWidthNotes": "편집기 콘텐츠의 최대 너비"
