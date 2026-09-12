@@ -100,13 +100,9 @@ const dispatchPaste = async(
     const target = document.querySelector('.editor-component span.mu-paragraph-content')
     if (!target) throw new Error('editor content target not found')
 
-    const range = document.createRange()
-    range.selectNodeContents(target)
-    range.collapse(false)
-    const selection = window.getSelection()
-    selection?.removeAllRanges()
-    selection?.addRange(range)
-
+    // placeEditorCaret() already committed a text-node boundary to Muya's
+    // selection model. Rebuilding a range from the element boundary here would
+    // make Chromium resolve the caret before the first inline child.
     const dataTransfer = new DataTransfer()
     if (value.html !== undefined) dataTransfer.setData('text/html', value.html)
     dataTransfer.setData('text/plain', value.text)
