@@ -430,8 +430,25 @@ const commitSelection = (collapse: boolean) => {
   target = target || spans[0] || null
   if (!target) return false
   const range = document.createRange()
-  range.selectNodeContents(target)
-  if (collapse) range.collapse(false)
+  const textNodes: Text[] = []
+  const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT)
+  let current: Node | null
+  while ((current = walker.nextNode())) textNodes.push(current as Text)
+
+  if (textNodes.length > 0) {
+    const first = textNodes[0]
+    const last = textNodes[textNodes.length - 1]
+    if (collapse) {
+      range.setStart(last, last.data.length)
+      range.collapse(true)
+    } else {
+      range.setStart(first, 0)
+      range.setEnd(last, last.data.length)
+    }
+  } else {
+    range.selectNodeContents(target)
+    if (collapse) range.collapse(false)
+  }
   const sel = window.getSelection()
   if (!sel) return false
   sel.removeAllRanges()
