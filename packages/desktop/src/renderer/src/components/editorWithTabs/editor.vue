@@ -1502,7 +1502,9 @@ const handleExportAgain = () => {
     return
   }
 
-  void handleExport({ ...lastExportRequest.options, reuseLastPath: true })
+  handleExport({ ...lastExportRequest.options, reuseLastPath: true }).catch((err) => {
+    log.error('Failed to repeat export:', err)
+  })
 }
 
 const handlePrintServiceClearup = () => {
