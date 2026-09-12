@@ -21,6 +21,7 @@
       "export": "Export",
       "exportHtml": "Export as HTML",
       "exportPdf": "Export as PDF",
+      "exportAgain": "Export Again",
       "import": "Import",
       "print": "Print",
       "closeTab": "Close Tab",
@@ -308,6 +309,7 @@
       "title": "Table of Contents"
     },
     "export": "Export...",
+    "noPreviousExport": "No previous export target is available.",
     "options": {
       "pageSizes": {
         "a3": "A3 (297mm x 420mm)",
@@ -760,6 +762,7 @@
       "importFile": "Import File",
       "exportFile": "Export File",
       "exportFilePdf": "Export as PDF",
+      "exportFileAgain": "Export Again",
       "zoom": "Zoom"
     },
     "edit": {

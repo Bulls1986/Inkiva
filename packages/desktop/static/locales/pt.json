@@ -21,6 +21,7 @@
       "export": "Exportar",
       "exportHtml": "Exportar como HTML",
       "exportPdf": "Exportar como PDF",
+      "exportAgain": "Exportar novamente",
       "import": "Importar",
       "print": "Imprimir",
       "closeTab": "Fechar Aba",
@@ -308,6 +309,7 @@
       "title": "Índice"
     },
     "export": "Exportar...",
+    "noPreviousExport": "Não há um destino de exportação anterior disponível.",
     "options": {
       "pageSizes": {
         "a3": "A3",
@@ -756,6 +758,7 @@
       "importFile": "Importar Arquivo",
       "exportFile": "Exportar Arquivo",
       "exportFilePdf": "Exportar como PDF",
+      "exportFileAgain": "Exportar novamente",
       "zoom": "Zoom"
     },
     "edit": {

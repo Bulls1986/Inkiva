@@ -218,4 +218,45 @@ test.describe('PDF export to a real file (item 231)', () => {
 
     fs.rmSync(out, { force: true })
   })
+
+  test('Export Again reuses the last target without opening another save dialog', async() => {
+    const out = '/tmp/inkiva-e2e-export-' + Date.now() + '-repeat.pdf'
+    if (fs.existsSync(out)) fs.rmSync(out)
+    await clearExportSuccesses(page)
+    await stubSaveDialog(app, out)
+
+    // Establish the repeat target through a normal export first.
+    await triggerPdfExportViaDialog(app, page)
+    await pollForPdfFile(out)
+
+    // A repeat export must go straight to the remembered target. Make a save
+    // dialog call observable and fail loudly if the implementation regresses
+    // to prompting again.
+    await app.evaluate(({ dialog }) => {
+      const g = global as unknown as { __mt_repeat_dialog_calls__?: number }
+      g.__mt_repeat_dialog_calls__ = 0
+      ;(dialog as unknown as { showSaveDialog: unknown }).showSaveDialog = async() => {
+        g.__mt_repeat_dialog_calls__ = (g.__mt_repeat_dialog_calls__ ?? 0) + 1
+        throw new Error('Export Again should not open a save dialog')
+      }
+    })
+    await clearExportSuccesses(page)
+
+    await sendIpcToRenderer(app, 'mt::export-again')
+
+    const repeated = await pollForPdfFile(out)
+    expect(repeated.subarray(0, 5).toString('latin1')).toBe('%PDF-')
+    await expect
+      .poll(async() => (await getExportSuccesses(page)).some((s) => s.filePath === out), {
+        timeout: 10000
+      })
+      .toBe(true)
+    const dialogCalls = await app.evaluate(() => {
+      const g = global as unknown as { __mt_repeat_dialog_calls__?: number }
+      return g.__mt_repeat_dialog_calls__ ?? -1
+    })
+    expect(dialogCalls).toBe(0)
+
+    fs.rmSync(out, { force: true })
+  })
 })

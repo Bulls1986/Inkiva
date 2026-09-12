@@ -21,6 +21,7 @@
       "export": "내보내기",
       "exportHtml": "HTML로 내보내기",
       "exportPdf": "PDF로 내보내기",
+      "exportAgain": "다시 내보내기",
       "import": "가져오기",
       "print": "인쇄",
       "closeTab": "탭 닫기",
@@ -308,6 +309,7 @@
       "title": "목차"
     },
     "export": "내보내기...",
+    "noPreviousExport": "이전에 내보낸 대상이 없습니다.",
     "options": {
       "pageSizes": {
         "a3": "A3",
@@ -756,6 +758,7 @@
       "importFile": "파일 가져오기",
       "exportFile": "파일 내보내기",
       "exportFilePdf": "PDF로 내보내기",
+      "exportFileAgain": "다시 내보내기",
       "zoom": "확대/축소"
     },
     "edit": {

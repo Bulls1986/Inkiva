@@ -21,6 +21,7 @@
       "export": "导出",
       "exportHtml": "导出为 HTML",
       "exportPdf": "导出为 PDF",
+      "exportAgain": "再次导出",
       "import": "导入",
       "print": "打印",
       "closeTab": "关闭标签页",
@@ -308,6 +309,7 @@
     "autoNumberingHeadings": "自动编号标题",
     "showFrontMatter": "显示前置元数据",
     "export": "导出…",
+    "noPreviousExport": "没有可重复使用的上次导出目标。",
     "options": {
       "pageSizes": {
         "a3": "A3 (297mm x 420mm)",
@@ -759,6 +761,7 @@
       "importFile": "导入文件",
       "exportFile": "导出文件",
       "exportFilePdf": "导出为 PDF",
+      "exportFileAgain": "再次导出",
       "zoom": "缩放",
       "changeLineEnding": "更改行结束符"
     },

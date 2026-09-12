@@ -21,6 +21,7 @@
       "export": "Exportar",
       "exportHtml": "Exportar como HTML",
       "exportPdf": "Exportar como PDF",
+      "exportAgain": "Exportar de nuevo",
       "import": "Importar",
       "print": "Imprimir",
       "closeTab": "Cerrar Pestaña",
@@ -308,6 +309,7 @@
       "title": "Tabla de Contenidos"
     },
     "export": "Exportar...",
+    "noPreviousExport": "No hay un destino de exportación anterior disponible.",
     "options": {
       "pageSizes": {
         "a3": "A3",
@@ -756,6 +758,7 @@
       "importFile": "Importar Archivo",
       "exportFile": "Exportar Archivo",
       "exportFilePdf": "Exportar como PDF",
+      "exportFileAgain": "Exportar de nuevo",
       "zoom": "Zoom"
     },
     "edit": {

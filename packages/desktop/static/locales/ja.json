@@ -21,6 +21,7 @@
       "export": "エクスポート",
       "exportHtml": "HTMLとしてエクスポート",
       "exportPdf": "PDFとしてエクスポート",
+      "exportAgain": "再度エクスポート",
       "import": "インポート",
       "print": "印刷",
       "closeTab": "タブを閉じる",
@@ -308,6 +309,7 @@
       "title": "目次"
     },
     "export": "エクスポート...",
+    "noPreviousExport": "前回のエクスポート先がありません。",
     "options": {
       "pageSizes": {
         "a3": "A3",
@@ -756,6 +758,7 @@
       "importFile": "ファイルをインポート",
       "exportFile": "ファイルをエクスポート",
       "exportFilePdf": "PDFとしてエクスポート",
+      "exportFileAgain": "再度エクスポート",
       "zoom": "ズーム"
     },
     "edit": {

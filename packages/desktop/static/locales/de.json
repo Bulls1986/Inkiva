@@ -21,6 +21,7 @@
       "export": "Exportieren",
       "exportHtml": "Als HTML exportieren",
       "exportPdf": "Als PDF exportieren",
+      "exportAgain": "Erneut exportieren",
       "import": "Importieren",
       "print": "Drucken",
       "closeTab": "Tab schließen",
@@ -308,6 +309,7 @@
       "title": "Inhaltsverzeichnis"
     },
     "export": "Exportieren...",
+    "noPreviousExport": "Kein vorheriges Exportziel verfügbar.",
     "options": {
       "pageSizes": {
         "a3": "A3",
@@ -756,6 +758,7 @@
       "importFile": "Datei importieren",
       "exportFile": "Datei exportieren",
       "exportFilePdf": "Als PDF exportieren",
+      "exportFileAgain": "Erneut exportieren",
       "zoom": "Zoom"
     },
     "edit": {
