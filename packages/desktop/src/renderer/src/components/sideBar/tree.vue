@@ -440,8 +440,8 @@ onMounted(() => {
 }
 .open-project .el-button.is-text.is-has-bg,
 .empty-project .el-button.is-text.is-has-bg {
-  background-color: var(--color-accent);
-  color: #fff;
+  background-color: var(--buttonPrimaryBgColor);
+  color: var(--buttonPrimaryFontColor);
   border-color: transparent;
   box-shadow: none;
   transition: background-color var(--motion-fast), color var(--motion-fast);
@@ -450,8 +450,8 @@ onMounted(() => {
 .open-project .el-button.is-text.is-has-bg:focus,
 .empty-project .el-button.is-text.is-has-bg:hover,
 .empty-project .el-button.is-text.is-has-bg:focus {
-  background-color: var(--color-accent-hover);
-  color: #fff;
+  background-color: var(--buttonPrimaryBgColorHover);
+  color: var(--buttonPrimaryFontColorHover);
 }
 .new-input {
   outline: none;
