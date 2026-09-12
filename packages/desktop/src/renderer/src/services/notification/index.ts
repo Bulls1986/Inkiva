@@ -68,11 +68,8 @@ const notification: NotificationService = {
     fragment.innerHTML = fillTemplate(type, title, message)
 
     const noticeContainer = fragment.querySelector('.mt-notification') as HTMLElement
-    const bgNotice = noticeContainer.querySelector('.notice-bg') as HTMLElement
     const contentContainer = noticeContainer.querySelector('.content') as HTMLElement
-    const fluent = noticeContainer.querySelector('.fluent') as HTMLElement
     const close = noticeContainer.querySelector('.close') as HTMLElement
-    const { offsetHeight } = noticeContainer
     let target: HTMLElement = noticeContainer
 
     if (showConfirm) {
@@ -82,10 +79,6 @@ const notification: NotificationService = {
 
     noticeContainer.classList.add(TYPE_HASH[type])
     contentContainer.classList.add(TYPE_HASH[type])
-    bgNotice.classList.add(TYPE_HASH[type])
-
-    fluent.style.height = offsetHeight * 2 + 'px'
-    fluent.style.width = offsetHeight * 2 + 'px'
 
     const setCloseTimer = (): void => {
       if (typeof time === 'number' && time > 0) {
@@ -95,24 +88,11 @@ const notification: NotificationService = {
       }
     }
 
-    const mousemoveHandler = (event: MouseEvent): void => {
-      const { left, top } = noticeContainer.getBoundingClientRect()
-      const x = event.pageX
-      const y = event.pageY
-      fluent.style.left = x - left + 'px'
-      fluent.style.top = y - top + 'px'
-      fluent.style.opacity = '1'
-      fluent.style.height = noticeContainer.offsetHeight * 2 + 'px'
-      fluent.style.width = noticeContainer.offsetHeight * 2 + 'px'
-
+    const mousemoveHandler = (): void => {
       if (timer) clearTimeout(timer)
     }
 
-    const mouseleaveHandler = (_event: MouseEvent): void => {
-      fluent.style.opacity = '0'
-      fluent.style.height = noticeContainer.offsetHeight * 4 + 'px'
-      fluent.style.width = noticeContainer.offsetHeight * 4 + 'px'
-
+    const mouseleaveHandler = (): void => {
       if (timer) clearTimeout(timer)
       setCloseTimer()
     }
@@ -145,13 +125,8 @@ const notification: NotificationService = {
     }
 
     const remove = (): void => {
-      fluent.style.filter = 'blur(10px)'
-      fluent.style.opacity = '0'
-      fluent.style.height = noticeContainer.offsetHeight * 5 + 'px'
-      fluent.style.width = noticeContainer.offsetHeight * 5 + 'px'
-
       noticeContainer.style.opacity = '0'
-      noticeContainer.style.right = '-400px'
+      noticeContainer.style.transform = 'translateX(120%)'
 
       setTimeout(() => {
         noticeContainer.removeEventListener('mousemove', mousemoveHandler)
@@ -163,7 +138,7 @@ const notification: NotificationService = {
         if (notification.noticeCache[id]) {
           delete notification.noticeCache[id]
         }
-      }, 100)
+      }, 180)
     }
 
     notification.noticeCache[id] = { remove }
@@ -173,15 +148,10 @@ const notification: NotificationService = {
     target.addEventListener('click', clickHandler)
     close.addEventListener('click', closeHandler)
 
-    setTimeout(() => {
-      bgNotice.style.width = noticeContainer.offsetWidth * 3.5 + 'px'
-      bgNotice.style.height = noticeContainer.offsetWidth * 3.5 + 'px'
-      rePositionNotices()
-    }, 50)
-
     setCloseTimer()
 
     document.body.prepend(noticeContainer, document.body.firstChild as Node)
+    setTimeout(rePositionNotices, 0)
 
     return new Promise<void>((resolve, reject) => {
       rs = resolve

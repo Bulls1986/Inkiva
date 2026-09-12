@@ -1,62 +1,57 @@
 .mt-notification {
   position: fixed;
-  z-index: 10000;
+  z-index: var(--z-floating);
   overflow: hidden;
-  border-radius: 5px;
-  max-width: 350px;
+  box-sizing: border-box;
+  border-radius: var(--radius-lg);
+  max-width: 340px;
   min-width: 280px;
-  transition: all 0.2s ease;
-  box-shadow: 0px 12px 0px 0px rgba(0, 0, 0, 0);
-  backface-visibility: hidden;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-left: 2px solid var(--color-accent);
+  box-shadow: var(--elevation-floating);
+  transition: opacity var(--motion-normal), transform var(--motion-normal), background-color var(--motion-normal);
   right: 15px;
   bottom: 15px;
 
-  & > .notice-bg {
-    background: #000;
-    width: 0;
-    height: 0;
-    position: absolute;
-    transition:
-      all 0.8s ease,
-      left 0.4s ease,
-      top 0.4s ease;
-    border-radius: 50%;
-    z-index: 10;
-    transform: translate(-50%, -50%);
-    top: 50%;
-    left: 50%;
+  & > .notice-bg,
+  & > .fluent-container {
+    display: none;
   }
 
   & .content {
-    z-index: 100;
-    color: #fff;
+    z-index: 1;
+    color: var(--text-primary);
     position: relative;
     & .icon-wrapper {
       width: 28px;
       height: 28px;
-      border-radius: 50%;
+      border-radius: var(--radius-md);
       display: flex;
       justify-content: space-around;
       align-items: center;
-      background: rgba(255, 255, 255, 0.2);
+      background: var(--surface-hover);
+      color: var(--icon-primary);
     }
     & .title {
       display: flex;
       align-items: center;
-      padding: 5px 5px;
+      padding: 8px 10px 5px;
       & svg.icon {
         width: 0.85em;
         height: 0.85em;
       }
       & span {
         flex: 1;
-        margin-left: 10px;
+        margin-left: 8px;
       }
       & .close {
-        margin-right: 10px;
+        margin-right: 4px;
         opacity: 0;
-        transition: all 0.2s ease;
-        transform: scale(0);
+        transition: opacity var(--motion-fast), transform var(--motion-fast), color var(--motion-fast);
+        transform: scale(0.9);
+        color: var(--icon-secondary);
         cursor: pointer;
         transform-origin: center;
       }
@@ -65,11 +60,11 @@
       display: flex;
       align-items: center;
       font-size: 14px;
-      padding-bottom: 5px;
+      padding: 2px 10px 10px 46px;
       & .left-text {
         overflow: hidden;
         word-wrap: break-word;
-        padding: 5px;
+        padding: 0;
         box-sizing: border-box;
         width: 100%;
       }
@@ -77,35 +72,10 @@
         display: none;
         margin-left: 7px;
         width: 30px;
-        height: 30px;
+        height: 28px;
         cursor: pointer;
       }
     }
-  }
-
-  & .fluent-container {
-    width: 100%;
-    height: 100%;
-    position: absolute;
-    z-index: 40;
-    display: block;
-    top: 0px;
-    left: 0px;
-  }
-  & .fluent {
-    position: absolute;
-    z-index: 50;
-    display: block;
-    backface-visibility: hidden;
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    transition:
-      opacity 1s ease,
-      width 0.4s ease,
-      height 0.4s ease;
-    background: rgba(255, 255, 255, 0.2);
-    opacity: 0;
-    filter: blur(22px);
   }
 
   &:hover .content .title .close {
@@ -113,38 +83,17 @@
     transform: scale(1);
   }
 
-  /* Notification style colors */
   &.mt-primary {
-    & > .notice-bg {
-      background: var(--notificationPrimaryBg);
-    }
-    & > .content {
-      color: var(--notificationPrimaryColor);
-    }
+    border-left-color: var(--color-accent);
   }
   &.mt-info {
-    & > .notice-bg {
-      background: var(--notificationInfoBg);
-    }
-    & > .content {
-      color: var(--notificationInfoColor);
-    }
+    border-left-color: var(--color-info);
   }
   &.mt-warn {
-    & > .notice-bg {
-      background: var(--notificationWarningBg);
-    }
-    & > .content {
-      color: var(--notificationWarningColor);
-    }
+    border-left-color: var(--color-warning);
   }
   &.mt-error {
-    & > .notice-bg {
-      background: var(--notificationErrorBg);
-    }
-    & > .content {
-      color: var(--notificationErrorColor);
-    }
+    border-left-color: var(--color-danger);
   }
 }
 .mt-notification.mt-confirm .content .body {
