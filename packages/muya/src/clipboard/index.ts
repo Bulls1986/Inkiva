@@ -133,21 +133,33 @@ class Clipboard {
     }
 
     copyAsMarkdown() {
-        this.copyType = CopyType.COPY_AS_MARKDOWN;
-        document.execCommand('copy');
-        this.copyType = CopyType.NORMAL;
+        this._copyWithType(CopyType.COPY_AS_MARKDOWN);
     }
 
     copyAsHtml() {
-        this.copyType = CopyType.COPY_AS_HTML;
-        document.execCommand('copy');
-        this.copyType = CopyType.NORMAL;
+        this._copyWithType(CopyType.COPY_AS_HTML);
     }
 
     copyAsRich() {
-        this.copyType = CopyType.COPY_AS_RICH;
-        document.execCommand('copy');
-        this.copyType = CopyType.NORMAL;
+        this._copyWithType(CopyType.COPY_AS_RICH);
+    }
+
+    /**
+     * Execute a menu-driven copy while keeping the editor as the event owner.
+     * Native application menus can move focus away from the contenteditable
+     * before the renderer receives the command. Chromium still keeps Muya's
+     * cached selection, so restoring DOM focus is enough to let the normal
+     * copy listener serialize that selection without selecting a new caret.
+     */
+    private _copyWithType(copyType: CopyType): void {
+        this.muya.domNode.focus({ preventScroll: true });
+        this.copyType = copyType;
+        try {
+            document.execCommand('copy');
+        }
+        finally {
+            this.copyType = CopyType.NORMAL;
+        }
     }
 
     // Chromium removed programmatic clipboard reads via
@@ -198,8 +210,12 @@ class Clipboard {
     copy(type: CopyType, info: string) {
         this.copyType = type;
         this.copyInfo = info;
-        document.execCommand('copy');
-        this.copyType = CopyType.NORMAL;
+        try {
+            document.execCommand('copy');
+        }
+        finally {
+            this.copyType = CopyType.NORMAL;
+        }
     }
 }
 
