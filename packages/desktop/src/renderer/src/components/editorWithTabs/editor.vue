@@ -1367,7 +1367,28 @@ interface ExportOptions {
   pageSizeWidth?: number
   pageSizeHeight?: number
   isLandscape?: boolean
+  reuseLastPath?: boolean
   [key: string]: unknown
+}
+
+interface LastExportRequest {
+  fileId: string
+  options: ExportOptions
+}
+
+let lastExportRequest: LastExportRequest | null = null
+
+const rememberLastExport = (options: ExportOptions) => {
+  if (
+    !options.reuseLastPath &&
+    (options.type === 'pdf' || options.type === 'styledHtml') &&
+    currentFile.value?.id
+  ) {
+    lastExportRequest = {
+      fileId: currentFile.value.id,
+      options: { ...options }
+    }
+  }
 }
 
 const handleExport = async (options: unknown) => {
@@ -1394,7 +1415,8 @@ const handleExport = async (options: unknown) => {
           toc: htmlToc,
           dir: props.textDirection
         })
-        editorStore.EXPORT({ type, content })
+        rememberLastExport(opts)
+        editorStore.EXPORT({ type, content, reuseLastPath: opts.reuseLastPath })
       } catch (err) {
         log.error('Failed to export document:', err)
         notice.notify({
@@ -1428,7 +1450,8 @@ const handleExport = async (options: unknown) => {
           dir: props.textDirection
         })
         printer!.renderMarkdown(html, true, props.textDirection)
-        editorStore.EXPORT({ type, pageOptions })
+        rememberLastExport(opts)
+        editorStore.EXPORT({ type, pageOptions, reuseLastPath: opts.reuseLastPath })
       } catch (err) {
         log.error('Failed to export document:', err)
         notice.notify({
@@ -1467,6 +1490,21 @@ const handleExport = async (options: unknown) => {
       break
     }
   }
+}
+
+const handleExportAgain = () => {
+  if (!lastExportRequest || lastExportRequest.fileId !== currentFile.value?.id) {
+    notice.notify({
+      title: t('exportSettings.title'),
+      type: 'warning',
+      message: t('exportSettings.noPreviousExport')
+    })
+    return
+  }
+
+  handleExport({ ...lastExportRequest.options, reuseLastPath: true }).catch((err) => {
+    log.error('Failed to repeat export:', err)
+  })
 }
 
 const handlePrintServiceClearup = () => {
@@ -1966,6 +2004,7 @@ onMounted(() => {
   bus.on('redo', handleRedo)
   bus.on('selectAll', handleSelectAll)
   bus.on('export', handleExport)
+  bus.on('export-again', handleExportAgain)
   bus.on('print-service-clearup', handlePrintServiceClearup)
   bus.on('paragraph', handleEditParagraph)
   bus.on('format', handleInlineFormat)
@@ -2127,6 +2166,7 @@ onBeforeUnmount(() => {
   bus.off('redo', handleRedo)
   bus.off('selectAll', handleSelectAll)
   bus.off('export', handleExport)
+  bus.off('export-again', handleExportAgain)
   bus.off('print-service-clearup', handlePrintServiceClearup)
   bus.off('paragraph', handleEditParagraph)
   bus.off('format', handleInlineFormat)

@@ -167,6 +167,16 @@ export default function(
           click(_menuItem, browserWindow) {
             actions.exportFile(browserWindow as BrowserWindow | undefined, 'pdf')
           }
+        },
+        {
+          type: 'separator'
+        },
+        {
+          id: 'exportAgainMenuItem',
+          label: t('menu.file.exportAgain'),
+          click(_menuItem, browserWindow) {
+            actions.exportFileAgain(browserWindow as BrowserWindow | undefined)
+          }
         }
       ]
     },

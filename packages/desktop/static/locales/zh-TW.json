@@ -21,6 +21,7 @@
       "export": "匯出",
       "exportHtml": "匯出為 HTML",
       "exportPdf": "匯出為 PDF",
+      "exportAgain": "再次匯出",
       "import": "匯入",
       "print": "列印",
       "closeTab": "關閉標籤頁",
@@ -308,6 +309,7 @@
       "title": "目錄"
     },
     "export": "匯出…",
+    "noPreviousExport": "沒有可重複使用的上次匯出目標。",
     "options": {
       "pageSizes": {
         "a3": "A3",
@@ -756,6 +758,7 @@
       "importFile": "匯入檔案",
       "exportFile": "匯出檔案",
       "exportFilePdf": "匯出為 PDF",
+      "exportFileAgain": "再次匯出",
       "zoom": "縮放"
     },
     "edit": {

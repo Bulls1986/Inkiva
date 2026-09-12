@@ -21,6 +21,7 @@
       "export": "Exporter",
       "exportHtml": "Exporter en HTML",
       "exportPdf": "Exporter en PDF",
+      "exportAgain": "Exporter à nouveau",
       "import": "Importer",
       "print": "Imprimer",
       "closeTab": "Fermer l'onglet",
@@ -308,6 +309,7 @@
       "title": "Table des matières"
     },
     "export": "Exporter...",
+    "noPreviousExport": "Aucune destination d’exportation précédente n’est disponible.",
     "options": {
       "pageSizes": {
         "a3": "A3",
@@ -756,6 +758,7 @@
       "importFile": "Importer un fichier",
       "exportFile": "Exporter un fichier",
       "exportFilePdf": "Exporter en PDF",
+      "exportFileAgain": "Exporter à nouveau",
       "zoom": "Zoom"
     },
     "edit": {

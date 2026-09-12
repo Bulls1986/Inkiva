@@ -27,6 +27,7 @@ import { getPath, getRecommendTitleFromMarkdownString } from '../../utils'
 import pandoc from '../../utils/pandoc'
 import { t } from '../../i18n'
 import type { UnsavedFile } from '@shared/types/files'
+import { getReusableExportPath, type LastExportTarget } from '../../utils/exportTarget'
 
 type Win = BrowserWindow | null | undefined
 
@@ -85,11 +86,14 @@ interface ExportPayload {
   pathname?: string
   title?: string
   pageOptions?: PageOptions
+  reuseLastPath?: boolean
 }
+
+const lastExportTargets = new WeakMap<BrowserWindow, LastExportTarget>()
 
 // Handle the export response from renderer process.
 const handleResponseForExport = async(e: IpcMainEvent, payload: ExportPayload): Promise<void> => {
-  const { type, content, pathname, title, pageOptions } = payload
+  const { type, content, pathname, title, pageOptions, reuseLastPath = false } = payload
   const win = BrowserWindow.fromWebContents(e.sender)
   if (!win) {
     return
@@ -102,10 +106,27 @@ const handleResponseForExport = async(e: IpcMainEvent, payload: ExportPayload): 
   }
 
   const defaultPath = path.join(dirname, `${nakedFilename}${extension}`)
-  const { filePath, canceled } = await dialog.showSaveDialog(win, {
-    defaultPath,
-    filters: getExportExtensionFilter(type)
-  })
+  let filePath: string | undefined
+  let canceled = false
+
+  if (reuseLastPath) {
+    filePath = getReusableExportPath(lastExportTargets.get(win), type)
+    if (!filePath) {
+      win.webContents.send('mt::show-notification', {
+        title: t('exportSettings.title'),
+        type: 'warning',
+        message: t('exportSettings.noPreviousExport')
+      })
+      return
+    }
+  } else {
+    const result = await dialog.showSaveDialog(win, {
+      defaultPath,
+      filters: getExportExtensionFilter(type)
+    })
+    filePath = result.filePath
+    canceled = result.canceled
+  }
 
   if (filePath && !canceled) {
     try {
@@ -129,6 +150,7 @@ const handleResponseForExport = async(e: IpcMainEvent, payload: ExportPayload): 
         }
         await writeFile(filePath, content, extension!, 'utf8')
       }
+      lastExportTargets.set(win, { type, filePath })
       win.webContents.send('mt::export-success', { type, filePath })
     } catch (err) {
       log.error('Error while exporting:', err)
@@ -750,6 +772,12 @@ ipcMain.on('mt::cmd-import-file', (e) => {
 export const exportFile = (win: Win, type: string): void => {
   if (win && win.webContents) {
     win.webContents.send('mt::show-export-dialog', type)
+  }
+}
+
+export const exportFileAgain = (win: Win): void => {
+  if (win && win.webContents) {
+    win.webContents.send('mt::export-again')
   }
 }
 

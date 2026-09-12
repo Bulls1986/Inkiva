@@ -160,6 +160,12 @@ const commands: CommandDescriptor[] = [
           await delay(50)
           bus.emit('showExportDialog', 'pdf')
         }
+      },
+      {
+        id: 'file.export-file-again',
+        execute: async() => {
+          bus.emit('export-again')
+        }
       }
     ]
   },

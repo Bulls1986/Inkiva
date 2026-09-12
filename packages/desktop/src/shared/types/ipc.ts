@@ -157,6 +157,7 @@ export interface IpcSendChannels {
       filename: string
       pathname: string
       pageOptions: PageOptions
+      reuseLastPath?: boolean
     }
   ]
   'mt::response-file-move-to': [payload: { id: string; pathname: string }]
@@ -280,6 +281,7 @@ export interface IpcMainEventChannels {
   'mt::set-view-layout': [layout: unknown]
   'mt::show-command-palette': []
   'mt::show-export-dialog': [type: ExportType]
+  'mt::export-again': []
   'mt::show-notification': [payload: unknown]
   'mt::spelling-replace-misspelling': [payload: unknown]
   'mt::spelling-show-switch-language': []

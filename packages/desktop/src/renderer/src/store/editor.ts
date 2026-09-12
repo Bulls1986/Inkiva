@@ -87,6 +87,7 @@ interface ExportPayload {
   type: string
   content?: string
   pageOptions?: PageOptions
+  reuseLastPath?: boolean
 }
 
 interface AutoSavePayload {
@@ -1576,7 +1577,7 @@ export const useEditorStore = defineStore('editor', {
       )
     },
 
-    EXPORT({ type, content, pageOptions }: ExportPayload): void {
+    EXPORT({ type, content, pageOptions, reuseLastPath }: ExportPayload): void {
       if (this.currentFile === null) return
 
       let title = ''
@@ -1601,7 +1602,8 @@ export const useEditorStore = defineStore('editor', {
         content: content ?? '',
         filename,
         pathname,
-        pageOptions: pageOptions ?? {}
+        pageOptions: pageOptions ?? {},
+        reuseLastPath: reuseLastPath ?? false
       })
     },
 

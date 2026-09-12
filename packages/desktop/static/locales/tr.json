@@ -21,6 +21,7 @@
       "export": "Dışa Aktar",
       "exportHtml": "HTML Olarak Dışa Aktar",
       "exportPdf": "PDF Olarak Dışa Aktar",
+      "exportAgain": "Yeniden Dışa Aktar",
       "import": "İçe Aktar",
       "print": "Yazdır",
       "closeTab": "Sekmeyi Kapat",
@@ -308,6 +309,7 @@
       "title": "İçindekiler"
     },
     "export": "Dışa Aktar...",
+    "noPreviousExport": "Önceki dışa aktarma hedefi yok.",
     "options": {
       "pageSizes": {
         "a3": "A3 (297mm x 420mm)",
@@ -756,6 +758,7 @@
       "importFile": "Dosya İçe Aktar",
       "exportFile": "Dosya Dışa Aktar",
       "exportFilePdf": "PDF Olarak Dışa Aktar",
+      "exportFileAgain": "Yeniden Dışa Aktar",
       "zoom": "Yakınlaştırma"
     },
     "edit": {
