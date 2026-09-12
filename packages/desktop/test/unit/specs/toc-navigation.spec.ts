@@ -70,6 +70,22 @@ describe('useEditorStore UPDATE_TOC', () => {
     expect(store.listToc).toEqual([])
     expect(store.toc).toEqual([])
   })
+
+  it('tracks only an active slug that still belongs to the current TOC', () => {
+    const store = useEditorStore()
+    store.UPDATE_TOC([
+      { slug: 'uid-1', githubSlug: 'intro', content: 'Intro', lvl: 1 },
+      { slug: 'uid-2', githubSlug: 'details', content: 'Details', lvl: 2 }
+    ])
+
+    store.UPDATE_ACTIVE_TOC('uid-2')
+    expect(store.activeTocSlug).toBe('uid-2')
+    store.UPDATE_ACTIVE_TOC('missing')
+    expect(store.activeTocSlug).toBe('uid-2')
+
+    store.UPDATE_TOC([{ slug: 'uid-1', githubSlug: 'intro', content: 'Intro', lvl: 1 }], false)
+    expect(store.activeTocSlug).toBeNull()
+  })
 })
 
 describe('resolveTocHeadingElement', () => {
@@ -125,5 +141,22 @@ describe('resolveTocHeadingElement', () => {
     container.innerHTML = '<div class="mu-container"><h1>Only one</h1></div>'
     // listToc claims two headings but the DOM has one — guard against overrun.
     expect(resolveTocHeadingElement(container, listToc, 'uid-2')).toBeNull()
+  })
+
+  it('prefers the runtime anchor when the DOM order has changed', () => {
+    const container = document.createElement('div')
+    container.className = 'editor-component mu-editor'
+    container.innerHTML = `
+      <div class="mu-container">
+        <h1>Top One</h1>
+        <h2>Inserted before the target</h2>
+        <h2>Top Two</h2>
+      </div>
+    `
+    const headings = container.querySelectorAll('.mu-container > h1, .mu-container > h2')
+    headings[2].setAttribute('data-inkiva-toc-slug', 'uid-2')
+
+    const el = resolveTocHeadingElement(container, listToc, 'uid-2')
+    expect(el?.textContent).toBe('Top Two')
   })
 })

@@ -239,7 +239,12 @@
       "openFolder": "Abrir Pasta"
     },
     "toc": {
-      "title": "Índice"
+      "title": "Índice",
+      "search": "Pesquisar títulos...",
+      "expandAll": "Expandir tudo",
+      "collapseAll": "Recolher tudo",
+      "noMatches": "Nenhum título corresponde à pesquisa.",
+      "empty": "Não há títulos neste documento"
     },
     "icons": {
       "files": "Arquivos",

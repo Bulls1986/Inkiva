@@ -239,7 +239,12 @@
       "openFolder": "폴더 열기"
     },
     "toc": {
-      "title": "목차"
+      "title": "목차",
+      "search": "제목 검색…",
+      "expandAll": "모두 펼치기",
+      "collapseAll": "모두 접기",
+      "noMatches": "일치하는 제목이 없습니다",
+      "empty": "문서에 제목이 없습니다"
     },
     "icons": {
       "files": "파일",

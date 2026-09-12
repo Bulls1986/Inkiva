@@ -19,6 +19,8 @@
 export const TOP_LEVEL_HEADINGS_SELECTOR =
   '.mu-container > h1, .mu-container > h2, .mu-container > h3, .mu-container > h4, .mu-container > h5, .mu-container > h6'
 
+export const TOC_HEADING_SLUG_ATTRIBUTE = 'data-inkiva-toc-slug'
+
 export const resolveTocHeadingElement = (
   container: Element,
   listToc: ReadonlyArray<{ slug?: unknown }>,
@@ -27,5 +29,8 @@ export const resolveTocHeadingElement = (
   const index = listToc.findIndex((item) => item.slug === slug)
   if (index < 0) return null
   const headings = container.querySelectorAll(TOP_LEVEL_HEADINGS_SELECTOR)
-  return headings[index] ?? null
+  const runtimeHeading = Array.from(headings).find(
+    (heading) => heading.getAttribute(TOC_HEADING_SLUG_ATTRIBUTE) === slug
+  )
+  return runtimeHeading ?? headings[index] ?? null
 }

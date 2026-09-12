@@ -239,7 +239,12 @@
       "openFolder": "フォルダを開く"
     },
     "toc": {
-      "title": "目次"
+      "title": "目次",
+      "search": "見出しを検索…",
+      "expandAll": "すべて展開",
+      "collapseAll": "すべて折りたたむ",
+      "noMatches": "一致する見出しはありません",
+      "empty": "見出しがありません"
     },
     "icons": {
       "files": "ファイル",

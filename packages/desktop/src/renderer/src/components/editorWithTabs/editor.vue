@@ -126,6 +126,7 @@ import { guessClipboardFilePath } from '@/util/clipboard'
 import { dataUrlToFile } from '@/util/imageData'
 import { getCssForOptions, getHtmlToc, type PdfCssOptions, type HtmlTocOptions } from '@/util/pdf'
 import { resolveTocHeadingElement } from '@/util/tocNavigation'
+import { createTocRefreshScheduler, createTocScrollSync } from '@/util/tocOutline'
 import { addCommonStyle, setEditorWidth } from '@/util/theme'
 import { usePreferencesStore } from '@/store/preferences'
 import { useEditorStore } from '@/store/editor'
@@ -191,6 +192,7 @@ interface MuyaChange {
   focus?: { offset?: number } | null
   cursorCoords?: { y?: number } | null
   formats?: SelectionFormatLike[]
+  tocChanged?: boolean
   [key: string]: unknown
 }
 
@@ -254,7 +256,7 @@ const {
 } = storeToRefs(preferencesStore)
 
 // Editor store refs
-const { currentFile, tabs } = storeToRefs(editorStore)
+const { currentFile, tabs, listToc } = storeToRefs(editorStore)
 
 // Project store refs
 const { projectTree } = storeToRefs(projectStore)
@@ -286,6 +288,8 @@ let switchLanguageCommand: SpellcheckerLanguageCommand | null = null
 let imageViewer: SimpleImageViewer | null = null
 // The engine has no `scroll` event; we listen on the scroll container directly.
 let scrollHandler: ((e: Event) => void) | null = null
+let tocScrollSync: ReturnType<typeof createTocScrollSync> | null = null
+const tocRefreshScheduler = createTocRefreshScheduler()
 
 // The engine's undo/redo history (`getHistory()`) has a different shape than
 // the desktop store's `tab.history` (which drives the save/dirty tracking and
@@ -805,6 +809,7 @@ watch(spellcheckerLanguage, (value, oldValue) => {
 
 watch(currentFile, (value, oldValue) => {
   if (value && value !== oldValue) {
+    tocRefreshScheduler.cancel()
     scrollToCursor(0)
     // Hide float tools if needed.
     if (editor.value) {
@@ -812,6 +817,14 @@ watch(currentFile, (value, oldValue) => {
     }
   }
 })
+
+watch(
+  listToc,
+  (value) => {
+    tocScrollSync?.update(value)
+  },
+  { flush: 'post' }
+)
 
 watch(
   sourceCode,
@@ -1574,6 +1587,41 @@ const recordEditorSetContent = (source: EditorSetContentSource): void => {
   metrics.setContentSources.push(source)
 }
 
+type TocMetric = 'scheduledRefreshes' | 'refreshCalls'
+
+const recordTocMetric = (metric: TocMetric): void => {
+  if (window.electron?.process?.env?.PERF_TESTING !== 'true') return
+
+  const globalState = globalThis as typeof globalThis & {
+    __inkiva_e2e_toc_metrics__?: {
+      scheduledRefreshes: number
+      refreshCalls: number
+    }
+  }
+  const metrics = (globalState.__inkiva_e2e_toc_metrics__ ??= {
+    scheduledRefreshes: 0,
+    refreshCalls: 0
+  })
+  metrics[metric] += 1
+}
+
+const refreshEditorToc = (force = true): void => {
+  if (!editor.value) return
+  editorStore.UPDATE_TOC(editor.value.getTOC(), force)
+}
+
+const scheduleTocRefresh = (id: string): void => {
+  recordTocMetric('scheduledRefreshes')
+  tocRefreshScheduler.schedule(id, () => {
+    // A file switch can happen while the debounce timer is pending. The
+    // scheduler cancels the common path; this guard is the final protection
+    // against applying an old document's TOC to the active tab.
+    if (!currentFile.value || currentFile.value.id !== id || !editor.value) return
+    recordTocMetric('refreshCalls')
+    refreshEditorToc(false)
+  })
+}
+
 // listen for `open-single-file` event, it will call this method only when open a new file.
 const setMarkdownToEditor = (payload: unknown) => {
   const {
@@ -1610,7 +1658,7 @@ const setMarkdownToEditor = (payload: unknown) => {
     // `setContent` rebuilds the block tree synchronously but fires no
     // `json-change`, so seed the TOC explicitly (otherwise it stays empty until
     // the first edit, and a file switch keeps the previous file's TOC).
-    editorStore.UPDATE_TOC(editor.value.getTOC())
+    refreshEditorToc()
     // A freshly created/opened tab should be ready to type into.
     focusFreshEditor()
   }
@@ -1682,7 +1730,7 @@ const handleFileChange = (payload: unknown) => {
       // remapping below.
       editor.value.replaceContent(newMarkdown, preSourceModeSelection)
       preSourceModeSelection = null
-      editorStore.UPDATE_TOC(editor.value.getTOC())
+      refreshEditorToc()
       // Map the CodeMirror `{ line, ch }` cursor onto a block-key cursor so the
       // WYSIWYG caret lands where the source-mode cursor was (PG2).
       editor.value.setCursorByOffset(muyaIndexCursor)
@@ -1704,7 +1752,7 @@ const handleFileChange = (payload: unknown) => {
         resetSyntheticHistory(id, newMarkdown)
       }
       editor.value.replaceContent(newMarkdown)
-      editorStore.UPDATE_TOC(editor.value.getTOC())
+      refreshEditorToc()
       if (newCursor) {
         applyCursor(editor.value, newCursor)
       }
@@ -1731,7 +1779,7 @@ const handleFileChange = (payload: unknown) => {
       }
       // Tab switch swaps content without firing `json-change`, so re-seed the
       // TOC (otherwise returning to an open tab keeps the other tab's TOC).
-      editorStore.UPDATE_TOC(editor.value.getTOC())
+      refreshEditorToc()
       if (newCursor) {
         applyCursor(editor.value, newCursor)
       } else if (isIndexCursor(muyaIndexCursor)) {
@@ -1932,7 +1980,7 @@ onMounted(() => {
   editor.value = muya
   // The first document's content is set via constructor options, so no
   // `file-loaded` / `setMarkdownToEditor` runs for it — seed its TOC here.
-  editorStore.UPDATE_TOC(muya.getTOC())
+  refreshEditorToc()
 
   // Seed the save-tracking baseline for the mount-loaded document (from the
   // engine's OWN serialization, same reason as setMarkdownToEditor). Without
@@ -1944,6 +1992,17 @@ onMounted(() => {
   }
 
   const container = getScrollContainer()!
+
+  // Cache top-level heading positions for active-TOC highlighting. The sync
+  // reads layout only during outline/DOM rebuilds; scroll events use a binary
+  // search over the cache so diagram nodes and large documents do not trigger
+  // a forced layout per event.
+  tocScrollSync = createTocScrollSync(container, (slug) => {
+    editorStore.UPDATE_ACTIVE_TOC(slug)
+  })
+  tocScrollSync.update(listToc.value)
+  tocScrollSync.attach()
+  tocScrollSync.refresh()
 
   // Listen for language changes and update the engine locale.
   bus.on('language-changed', handleLanguageChanged)
@@ -1995,10 +2054,11 @@ onMounted(() => {
 
   // The engine emits a low-level `json-change` ({ op, source, prevDoc, doc })
   // on every document mutation; the desktop's content-change pipeline wants the
-  // derived document snapshot (markdown / word count / cursor / history / TOC /
+  // derived document snapshot (markdown / word count / cursor / history /
   // block AST), so we compute it here — mirroring the legacy engine's
-  // `dispatchChange` payload.
-  editor.value.on('json-change', () => {
+  // `dispatchChange` payload. `tocChanged` comes from the operation path, so
+  // ordinary paragraph typing does not parse/rebuild the entire outline.
+  editor.value.on('json-change', (change: MuyaChange = {}) => {
     // There is a chance that this event is fired AFTER the tab is switched. If we purely rely on this.currentFile later on
     // it can cause invalid updates. Hence, we need the id to identify changes as part of each tab
     if (!currentFile.value || !editor.value) return
@@ -2020,9 +2080,10 @@ onMounted(() => {
       // Synthetic, desktop-shaped history so the store's save/dirty tracking
       // keeps working (the engine history shape is incompatible).
       history: makeSyntheticHistory(id, markdown),
-      toc: editor.value.getTOC(),
       blocks: editor.value.getState()
     })
+
+    if (change.tocChanged === true) scheduleTocRefresh(id)
   })
 
   // The engine does not emit `scroll`; listen on the scroll container directly
@@ -2164,6 +2225,10 @@ onBeforeUnmount(() => {
     container?.removeEventListener('scroll', scrollHandler)
   }
   scrollHandler = null
+
+  tocRefreshScheduler.cancel()
+  tocScrollSync?.destroy()
+  tocScrollSync = null
 
   clearPendingScrollRestore()
 

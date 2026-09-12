@@ -6,6 +6,7 @@ import * as json1 from 'ot-json1';
 import { deepClone } from '../utils';
 import logger from '../utils/logger';
 import { getTOC } from './getTOC';
+import { isTopLevelTocChange } from './tocChange';
 
 import { MarkdownToState } from './markdownToState';
 import StateToMarkdown from './stateToMarkdown';
@@ -207,6 +208,7 @@ class JSONState {
 
     dispatch(op: JSONOp, source = 'user' /* user, api */) {
         const prevDoc = this.getState();
+        const tocChanged = isTopLevelTocChange(op, prevDoc);
         this._apply(op);
         const getDoc = () => this.getState();
         debug.log(JSON.stringify(op));
@@ -214,6 +216,7 @@ class JSONState {
             op,
             source,
             prevDoc,
+            tocChanged,
             // Most listeners (History and the desktop shell) only need op/
             // source/prevDoc. Preserve the public `doc` field but clone the
             // current full AST only if a consumer actually reads it.
@@ -287,6 +290,7 @@ class JSONState {
             (acc, curr) => json1.type.compose(acc, curr) as JSONOpList,
         );
         const prevDoc = this.getState();
+        const tocChanged = isTopLevelTocChange(op, prevDoc);
         this._apply(op);
         const getDoc = () => this.getState();
         // Clear before emitting: a listener that edits synchronously then starts
@@ -300,6 +304,7 @@ class JSONState {
             op,
             source: 'user',
             prevDoc,
+            tocChanged,
             // Lazily materialize the post-change AST for compatibility with
             // consumers that need it, without penalizing every keystroke.
             get doc() {

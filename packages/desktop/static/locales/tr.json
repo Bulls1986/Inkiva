@@ -239,7 +239,12 @@
       "openFolder": "Klasör Aç"
     },
     "toc": {
-      "title": "İçindekiler"
+      "title": "İçindekiler",
+      "search": "Başlıkları ara...",
+      "expandAll": "Tümünü genişlet",
+      "collapseAll": "Tümünü daralt",
+      "noMatches": "Aramanızla eşleşen başlık yok.",
+      "empty": "Bu belgede başlık yok"
     },
     "icons": {
       "files": "Dosyalar",
