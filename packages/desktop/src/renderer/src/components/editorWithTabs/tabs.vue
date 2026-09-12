@@ -263,20 +263,21 @@ onBeforeUnmount(() => {
 <style scoped>
 .close-icon {
   cursor: pointer;
-  transition: opacity 0.15s ease-in-out;
+  color: var(--icon-secondary);
+  transition: opacity var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 .close-icon:hover {
-  color: var(--focusColor);
+  color: var(--icon-primary);
 }
 
 .editor-tabs {
   position: relative;
   display: flex;
   flex-direction: row;
-  height: 28px;
+  height: 32px;
   user-select: none;
-  box-shadow: 0px 0px 9px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
   overflow: hidden;
   &:hover > .new-file {
     opacity: 1 !important;
@@ -284,7 +285,7 @@ onBeforeUnmount(() => {
 }
 .scrollable-tabs {
   flex: 0 1 auto;
-  height: 28px;
+  height: 32px;
   overflow: hidden;
 }
 .tabs-container {
@@ -292,7 +293,7 @@ onBeforeUnmount(() => {
   list-style: none;
   margin: 0;
   padding: 0;
-  height: 28px;
+  height: 32px;
   position: relative;
   display: flex;
   flex-direction: row;
@@ -302,13 +303,13 @@ onBeforeUnmount(() => {
     display: none;
   }
   & > li {
-    transition: all 0.15s ease-in-out;
+    transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
     position: relative;
     padding: 0 8px;
-    color: var(--editorColor50);
+    color: var(--text-secondary);
     font-size: 12px;
-    line-height: 28px;
-    height: 28px;
+    line-height: 32px;
+    height: 32px;
     max-width: 280px;
     display: flex;
     align-items: center;
@@ -322,7 +323,7 @@ onBeforeUnmount(() => {
       outline: none;
     }
     &:hover {
-      background: var(--floatBgColor) !important;
+      background: var(--surface-hover);
     }
     &:hover > .close-icon {
       opacity: 1;
@@ -341,7 +342,7 @@ onBeforeUnmount(() => {
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: var(--themeColor);
+      background: var(--color-accent);
       flex-shrink: 0;
     }
   }
@@ -360,19 +361,12 @@ onBeforeUnmount(() => {
     }
   }
   & > li.active {
-    background: var(--itemBgColor);
+    background: var(--surface-selected);
+    color: var(--text-primary);
+    font-weight: 500;
     z-index: 3;
-    &:after {
-      content: '';
-      position: absolute;
-      left: 0;
-      bottom: 0;
-      right: 0;
-      height: 2px;
-      background: var(--themeColor);
-    }
     & > .close-icon {
-      opacity: 1;
+      opacity: 0.7;
     }
     & > .unsaved-dot {
       display: none;
@@ -380,16 +374,16 @@ onBeforeUnmount(() => {
   }
 }
 .editor-tabs > .new-file {
-  flex: 0 0 28px;
-  width: 28px;
-  height: 28px;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
   border-right: none;
   background: transparent;
   display: flex;
   align-items: center;
   justify-content: space-around;
   cursor: pointer;
-  color: var(--editorColor50);
+  color: var(--icon-secondary);
   opacity: 0;
   &.always-visible {
     opacity: 1;
@@ -397,9 +391,11 @@ onBeforeUnmount(() => {
 }
 
 .editor-tabs > .new-file:hover {
-  transition: all 0.15s ease-in-out;
+  background: var(--surface-hover);
+  color: var(--icon-primary);
+  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
   & > svg {
-    fill: var(--focusColor);
+    fill: var(--color-accent);
   }
 }
 
