@@ -1782,6 +1782,9 @@ export const useEditorStore = defineStore('editor', {
       window.electron.ipcRenderer.on('mt::cm-copy-as-rich', () => {
         bus.emit('copyAsRich', 'copyAsRich')
       })
+      window.electron.ipcRenderer.on('mt::cm-copy-as-markdown', () => {
+        bus.emit('copyAsMarkdown', 'copyAsMarkdown')
+      })
       window.electron.ipcRenderer.on('mt::cm-copy-as-html', () => {
         bus.emit('copyAsHtml', 'copyAsHtml')
       })

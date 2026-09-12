@@ -614,7 +614,11 @@ export class Muya {
     }
 
     /**
-     * Copy the current selection as rendered HTML to the clipboard.
+     * Copy the current selection as HTML source to the clipboard.
+     *
+     * The source is placed in the plain-text clipboard flavor so that it can
+     * be pasted as literal HTML source when requested. Use {@link copyAsRich}
+     * when a rich-text target should receive the rendered HTML flavor.
      */
     copyAsHtml() {
         this.editor.clipboard.copyAsHtml();

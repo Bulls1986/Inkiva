@@ -50,4 +50,21 @@ describe('normalizePastedHTML — bare URL link normalization', () => {
         expect(out).toContain(`href="${url}"`);
         expect(markdown).toContain(`[${url}](${url})`);
     });
+
+    it('removes executable markup before HTML is converted to Markdown', async () => {
+        // Keep this contract offline: URL-title enrichment is not part of the
+        // paste safety boundary and must never make the test call an external
+        // service.
+        setOnline(false);
+        const out = await normalizePastedHTML(
+            '<p onclick="alert(1)"><strong>safe</strong><script>alert(2)</script>'
+            + '<img src="x" onerror="alert(3)"></p>',
+        );
+        const markdown = new HtmlToMarkdown({ bulletListMarker: '-' }).generate(out);
+
+        expect(out).not.toContain('<script');
+        expect(out).not.toContain('onclick');
+        expect(out).not.toContain('onerror');
+        expect(markdown).toContain('**safe**');
+    });
 });

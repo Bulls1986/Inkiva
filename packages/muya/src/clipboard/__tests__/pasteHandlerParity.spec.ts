@@ -177,6 +177,23 @@ describe('pasteHandler - whitespace-only plain text paste', () => {
     });
 });
 
+describe('pasteHandler — clipboard flavor priority', () => {
+    it('converts HTML when the clipboard has no plain-text flavor', async () => {
+        installLoadBlockSpy([]);
+        const wrapper = makeWrapper('paragraph');
+        const anchor = makeAnchorBlock('paragraph.content', 'prefix', wrapper, 6);
+        const clipboard = makeClipboard(anchor);
+
+        await clipboard.pasteHandler(makePasteEvent({
+            'text/html': '<p><strong>rich</strong></p>',
+            'text/plain': '',
+        }));
+
+        expect(anchor.text).toBe('prefix**rich**');
+        expect(anchor.text).not.toContain('plain fallback');
+    });
+});
+
 describe('pasteHandler — single-line markdown parses into real blocks (sub-item 1)', () => {
     it('pastes `# Title` into an empty paragraph as an atx-heading block', async () => {
         const created: IRecordedBlock[] = [];

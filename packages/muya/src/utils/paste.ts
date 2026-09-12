@@ -318,7 +318,10 @@ export function getCopyTextType(html: string, text: string, pasteType: PasteType
     };
 
     if (pasteType === PasteType.NORMAL)
-        return html && text ? 'html' : getTextType(text);
+        // Prefer a real HTML clipboard flavor even when the producer omits
+        // text/plain (some browsers and rich editors do). Only fall back to
+        // text sniffing when the HTML flavor is absent or empty.
+        return html.trim().length > 0 ? 'html' : getTextType(text);
     else
         return getTextType(text);
 }

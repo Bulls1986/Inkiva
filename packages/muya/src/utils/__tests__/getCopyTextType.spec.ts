@@ -47,9 +47,13 @@ describe('isStandaloneTableHtml', () => {
     });
 });
 
-describe('getCopyTextType — pre-existing classifier behaviour stays put', () => {
+describe('getCopyTextType — clipboard flavor priority', () => {
     it('returns html when both html and text are present', () => {
         expect(getCopyTextType('<p>x</p>', 'x', PasteType.NORMAL)).toBe('html');
+    });
+
+    it('prefers the HTML flavor when the clipboard has no plain-text flavor', () => {
+        expect(getCopyTextType('<p><strong>x</strong></p>', '', PasteType.NORMAL)).toBe('html');
     });
 
     it('returns code for <p> text-only', () => {
