@@ -388,6 +388,7 @@ export const waitForWorkspaceReady = async(page: Page): Promise<void> => {
     null,
     { timeout: 15000 }
   )
+  await page.waitForSelector('.command-palette', { state: 'attached', timeout: 15000 })
 }
 
 export const enterSourceMode = async(page: Page, app: ElectronApplication): Promise<void> => {
