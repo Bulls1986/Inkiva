@@ -28,7 +28,7 @@ describe('notification service', () => {
 
     vi.advanceTimersByTime(1)
     expect(document.querySelector('.mt-notification')).not.toBeNull()
-    vi.advanceTimersByTime(100)
+    vi.advanceTimersByTime(180)
     expect(document.querySelector('.mt-notification')).toBeNull()
   })
 
@@ -44,7 +44,7 @@ describe('notification service', () => {
     const close = document.querySelector('.mt-notification .close')
     expect(close).not.toBeNull()
     close!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    vi.advanceTimersByTime(100)
+    vi.advanceTimersByTime(180)
 
     expect(document.querySelector('.mt-notification')).toBeNull()
   })

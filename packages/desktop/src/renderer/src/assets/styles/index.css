@@ -40,7 +40,7 @@
   --buttonBorder: 1px solid #d7dde5;
   --buttonShadow: 0 1px 1px rgba(23, 26, 31, 0.02);
   --buttonFontColorHover: var(--editorColor80);
-  --buttonBgColorHover: linear-gradient(#ffffff, #f6f8fb);
+  --buttonBgColorHover: var(--surface-hover);
   --buttonBorderHover: 1px solid #bfc8d4;
   --buttonFontColorActive: var(--editorColor80);
   --buttonBgColorActive: #edf2f8;
@@ -108,19 +108,23 @@
 
 ::-webkit-scrollbar,
 ::-webkit-scrollbar-corner {
-  background: var(--floatHoverColor);
+  background: transparent;
 }
 
 ::-webkit-scrollbar:vertical {
-  width: 12px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--editorColor30);
+  background: var(--border-default);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--editorColor50);
+  background: var(--text-tertiary);
+  background-clip: padding-box;
 }
 
 :focus {
@@ -161,10 +165,11 @@ body {
 
 /* Overwrite Element style */
 .el-tooltip__popper {
-  background: var(--floatBgColor);
-  color: var(--sideBarColor);
-  box-shadow: 0 4px 8px 0 var(--floatBorderColor);
-  border: solid 1px var(--floatBorderColor);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  box-shadow: var(--elevation-floating);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 
 .el-tooltip__popper[data-popper-placement^='left'] .popper__arrow {
@@ -194,28 +199,28 @@ body {
 }
 
 .el-slider__button {
-  border-color: var(--themeColor);
+  border-color: var(--color-accent);
 }
 
 .el-slider__bar {
-  background-color: var(--themeColor);
+  background-color: var(--color-accent);
 }
 
 .el-radio__input.is-checked .el-radio__inner {
-  border-color: var(--themeColor);
-  background-color: var(--themeColor);
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
 }
 
 .el-radio__input.is-checked + .el-radio__label {
-  color: var(--editorColor);
+  color: var(--text-primary);
 }
 
 .el-dialog,
 .el-dialog.ag-dialog-table {
-  border-radius: 8px;
-  box-shadow: 0 4px 8px 0 var(--floatBorderColor);
-  border: solid 1px var(--floatBorderColor);
-  background-color: var(--floatBgColor);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-floating);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--surface-elevated);
 }
 .el-dialog__header {
   position: relative;
@@ -224,21 +229,22 @@ body {
 }
 
 input.el-input__inner {
-  background: var(--inputBgColor);
-  border: 1px solid var(--editorColor10);
-  color: var(--editorColor80);
+  background: var(--surface-editor);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
 }
 
 .el-input.is-focus .el-input__wrapper,
 .el-input__wrapper.is-focus {
-  box-shadow: 0 0 0 1px var(--themeColor) inset;
+  box-shadow: 0 0 0 1px var(--border-focus) inset;
 }
 
 .el-input-number.is-controls-right span.el-input-number__decrease,
 .el-input-number.is-controls-right span.el-input-number__increase {
-  background: var(--buttonBgColor);
+  background: var(--surface-editor);
   border-left: none;
-  color: var(--editorColor80);
+  color: var(--text-secondary);
 }
 
 .el-input-number.is-controls-right span.el-input-number__increase {
@@ -246,15 +252,15 @@ input.el-input__inner {
 }
 
 .el-tabs__nav-wrap::after {
-  background: var(--editorColor04);
+  background: var(--border-subtle);
 }
 
 div.el-tabs__item {
-  color: var(--editorColor);
+  color: var(--text-secondary);
 }
 
 div.el-tab-pane {
-  color: var(--editorColor);
+  color: var(--text-primary);
   font-size: 14px;
 }
 
@@ -274,32 +280,33 @@ div.el-tab-pane {
 .el-button {
   cursor: pointer;
   text-decoration: none;
-  color: var(--buttonFontColor);
-  background: var(--buttonBgColor);
-  border: var(--buttonBorder);
-  border-radius: 5px;
-  box-shadow: var(--buttonShadow);
+  color: var(--text-secondary);
+  background: var(--surface-editor);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: none;
   padding: 7px 14px;
+  transition: color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast);
 }
 .button:hover,
 .muya-button:hover,
 .el-button:hover {
-  color: var(--buttonFontColorHover);
-  background: var(--buttonBgColorHover);
-  border: var(--buttonBorderHover);
+  color: var(--text-primary);
+  background: var(--surface-hover);
+  border-color: var(--border-default);
 }
 .button:active,
 .muya-button:active,
 .el-button:active {
-  color: var(--buttonFontColorActive);
-  background: var(--buttonBgColorActive);
-  border: var(--buttonBorderActive);
+  color: var(--text-primary);
+  background: var(--surface-selected);
+  border-color: var(--border-default);
 }
-.button:focus,
-.muya-button:focus,
-.el-button:focus {
-  outline: none;
-  border: var(--buttonFocusBorder);
+.button:focus-visible,
+.muya-button:focus-visible,
+.el-button:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: 1px;
 }
 
 .button-primary,
@@ -307,34 +314,36 @@ div.el-tab-pane {
 .el-button--primary {
   cursor: pointer;
   text-decoration: none;
-  color: var(--buttonPrimaryFontColor);
-  background: var(--buttonPrimaryBgColor);
-  border: var(--buttonPrimaryBorder);
-  border-radius: 5px;
-  box-shadow: var(--buttonPrimaryShadow);
+  color: #fff;
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-md);
+  box-shadow: none;
   padding: 7px 14px;
+  transition: color var(--motion-fast), background-color var(--motion-fast);
 }
 .button-primary:hover,
 .muya-button-primary:hover,
 .el-button--primary:hover {
-  color: var(--buttonPrimaryFontColorHover);
-  background: var(--buttonPrimaryBgColorHover);
-  border: var(--buttonPrimaryBorderHover);
+  color: #fff;
+  background: var(--color-accent-hover);
+  border: none;
 }
 .button-primary:active,
 .muya-button-primary:active,
 .el-button--primary:active {
-  color: var(--buttonPrimaryFontColorActive);
-  background: var(--buttonPrimaryBgColorActive);
-  border: var(--buttonPrimaryBorderActive);
+  color: #fff;
+  background: var(--color-accent-active);
+  border: none;
 }
 button.button-primary:not(.custom):focus,
 .button-primary:focus,
 .muya-button-primary:focus,
 .el-button--primary:focus {
-  outline: none;
-  border: var(--buttonPrimaryFocusBorder);
-  box-shadow: var(--buttonPrimaryFocusShadow);
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: 1px;
+  border: none;
+  box-shadow: none;
 }
 
 .button.disabled,
@@ -398,25 +407,25 @@ button.button-primary:not(.custom):focus,
   padding: 7px 14px;
 }
 .el-button:focus {
-  background-color: var(--buttonBgColor);
+  background-color: var(--surface-editor);
 }
 .el-button--primary:focus {
-  background-color: var(--buttonPrimaryBgColor);
+  background-color: var(--color-accent);
 }
 .el-button.is-disabled,
 .el-button.is-disabled:focus,
 .el-button.is-disabled:hover {
-  color: var(--buttonFontColor);
-  background: var(--buttonBgColor);
-  border: var(--buttonBorder);
+  color: var(--text-disabled);
+  background: var(--surface-chrome);
+  border: 1px solid var(--border-subtle);
   box-shadow: none;
 }
 .el-button--primary.is-disabled,
 .el-button--primary.is-disabled:focus,
 .el-button--primary.is-disabled:hover {
-  color: var(--buttonPrimaryFontColor);
-  background: var(--buttonPrimaryBgColor);
-  border: var(--buttonPrimaryBorder);
+  color: #fff;
+  background: var(--color-accent);
+  border: none;
   box-shadow: none;
 }
 
@@ -425,5 +434,57 @@ button.button-primary:not(.custom):focus,
 }
 
 .el-tabs__active-bar {
-  background-color: var(--themeColor);
+  background-color: var(--color-accent);
+}
+
+/* Element Plus controls inherit the same quiet surface language. */
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  color: var(--text-primary);
+  background: var(--surface-editor);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1px var(--border-default) inset;
+  transition: background-color var(--motion-fast), box-shadow var(--motion-fast), color var(--motion-fast);
+}
+
+.el-input__wrapper:hover,
+.el-select__wrapper:hover,
+.el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px var(--border-default) inset;
+  background: var(--surface-hover);
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--border-focus) inset;
+  background: var(--surface-editor);
+}
+
+.el-select-dropdown,
+.el-popper.is-light,
+.el-autocomplete-suggestion {
+  color: var(--text-primary);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-floating);
+}
+
+.el-select-dropdown__item,
+.el-autocomplete-suggestion__wrap li {
+  color: var(--text-secondary);
+  transition: color var(--motion-fast), background-color var(--motion-fast);
+}
+
+.el-select-dropdown__item:hover,
+.el-autocomplete-suggestion__wrap li:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.el-select-dropdown__item.is-selected {
+  color: var(--color-accent);
+  background: var(--surface-selected);
 }
