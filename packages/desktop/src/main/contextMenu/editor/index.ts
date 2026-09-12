@@ -5,6 +5,7 @@ import {
   getPASTE,
   getCopyAsRich,
   getCopyAsHtml,
+  getCopyAsMarkdown,
   getPasteAsPlainText,
   SEPARATOR,
   getInsertBefore,
@@ -52,6 +53,7 @@ const getContextItems = (): MenuItemConstructorOptions[] => [
   getPASTE(),
   SEPARATOR,
   getCopyAsRich(),
+  getCopyAsMarkdown(),
   getCopyAsHtml(),
   getPasteAsPlainText()
 ]
@@ -104,7 +106,13 @@ export const showEditorContextMenu = (
     }
 
     const contextItems = getContextItems()
-    const copyItems = [contextItems[3], contextItems[4], contextItems[8], contextItems[7]] // CUT, COPY, COPY_AS_HTML, COPY_AS_RICH
+    const copyItems = [
+      contextItems[3],
+      contextItems[4],
+      contextItems[7],
+      contextItems[8],
+      contextItems[9]
+    ] // CUT, COPY, COPY_AS_RICH, COPY_AS_MARKDOWN, COPY_AS_HTML
     copyItems.forEach((item) => {
       if (item) item.enabled = canCopy
     })

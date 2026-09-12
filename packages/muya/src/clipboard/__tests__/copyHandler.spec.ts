@@ -64,6 +64,17 @@ describe('clipboard.copyHandler — skip empty clipboard writes', () => {
         expect(setData).toHaveBeenCalledWith('text/plain', 'hi');
     });
 
+    it('copyAsMarkdown: writes only the Markdown source to text/plain', () => {
+        const clipboard = makeClipboard('<p><strong>hi</strong></p>', '**hi**');
+        clipboard.copyType = CopyType.COPY_AS_MARKDOWN;
+        const { event, setData } = makeEvent();
+
+        clipboard.copyHandler(event);
+
+        expect(setData).toHaveBeenCalledWith('text/html', '');
+        expect(setData).toHaveBeenCalledWith('text/plain', '**hi**');
+    });
+
     it('copyAsMarkdown: does not call setData when text is empty', () => {
         const clipboard = makeClipboard('', '');
         clipboard.copyType = CopyType.COPY_AS_MARKDOWN;

@@ -240,6 +240,7 @@ export interface IpcMainEventChannels {
   'mt::ask-for-close': []
   'mt::bootstrap-editor': [config: BootstrapEditorConfig]
   'mt::cm-copy-as-html': []
+  'mt::cm-copy-as-markdown': []
   'mt::cm-copy-as-rich': []
   'mt::cm-insert-paragraph': [direction: 'before' | 'after']
   'mt::cm-paste-as-plain-text': []

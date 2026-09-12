@@ -53,13 +53,23 @@ export default function(keybindings: Keybindings): MenuItemConstructorOptions {
       },
       {
         label: t('menu.edit.copyAsRich'),
+        id: 'copyAsRichMenuItem',
         accelerator: keybindings.getAccelerator(COMMANDS.EDIT_COPY_AS_RICH) ?? undefined,
         click(_menuItem, browserWindow) {
           actions.editorCopyAsRich(browserWindow as BrowserWindow | undefined)
         }
       },
       {
+        label: t('menu.edit.copyAsMarkdown'),
+        id: 'copyAsMarkdownMenuItem',
+        accelerator: keybindings.getAccelerator(COMMANDS.EDIT_COPY_AS_MARKDOWN) ?? undefined,
+        click(_menuItem, browserWindow) {
+          actions.editorCopyAsMarkdown(browserWindow as BrowserWindow | undefined)
+        }
+      },
+      {
         label: t('menu.edit.copyAsHtml'),
+        id: 'copyAsHtmlMenuItem',
         accelerator: keybindings.getAccelerator(COMMANDS.EDIT_COPY_AS_HTML) ?? undefined,
         click(_menuItem, browserWindow) {
           actions.editorCopyAsHtml(browserWindow as BrowserWindow | undefined)

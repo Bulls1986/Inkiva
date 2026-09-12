@@ -43,4 +43,12 @@ describe('Edit menu separators (#2997)', () => {
     expect(submenu.find(i => i.id === 'screenshot')?.visible).toBe(true)
     expect(hasAdjacentVisibleSeparators(submenu)).toBe(false)
   })
+
+  it('exposes a distinct Copy as Markdown command', async() => {
+    const submenu = await buildEditSubmenu(false)
+    const item = submenu.find(i => i.id === 'copyAsMarkdownMenuItem')
+
+    expect(item).toBeDefined()
+    expect(item?.type).not.toBe('separator')
+  })
 })

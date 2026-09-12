@@ -73,9 +73,18 @@ export async function normalizePastedHTML(
             html = match[1];
     }
 
+    // Remove executable elements before the preview sanitizer escapes block
+    // HTML. The shared sanitizer intentionally preserves script contents as
+    // literal source for rendered HTML blocks, but pasted rich text must not
+    // reintroduce that source into the Markdown document.
+    const rawWrapper = document.createElement('div');
+    rawWrapper.innerHTML = html;
+    for (const script of Array.from(rawWrapper.querySelectorAll('script')))
+        script.remove();
+
     // Prevent XSS and sanitize HTML.
     const sanitizedHtml = sanitize(
-        html,
+        rawWrapper.innerHTML,
         PREVIEW_DOMPURIFY_CONFIG,
         false,
     ) as string;
@@ -318,7 +327,10 @@ export function getCopyTextType(html: string, text: string, pasteType: PasteType
     };
 
     if (pasteType === PasteType.NORMAL)
-        return html && text ? 'html' : getTextType(text);
+        // Prefer a real HTML clipboard flavor even when the producer omits
+        // text/plain (some browsers and rich editors do). Only fall back to
+        // text sniffing when the HTML flavor is absent or empty.
+        return html.trim().length > 0 ? 'html' : getTextType(text);
     else
         return getTextType(text);
 }
