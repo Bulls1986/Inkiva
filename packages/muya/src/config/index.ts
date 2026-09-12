@@ -292,6 +292,7 @@ export const BRACKET_HASH: Record<string, string> = {
     '\'': '\'',
     '$': '$',
     '~': '~',
+    '^': '^',
 };
 
 export const BACK_HASH: Record<string, string> = {
@@ -304,6 +305,7 @@ export const BACK_HASH: Record<string, string> = {
     '\'': '\'',
     '$': '$',
     '~': '~',
+    '^': '^',
 };
 
 export const MUYA_DEFAULT_OPTIONS = {

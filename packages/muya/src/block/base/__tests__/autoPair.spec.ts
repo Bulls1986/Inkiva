@@ -8,7 +8,8 @@ import Content from '../content';
 // `Content.autoPair` (packages/core/src/block/base/content.ts).
 //
 // `autoPair` only relies on `this.text`, `this.selection.{anchor,focus}`
-// and `this.muya.options.{autoPairQuote,autoPairBracket,autoPairMarkdownSyntax}`,
+// and `this.muya.options.{autoPairQuote,autoPairBracket,autoPairMarkdownSyntax,
+// superSubScript}`,
 // so we can drive it directly off the prototype with a structurally-typed
 // fake `this` and avoid the full Muya bootstrap (which needs a real DOM).
 
@@ -16,6 +17,7 @@ interface IFakeThisOptions {
     autoPairQuote?: boolean;
     autoPairBracket?: boolean;
     autoPairMarkdownSyntax?: boolean;
+    superSubScript?: boolean;
 }
 
 function makeFakeThis(blockText: string, oldAnchorOffset: number, opts: IFakeThisOptions = {}) {
@@ -31,6 +33,7 @@ function makeFakeThis(blockText: string, oldAnchorOffset: number, opts: IFakeThi
                 autoPairQuote: true,
                 autoPairBracket: true,
                 autoPairMarkdownSyntax: true,
+                superSubScript: true,
                 ...opts,
             },
         },
@@ -326,5 +329,87 @@ describe('autoPair — #3573 absorb manually typed closing markdown marker', () 
         const { text } = invokeAutoPair(fakeThis, event, '***', 2);
 
         expect(text).not.toBe('**');
+    });
+});
+
+// ── Markdown extensions supported by the current renderer ────────────────
+// `^text^` and `~text~` are the renderer's superscript/subscript extension.
+// Pairing must follow the same `superSubScript` option as rendering; otherwise
+// typing a marker while the extension is disabled silently changes the user's
+// literal Markdown.
+describe('autoPair — superscript/subscript extension markers', () => {
+    it('auto-pairs `^` when superscript/subscript support is enabled', () => {
+        const fakeThis = makeFakeThis('value ', 6);
+        const event = makeInputEvent('insertText', '^');
+        const { text, needRender } = invokeAutoPair(fakeThis, event, 'value ^', 7);
+
+        expect(text).toBe('value ^^');
+        expect(needRender).toBe(true);
+    });
+
+    it('does not auto-pair `^` when superscript/subscript support is disabled', () => {
+        const fakeThis = makeFakeThis('value ', 6, { superSubScript: false });
+        const event = makeInputEvent('insertText', '^');
+        const { text, needRender } = invokeAutoPair(fakeThis, event, 'value ^', 7);
+
+        expect(text).toBe('value ^');
+        expect(needRender).toBe(false);
+    });
+
+    it('still auto-pairs `~` for Markdown deletion when subscript support is disabled', () => {
+        const fakeThis = makeFakeThis('value ', 6, { superSubScript: false });
+        const event = makeInputEvent('insertText', '~');
+        const { text, needRender } = invokeAutoPair(fakeThis, event, 'value ~', 7);
+
+        expect(text).toBe('value ~~');
+        expect(needRender).toBe(true);
+    });
+});
+
+describe('autoPair — compositionend without an inputType property', () => {
+    it('preserves a trailing soft line without pairing the committed CJK text', () => {
+        const fakeThis = makeFakeThis('a\n', 2);
+        // Chromium's CompositionEvent does not expose `inputType`. The
+        // composition handler still calls Content.inputHandler directly, so
+        // autoPair must accept this event shape for soft-line preservation but
+        // must not run ordinary marker pairing against IME text.
+        const event = {
+            type: 'compositionend',
+            data: '你',
+        } as unknown as Event;
+
+        const { text, needRender } = invokeAutoPair(fakeThis, event, 'a你', 2);
+
+        expect(text).toBe('a\n你');
+        expect(needRender).toBe(false);
+    });
+});
+
+describe('autoPair — deleting an empty pair', () => {
+    it.each([
+        ['()', 'deleteContentBackward', ')', 0],
+        ['""', 'deleteContentBackward', '"', 0],
+        ['__', 'deleteContentBackward', '_', 0],
+        ['~~', 'deleteContentBackward', '~', 0],
+        ['$$', 'deleteContentBackward', '$', 0],
+        ['^^', 'deleteContentBackward', '^', 0],
+    ] as const)('removes the remaining closer when the opener of `%s` is deleted', (pair, inputType, text, offset) => {
+        const fakeThis = makeFakeThis(pair, 1);
+        const event = makeInputEvent(inputType, null);
+        const result = invokeAutoPair(fakeThis, event, text, offset);
+
+        expect(result.text).toBe('');
+        expect(result.needRender).toBe(true);
+    });
+});
+
+describe('autoPair — closing superscript marker is not duplicated', () => {
+    it('absorbs a manually typed `^` over an auto-paired closer', () => {
+        const fakeThis = makeFakeThis('^value^', 6);
+        const event = makeInputEvent('insertText', '^');
+        const { text, needRender } = invokeAutoPair(fakeThis, event, '^value^^', 7);
+
+        expect(text).toBe('^value^');
+        expect(needRender).toBe(true);
     });
 });
