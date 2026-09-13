@@ -186,8 +186,8 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
 }
 
 .official-themes .theme:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: -2px;
 }
 
 .official-themes .theme.light {
