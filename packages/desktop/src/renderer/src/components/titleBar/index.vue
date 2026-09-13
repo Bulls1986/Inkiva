@@ -17,6 +17,7 @@
     >
       <div
         class="title"
+        data-testid="titlebar-document"
         @dblclick.stop="toggleMaxmizeOnMacOS"
       >
         <span v-if="!filename">Inkiva</span>
@@ -49,6 +50,7 @@
       <nav
         v-if="showCustomTitleBar"
         class="menu-bar title-no-drag"
+        data-testid="titlebar-menu"
         aria-label="Application menu"
       >
         <button
@@ -65,6 +67,7 @@
       <div
         class="word-count-toolbar"
         :class="{ custom: showCustomTitleBar }"
+        data-testid="titlebar-stats"
       >
         <el-tooltip
           v-if="wordCount"
@@ -95,6 +98,7 @@
       <div
         v-if="titleBarStyle === 'custom' && !isFullScreen && !isOsx"
         class="right-toolbar"
+        data-testid="titlebar-controls"
         :class="[{ 'title-no-drag': titleBarStyle === 'custom' }]"
       >
         <div
@@ -408,12 +412,45 @@ img {
   }
 }
 .title-bar.frameless:not(.isOsx) .title {
-  position: absolute;
-  top: 0;
-  left: 500px;
-  right: 160px;
+  position: relative;
+  grid-area: document;
+  min-width: 0;
+  width: 100%;
   padding: 0 8px;
   box-sizing: border-box;
+  overflow: hidden;
+}
+
+.title-bar.frameless:not(.isOsx) {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 138px;
+  grid-template-areas: 'menu document stats controls';
+}
+
+.title-bar.frameless:not(.isOsx) .menu-bar {
+  position: static;
+  grid-area: menu;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  padding-left: 8px;
+  box-sizing: border-box;
+}
+
+.title-bar.frameless:not(.isOsx) .word-count-toolbar.custom {
+  position: static;
+  grid-area: stats;
+  width: auto;
+  min-width: 0;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
+.title-bar.frameless:not(.isOsx) .right-toolbar {
+  position: static;
+  grid-area: controls;
+  width: 138px;
+  min-width: 138px;
 }
 
 div.title > span {
@@ -573,8 +610,19 @@ div.title > span {
   line-height: normal;
 }
 
+@media (max-width: 1000px) {
+  .title-bar.frameless:not(.isOsx) .title > span > span:not(.filename):not(.save-dot) {
+    display: none;
+  }
+}
+
 @media (max-width: 820px) {
-  .title-bar.frameless:not(.isOsx) .title {
+  .title-bar.frameless:not(.isOsx) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 138px;
+    grid-template-areas: 'menu document controls';
+  }
+
+  .title-bar.frameless:not(.isOsx) .word-count-toolbar.custom {
     display: none;
   }
 
@@ -585,6 +633,17 @@ div.title > span {
   .menu-bar-item {
     padding-left: 7px;
     padding-right: 7px;
+  }
+}
+
+@media (max-width: 600px) {
+  .title-bar.frameless:not(.isOsx) {
+    grid-template-columns: minmax(0, 1fr) 138px;
+    grid-template-areas: 'menu controls';
+  }
+
+  .title-bar.frameless:not(.isOsx) .title {
+    display: none;
   }
 }
 </style>
