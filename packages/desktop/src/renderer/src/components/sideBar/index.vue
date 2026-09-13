@@ -12,18 +12,31 @@
           v-for="(c, index) of sideBarIcons"
           :key="index"
           :class="{ active: c.id === rightColumn }"
-          @click="handleLeftIconClick(c.id)"
         >
-          <component :is="c.icon" />
+          <button
+            type="button"
+            class="sidebar-icon-button"
+            :aria-label="c.name()"
+            :aria-pressed="c.id === rightColumn"
+            @click="handleLeftIconClick(c.id)"
+          >
+            <component :is="c.icon" />
+          </button>
         </li>
       </ul>
       <ul class="bottom">
         <li
           v-for="(c, index) of sideBarBottomIcons"
           :key="index"
-          @click="handleLeftBottomClick(c.id)"
         >
-          <component :is="c.icon" />
+          <button
+            type="button"
+            class="sidebar-icon-button"
+            :aria-label="c.name()"
+            @click="handleLeftBottomClick(c.id)"
+          >
+            <component :is="c.icon" />
+          </button>
         </li>
       </ul>
     </div>
@@ -241,10 +254,32 @@ const handleLeftBottomClick = (name: string): void => {
   display: flex;
   justify-content: space-around;
   align-items: center;
-  cursor: pointer;
 }
 
-.left-column ul > li > svg {
+.sidebar-icon-button {
+  -webkit-app-region: no-drag;
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 45px;
+  height: 45px;
+  padding: 0;
+  color: var(--icon-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--motion-fast), background-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.sidebar-icon-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.left-column ul > li > .sidebar-icon-button > svg {
   width: 18px;
   height: 18px;
   color: var(--icon-secondary);
@@ -252,15 +287,16 @@ const handleLeftBottomClick = (name: string): void => {
   transition: color var(--motion-fast), opacity var(--motion-fast), transform var(--motion-fast);
 }
 
-.left-column ul > li.active > svg {
+.left-column ul > li.active > .sidebar-icon-button > svg {
   color: var(--color-accent);
 }
 
-.left-column ul > li:hover > svg {
+.left-column ul > li:hover > .sidebar-icon-button > svg,
+.sidebar-icon-button:hover > svg {
   color: var(--icon-primary);
 }
 
-.side-bar:hover .left-column ul li svg {
+.side-bar:hover .left-column ul li .sidebar-icon-button > svg {
   opacity: 1;
 }
 

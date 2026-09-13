@@ -7,6 +7,8 @@
       <ul
         ref="tabDropContainer"
         class="tabs-container"
+        role="tablist"
+        :aria-label="t('sideBar.tree.openedFiles')"
       >
         <li
           v-for="file of tabs"
@@ -14,30 +16,39 @@
           :title="file.pathname"
           :class="{ active: currentFile?.id === file.id, unsaved: !file.isSaved }"
           :data-id="file.id"
+          role="tab"
+          :aria-selected="currentFile?.id === file.id"
+          :tabindex="currentFile?.id === file.id ? 0 : -1"
           @click.stop="selectFile(file)"
+          @keydown="handleTabKeydown($event, file)"
           @click.middle="closeTab(file.id)"
           @contextmenu.prevent="handleContextMenu($event, file)"
         >
           <span>{{ file.filename }}</span>
           <span class="unsaved-dot" />
-          <el-icon
+          <button
+            type="button"
             class="close-icon"
-            :size="12"
+            :aria-label="t('contextMenu.tabs.close') + ' ' + file.filename"
             @click.stop="removeFileInTab(file)"
           >
-            <Close />
-          </el-icon>
+            <el-icon :size="12">
+              <Close />
+            </el-icon>
+          </button>
         </li>
       </ul>
     </div>
-    <div
+    <button
+      type="button"
       class="new-file"
+      :aria-label="t('menu.file.newTab')"
       @click.stop="newFile()"
     >
       <el-icon :size="16">
         <Plus />
       </el-icon>
-    </div>
+    </button>
   </div>
 </template>
 
@@ -50,11 +61,13 @@ import autoScroll from 'dom-autoscroller'
 import dragula from 'dragula'
 import { Plus, Close } from '@element-plus/icons-vue'
 import { showContextMenu } from '../../contextMenu/tabs'
+import { useI18n } from 'vue-i18n'
 import bus from '../../bus'
 import type { IFileState } from '@shared/types/files'
 
 const editorStore = useEditorStore()
 const layoutStore = useLayoutStore()
+const { t } = useI18n()
 
 const { currentFile, tabs } = storeToRefs(editorStore)
 
@@ -89,6 +102,35 @@ const removeFileInTab = (file: IFileState) => {
 // Original methods
 const newFile = () => {
   editorStore.NEW_UNTITLED_TAB({})
+}
+
+const handleTabKeydown = (event: KeyboardEvent, file: IFileState): void => {
+  if (event.target !== event.currentTarget) return
+
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    selectFile(file)
+    return
+  }
+
+  if (event.key === 'Delete') {
+    event.preventDefault()
+    removeFileInTab(file)
+    return
+  }
+
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+  event.preventDefault()
+
+  const tabElements = Array.from(
+    tabDropContainer.value?.querySelectorAll<HTMLElement>('[role="tab"]') ?? []
+  )
+  const currentIndex = tabElements.indexOf(event.currentTarget as HTMLElement)
+  if (currentIndex < 0 || tabElements.length < 2) return
+
+  const direction = event.key === 'ArrowLeft' ? -1 : 1
+  const nextIndex = (currentIndex + direction + tabElements.length) % tabElements.length
+  tabElements[nextIndex]?.focus()
 }
 
 // Keep the active tab visible when the selection changes by something other
@@ -262,9 +304,27 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .close-icon {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin: 0 2px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
   cursor: pointer;
   color: var(--icon-secondary);
-  transition: opacity var(--motion-fast) ease, color var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) ease, color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+}
+
+.close-icon:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .close-icon:hover {
@@ -318,15 +378,18 @@ onBeforeUnmount(() => {
     }
     & > .close-icon {
       opacity: 0;
+      pointer-events: none;
     }
-    &:focus {
+    &:focus-visible {
       outline: none;
+      box-shadow: var(--focus-ring);
     }
     &:hover {
       background: var(--surface-hover);
     }
     &:hover > .close-icon {
       opacity: 1;
+      pointer-events: auto;
     }
     &:hover > .unsaved-dot {
       display: none;
@@ -349,12 +412,14 @@ onBeforeUnmount(() => {
   & > li.unsaved:not(.active) {
     & > .close-icon {
       opacity: 0;
+      pointer-events: none;
     }
     & > .unsaved-dot {
       display: block;
     }
     &:hover > .close-icon {
       opacity: 1;
+      pointer-events: auto;
     }
     &:hover > .unsaved-dot {
       display: none;
@@ -374,9 +439,11 @@ onBeforeUnmount(() => {
   }
 }
 .editor-tabs > .new-file {
+  appearance: none;
   flex: 0 0 32px;
   width: 32px;
   height: 32px;
+  border: 0;
   border-right: none;
   background: transparent;
   display: flex;
@@ -384,9 +451,15 @@ onBeforeUnmount(() => {
   justify-content: space-around;
   cursor: pointer;
   color: var(--icon-secondary);
+  font: inherit;
   opacity: 0;
   &.always-visible {
     opacity: 1;
+  }
+  &:focus-visible {
+    outline: none;
+    opacity: 1;
+    box-shadow: var(--focus-ring);
   }
 }
 

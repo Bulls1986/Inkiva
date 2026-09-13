@@ -27,16 +27,18 @@
       </el-autocomplete>
     </section>
     <section class="category">
-      <div
+      <button
         v-for="c of getCategory()"
         :key="c.name"
+        type="button"
         class="item"
         :class="{ active: c.label === currentCategory }"
+        :aria-current="c.path.endsWith('/' + currentCategory) ? 'page' : undefined"
         @click="handleCategoryItemClick(c)"
       >
         <component :is="c.icon" />
         <span>{{ c.name }}</span>
-      </div>
+      </button>
     </section>
   </div>
 </template>
@@ -247,6 +249,11 @@ onUnmounted(() => {
     flex-direction: row;
     align-items: center;
     cursor: pointer;
+    appearance: none;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    text-align: left;
     position: relative;
     user-select: none;
     border-radius: var(--radius-md);
@@ -268,6 +275,10 @@ onUnmounted(() => {
     &.active {
       color: var(--text-primary);
       background: var(--color-accent-soft);
+    }
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
     }
   }
 }

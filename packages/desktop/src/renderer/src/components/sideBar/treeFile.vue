@@ -3,11 +3,17 @@
     ref="fileEl"
     :title="file.pathname"
     class="side-bar-file"
+    role="button"
+    tabindex="0"
+    :aria-label="file.name"
+    :aria-current="currentFile?.pathname === file.pathname ? 'page' : undefined"
+    :aria-disabled="file.isMarkdown ? undefined : 'true'"
     :style="{ 'padding-left': `${depth * 6 + 10}px`, opacity: file.isMarkdown ? 1 : 0.75 }"
     :class="[
       { current: currentFile?.pathname === file.pathname, active: file.id === activeItem.id }
     ]"
     @click="handleFileClick"
+    @keydown="handleFileKeydown"
   >
     <file-icon :name="file.name" />
     <input
@@ -65,6 +71,13 @@ const handleFileClick = (): void => {
   }
 }
 
+const handleFileKeydown = (event: KeyboardEvent): void => {
+  if (event.target !== event.currentTarget) return
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  handleFileClick()
+}
+
 const noop = (): void => {}
 
 const focusRenameInput = (): void => {
@@ -119,6 +132,11 @@ onMounted(() => {
   }
 }
 
+.side-bar-file:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .side-bar-file.current {
   background: var(--color-accent-soft);
   color: var(--text-primary);
@@ -133,7 +151,6 @@ onMounted(() => {
 }
 input.rename {
   height: 22px;
-  outline: none;
   margin: 5px 0;
   padding: 0 8px;
   color: var(--text-primary);
@@ -141,5 +158,10 @@ input.rename {
   background: var(--surface-editor);
   width: 100%;
   border-radius: var(--radius-sm);
+}
+
+input.rename:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: 1px;
 }
 </style>

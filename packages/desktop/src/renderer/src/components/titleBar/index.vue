@@ -101,8 +101,10 @@
         data-testid="titlebar-controls"
         :class="[{ 'title-no-drag': titleBarStyle === 'custom' }]"
       >
-        <div
+        <button
+          type="button"
           class="frameless-titlebar-button frameless-titlebar-close"
+          :aria-label="t('menu.file.closeWindow')"
           @click.stop="handleCloseClick"
         >
           <div>
@@ -113,9 +115,11 @@
               <path :d="windowIconClose" />
             </svg>
           </div>
-        </div>
-        <div
+        </button>
+        <button
+          type="button"
           class="frameless-titlebar-button frameless-titlebar-toggle"
+          :aria-label="isMaximized ? 'Restore window' : 'Maximize window'"
           @click.stop="handleMaximizeClick"
         >
           <div>
@@ -133,9 +137,11 @@
               />
             </svg>
           </div>
-        </div>
-        <div
+        </button>
+        <button
+          type="button"
           class="frameless-titlebar-button frameless-titlebar-minimize"
+          :aria-label="t('menu.window.minimize')"
           @click.stop="handleMinimizeClick"
         >
           <div>
@@ -146,8 +152,8 @@
               <path :d="windowIconMinimize" />
             </svg>
           </div>
+        </button>
         </div>
-      </div>
     </div>
   </div>
 </template>
@@ -580,9 +586,22 @@ div.title > span {
 .frameless-titlebar-button {
   position: relative;
   display: block;
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
   width: 46px;
   height: var(--titleBarHeight);
 }
+.frameless-titlebar-button:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: -2px;
+}
+
 .frameless-titlebar-button > div {
   position: absolute;
   display: inline-flex;

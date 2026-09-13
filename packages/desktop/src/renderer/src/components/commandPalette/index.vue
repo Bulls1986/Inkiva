@@ -7,6 +7,7 @@
       :close-on-click-modal="true"
       :close-on-press-escape="true"
       custom-class="command-palette-dialog"
+      :aria-label="t('commandPalette.placeholder')"
       width="min(640px, calc(100vw - 48px))"
       top="12vh"
       @close="handleDialogClose"

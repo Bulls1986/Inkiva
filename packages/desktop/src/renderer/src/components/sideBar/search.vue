@@ -10,30 +10,39 @@
         @input="handleSearchInput"
       >
       <div class="controls">
-        <span
+        <button
+          type="button"
           :title="t('search.caseSensitive')"
+          :aria-label="t('search.caseSensitive')"
+          :aria-pressed="isCaseSensitive"
           class="is-case-sensitive"
           :class="{ active: isCaseSensitive }"
           @click.stop="caseSensitiveClicked()"
         >
           <FindCaseIcon aria-hidden="true" />
-        </span>
-        <span
+        </button>
+        <button
+          type="button"
           :title="t('search.wholeWord')"
+          :aria-label="t('search.wholeWord')"
+          :aria-pressed="isWholeWord"
           class="is-whole-word"
           :class="{ active: isWholeWord }"
           @click.stop="wholeWordClicked()"
         >
           <FindWordIcon aria-hidden="true" />
-        </span>
-        <span
+        </button>
+        <button
+          type="button"
           :title="t('search.useRegex')"
+          :aria-label="t('search.useRegex')"
+          :aria-pressed="isRegexp"
           class="is-regex"
           :class="{ active: isRegexp }"
           @click.stop="regexpClicked()"
         >
           <FindRegexIcon aria-hidden="true" />
-        </span>
+        </button>
       </div>
     </div>
 
@@ -453,20 +462,34 @@ onBeforeUnmount(() => {
     padding: 0;
     font-size: 13px;
     width: 50%;
+    &:focus-visible {
+      outline: 2px solid var(--color-accent-focus);
+      outline-offset: 2px;
+    }
   }
   & > .controls {
     display: flex;
     flex-shrink: 0;
     margin-top: 0;
-    & > span {
+    & > button {
+      appearance: none;
       cursor: pointer;
       width: 18px;
       height: 18px;
       margin-left: 0;
       margin-right: 0;
+      padding: 0;
       display: flex;
       align-items: center;
       justify-content: center;
+      color: inherit;
+      background: transparent;
+      border: 0;
+      border-radius: var(--radius-sm);
+      &:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
       &:hover {
         color: var(--icon-primary);
       }
@@ -541,7 +564,7 @@ onBeforeUnmount(() => {
     transition: background-color var(--motion-fast), color var(--motion-fast);
   }
   & .no-data .el-button.is-text.is-has-bg:hover,
-  & .no-data .el-button.is-text.is-has-bg:focus {
+  & .no-data .el-button.is-text.is-has-bg:focus-visible {
     background-color: var(--buttonPrimaryBgColorHover);
     color: var(--buttonPrimaryFontColorHover);
   }

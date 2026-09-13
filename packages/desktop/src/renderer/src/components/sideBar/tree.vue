@@ -10,23 +10,29 @@
       class="opened-files"
     >
       <div class="title">
-        <el-icon
-          class="icon-arrow"
-          :class="{ fold: !showOpenedFiles }"
-          :size="12"
+        <button
+          type="button"
+          class="tree-section-toggle"
+          :aria-expanded="showOpenedFiles"
+          aria-controls="opened-files-list"
           @click.stop="toggleOpenedFiles()"
         >
-          <ArrowRight />
-        </el-icon>
-        <span
-          class="default-cursor text-overflow"
-          @click.stop="toggleOpenedFiles()"
-        >{{
-          t('sideBar.tree.openedFiles')
-        }}</span>
-        <a
-          href="javascript:;"
+          <el-icon
+            class="icon-arrow"
+            :class="{ fold: !showOpenedFiles }"
+            :size="12"
+          >
+            <ArrowRight />
+          </el-icon>
+          <span class="text-overflow">{{
+            t('sideBar.tree.openedFiles')
+          }}</span>
+        </button>
+        <button
+          type="button"
+          class="tree-action-button"
           :title="t('sideBar.tree.saveAll')"
+          :aria-label="t('sideBar.tree.saveAll')"
           @click.stop="saveAll(false)"
         >
           <svg
@@ -35,10 +41,12 @@
           >
             <use xlink:href="#icon-save-all" />
           </svg>
-        </a>
-        <a
-          href="javascript:;"
+        </button>
+        <button
+          type="button"
+          class="tree-action-button"
           :title="t('sideBar.tree.closeAll')"
+          :aria-label="t('sideBar.tree.closeAll')"
           @click.stop="saveAll(true)"
         >
           <svg
@@ -47,10 +55,11 @@
           >
             <use xlink:href="#icon-close-all" />
           </svg>
-        </a>
+        </button>
       </div>
       <div
         v-show="showOpenedFiles"
+        id="opened-files-list"
         class="opened-files-list"
       >
         <transition-group name="list">
@@ -72,23 +81,28 @@
         class="title"
         @contextmenu.prevent="handleRootContextMenu"
       >
-        <el-icon
-          class="icon-arrow"
-          :class="{ fold: !showDirectories }"
-          :size="12"
+        <button
+          type="button"
+          class="tree-section-toggle"
+          :aria-expanded="showDirectories"
+          aria-controls="project-tree-content"
           @click.stop="toggleDirectories()"
         >
-          <ArrowRight />
-        </el-icon>
-        <span
-          class="default-cursor text-overflow"
-          @click.stop="toggleDirectories()"
-        >{{
-          projectTree.name
-        }}</span>
+          <el-icon
+            class="icon-arrow"
+            :class="{ fold: !showDirectories }"
+            :size="12"
+          >
+            <ArrowRight />
+          </el-icon>
+          <span class="text-overflow">{{
+            projectTree.name
+          }}</span>
+        </button>
       </div>
       <div
         v-show="showDirectories"
+        id="project-tree-content"
         class="tree-wrapper"
       >
         <folder
@@ -336,26 +350,74 @@ onMounted(() => {
   padding-right: 15px;
   display: flex;
   align-items: center;
+  gap: 2px;
 }
 
-.opened-files .title > span {
+.tree-section-toggle {
+  display: flex;
   flex: 1;
+  min-width: 0;
+  align-items: center;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
 
-.opened-files .title > a {
-  display: none;
-  text-decoration: none;
+.tree-section-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.tree-section-toggle > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.tree-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  margin-left: 2px;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
   color: var(--icon-secondary);
-  margin-left: 8px;
-}
-.opened-files div.title:hover > a,
-.opened-files div.title > a:hover {
-  display: block;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
 }
 
-.opened-files div.title:hover > a:hover,
-.opened-files div.title > a:hover:hover {
-  color: var(--color-accent);
+.tree-action-button:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.tree-action-button:hover {
+  opacity: 1;
+  pointer-events: auto;
+  color: var(--icon-primary);
+}
+
+.opened-files .title:hover > .tree-action-button {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tree-action-button > svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
 }
 .opened-files {
   display: flex;
@@ -387,27 +449,6 @@ onMounted(() => {
   align-items: center;
 }
 
-.project-tree > .title > span {
-  flex: 1;
-  user-select: none;
-}
-
-.project-tree > .title > a {
-  pointer-events: auto;
-  cursor: pointer;
-  margin-left: 8px;
-  color: var(--icon-secondary);
-  opacity: 0;
-  transition: color var(--motion-fast), opacity var(--motion-fast);
-}
-
-.project-tree > .title > a:hover {
-  color: var(--color-accent);
-}
-
-.project-tree > .title > a.active {
-  color: var(--color-accent);
-}
 
 .project-tree > .tree-wrapper {
   overflow: auto;
@@ -416,9 +457,6 @@ onMounted(() => {
 
 .project-tree > .tree-wrapper::-webkit-scrollbar:vertical {
   width: 8px;
-}
-.project-tree div.title:hover > a {
-  opacity: 1;
 }
 .open-project {
   flex: 1;
@@ -447,14 +485,13 @@ onMounted(() => {
   transition: background-color var(--motion-fast), color var(--motion-fast);
 }
 .open-project .el-button.is-text.is-has-bg:hover,
-.open-project .el-button.is-text.is-has-bg:focus,
+.open-project .el-button.is-text.is-has-bg:focus-visible,
 .empty-project .el-button.is-text.is-has-bg:hover,
-.empty-project .el-button.is-text.is-has-bg:focus {
+.empty-project .el-button.is-text.is-has-bg:focus-visible {
   background-color: var(--buttonPrimaryBgColorHover);
   color: var(--buttonPrimaryFontColorHover);
 }
 .new-input {
-  outline: none;
   height: 22px;
   margin: 5px 0;
   padding: 0 6px;
@@ -468,6 +505,11 @@ onMounted(() => {
 
 .new-input:focus {
   border-color: var(--border-focus);
+}
+
+.new-input:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: 1px;
 }
 .tree-wrapper {
   position: relative;

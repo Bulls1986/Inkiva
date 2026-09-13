@@ -126,7 +126,13 @@
   background-clip: padding-box;
 }
 
-:focus {
+/* Keyboard users get a visible ring; pointer focus stays quiet. */
+:where(button, [role='button'], [role='tab'], [role='option'], a[href], input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: 1px;
+}
+
+:where(button, [role='button'], [role='tab'], [role='option'], a[href], input, select, textarea, [tabindex]):focus:not(:focus-visible) {
   outline: none;
 }
 
@@ -335,10 +341,10 @@ div.el-tab-pane {
   background: var(--color-accent-active);
   border: none;
 }
-button.button-primary:not(.custom):focus,
-.button-primary:focus,
-.muya-button-primary:focus,
-.el-button--primary:focus {
+button.button-primary:not(.custom):focus-visible,
+.button-primary:focus-visible,
+.muya-button-primary:focus-visible,
+.el-button--primary:focus-visible {
   outline: 2px solid var(--color-accent-focus);
   outline-offset: 1px;
   border: none;
