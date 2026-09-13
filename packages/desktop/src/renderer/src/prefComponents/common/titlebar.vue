@@ -14,8 +14,8 @@
           <path :d="windowIconClose" />
         </svg>
       </div>
-  </button>
-</div>
+    </button>
+  </div>
 </template>
 
 <script setup lang="ts">

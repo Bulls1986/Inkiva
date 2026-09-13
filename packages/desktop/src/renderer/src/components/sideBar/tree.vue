@@ -449,7 +449,6 @@ onMounted(() => {
   align-items: center;
 }
 
-
 .project-tree > .tree-wrapper {
   overflow: auto;
   flex: 1;
