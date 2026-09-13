@@ -311,7 +311,12 @@
   },
   "recent": {
     "noTabsOpen": "您没有打开的标签页。",
-    "newFile": "新建文件"
+    "newFile": "新建文件",
+    "welcomeTitle": "开始书写 Markdown",
+    "welcomeDescription": "新建文档或打开已有文件。",
+    "actions": "文档操作",
+    "openFile": "打开文件",
+    "quickOpen": "按 {shortcut} 快速打开文件"
   },
   "import": {
     "title": "导入或打开",

@@ -50,6 +50,8 @@ test.describe('Check Launch Inkiva', () => {
         }, { timeout: 10000 })
         .toEqual({ loading: true, editorMounted: 0, windowVisible: true })
 
+      await expect(startup.page.locator('.inkiva-bootstrap__dot')).toHaveCount(3)
+
       const scrollState = await startup.page.evaluate(() => ({
         documentOverflow: getComputedStyle(document.documentElement).overflow,
         bodyOverflow: getComputedStyle(document.body).overflow,

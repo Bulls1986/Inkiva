@@ -311,7 +311,12 @@
   },
   "recent": {
     "noTabsOpen": "Sie haben keine Tabs geöffnet.",
-    "newFile": "Neue Datei"
+    "newFile": "Neue Datei",
+    "welcomeTitle": "In Markdown schreiben",
+    "welcomeDescription": "Erstellen Sie ein neues Dokument oder öffnen Sie eine vorhandene Datei.",
+    "actions": "Dokumentaktionen",
+    "openFile": "Datei öffnen",
+    "quickOpen": "Drücken Sie {shortcut}, um schnell eine Datei zu öffnen"
   },
   "import": {
     "title": "Importieren oder öffnen",

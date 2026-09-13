@@ -1,6 +1,15 @@
 <template>
-  <div class="cpt-loading">
-    <div class="loader">
+  <div
+    v-if="isVisible"
+    class="cpt-loading"
+    role="status"
+    aria-live="polite"
+    :aria-label="label"
+  >
+    <div
+      class="loader"
+      aria-hidden="true"
+    >
       <span
         v-for="i in 3"
         :key="i"
@@ -11,14 +20,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
-const props = defineProps({
-  size: {
-    type: Number,
-    default: 14
+const props = withDefaults(
+  defineProps<{
+    size?: number
+    delay?: number
+    label?: string
+  }>(),
+  {
+    size: 4,
+    delay: 500,
+    label: 'Loading'
   }
-})
+)
 
 const dotSize = computed(() => {
   const size = `${props.size}px`
@@ -27,69 +42,80 @@ const dotSize = computed(() => {
     height: size
   }
 })
+
+const isVisible = ref(props.delay <= 0)
+let revealTimer: ReturnType<typeof setTimeout> | null = null
+
+onMounted(() => {
+  if (isVisible.value) return
+  revealTimer = setTimeout(() => {
+    isVisible.value = true
+    revealTimer = null
+  }, props.delay)
+})
+
+onBeforeUnmount(() => {
+  if (revealTimer) {
+    clearTimeout(revealTimer)
+    revealTimer = null
+  }
+})
 </script>
 
 <style scoped>
 .cpt-loading {
-  position: absolute;
-  top: 0;
-  left: 0;
+  position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
   width: 100%;
-  height: 100%;
+  min-height: 32px;
+  box-sizing: border-box;
+  color: var(--icon-secondary);
 }
 .loader {
-  width: 100%;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1, 4px);
+  min-height: 8px;
 }
 
 .loader span {
-  position: absolute;
-  display: inline-block;
+  display: block;
+  flex: 0 0 auto;
   border-radius: 50%;
-  animation: 3s infinite linear;
+  background: currentColor;
+  opacity: 0.35;
+  animation: inkiva-loading-dot var(--motion-loading, 900ms) ease-in-out infinite;
 }
-.loader span:nth-child(1) {
-  background: var(--themeColor);
-  animation: kiri 1.2s infinite linear;
-}
+
 .loader span:nth-child(2) {
-  z-index: 100;
-  background: var(--highlightColor);
+  animation-delay: 120ms;
 }
+
 .loader span:nth-child(3) {
-  background: var(--selectionColor);
-  animation: kanan 1.2s infinite linear;
+  animation-delay: 240ms;
 }
 
-@keyframes kanan {
-  0% {
-    transform: translateX(20px);
+@keyframes inkiva-loading-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
   }
 
   50% {
-    transform: translateX(-20px);
-  }
-
-  100% {
-    z-index: 200;
-
-    transform: translateX(20px);
+    opacity: 1;
+    transform: translateY(-2px);
   }
 }
 
-@keyframes kiri {
-  0% {
-    z-index: 200;
-
-    transform: translateX(-20px);
-  }
-  50% {
-    transform: translateX(20px);
-  }
-  100% {
-    transform: translateX(-20px);
+@media (prefers-reduced-motion: reduce) {
+  .loader span {
+    animation: none;
+    opacity: 0.6;
+    transform: none;
   }
 }
 </style>

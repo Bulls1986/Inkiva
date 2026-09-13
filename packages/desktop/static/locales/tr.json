@@ -311,7 +311,12 @@
   },
   "recent": {
     "noTabsOpen": "Açık sekmeniz yok.",
-    "newFile": "Yeni Dosya"
+    "newFile": "Yeni Dosya",
+    "welcomeTitle": "Markdown yazmaya başlayın",
+    "welcomeDescription": "Yeni bir belge oluşturun veya mevcut bir dosyayı açın.",
+    "actions": "Belge işlemleri",
+    "openFile": "Dosya aç",
+    "quickOpen": "Bir dosyayı hızlıca açmak için {shortcut} tuşuna basın"
   },
   "import": {
     "title": "İçe Aktar veya Aç",

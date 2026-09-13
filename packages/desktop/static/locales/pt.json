@@ -311,7 +311,12 @@
   },
   "recent": {
     "noTabsOpen": "Você não tem abas abertas.",
-    "newFile": "Novo Arquivo"
+    "newFile": "Novo Arquivo",
+    "welcomeTitle": "Comece a escrever em Markdown",
+    "welcomeDescription": "Crie um novo documento ou abra um arquivo existente.",
+    "actions": "Ações do documento",
+    "openFile": "Abrir arquivo",
+    "quickOpen": "Pressione {shortcut} para abrir um arquivo rapidamente"
   },
   "import": {
     "title": "Importar ou Abrir",
