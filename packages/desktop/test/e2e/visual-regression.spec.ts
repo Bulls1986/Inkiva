@@ -210,6 +210,7 @@ test.describe.serial('UI-14 visual regression baseline', () => {
     await expect(dialog).toBeVisible({ timeout: 5000 })
     await capture(page, 'dialog')
     await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden({ timeout: 5000 })
   })
 
   test('captures a neutral toast surface', async() => {
@@ -223,6 +224,7 @@ test.describe.serial('UI-14 visual regression baseline', () => {
     await expect(page.locator('.mt-notification')).toBeVisible({ timeout: 5000 })
     await capture(page, 'toast')
     await page.locator('.mt-notification .close').click()
+    await expect(page.locator('.mt-notification')).toBeHidden({ timeout: 5000 })
   })
 
   test('captures the Markdown kitchen-sink document', async() => {
