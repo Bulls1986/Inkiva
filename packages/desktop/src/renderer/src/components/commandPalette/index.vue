@@ -545,7 +545,7 @@ input.search {
   min-width: 0;
   height: 40px;
   padding: 0;
-  font-size: 15px;
+  font-size: var(--font-size-ui);
   color: var(--text-primary);
   background: transparent;
   border: none;
@@ -560,7 +560,7 @@ input.search:focus-visible {
   padding: 0 4px;
   margin: 10px 0 2px;
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: var(--font-size-shortcut);
   line-height: 18px;
 }
 
@@ -577,7 +577,7 @@ input.search:focus-visible {
 .section-label {
   padding: 0 10px 5px;
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--font-size-metadata);
   font-weight: 600;
   letter-spacing: 0.06em;
   line-height: 16px;
@@ -633,13 +633,13 @@ li.command-option .description {
 }
 
 li.command-option .title {
-  font-size: 14px;
+  font-size: var(--font-size-ui);
   line-height: 20px;
 }
 
 li.command-option .description {
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: var(--font-size-shortcut);
   line-height: 16px;
 }
 
@@ -656,7 +656,7 @@ kbd {
   padding: 1px 5px;
   color: var(--text-tertiary);
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--font-size-metadata);
   line-height: 17px;
   text-align: center;
   background: var(--surface-chrome);
@@ -668,7 +668,7 @@ kbd {
   padding: 18px 10px 8px;
   margin: 0;
   color: var(--text-tertiary);
-  font-size: 13px;
+  font-size: var(--font-size-secondary);
   line-height: 20px;
   text-align: center;
 }

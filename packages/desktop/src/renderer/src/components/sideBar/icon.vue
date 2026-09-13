@@ -38,6 +38,9 @@ const className = computed<string[]>(() => {
 <style scoped>
 .file-icon {
   flex-shrink: 0;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
   margin-right: 5px;
+  font-size: var(--icon-size-md);
 }
 </style>

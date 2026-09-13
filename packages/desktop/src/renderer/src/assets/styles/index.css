@@ -140,6 +140,10 @@ html,
 body {
   margin: 0;
   padding: 0;
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-ui);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-ui);
   background: transparent !important;
   caret-color: var(--editorColor);
 }
@@ -155,8 +159,8 @@ body {
 }
 
 .icon {
-  width: 1em;
-  height: 1em;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
   vertical-align: -0.15em;
   fill: currentColor;
   overflow: hidden;
@@ -266,7 +270,7 @@ div.el-tabs__item {
 
 div.el-tab-pane {
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-ui);
 }
 
 .ag-dialog-table .dialog-title svg {

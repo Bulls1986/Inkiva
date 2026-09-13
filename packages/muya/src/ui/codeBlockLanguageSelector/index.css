@@ -5,7 +5,7 @@
     padding: 8px 0;
     overflow-y: auto;
 
-    font-size: 14px;
+    font-size: var(--font-size-ui, 14px);
 }
 
 .mu-list-picker ul,
@@ -18,7 +18,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 28px;
+    height: var(--hit-target-sm, 28px);
     padding: 0 10px;
 
     list-style: none;
@@ -43,17 +43,17 @@
     align-items: center;
     justify-content: center;
     width: 28px;
-    height: 28px;
+    height: var(--hit-target-sm, 28px);
 }
 
 .mu-list-picker .item .icon-wrapper span::before {
-    font-size: 14px;
+    font-size: var(--font-size-ui, 14px);
 }
 
 .mu-list-picker .item .language {
     flex: 1;
 
     color: var(--editor-color);
-    font-size: 14px;
-    line-height: 28px;
+    font-size: var(--font-size-ui, 14px);
+    line-height: var(--hit-target-sm, 28px);
 }

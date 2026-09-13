@@ -136,13 +136,13 @@ onMounted(async () => {
 
 .pref-font-input-item {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--font-size-ui);
   color: var(--text-secondary);
   & .font-autocomplete {
     width: 100%;
   }
   & input.el-input__inner {
-    height: 30px;
+    height: var(--control-height-md);
     background: transparent;
     color: var(--text-primary);
     border-color: var(--border-default);
@@ -153,7 +153,7 @@ onMounted(async () => {
   }
   & .el-input__icon,
   & .el-input__inner {
-    line-height: 30px;
+    line-height: var(--control-height-md);
   }
 }
 .pref-font-input-item .description {

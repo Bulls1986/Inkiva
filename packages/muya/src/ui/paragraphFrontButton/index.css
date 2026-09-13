@@ -42,8 +42,8 @@
     position: relative;
 
     display: inline-block;
-    width: 14px;
-    height: 14px;
+    width: var(--icon-size-sm, 14px);
+    height: var(--icon-size-sm, 14px);
     overflow: hidden;
 
     color: var(--icon-color);

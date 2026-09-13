@@ -1,6 +1,6 @@
 .mu-editor {
     font-size: var(--mu-font-size, 16px);
-    font-family: var(--mu-font-family, 'Open Sans', 'Clear Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif);
+    font-family: var(--mu-font-family, var(--font-family-ui, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif));
     line-height: var(--mu-line-height, var(--line-height-body, 1.7));
 
     outline: none;

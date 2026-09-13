@@ -83,7 +83,7 @@ const select = (value: SelectValue) => {
 <style>
 .pref-select-item {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--font-size-ui);
   color: var(--text-secondary);
   & .el-select {
     width: 100%;
@@ -94,14 +94,14 @@ const select = (value: SelectValue) => {
     border-color: var(--border-default);
   }
   & input.el-input__inner {
-    height: 30px;
+    height: var(--control-height-md);
     background: transparent;
     color: var(--text-primary);
     border-color: var(--border-default);
   }
   & .el-input__icon,
   & .el-input__inner {
-    line-height: 30px;
+    line-height: var(--control-height-md);
   }
 }
 .pref-select-item .description {
@@ -118,7 +118,7 @@ const select = (value: SelectValue) => {
 }
 li.el-select-dropdown__item {
   color: var(--text-secondary);
-  height: 30px;
+  height: var(--control-height-md);
 }
 li.el-select-dropdown__item.hover,
 li.el-select-dropdown__item:hover {
