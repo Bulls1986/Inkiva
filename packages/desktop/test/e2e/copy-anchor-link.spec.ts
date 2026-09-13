@@ -37,6 +37,7 @@ const HEADING = '.mu-container > h2'
 const COPY_LINK = `${HEADING} > i.mu-copy-header-link`
 
 const DOC = '## My Section\n\nA paragraph under the heading.\n'
+const EXPECTED_ANCHOR = '#my-section'
 
 // Read the OS clipboard as seen by the main process (the side the
 // `mt::clipboard::write-text` handler writes to).
@@ -98,7 +99,7 @@ test.describe('Heading hover-to-copy anchor affordance (item 241)', () => {
 
     // The write flows renderer -> IPC -> main clipboard, so poll the main-side
     // clipboard until the anchor lands.
-    await expect.poll(() => readClipboard(app), { timeout: 8000 }).toBe('#my-section')
+    await expect.poll(() => readClipboard(app), { timeout: 8000 }).toBe(EXPECTED_ANCHOR)
 
     await expectNoRendererErrors(app)
   })
@@ -110,14 +111,13 @@ test.describe('Heading hover-to-copy anchor affordance (item 241)', () => {
     await page.hover(HEADING)
     await page.click(COPY_LINK)
 
-    await expect.poll(() => readClipboard(app), { timeout: 8000 }).not.toBe('')
-    const copied = await readClipboard(app)
-    expect(copied.startsWith('#')).toBe(true)
-
-    // The slug must derive from the heading text ("My Section" -> "my-section"),
-    // proving the engine key resolved to the matching listToc entry rather than
-    // some unrelated heading.
-    expect(copied).toBe('#my-section')
+    // Electron's clipboard is process-global, so another E2E worker can write
+    // an unrelated non-empty value while this test is waiting. Poll for the
+    // exact anchor produced by this interaction instead of treating any
+    // non-empty clipboard value as success. The exact value also proves the
+    // slug derives from the heading text ("My Section" -> "my-section"),
+    // rather than from an unrelated clipboard write.
+    await expect.poll(() => readClipboard(app), { timeout: 8000 }).toBe(EXPECTED_ANCHOR)
 
     await expectNoRendererErrors(app)
   })
@@ -131,7 +131,7 @@ test.describe('Heading hover-to-copy anchor affordance (item 241)', () => {
     await page.focus(COPY_LINK)
     await page.keyboard.press('Enter')
 
-    await expect.poll(() => readClipboard(app), { timeout: 8000 }).toBe('#my-section')
+    await expect.poll(() => readClipboard(app), { timeout: 8000 }).toBe(EXPECTED_ANCHOR)
 
     await expectNoRendererErrors(app)
   })
