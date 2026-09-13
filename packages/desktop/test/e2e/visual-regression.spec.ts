@@ -204,17 +204,25 @@ test.describe.serial('UI-14 visual regression baseline', () => {
   })
 
   test('captures a floating dialog surface', async() => {
-    await page.bringToFront()
-    const dialog = page.locator('.print-settings-dialog')
-    // ExportSettings is an async component. Wait for its bus listener to be
-    // mounted before sending the renderer IPC, otherwise the event can be
-    // emitted into the short loading gap after the command palette test.
-    await dialog.waitFor({ state: 'attached', timeout: 5000 })
-    await sendIpcToRenderer(app, 'mt::show-export-dialog', 'pdf')
-    await expect(dialog).toBeVisible({ timeout: 5000 })
-    await capture(page, 'dialog')
-    await page.keyboard.press('Escape')
-    await expect(dialog).toBeHidden({ timeout: 5000 })
+    // Keep the dialog baseline independent from the command-palette and
+    // preferences teardown above. Both surfaces are async components, and a
+    // fresh renderer makes the visual state deterministic rather than relying
+    // on an event bus surviving another overlay's close transition.
+    const dialogLaunch = await launchWithMarkdown(MARKDOWN_KITCHEN_SINK)
+    try {
+      await dialogLaunch.page.bringToFront()
+      await setWindowSize(dialogLaunch.app, 1280)
+      await waitForMenuReady(dialogLaunch.app)
+      const dialog = dialogLaunch.page.locator('.print-settings-dialog')
+      await dialog.locator('.el-dialog').waitFor({ state: 'attached', timeout: 10000 })
+      await sendIpcToRenderer(dialogLaunch.app, 'mt::show-export-dialog', 'pdf')
+      await expect(dialog).toBeVisible({ timeout: 10000 })
+      await capture(dialogLaunch.page, 'dialog')
+      await dialogLaunch.page.keyboard.press('Escape')
+      await expect(dialog).toBeHidden({ timeout: 5000 })
+    } finally {
+      await dialogLaunch.app.close()
+    }
   })
 
   test('captures a neutral toast surface', async() => {
