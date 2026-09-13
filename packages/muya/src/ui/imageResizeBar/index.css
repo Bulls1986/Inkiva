@@ -7,9 +7,9 @@
     height: 50px;
 
     background: var(--theme-color);
-    border: 2px solid var(--editor-bg-color);
-    border-radius: 5px;
-    box-shadow: 0 2px 2px 0 rgb(0 0 0 / 15%);
+    border: 2px solid var(--interaction-surface);
+    border-radius: var(--interaction-radius);
+    box-shadow: var(--interaction-shadow);
 }
 
 .mu-transformer .left {

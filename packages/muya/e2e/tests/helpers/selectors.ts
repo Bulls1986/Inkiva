@@ -79,6 +79,7 @@ export const editor = {
 // Float root class names confirmed against the `const name = 'mu-...'` lines
 // inside each plugin's index.ts.
 export const floats = {
+    wrapper: '.mu-float-wrapper',
     inlineFormatToolbar: '.mu-format-picker',
     quickInsert: '.mu-quick-insert',
     paragraphFrontButton: '.mu-front-button-wrapper',
@@ -103,6 +104,11 @@ export const floats = {
     imageTransformerHandle: '.mu-transformer .bar',
     footnoteTool: '.mu-footnote-tool',
     previewToolBar: '.mu-preview-tools',
+} as const;
+
+export const search = {
+    currentMatch: '.mu-highlight',
+    match: '.mu-selection',
 } as const;
 
 /** Slash-menu item locator: `[data-label="atx-heading 1"]` etc. */

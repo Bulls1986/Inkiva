@@ -49,7 +49,7 @@ describe('Inkiva UI-06 Markdown typography contract', () => {
     expect(block).toContain('background: var(--markdown-surface-code')
     expect(block).toContain('border: 1px solid var(--markdown-border-subtle')
     expect(block).toContain('border-radius: var(--radius-md, 6px);')
-    expect(block).toContain('background: var(--markdown-selection')
+    expect(block).toContain('background: var(--interaction-selection')
     expect(inline).toContain('background-color: var(--markdown-surface-code')
     expect(inline).toContain('border-radius: var(--radius-sm, 4px);')
 

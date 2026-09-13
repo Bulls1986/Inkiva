@@ -39,11 +39,11 @@
     width: calc(100% - 16px);
     height: 1px;
 
-    background: var(--editor-color-04);
+    background: var(--interaction-border);
 
     content: '';
 }
 
 .mu-table-bar-tools li.item:hover {
-    background-color: var(--float-hover-color);
+    background-color: var(--interaction-surface-hover);
 }

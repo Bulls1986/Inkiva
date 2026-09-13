@@ -1,12 +1,12 @@
 .mu-float-wrapper.mu-format-picker-container {
     overflow: visible;
 
-    border-radius: 2px;
+    border-radius: var(--interaction-radius);
 }
 
 .mu-format-picker {
     width: 265px;
-    height: 28px;
+    height: var(--interaction-hit-size);
 }
 
 .mu-format-picker ul,
@@ -34,7 +34,7 @@
 }
 
 .mu-format-picker li.item:hover {
-    background: var(--float-hover-color);
+    background: var(--interaction-surface-hover);
 }
 
 .mu-format-picker li.item:last-of-type {
@@ -49,15 +49,15 @@
     width: 1px;
     height: 18px;
 
-    background: var(--editor-color-10);
+    background: var(--interaction-border);
 
     content: '';
 }
 
 .mu-format-picker li.item .icon-wrapper {
     display: flex;
-    width: 16px;
-    height: 16px;
+    width: var(--interaction-icon-size);
+    height: var(--interaction-icon-size);
 }
 
 .mu-format-picker li.item .icon-wrapper i.icon {
@@ -75,15 +75,19 @@
 
 .mu-format-picker li.item .icon-wrapper i.icon > i[class^='icon-'] {
     position: relative;
-    left: -16px;
+    left: calc(-1 * var(--interaction-icon-size));
 
     display: inline-block;
     width: 100%;
     height: 100%;
 
-    filter: drop-shadow(16px 0 currentcolor);
+    filter: drop-shadow(var(--interaction-icon-size) 0 currentcolor);
 }
 
 .mu-format-picker li.item.active .icon-wrapper i.icon {
     color: var(--theme-color);
+}
+.mu-format-picker li.item.active {
+    background: var(--interaction-selection);
+    border-radius: var(--interaction-radius);
 }

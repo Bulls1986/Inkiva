@@ -1,5 +1,5 @@
 .mu-image-selector-wrapper {
-    border-radius: 3px;
+    border-radius: var(--interaction-radius);
 }
 
 .mu-image-selector {
@@ -22,7 +22,7 @@
     padding: 0;
     padding-left: 40px;
 
-    border-bottom: 1px solid var(--editor-color-10);
+    border-bottom: 1px solid var(--interaction-border);
 }
 
 .mu-image-selector ul.header li {
@@ -45,12 +45,12 @@
 
     line-height: 30px;
 
-    border-radius: 5px;
+    border-radius: var(--interaction-radius);
     cursor: pointer;
 }
 
 .mu-image-selector ul.header li span:hover {
-    background: var(--editor-color-04);
+    background: var(--interaction-surface-hover);
 }
 
 .mu-image-selector ul.header li.active::before {
@@ -94,9 +94,9 @@
     color: var(--editor-color);
     font-size: 14px;
 
-    background: var(--input-bg-color);
-    border: none;
-    border-radius: 15px;
+    background: var(--interaction-surface-hover);
+    border: 1px solid var(--interaction-border);
+    border-radius: var(--interaction-radius);
     outline: none;
 }
 
@@ -127,7 +127,7 @@
 
     background: var(--button-bg-color);
     border: var(--button-border);
-    border-radius: 8px;
+    border-radius: var(--interaction-radius);
     cursor: pointer;
 
     user-select: none;
@@ -143,9 +143,10 @@
     border: var(--button-border-active);
 }
 
-.mu-image-selector button.role-button:focus {
+.mu-image-selector button.role-button:focus-visible {
     border: var(--button-border-focus);
     outline: none;
+    box-shadow: var(--interaction-focus-ring);
 }
 
 .mu-image-selector button.role-button.select {
