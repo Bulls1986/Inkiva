@@ -13,8 +13,8 @@ describe('Inkiva UI-03 sidebar contract', () => {
   it('keeps the icon rail quiet and gives it a usable 45px hit area', () => {
     const css = read('index.vue')
 
-    expect(css).toContain('width: 45px;')
-    expect(css).toContain('height: 45px;')
+    expect(css).toContain('width: var(--hit-target-sidebar);')
+    expect(css).toContain('height: var(--hit-target-sidebar);')
     expect(css).toContain('color: var(--icon-secondary);')
     expect(css).toContain('color: var(--color-accent);')
     expect(css).not.toContain('background: var(--surface-selected);')

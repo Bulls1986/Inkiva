@@ -247,10 +247,8 @@ const handleLeftBottomClick = (name: string): void => {
 }
 
 .left-column ul > li {
-  /* The row keeps the rail's intrinsic layout; the button below owns the
-     shared hit-target token. */
-  width: 45px;
-  height: 45px;
+  width: var(--hit-target-sidebar);
+  height: var(--hit-target-sidebar);
   margin: 0;
   padding: 0;
   display: flex;
