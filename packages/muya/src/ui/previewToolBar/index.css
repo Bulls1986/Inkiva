@@ -1,15 +1,15 @@
 .mu-float-wrapper.mu-preview-tools-container {
     overflow: visible;
 
-    background: var(--editor-color-04);
+    background: var(--interaction-surface);
 
-    border-radius: 7px;
-    box-shadow: none;
+    border-radius: var(--interaction-radius);
+    box-shadow: var(--interaction-shadow);
 }
 
 .mu-preview-tools {
-    width: 90px;
-    height: 28px;
+    width: 240px;
+    height: var(--interaction-hit-size);
 }
 
 .mu-preview-tools ul,
@@ -37,7 +37,7 @@
 }
 
 .mu-preview-tools li.item:hover {
-    background: var(--float-hover-color);
+    background: var(--interaction-surface-hover);
 }
 
 .mu-preview-tools li.item:last-of-type {
@@ -52,15 +52,15 @@
     width: 1px;
     height: 18px;
 
-    background: var(--editor-color-10);
+    background: var(--interaction-border);
 
     content: '';
 }
 
 .mu-preview-tools li.item .icon-wrapper {
     display: flex;
-    width: 16px;
-    height: 16px;
+    width: var(--interaction-icon-size);
+    height: var(--interaction-icon-size);
 }
 
 .mu-preview-tools li.item .icon-wrapper i.icon {
@@ -78,11 +78,11 @@
 
 .mu-preview-tools li.item .icon-wrapper i.icon > i[class^='icon-'] {
     position: relative;
-    left: -16px;
+    left: calc(-1 * var(--interaction-icon-size));
 
     display: inline-block;
     width: 100%;
     height: 100%;
 
-    filter: drop-shadow(16px 0 currentcolor);
+    filter: drop-shadow(var(--interaction-icon-size) 0 currentcolor);
 }

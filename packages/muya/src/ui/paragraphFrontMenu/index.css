@@ -42,7 +42,7 @@
 
     color: var(--icon-color);
 
-    border-radius: 4px;
+    border-radius: var(--interaction-radius);
 }
 
 .mu-front-menu li.item .text {
@@ -53,8 +53,8 @@
     position: relative;
 
     display: flex;
-    width: 18px;
-    height: 18px;
+    width: var(--interaction-icon-size);
+    height: var(--interaction-icon-size);
     overflow: hidden;
 
     color: var(--icon-color);
@@ -62,13 +62,13 @@
 
 .mu-front-menu li .icon-wrapper i.icon > i[class^='icon-'] {
     position: relative;
-    left: -18px;
+    left: calc(-1 * var(--interaction-icon-size));
 
     display: inline-block;
     width: 100%;
     height: 100%;
 
-    filter: drop-shadow(18px 0 currentcolor);
+    filter: drop-shadow(var(--interaction-icon-size) 0 currentcolor);
 }
 
 .mu-front-menu > ul li.item > span {
@@ -84,7 +84,7 @@
 }
 
 .mu-front-menu > ul li.item:hover {
-    background: var(--float-hover-color);
+    background: var(--interaction-surface-hover);
 }
 
 .mu-front-menu > ul li.item.delete:hover span {
@@ -96,7 +96,7 @@
     height: 1px;
     margin: 4px 15px;
 
-    background: var(--editor-color-10);
+    background: var(--interaction-border);
 }
 
 .mu-front-menu li.turn-into-menu {
@@ -122,5 +122,5 @@
 }
 
 .mu-front-menu li.turn-into-menu .turn-into-item .icon-wrapper:hover {
-    background: var(--float-hover-color);
+    background: var(--interaction-surface-hover);
 }

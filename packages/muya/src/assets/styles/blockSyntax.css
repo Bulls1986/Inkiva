@@ -294,7 +294,8 @@
     width: 20px;
     height: 20px;
 
-    border-radius: var(--radius-sm, 4px);
+    background: transparent;
+    border-radius: var(--interaction-radius);
     cursor: pointer;
     opacity: 0;
 
@@ -304,6 +305,11 @@
         background-color var(--motion-fast, 120ms) ease;
 }
 
+.mu-code-copy:focus-visible {
+    outline: none;
+    box-shadow: var(--interaction-focus-ring);
+}
+
 .mu-code.mu-active .mu-code-copy {
     opacity: 0.5;
 }
@@ -311,7 +317,7 @@
 code.mu-code .mu-code-copy:hover {
     color: var(--color-accent, var(--theme-color));
 
-    background: var(--surface-hover, var(--markdown-surface-code));
+    background: var(--interaction-surface-hover);
     opacity: 1 !important;
 }
 
@@ -578,8 +584,8 @@ li.mu-task-list-item > span.mu-task-list-checkbox::before {
     width: 18px;
     height: 18px;
 
-    background-color: var(--editor-bg-color);
-    border: 2px solid var(--editor-color-50);
+    background-color: var(--interaction-surface);
+    border: 1px solid var(--interaction-border);
     border-radius: 50%;
 
     transition:
@@ -620,6 +626,12 @@ li.mu-task-list-item > input.mu-checkbox-checked::before,
 li.mu-task-list-item > span.mu-checkbox-checked::before {
     background: var(--color-accent, var(--theme-color));
     border-color: var(--color-accent, var(--theme-color));
+}
+
+li.mu-task-list-item > input[type='checkbox']:focus-visible,
+li.mu-task-list-item > span.mu-task-list-checkbox:focus-visible {
+    outline: none;
+    box-shadow: var(--interaction-focus-ring);
 }
 
 /* table */
@@ -706,7 +718,7 @@ li.mu-task-list-item > span.mu-checkbox-checked::before {
 .mu-table-inner tr td.mu-table-cell-selected::before {
     z-index: 0;
 
-    background: var(--markdown-selection, var(--selection-color));
+    background: var(--interaction-selection);
 }
 
 .mu-table-inner tr td.mu-table-cell-border-top::before {
@@ -895,10 +907,10 @@ figure.mu-active.mu-diagram-block > div.mu-diagram-preview {
     width: 100%;
     padding: 0.5rem;
 
-    background: var(--float-bg-color);
-    border: 1px solid var(--float-border-color);
-    border-radius: 4px;
-    box-shadow: 0 2px 12px 0 rgb(0 0 0 / 10%);
+    background: var(--interaction-surface);
+    border: 1px solid var(--interaction-border);
+    border-radius: var(--interaction-radius);
+    box-shadow: var(--interaction-shadow);
     transform: translateX(-50%);
 }
 
@@ -1068,6 +1080,17 @@ pre.mu-active.mu-fenced-code::after {
     font-family: monospace;
     font-style: italic;
     text-align: center;
+}
+
+.mu-diagram-error {
+    box-sizing: border-box;
+    padding: var(--space-3, 12px);
+
+    color: var(--interaction-danger);
+
+    background: var(--interaction-surface);
+    border: 1px solid var(--interaction-border);
+    border-radius: var(--interaction-radius);
 }
 
 .mu-diagram-error-detail {

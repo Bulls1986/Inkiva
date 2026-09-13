@@ -8,10 +8,10 @@
     color: var(--editor-color);
     font-size: 12px;
 
-    background: var(--float-bg-color);
-    border: 1px solid var(--float-border-color);
-    border-radius: 5px;
-    box-shadow: 0 4px 8px 0 var(--float-border-color);
+    background: var(--interaction-surface);
+    border: 1px solid var(--interaction-border);
+    border-radius: var(--interaction-radius);
+    box-shadow: var(--interaction-shadow);
     opacity: 0;
 
     transition: opacity 0.2s ease-in;
@@ -32,7 +32,7 @@
     height: 8px;
 
     background: inherit;
-    border: 1px solid var(--float-border-color);
+    border: 1px solid var(--interaction-border);
     border-right: none;
     border-bottom: none;
     transform: rotate(45deg) translateX(-50%);

@@ -37,19 +37,24 @@
 
 .mu-image-picker-wrapper .mu-list-picker .item:hover,
 .mu-image-picker-wrapper .mu-list-picker .item.active {
-    background-color: var(--float-hover-color);
+    background-color: var(--interaction-surface-hover);
+    border-radius: var(--interaction-radius);
+}
+
+.mu-image-picker-wrapper .mu-list-picker .item.active {
+    background-color: var(--interaction-selection);
 }
 
 .mu-image-picker-wrapper .mu-list-picker .item .icon-wrapper {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: var(--interaction-hit-size);
+    height: var(--interaction-hit-size);
 }
 
 .mu-image-picker-wrapper .mu-list-picker .item .icon-wrapper span::before {
-    font-size: 14px;
+    font-size: var(--interaction-icon-size);
 }
 
 .mu-image-picker-wrapper .mu-list-picker .item .text {

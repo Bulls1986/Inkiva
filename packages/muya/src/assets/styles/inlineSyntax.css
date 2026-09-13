@@ -184,9 +184,10 @@ code.mu-inline-rule {
 
     color: var(--editor-color);
 
-    background: var(--float-bg-color);
-    border-radius: 4px;
-    box-shadow: var(--float-shadow);
+    background: var(--interaction-surface);
+    border: 1px solid var(--interaction-border);
+    border-radius: var(--interaction-radius);
+    box-shadow: var(--interaction-shadow);
 
     user-select: none;
 }
@@ -298,7 +299,7 @@ div .mu-math-error,
 .mu-math:not(.mu-hide) > .mu-math-render {
     z-index: 100;
 
-    box-shadow: var(--float-shadow);
+    box-shadow: var(--interaction-shadow);
 }
 
 .mu-ruby > .mu-ruby-render::before,
@@ -505,6 +506,11 @@ blockquote .mu-hide.mu-math > .mu-math-render {
 
 .mu-inline-image.mu-image-success.mu-inline-image-selected .mu-image-container img {
     filter: brightness(80%);
+}
+
+.mu-inline-image.mu-image-success.mu-inline-image-selected .mu-image-container {
+    outline: 2px solid var(--interaction-selection);
+    outline-offset: 2px;
 }
 
 .mu-inline-image.mu-image-uploading .mu-image-container::before,

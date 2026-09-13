@@ -23,28 +23,28 @@
     margin-right: 1px;
     margin-bottom: 1px;
 
-    border: 1px solid var(--editor-color-10);
+    border: 1px solid var(--interaction-border);
     cursor: pointer;
 }
 
 .mu-table-picker-header span {
-    background: var(--editor-color-10);
+    background: var(--interaction-border);
 }
 
 .mu-table-picker-cell.current {
-    background: var(--editor-color-30);
+    background: var(--text-tertiary, var(--editor-color-30));
 }
 
 .mu-table-picker-header .current {
-    background: var(--editor-color-50);
+    background: var(--text-secondary, var(--editor-color-50));
 }
 
 .mu-table-picker-cell.selected {
-    background: var(--selection-color);
+    background: var(--interaction-selection);
 }
 
 .mu-table-picker-header .selected {
-    background: var(--selection-color);
+    background: var(--interaction-selection);
 }
 
 .mu-table-picker-cell:last-of-type {
@@ -59,7 +59,7 @@
     color: var(--editor-color);
     text-align: center;
 
-    border-top: 1px solid var(--float-border-color);
+    border-top: 1px solid var(--interaction-border);
 }
 
 .mu-table-picker .footer input {
@@ -71,21 +71,21 @@
     color: var(--editor-color);
     text-align: center;
 
-    background: var(--float-border-color);
-    border: none;
-    border-radius: 3px;
+    background: var(--interaction-surface-hover);
+    border: 1px solid var(--interaction-border);
+    border-radius: var(--interaction-radius);
     outline: none;
 }
 
 .mu-table-picker .footer button {
     height: 20px;
 
-    color: #fff;
+    color: var(--interaction-on-accent);
     line-height: 20px;
 
     background: var(--theme-color);
     border: none;
-    border-radius: 3px;
+    border-radius: var(--interaction-radius);
     outline: none;
     cursor: pointer;
 }

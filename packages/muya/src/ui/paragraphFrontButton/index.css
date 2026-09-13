@@ -14,14 +14,15 @@
     width: 20px;
     height: 20px;
 
-    border-radius: 3px;
+    border-radius: var(--interaction-radius);
     cursor: grab;
     opacity: 0.8;
 }
 
 .mu-icon-wrapper:hover {
-    background: var(--button-bg-color-hover);
-    border: var(--button-border);
+    background: var(--interaction-surface-hover);
+    border: 1px solid var(--interaction-border);
+    border-radius: var(--interaction-radius);
     opacity: 1;
 }
 
@@ -75,8 +76,8 @@
     position: absolute;
     z-index: 1;
 
-    background: var(--editor-bg-color);
-    box-shadow: var(--float-shadow);
+    background: var(--interaction-surface);
+    box-shadow: var(--interaction-shadow);
     transform: translateX(-30px);
     opacity: 0.8;
 }

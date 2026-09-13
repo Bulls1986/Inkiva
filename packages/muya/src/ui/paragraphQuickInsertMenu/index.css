@@ -20,7 +20,7 @@
     letter-spacing: 1px;
     text-transform: uppercase;
 
-    background: var(--float-bg-color);
+    background: var(--interaction-surface);
 }
 
 .mu-quick-insert .item {
@@ -36,11 +36,13 @@
 
 .mu-quick-insert .active,
 .mu-quick-insert div.item:hover {
-    background-color: var(--float-hover-color);
+    background-color: var(--interaction-surface-hover);
+    border-radius: var(--interaction-radius);
 }
 
 .mu-quick-insert:hover .active {
     background: transparent;
+    border-radius: var(--interaction-radius);
 }
 
 .mu-quick-insert .no-result {

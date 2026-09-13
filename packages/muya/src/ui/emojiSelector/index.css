@@ -28,7 +28,7 @@
 
 .mu-emoji-picker .active,
 .mu-emoji-picker .item:hover {
-    background-color: var(--float-hover-color);
+    background-color: var(--interaction-surface-hover);
 }
 
 .mu-emoji-picker section .emoji-wrapper .item {
@@ -54,7 +54,7 @@
     width: 24px;
     height: 24px;
 
-    color: #000;
+    color: var(--editor-color);
     font-size: 24px;
     line-height: 1.15;
     text-align: center;

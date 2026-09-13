@@ -33,6 +33,24 @@
     --float-border-color: var(--border-subtle, #e7e9ed);
     --float-shadow: var(--elevation-floating, 0 8px 28px rgb(15 23 42 / 14%));
 
+    /* UI-11 editor interaction surfaces. Keep these aliases in the engine so
+       every Muya plugin can consume the application token system while the
+       package remains usable on its own in the Muya host. */
+    --interaction-surface: var(--surface-elevated, var(--float-bg-color, #fff));
+    --interaction-surface-hover: var(--surface-hover, var(--float-hover-color, #f0f2f5));
+    --interaction-surface-selected: var(--surface-selected, rgb(11 99 229 / 10%));
+    --interaction-border: var(--border-subtle, var(--float-border-color, #e7e9ed));
+    --interaction-radius: var(--radius-md, 6px);
+    --interaction-shadow: var(--elevation-floating, var(--float-shadow, 0 8px 28px rgb(15 23 42 / 14%)));
+    --interaction-focus-ring: var(--focus-ring, 0 0 0 2px rgb(11 99 229 / 22%));
+    --interaction-selection: var(--color-accent-soft, var(--markdown-selection, rgb(11 99 229 / 8%)));
+    --interaction-danger: var(--color-danger, var(--delete-color, #d64545));
+    --interaction-icon-size: 16px;
+    --interaction-hit-size: 28px;
+    --interaction-on-accent: #fff;
+    --search-match-background: var(--color-accent-soft, var(--interaction-selection));
+    --search-current-match-background: var(--color-accent-focus, var(--highlight-color, rgb(11 99 229 / 22%)));
+
     /* Markdown colors are deliberately separate from application chrome. */
     --link-color: var(--color-accent, #0b63e5);
     --h1-color: var(--markdown-text-primary, var(--editor-color-80));
@@ -212,21 +230,29 @@ body {
     color: var(--editor-color-80);
     line-height: 1.3em;
 
-    background: var(--highlight-color);
-    border-radius: 1px;
+    background: var(--search-current-match-background);
+    border-radius: var(--radius-sm, 4px);
 
     animation-name: highlight;
     animation-duration: 0.25s;
 }
 
-*:not(.mu-hide)::selection,
-.mu-selection {
+*:not(.mu-hide)::selection {
     padding: 0 0.2em;
 
     color: var(--editor-color);
 
     background: var(--selection-color);
     border-radius: 2px;
+}
+
+.mu-selection {
+    padding: 0 0.2em;
+
+    color: var(--editor-color);
+
+    background: var(--search-match-background);
+    border-radius: var(--radius-sm, 4px);
 }
 
 .mu-hide::selection {

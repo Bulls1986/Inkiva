@@ -30,7 +30,12 @@
 
 .mu-list-picker .item:hover,
 .mu-list-picker .item.active {
-    background-color: var(--float-hover-color);
+    background-color: var(--interaction-surface-hover);
+    border-radius: var(--interaction-radius);
+}
+
+.mu-list-picker .item.active {
+    background-color: var(--interaction-selection);
 }
 
 .mu-list-picker .item .icon-wrapper {
