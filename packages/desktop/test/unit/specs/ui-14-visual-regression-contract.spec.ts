@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const visualSpec = resolve(here, '../../../e2e/visual-regression.spec.ts')
+const visualSpec = resolve(here, '../../e2e/visual-regression.spec.ts')
 
 describe('UI-14 visual regression contract', () => {
   it('defines the approved core states and responsive viewports', () => {
@@ -18,7 +18,7 @@ describe('UI-14 visual regression contract', () => {
 
     for (const state of states) expect(source).toContain(state)
     for (const width of [550, 768, 1280]) {
-      expect(source).toContain(`width: ${width}`)
+      expect(source).toContain(`setWindowSize(app, ${width})`)
     }
   })
 

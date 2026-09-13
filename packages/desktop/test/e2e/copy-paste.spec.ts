@@ -73,23 +73,34 @@ const copyFromMenu = async(
   // Capture the data on the real Electron copy event instead of reading the
   // process-global OS clipboard. This keeps the contract deterministic when
   // other Electron E2E files run in the second worker.
-  const copied = page.evaluate(() => new Promise<ClipboardPayload>((resolve, reject) => {
-    const onCopy = (event: ClipboardEvent) => {
-      const data = event.clipboardData
-      resolve({
-        text: data?.getData('text/plain') || '',
-        html: data?.getData('text/html') || ''
-      })
+  await page.evaluate(() => {
+    const state = window as typeof window & {
+      __inkivaCopyCapture?: Promise<ClipboardPayload>
     }
-    document.addEventListener('copy', onCopy, { once: true })
-    window.setTimeout(() => {
-      document.removeEventListener('copy', onCopy)
-      reject(new Error('copy event was not dispatched'))
-    }, 8000)
-  }))
+    state.__inkivaCopyCapture = new Promise<ClipboardPayload>((resolve, reject) => {
+      const onCopy = (event: ClipboardEvent) => {
+        const data = event.clipboardData
+        resolve({
+          text: data?.getData('text/plain') || '',
+          html: data?.getData('text/html') || ''
+        })
+      }
+      document.addEventListener('copy', onCopy, { once: true })
+      window.setTimeout(() => {
+        document.removeEventListener('copy', onCopy)
+        reject(new Error('copy event was not dispatched'))
+      }, 8000)
+    })
+  })
 
   await clickMenuById(app, id)
-  return copied
+  return await page.evaluate(() => {
+    const state = window as typeof window & {
+      __inkivaCopyCapture?: Promise<ClipboardPayload>
+    }
+    if (!state.__inkivaCopyCapture) throw new Error('copy capture was not installed')
+    return state.__inkivaCopyCapture
+  })
 }
 
 const dispatchPaste = async(
