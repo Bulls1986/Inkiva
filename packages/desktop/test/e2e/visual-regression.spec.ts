@@ -91,6 +91,22 @@ const waitForAppearance = async(page: Page, appearance: string): Promise<void> =
     .toBe(appearance)
 }
 
+const closeCommandPalette = async(page: Page): Promise<void> => {
+  await page.keyboard.press('Escape')
+  await page.waitForFunction(
+    () => {
+      const inputs = document.querySelectorAll('input.search')
+      for (const input of inputs) {
+        const rect = input.getBoundingClientRect()
+        if (rect.width > 0 && rect.height > 0) return false
+      }
+      return true
+    },
+    null,
+    { timeout: 5000 }
+  )
+}
+
 const openPreferences = async(app: ElectronApplication, page: Page): Promise<Page> => {
   const settingsPromise = app.waitForEvent('window')
   await page.evaluate(() => {
@@ -184,7 +200,7 @@ test.describe.serial('UI-14 visual regression baseline', () => {
     await sendIpcToRenderer(app, 'mt::show-command-palette')
     await expect(page.locator('input.search').first()).toBeVisible({ timeout: 5000 })
     await capture(page, 'command-palette')
-    await page.keyboard.press('Escape')
+    await closeCommandPalette(page)
   })
 
   test('captures a floating dialog surface', async() => {
