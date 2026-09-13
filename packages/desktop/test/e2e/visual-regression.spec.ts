@@ -214,7 +214,11 @@ test.describe.serial('UI-14 visual regression baseline', () => {
       await setWindowSize(dialogLaunch.app, 1280)
       await waitForMenuReady(dialogLaunch.app)
       const dialog = dialogLaunch.page.locator('.print-settings-dialog')
-      await dialog.locator('.el-dialog').waitFor({ state: 'attached', timeout: 10000 })
+      // The export-settings view is loaded on demand. The first IPC warms the
+      // async component; once its bus listener is mounted, send the real open
+      // request again so the visual assertion cannot race component loading.
+      await sendIpcToRenderer(dialogLaunch.app, 'mt::show-export-dialog', 'pdf')
+      await dialog.waitFor({ state: 'attached', timeout: 10000 })
       await sendIpcToRenderer(dialogLaunch.app, 'mt::show-export-dialog', 'pdf')
       await expect(dialog).toBeVisible({ timeout: 10000 })
       await capture(dialogLaunch.page, 'dialog')
