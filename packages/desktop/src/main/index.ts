@@ -13,6 +13,7 @@ import Accessor from './app/accessor'
 import App from './app'
 import { t } from './i18n'
 import { registerSandboxIpcHandlers } from './ipc'
+import { captureConfig, mainPerformance } from './performance/runtime'
 
 // Set version strings into global and process.versions
 process.env.INKIVA_VERSION = INKIVA_VERSION
@@ -116,6 +117,26 @@ try {
 }
 const appController = new App(accessor, args as unknown as { _: string[] })
 appController.init()
+
+// A report is written only when both capture and an explicit output directory
+// are configured. Hold the final quit long enough to finish the local write;
+// normal production shutdown has no extra asynchronous work.
+let performanceFlushStarted = false
+app.on('before-quit', (event) => {
+  if (performanceFlushStarted || !mainPerformance.enabled || !captureConfig.reportDirectory) return
+
+  event.preventDefault()
+  performanceFlushStarted = true
+  void mainPerformance
+    .flush()
+    .then((result) => {
+      if (!result.ok) log.error('Unable to write performance report:', result.error)
+    })
+    .catch((error: unknown) => {
+      log.error('Unable to flush performance report:', error)
+    })
+    .finally(() => app.quit())
+})
 
 // Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {

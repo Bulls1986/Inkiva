@@ -135,6 +135,7 @@ import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { getApplicationAppearance } from 'common/theme'
 import { SyntheticHistory, type IFileHistoryLike } from './syntheticHistory'
+import { rendererPerformance } from '@/services/performance/runtime'
 
 // Importing the engine entrypoint auto-injects its editor CSS (the muya.ts
 // module imports its stylesheets at load time). Inkiva owns the application
@@ -640,11 +641,14 @@ watch(sequenceTheme, (value, oldValue) => {
   }
 })
 
-watch(() => preferencesStore.plantumlServer, (value, oldValue) => {
-  if (value !== oldValue && editor.value) {
-    editor.value.setOptions({ plantumlServer: value }, true)
+watch(
+  () => preferencesStore.plantumlServer,
+  (value, oldValue) => {
+    if (value !== oldValue && editor.value) {
+      editor.value.setOptions({ plantumlServer: value }, true)
+    }
   }
-})
+)
 
 watch(listIndentation, (value, oldValue) => {
   if (value !== oldValue && editor.value) {
@@ -1967,6 +1971,16 @@ const handleLanguageChanged = (newLocale?: unknown) => {
 }
 
 onMounted(() => {
+  const performanceDocumentId = currentFile.value?.id
+  const performanceOperationId = performanceDocumentId
+    ? `document-${performanceDocumentId}`
+    : 'document-initial'
+  rendererPerformance.mark('document_open_start', {
+    phase: 'document-open',
+    operationId: performanceOperationId,
+    documentId: performanceDocumentId
+  })
+
   printer = new Printer()
   const ele = editorRef.value
   if (!ele) return
@@ -2065,7 +2079,17 @@ onMounted(() => {
   const muya = markRaw(new Muya(ele, options))
   // The new engine requires an explicit init() after construction (it builds
   // the document tree and instantiates the registered UI plugins).
+  rendererPerformance.mark('muya_init_start', {
+    phase: 'document-open',
+    operationId: performanceOperationId,
+    documentId: performanceDocumentId
+  })
   muya.init()
+  rendererPerformance.measure('muya_init_end', 'muya_init_start', {
+    phase: 'document-open',
+    operationId: performanceOperationId,
+    documentId: performanceDocumentId
+  })
   editor.value = muya
   // The first document's content is set via constructor options, so no
   // `file-loaded` / `setMarkdownToEditor` runs for it — seed its TOC here.
@@ -2270,6 +2294,11 @@ onMounted(() => {
   document.addEventListener('keyup', keyup)
 
   setEditorWidth(editorLineWidth.value)
+  rendererPerformance.mark('first_editor_interactive', {
+    phase: 'editor',
+    operationId: performanceOperationId,
+    documentId: performanceDocumentId
+  })
 })
 
 onBeforeUnmount(() => {

@@ -13,10 +13,7 @@
         :is-saved="isSaved"
       />
 
-      <div
-        v-if="!init"
-        class="editor-placeholder"
-      />
+      <div v-if="!init" class="editor-placeholder" />
       <recent v-if="!hasCurrentFile && init" />
       <editor-with-tabs
         v-if="hasCurrentFile && init"
@@ -63,6 +60,7 @@ import { useEditorStore } from '@/store/editor'
 import { useCommandCenterStore } from '@/store/commandCenter'
 import { useProjectStore } from '@/store/project'
 import { useNotificationStore } from '@/store/notification'
+import { rendererPerformance } from '@/services/performance/runtime'
 
 const AboutDialog = defineAsyncComponent(() => import('@/components/about/index.vue'))
 const CommandPalette = defineAsyncComponent(() => import('@/components/commandPalette/index.vue'))
@@ -131,6 +129,8 @@ const handleDragOver = (e: DragEvent): void => {
 }
 
 onMounted(async () => {
+  rendererPerformance.mark('editor_shell_mounted', { phase: 'startup' })
+
   if (window.inkiva?.initialState) {
     preferencesStore.SET_USER_PREFERENCE(window.inkiva.initialState)
   }

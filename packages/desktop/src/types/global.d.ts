@@ -12,6 +12,7 @@ import type {
 } from '@shared/types/ipc'
 import type { MenuTemplate, MenuPopupPosition } from '@shared/types/menu'
 import type { SerializedStat } from '@shared/types/files'
+import type { PerformanceBootInfo } from '@shared/types/performance'
 
 declare global {
   // ---- Build-time defines (electron-vite `define`) ----
@@ -93,6 +94,7 @@ declare global {
       cwd?: string
     }
     paths: Partial<BootInfo['paths']>
+    performance?: PerformanceBootInfo
     windowControl: ElectronWindowControlAPI
   }
 
