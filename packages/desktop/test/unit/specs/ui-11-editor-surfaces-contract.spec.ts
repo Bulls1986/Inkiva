@@ -43,8 +43,7 @@ describe('Inkiva UI-11 editor interaction-surface contract', () => {
       read('ui/tableColumnToolbar/index.css'),
       read('ui/imageToolbar/index.css'),
       read('ui/linkTools/index.css'),
-    ].join('
-')
+    ].join('\n')
     expect(styles).toContain('border-radius: var(--interaction-radius)')
     expect(styles).toContain('width: var(--interaction-icon-size)')
     expect(styles).toContain('height: var(--interaction-icon-size)')
