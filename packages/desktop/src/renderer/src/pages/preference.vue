@@ -86,22 +86,22 @@ onMounted(() => {
 
   & h4 {
     margin: 0;
-    font-size: 18px;
+    font-size: var(--font-size-section);
   }
 
   & h5 {
-    font-size: 15px;
+    font-size: var(--font-size-ui);
   }
 
   & h6 {
-    font-size: 15px;
+    font-size: var(--font-size-ui);
   }
 
   & .notes {
     display: block;
     margin: 8px 0 0;
     font-style: normal;
-    font-size: 12px;
+    font-size: var(--font-size-shortcut);
     line-height: 1.5;
     color: var(--text-tertiary);
   }
@@ -149,8 +149,8 @@ onMounted(() => {
   & .pref-setting > h4 {
     margin: 0 0 var(--space-6);
     color: var(--text-primary);
-    font-size: 20px;
-    font-weight: 600;
+    font-size: var(--font-size-title);
+    font-weight: var(--font-weight-emphasis);
     line-height: 1.4;
   }
 }

@@ -85,7 +85,7 @@ const handleSwitchChange = (value: boolean | string | number) => {
 
 <style>
 .pref-switch-item {
-  font-size: 14px;
+  font-size: var(--font-size-ui);
   user-select: none;
   margin: 0;
   min-height: 32px;

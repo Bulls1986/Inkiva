@@ -100,7 +100,7 @@ const handleInput = (value: string) => {
 
 <style>
 .pref-text-box-item {
-  font-size: 14px;
+  font-size: var(--font-size-ui);
   user-select: none;
   margin: 0;
   color: var(--text-secondary);
@@ -111,7 +111,7 @@ const handleInput = (value: string) => {
     border-color: var(--border-default);
   }
   & input.el-input__inner {
-    height: 30px;
+    height: var(--control-height-md);
     background: transparent;
     border: none;
     padding-right: 15px;
@@ -128,7 +128,7 @@ const handleInput = (value: string) => {
   }
   & .el-input__icon,
   & .el-input__inner {
-    line-height: 30px;
+    line-height: var(--control-height-md);
   }
   & .description {
     margin-bottom: 10px;

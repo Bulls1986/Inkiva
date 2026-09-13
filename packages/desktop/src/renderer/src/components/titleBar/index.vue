@@ -401,7 +401,7 @@ img {
   padding: 0 142px;
   height: 100%;
   line-height: var(--titleBarHeight);
-  font-size: 14px;
+  font-size: var(--font-size-ui);
   text-align: center;
   transition: color var(--motion-normal) ease;
   & .filename {
@@ -511,9 +511,10 @@ div.title > span {
   color: var(--text-secondary);
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--font-size-secondary);
   line-height: 1;
   padding: 5px 8px;
+  min-height: var(--hit-target-sm);
   white-space: nowrap;
   transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
@@ -562,7 +563,7 @@ div.title > span {
 .word-count {
   -webkit-app-region: no-drag;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-size-ui);
   color: var(--editorColor30);
   text-align: center;
   line-height: 24px;
@@ -617,7 +618,9 @@ div.title > span {
   background-color: rgba(0, 0, 0, 0.1);
 }
 .frameless-titlebar-button svg {
-  fill: #000000;
+  width: var(--icon-size-xs);
+  height: var(--icon-size-xs);
+  fill: var(--icon-primary);
 }
 .frameless-titlebar-close:hover svg {
   fill: #ffffff;

@@ -173,8 +173,8 @@ onUnmounted(() => {
   & h3 {
     margin: 0;
     padding: 0 20px;
-    font-size: 16px;
-    font-weight: 600;
+    font-size: var(--font-size-section);
+    font-weight: var(--font-weight-emphasis);
     text-align: left;
     color: var(--text-primary);
   }
@@ -197,9 +197,9 @@ onUnmounted(() => {
   & .el-input__inner {
     border: none;
     background: transparent;
-    height: 28px;
-    line-height: 28px;
-    font-size: 13px;
+    height: var(--control-height-sm);
+    line-height: var(--control-height-sm);
+    font-size: var(--font-size-secondary);
   }
 }
 .pref-autocomplete {
@@ -241,7 +241,7 @@ onUnmounted(() => {
     width: calc(100% - 16px);
     height: 36px;
     margin: 4px 8px;
-    font-size: 14px;
+    font-size: var(--font-size-ui);
     color: var(--text-secondary);
     padding: 0 12px;
     box-sizing: border-box;
@@ -259,8 +259,8 @@ onUnmounted(() => {
     border-radius: var(--radius-md);
     transition: color var(--motion-fast), background-color var(--motion-fast);
     & > svg {
-      width: 16px;
-      height: 16px;
+      width: var(--icon-size-md);
+      height: var(--icon-size-md);
       color: var(--icon-secondary);
       margin-right: 8px;
       transition: color var(--motion-fast);

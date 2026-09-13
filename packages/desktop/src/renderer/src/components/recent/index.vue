@@ -124,7 +124,7 @@ const quickOpen = (): void => {
   align-items: center;
   gap: var(--space-2);
   color: var(--text-secondary);
-  font-size: var(--font-ui-lg);
+  font-size: var(--font-size-ui);
   font-weight: 500;
   letter-spacing: 0.01em;
 }
@@ -139,8 +139,8 @@ const quickOpen = (): void => {
   background: var(--surface-chrome);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  font-size: 20px;
-  font-weight: 600;
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-emphasis);
   line-height: 1;
 }
 
@@ -151,8 +151,8 @@ const quickOpen = (): void => {
 .welcome-copy h1 {
   margin: 0;
   color: var(--text-primary);
-  font-size: 16px;
-  font-weight: 500;
+  font-size: var(--font-size-section);
+  font-weight: var(--font-weight-medium);
   line-height: 1.4;
 }
 
@@ -172,7 +172,7 @@ const quickOpen = (): void => {
 }
 
 .welcome-action {
-  min-height: 36px;
+  min-height: var(--hit-target-lg);
   border-radius: var(--radius-md);
   transition: color var(--motion-fast), background-color var(--motion-fast), box-shadow var(--motion-fast);
 }
@@ -189,7 +189,7 @@ const quickOpen = (): void => {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   font-family: inherit;
-  font-size: var(--font-ui-sm);
+  font-size: var(--font-size-shortcut);
   line-height: 16px;
 }
 
@@ -234,7 +234,7 @@ const quickOpen = (): void => {
 .welcome-quick-open {
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
+  min-height: var(--hit-target-md);
   margin-top: var(--space-3);
   padding: 4px 8px;
   color: var(--text-tertiary);
@@ -243,7 +243,7 @@ const quickOpen = (): void => {
   border-radius: var(--radius-sm);
   cursor: pointer;
   font: inherit;
-  font-size: var(--font-ui-sm);
+  font-size: var(--font-size-shortcut);
   transition: color var(--motion-fast), background-color var(--motion-fast), box-shadow var(--motion-fast);
 }
 

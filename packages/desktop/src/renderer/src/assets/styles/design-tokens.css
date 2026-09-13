@@ -66,6 +66,36 @@
   --font-body: 16px;
   --line-height-body: 1.7;
 
+  /* Application UI type scale: system UI fonts keep Chinese text native to the
+     platform while the document editor may still honor user font settings. */
+  --font-family-ui: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Microsoft YaHei UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
+  --font-size-metadata: 11px;
+  --font-size-shortcut: 12px;
+  --font-size-secondary: 13px;
+  --font-size-ui: 14px;
+  --font-size-section: 16px;
+  --font-size-title: 20px;
+  --line-height-ui: 1.4;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-emphasis: 600;
+
+  /* Icon scale and hit targets are independent: small glyphs remain crisp
+     while interactive surfaces stay comfortable for mouse and keyboard users. */
+  --icon-size-xs: 12px;
+  --icon-size-sm: 14px;
+  --icon-size-md: 16px;
+  --icon-size-lg: 18px;
+  --icon-size-xl: 20px;
+  --hit-target-sm: 28px;
+  --hit-target-md: 32px;
+  --hit-target-lg: 36px;
+  --hit-target-sidebar: 45px;
+  --control-height-sm: 28px;
+  --control-height-md: 32px;
+  --control-height-lg: 36px;
+
   /* Motion and elevation */
   --motion-fast: 120ms;
   --motion-normal: 180ms;

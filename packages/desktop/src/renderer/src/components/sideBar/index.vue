@@ -226,7 +226,7 @@ const handleLeftBottomClick = (name: string): void => {
 
 .left-column {
   height: 100%;
-  width: 45px;
+  width: var(--hit-target-sidebar);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -247,6 +247,8 @@ const handleLeftBottomClick = (name: string): void => {
 }
 
 .left-column ul > li {
+  /* The row keeps the rail's intrinsic layout; the button below owns the
+     shared hit-target token. */
   width: 45px;
   height: 45px;
   margin: 0;
@@ -263,8 +265,8 @@ const handleLeftBottomClick = (name: string): void => {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 45px;
-  height: 45px;
+  width: var(--hit-target-sidebar);
+  height: var(--hit-target-sidebar);
   padding: 0;
   color: var(--icon-secondary);
   background: transparent;
@@ -280,8 +282,8 @@ const handleLeftBottomClick = (name: string): void => {
 }
 
 .left-column ul > li > .sidebar-icon-button > svg {
-  width: 18px;
-  height: 18px;
+  width: var(--icon-size-lg);
+  height: var(--icon-size-lg);
   color: var(--icon-secondary);
   opacity: 1;
   transition: color var(--motion-fast), opacity var(--motion-fast), transform var(--motion-fast);
@@ -302,7 +304,7 @@ const handleLeftBottomClick = (name: string): void => {
 
 .right-column {
   flex: 1;
-  width: calc(100% - 45px);
+  width: calc(100% - var(--hit-target-sidebar));
   overflow: hidden;
 }
 

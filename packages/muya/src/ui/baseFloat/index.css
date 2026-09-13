@@ -9,7 +9,7 @@
     height: auto;
     overflow: hidden;
 
-    font-size: 12px;
+    font-size: var(--font-size-shortcut, 12px);
 
     background-color: var(--interaction-surface);
     border: 1px solid var(--interaction-border);
