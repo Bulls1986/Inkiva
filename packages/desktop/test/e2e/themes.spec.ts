@@ -16,8 +16,8 @@ test.describe('Theme switching', () => {
     if (app) await app.close()
   })
 
-  test('Switch to a dark theme adds body.dark', async() => {
-    await clickMenuById(app, 'dracula')
+  test('Switch to Inkiva Dark adds body.dark', async() => {
+    await clickMenuById(app, 'dark')
     await expect(page.locator('body')).toHaveClass(/(^|\s)dark(\s|$)/)
   })
 
@@ -29,8 +29,8 @@ test.describe('Theme switching', () => {
     expect(await page.evaluate(() => document.body.classList.contains('dark'))).toBe(false)
   })
 
-  test('Switch back to dark theme re-applies body.dark', async() => {
-    await clickMenuById(app, 'nord')
+  test('Switch back to Inkiva Dark re-applies body.dark', async() => {
+    await clickMenuById(app, 'dark')
     await expect(page.locator('body')).toHaveClass(/(^|\s)dark(\s|$)/)
   })
 
@@ -40,7 +40,7 @@ test.describe('Theme switching', () => {
   // token classes (span.token.keyword, span.token.number, …). Each theme ships
   // a matching Prism CSS (assets/themes/prismjs/<theme>.theme.css) that colors
   // those tokens. We assert the keyword token color is themed (non-default) and
-  // differs between a dark theme (dracula) and the light baseline. Real pixel
+  // differs between Inkiva Dark and the light baseline. Real pixel
   // fidelity stays manual; this just proves the wiring is live and theme-aware.
   test('Prism code-block token color follows the active theme', async() => {
     await setSourceMarkdown(page, app, '```js\nconst answer = 42\n```\n')
@@ -63,8 +63,8 @@ test.describe('Theme switching', () => {
       })
     }
 
-    // Dark theme: dracula colors `.token.keyword` #ff79c6 -> rgb(255, 121, 198).
-    await clickMenuById(app, 'dracula')
+    // Inkiva Dark uses its bundled dark Prism palette.
+    await clickMenuById(app, 'dark')
     await expect(page.locator('body')).toHaveClass(/(^|\s)dark(\s|$)/)
     let darkColor = ''
     await expect

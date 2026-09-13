@@ -174,6 +174,13 @@ const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
         color: rgba(33, 181, 111, 1);
       }
     }
+    &.paper {
+      color: #2e2b27;
+      background: #fffdf8;
+      & a {
+        color: #0b63e5;
+      }
+    }
     &.graphite {
       color: rgba(43, 48, 50, 0.7);
       background: #f7f7f7;

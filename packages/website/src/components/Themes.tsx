@@ -11,12 +11,9 @@ type Swatch = {
 }
 
 const SWATCHES: Swatch[] = [
-  { name: 'Cadmium Light', bg: '#fff', fg: '#333', accent: '#3a86ff', bgBorder: '#ddd' },
-  { name: 'Dark', bg: '#161a22', fg: '#d8e3f2', accent: '#3b8dff' },
-  { name: 'Graphite Light', bg: '#fdf6e3', fg: '#586e75', accent: '#b58900', bgBorder: '#e8dcc0' },
-  { name: 'Material Dark', bg: '#101722', fg: '#b9c9dc', accent: '#6eaefe' },
-  { name: 'Ulysses Light', bg: '#f7f3ee', fg: '#5b5147', accent: '#c75e3a', bgBorder: '#e6ddcf' },
-  { name: 'One Dark', bg: '#282c34', fg: '#abb2bf', accent: '#61a8ff' }
+  { name: 'Inkiva Light', bg: '#ffffff', fg: '#2f3540', accent: '#0b63e5', bgBorder: '#e7e9ed' },
+  { name: 'Inkiva Dark', bg: '#1b1d21', fg: '#f3f5f8', accent: '#6eaefe' },
+  { name: 'Inkiva Paper', bg: '#fffdf8', fg: '#3d3a35', accent: '#0b63e5', bgBorder: '#e9e4da' }
 ]
 
 export default function Themes() {
@@ -29,22 +26,22 @@ export default function Themes() {
               <span className="kicker">Themes</span>
               <h2 className="sec-title">Make it yours.</h2>
               <p className="sec-desc">
-                33 built-in themes, light and dark. Every one is just CSS — fork a favorite or write
-                your own.
+                Three focused appearances — Inkiva Light, Inkiva Dark, and Inkiva Paper — designed to
+                keep the editor calm and readable.
               </p>
             </div>
             <div className="feat-list">
               <FeatItem
                 delay="d1"
                 icon={<SunIcon />}
-                title="Light & dark, instantly"
-                description="Switch with a keystroke, or follow your system."
+                title="Light, dark, or paper"
+                description="Choose Inkiva Light, Inkiva Dark, or Inkiva Paper; light and dark can follow your system."
               />
               <FeatItem
                 delay="d2"
                 icon={<CodeIcon />}
-                title="Author with plain CSS"
-                description="No proprietary format. Know CSS? You can theme it."
+                title="A focused writing surface"
+                description="Each appearance keeps the interface quiet and the document in focus."
               />
             </div>
           </div>
@@ -78,7 +75,7 @@ export default function Themes() {
               ))}
             </div>
             <div className="theme-more reveal d1">
-              <span>+27 more built-in themes</span>
+              <span>Three focused appearances, designed for writing</span>
             </div>
           </div>
         </div>

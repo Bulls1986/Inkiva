@@ -15,7 +15,6 @@ import codeMirror, { setCursorAtFirstLine, setTextDirection } from '../../codeMi
 import { wordCount as getWordCount } from '@muyajs/core'
 import { adjustCursor } from '../../util'
 import bus from '../../bus'
-import { oneDarkThemes, railscastsThemes } from '@/config'
 
 // CodeMirror 5 ships no first-party types; the wrapper in src/renderer/src/
 // codeMirror/index.ts also keeps the surface intentionally loose.
@@ -350,11 +349,7 @@ onMounted(() => {
     }
   }
 
-  if (railscastsThemes.includes(theme.value)) {
-    codeMirrorConfig.theme = 'railscasts'
-  } else if (oneDarkThemes.includes(theme.value)) {
-    codeMirrorConfig.theme = 'one-dark'
-  }
+  if (theme.value === 'dark') codeMirrorConfig.theme = 'railscasts'
 
   bus.on('file-loaded', handleFileChange)
   bus.on('invalidate-image-cache', handleInvalidateImageCache)
