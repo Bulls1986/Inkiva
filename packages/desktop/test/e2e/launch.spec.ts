@@ -5,6 +5,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { closeElectron, launchElectron, launchWithMarkdown, waitForMenuReady } from './helpers'
 
+const PREMOUNT_STARTUP_DELAY_MS = '15000'
+
 test.describe('Check Launch Inkiva', () => {
   let app: ElectronApplication
   let page: Page
@@ -31,7 +33,7 @@ test.describe('Check Launch Inkiva', () => {
     const startup = await launchElectron([], {
       waitForReady: false,
       env: {
-        INKIVA_E2E_RENDERER_STARTUP_DELAY_MS: '5000'
+        INKIVA_E2E_RENDERER_STARTUP_DELAY_MS: PREMOUNT_STARTUP_DELAY_MS
       }
     })
 
@@ -62,7 +64,7 @@ test.describe('Check Launch Inkiva', () => {
       expect(scrollState.bodyOverflow).toBe('hidden')
       expect(scrollState.documentScrollHeight).toBeLessThanOrEqual(scrollState.documentClientHeight)
 
-      await expect(startup.page.locator('.editor-container')).toBeVisible({ timeout: 10000 })
+      await expect(startup.page.locator('.editor-container')).toBeVisible({ timeout: 20000 })
     } finally {
       await closeElectron(startup.app)
     }
@@ -80,7 +82,7 @@ test.describe('Check Launch Inkiva', () => {
       userDataDir,
       waitForReady: false,
       env: {
-        INKIVA_E2E_RENDERER_STARTUP_DELAY_MS: '5000'
+        INKIVA_E2E_RENDERER_STARTUP_DELAY_MS: PREMOUNT_STARTUP_DELAY_MS
       }
     })
 
