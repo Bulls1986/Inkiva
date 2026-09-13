@@ -14,7 +14,6 @@
           <path :d="windowIconClose" />
         </svg>
       </div>
-    </div>
   </button>
 </div>
 </template>
