@@ -1683,7 +1683,14 @@ const setMarkdownToEditor = (payload: unknown) => {
     contentAlreadyLoaded
   } = (payload ?? {}) as FileLoadedPayload
   if (editor.value) {
-    clearPendingScrollRestore()
+    // `NEW_UNTITLED_TAB` emits `file-changed` first (which starts the
+    // scroll-to-zero restore) and then emits `file-loaded` only to seed the
+    // already-mounted document's baseline/focus. Do not cancel that pending
+    // restore here: cancelling it leaves the editor hidden until the next tab
+    // switch. A genuinely newly opened file has no preceding restore to keep.
+    if (!contentAlreadyLoaded) {
+      clearPendingScrollRestore()
+    }
     if (!contentAlreadyLoaded) {
       // `setContent` resets the document and clears the undo history; only set
       // a cursor afterwards (a freshly-opened file has no history to restore).
