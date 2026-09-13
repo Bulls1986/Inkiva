@@ -223,6 +223,14 @@
   },
   "commandPalette": {
     "placeholder": "Çalıştırmak için bir komut yazın",
+    "sections": {
+      "files": "Dosyalar",
+      "commands": "Komutlar"
+    },
+    "loading": "Başlatıcı hazırlanıyor…",
+    "searching": "Aranıyor…",
+    "empty": "Kullanılabilir komut yok",
+    "noResults": "Eşleşen komut veya dosya yok",
     "placeholders": {
       "selectOption": "Bir seçenek seçin",
       "searchFileToOpen": "Açılacak dosyayı arayın",

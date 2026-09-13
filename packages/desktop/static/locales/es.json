@@ -223,6 +223,14 @@
   },
   "commandPalette": {
     "placeholder": "Escriba un comando para ejecutar",
+    "sections": {
+      "files": "Archivos",
+      "commands": "Comandos"
+    },
+    "loading": "Preparando el lanzador…",
+    "searching": "Buscando…",
+    "empty": "No hay comandos disponibles",
+    "noResults": "No hay comandos ni archivos coincidentes",
     "placeholders": {
       "selectOption": "Seleccionar opción",
       "searchFileToOpen": "Buscar archivo para abrir",

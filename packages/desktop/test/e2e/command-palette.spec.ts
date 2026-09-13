@@ -22,9 +22,27 @@ test.describe('Command palette', () => {
     // the .command-palette wrapper; locate by the search-wrapper or input.search.
     const searchInput = page.locator('.search-wrapper input.search, input.search').first()
     await expect(searchInput).toBeVisible({ timeout: 5000 })
+    await page.keyboard.press('Escape')
+  })
+
+  test('exposes launcher sections and keyboard selection', async() => {
+    await sendIpcToRenderer(app, 'mt::show-command-palette')
+    const listbox = page.locator('[role="listbox"]')
+    const options = page.locator('[data-testid="command-palette-option"]')
+
+    await expect(listbox).toBeVisible({ timeout: 5000 })
+    await expect.poll(() => options.count()).toBeGreaterThan(1)
+    await expect(options.first()).toHaveAttribute('aria-selected', 'true')
+
+    await page.locator('input.search').first().focus()
+    await page.keyboard.press('ArrowDown')
+    await expect(options.nth(1)).toHaveAttribute('aria-selected', 'true')
+    await expect(page.locator('[data-testid="command-palette-section"]').first()).toBeVisible()
+    await page.keyboard.press('Escape')
   })
 
   test('Escape closes the palette', async() => {
+    await sendIpcToRenderer(app, 'mt::show-command-palette')
     await page.keyboard.press('Escape')
     await page.waitForFunction(
       () => {

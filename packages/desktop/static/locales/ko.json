@@ -223,6 +223,14 @@
   },
   "commandPalette": {
     "placeholder": "실행할 명령을 입력하세요",
+    "sections": {
+      "files": "파일",
+      "commands": "명령"
+    },
+    "loading": "런처 준비 중…",
+    "searching": "검색 중…",
+    "empty": "사용 가능한 명령이 없습니다",
+    "noResults": "일치하는 명령 또는 파일이 없습니다",
     "placeholders": {
       "selectOption": "옵션 선택",
       "searchFileToOpen": "열 파일 검색",

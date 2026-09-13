@@ -14,12 +14,39 @@ import staticCommands, {
 type Command = CommandDescriptor
 type Root = { subcommands: Command[] }
 
+const staticCommandIds = new Set(staticCommands.map((command) => command.id))
+const knownRuntimeCommandIds = new Set(['file.quick-open'])
+
+const mergeDescribedCommands = (root: Root, describedCommands: Command[]): void => {
+  // Commands such as Quick Open are registered after the renderer has
+  // mounted. Keep those instances alive while refreshing translated static
+  // descriptions; replacing them would discard their search index and
+  // cancellation state.
+  const runtimeCommands = root.subcommands.filter((command) =>
+    knownRuntimeCommandIds.has(command.id) || !staticCommandIds.has(command.id))
+  const commandsById = new Map<string, Command>()
+
+  for (const command of describedCommands) {
+    commandsById.set(command.id, command)
+  }
+  for (const command of runtimeCommands) {
+    commandsById.set(command.id, command)
+  }
+
+  root.subcommands = Array.from(commandsById.values())
+}
+
 export const useCommandCenterStore = defineStore('commandCenter', () => {
   const rootCommand = ref<Root>(
     new RootCommand(staticCommands as unknown as CommandDescriptor[]) as Root
   )
 
   function REGISTER_COMMAND(command: Command): void {
+    const existingIndex = rootCommand.value.subcommands.findIndex((item) => item.id === command.id)
+    if (existingIndex >= 0) {
+      rootCommand.value.subcommands.splice(existingIndex, 1, command)
+      return
+    }
     rootCommand.value.subcommands.push(command)
   }
 
@@ -30,13 +57,22 @@ export const useCommandCenterStore = defineStore('commandCenter', () => {
   }
 
   async function LISTEN_COMMAND_CENTER_BUS(): Promise<void> {
-    rootCommand.value.subcommands = await getCommandsWithDescriptions()
-    SORT_COMMANDS()
+    let descriptionsRefreshId = 0
+
+    const refreshCommands = async(): Promise<void> => {
+      const refreshId = ++descriptionsRefreshId
+      const describedCommands = await getCommandsWithDescriptions()
+      if (refreshId !== descriptionsRefreshId) return
+
+      mergeDescribedCommands(rootCommand.value, describedCommands)
+      SORT_COMMANDS()
+    }
+
+    await refreshCommands()
 
     // Listen for language changes and update command descriptions.
     bus.on('language-changed', async() => {
-      rootCommand.value.subcommands = await getCommandsWithDescriptions()
-      SORT_COMMANDS()
+      await refreshCommands()
     })
 
     bus.on('cmd::sort-commands', () => {
