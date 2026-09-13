@@ -72,19 +72,21 @@ const handleClick = (status: boolean) => {
   display: flex;
   flex-direction: row;
   max-height: 100px;
-  margin-top: 4px;
-  background: var(--notificationPrimaryBg);
-  color: var(--notificationPrimaryColor);
+  margin: 8px 10px 0;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-left: 2px solid var(--color-accent);
+  border-radius: var(--radius-md);
   padding: 8px 10px;
   user-select: none;
   overflow: hidden;
+  transition: background-color var(--motion-normal), border-color var(--motion-normal), color var(--motion-normal);
   &.warn {
-    background: var(--notificationWarningBg);
-    color: var(--notificationWarningColor);
+    border-left-color: var(--color-warning);
   }
   &.crit {
-    background: var(--notificationErrorBg);
-    color: var(--notificationErrorColor);
+    border-left-color: var(--color-danger);
   }
 }
 .msg {
@@ -110,11 +112,15 @@ const handleClick = (status: boolean) => {
     height: 24px;
     font-size: 12px;
     cursor: pointer;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--icon-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
   }
   & .inline-button:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: var(--surface-hover);
+    border-color: var(--border-default);
+    color: var(--icon-primary);
   }
 }
 </style>

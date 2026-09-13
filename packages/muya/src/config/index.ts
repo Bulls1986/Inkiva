@@ -310,10 +310,9 @@ export const BACK_HASH: Record<string, string> = {
 
 export const MUYA_DEFAULT_OPTIONS = {
     fontSize: 16,
-    lineHeight: 1.6,
+    lineHeight: 1.7,
     // Vertical spacing between ordinary paragraphs, expressed in em units.
-    // Keeping the default at 0.5em preserves the existing stylesheet output.
-    paragraphSpacing: 0.5,
+    paragraphSpacing: 0.75,
     focusMode: false,
     markdown: '',
     // Whether to trim the beginning and ending empty line in code block when open markdown.

@@ -61,12 +61,12 @@ code.mu-inline-rule {
     margin: 0;
     padding: 0.2em 0.4em;
 
-    color: var(--editor-color);
+    color: var(--markdown-text-primary, var(--editor-color));
     font-size: 0.8em;
     font-family: 'DejaVu Sans Mono', 'Source Code Pro', 'Droid Sans Mono', Consolas, monospace;
 
-    background-color: var(--code-block-bg-color);
-    border-radius: 3px;
+    background-color: var(--markdown-surface-code, var(--code-block-bg-color));
+    border-radius: var(--radius-sm, 4px);
 }
 
 /* emoji */

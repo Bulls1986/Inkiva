@@ -44,7 +44,7 @@ const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
   & .image-ctrl {
     font-size: 14px;
     margin: 20px 0;
-    color: var(--editorColor);
+    color: var(--text-secondary);
     & label {
       display: block;
       margin: 20px 0;

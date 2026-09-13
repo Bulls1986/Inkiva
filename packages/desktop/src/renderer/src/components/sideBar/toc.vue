@@ -195,9 +195,9 @@ const handleClick = (data: { slug?: unknown }): void => {
 }
 
 .side-bar-toc .title {
-  color: var(--sideBarTitleColor);
+  color: var(--text-primary);
   font-weight: 600;
-  font-size: 16px;
+  font-size: var(--font-ui-lg);
   margin: 37px 0 10px 0;
   padding-left: 25px;
 }
@@ -225,21 +225,23 @@ const handleClick = (data: { slug?: unknown }): void => {
   height: 24px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
-  color: var(--sideBarTitleColor);
+  border-radius: var(--radius-sm);
+  color: var(--icon-secondary);
   background: transparent;
   cursor: pointer;
   font-size: 17px;
   line-height: 1;
+  transition: background-color var(--motion-fast), color var(--motion-fast);
 }
 
 .side-bar-toc .toc-toolbar-button:hover {
-  background: var(--sideBarItemHoverBgColor);
+  background: var(--surface-hover);
+  color: var(--icon-primary);
 }
 
 .side-bar-toc .toc-empty {
   padding: 20px 25px;
-  color: var(--sideBarTitleColor);
+  color: var(--text-secondary);
   opacity: 0.7;
   font-size: 13px;
 }
@@ -250,11 +252,13 @@ const handleClick = (data: { slug?: unknown }): void => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--motion-fast), color var(--motion-fast);
 }
 
 .side-bar-toc .toc-node-label.is-active {
-  color: var(--themeColor);
+  color: var(--text-primary);
+  background: var(--color-accent-soft);
   font-weight: 600;
 }
 
@@ -270,15 +274,15 @@ const handleClick = (data: { slug?: unknown }): void => {
 
 .side-bar-toc .el-tree {
   background: transparent;
-  color: var(--sideBarColor);
+  color: var(--text-secondary);
 }
 
 .side-bar-toc .el-tree-node:focus > .el-tree-node__content {
-  background-color: var(--sideBarItemHoverBgColor);
+  background-color: var(--surface-hover);
 }
 
 .side-bar-toc .el-tree-node__content:hover {
-  background: var(--sideBarItemHoverBgColor);
+  background: var(--surface-hover);
 }
 
 .side-bar-toc > li {

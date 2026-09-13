@@ -104,46 +104,42 @@ onMounted(() => {
   user-select: none;
   height: 30px;
   box-sizing: border-box;
+  margin-inline: 6px;
   padding-right: 15px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: background-color var(--motion-fast), color var(--motion-fast);
   &:hover {
-    background: var(--sideBarItemHoverBgColor);
+    background: var(--surface-hover);
   }
   & > span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  &::before {
-    content: '';
-    position: absolute;
-    display: block;
-    left: 0;
-    background: var(--themeColor);
-    width: 2px;
-    height: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    transition: all 0.2s ease;
-  }
 }
-.side-bar-file.current::before {
-  height: 100%;
+
+.side-bar-file.current {
+  background: var(--color-accent-soft);
+  color: var(--text-primary);
 }
+
 .side-bar-file.current > span {
-  color: var(--themeColor);
+  color: var(--text-primary);
 }
+
 .side-bar-file.active > span {
-  color: var(--sideBarTitleColor);
+  color: var(--text-primary);
 }
 input.rename {
   height: 22px;
   outline: none;
   margin: 5px 0;
   padding: 0 8px;
-  color: var(--sideBarColor);
-  border: 1px solid var(--floatBorderColor);
-  background: var(--floatBorderColor);
+  color: var(--text-primary);
+  border: 1px solid var(--border-focus);
+  background: var(--surface-editor);
   width: 100%;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }
 </style>

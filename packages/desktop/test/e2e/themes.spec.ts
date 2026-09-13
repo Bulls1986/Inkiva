@@ -21,6 +21,14 @@ test.describe('Theme switching', () => {
     await expect(page.locator('body')).toHaveClass(/(^|\s)dark(\s|$)/)
   })
 
+  test('Switch to Inkiva Paper selects the paper appearance without dark chrome', async() => {
+    await clickMenuById(app, 'paper')
+    await expect
+      .poll(() => page.locator('html').getAttribute('data-inkiva-appearance'))
+      .toBe('paper')
+    await expect(page.locator('body')).not.toHaveClass(/(^|\s)dark(\s|$)/)
+  })
+
   test('Switch to a light theme removes body.dark', async() => {
     await clickMenuById(app, 'light')
     await page.waitForFunction(() => !document.body.classList.contains('dark'), null, {

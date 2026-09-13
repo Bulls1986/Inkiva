@@ -87,8 +87,9 @@ const handleSwitchChange = (value: boolean | string | number) => {
 .pref-switch-item {
   font-size: 14px;
   user-select: none;
-  margin: 12px 0;
-  color: var(--editorColor);
+  margin: 0;
+  min-height: 32px;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -98,10 +99,10 @@ const handleSwitchChange = (value: boolean | string | number) => {
       margin-left: 4px;
       cursor: pointer;
       opacity: 0.7;
-      color: var(--iconColor);
+      color: var(--icon-secondary);
     }
     & svg:hover {
-      color: var(--themeColor);
+      color: var(--color-accent);
     }
     & > .notes {
       display: inline;
@@ -118,21 +119,22 @@ span.el-switch__core::after {
 }
 
 .el-switch .el-switch__core {
-  border: 2px solid var(--iconColor);
+  border: 2px solid var(--icon-secondary);
   background: transparent;
   box-sizing: border-box;
+  transition: border-color var(--motion-normal), background-color var(--motion-normal);
 }
 
 span.el-switch__label {
-  color: var(--editorColor50);
+  color: var(--text-tertiary);
 }
 
 .el-switch:not(.is-checked) .el-switch__core::after {
-  background: var(--iconColor);
+  background: var(--icon-secondary);
 }
 
 .el-switch.is-checked .el-switch__core {
-  border-color: var(--themeColor);
-  background-color: var(--themeColor);
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
 }
 </style>

@@ -71,7 +71,9 @@ test.describe('math and diagrams', () => {
         // preview's data-start/data-end. That re-renders the token with the
         // caret *inside* it, dropping the `mu-hide` class and revealing the
         // editable `.mu-math-text` source span.
-        await page.locator(`${editor.mathRender} ${editor.katex}`).first().click();
+        // The preview wrapper is the hit target; KaTeX is painted inside it
+        // and Playwright correctly reports the wrapper intercepting the child.
+        await page.locator(`${editor.inlineMath} ${editor.mathRender}`).first().click();
         await expect(mathWrapper).not.toHaveClass(/mu-hide/);
         await expect(page.locator(editor.inlineMathText).first()).toBeVisible();
 

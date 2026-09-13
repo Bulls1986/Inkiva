@@ -9,6 +9,7 @@
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import pathe from 'pathe'
+import { getInitialAppearanceFromSearch } from 'common/theme'
 
 import {
   WINDOW_INITIAL_SHELL_READY_CHANNEL,
@@ -18,6 +19,35 @@ import {
   type IpcMainEventChannels,
   type BootInfo
 } from '@shared/types/ipc'
+
+// Set the application appearance before the renderer module starts. This lets
+// the inline loading shell select the persisted Light/Dark/Paper surface
+// without waiting for Vue's mount cycle and avoids a white flash on startup.
+// Keep a parser-timing fallback for alternate Electron/document lifecycles.
+const applyInitialAppearance = (): boolean => {
+  const root = document.documentElement
+  if (!root) return false
+  root.setAttribute(
+    'data-inkiva-appearance',
+    getInitialAppearanceFromSearch(window.location.search)
+  )
+  return true
+}
+
+const setInitialAppearance = (): void => {
+  if (applyInitialAppearance()) return
+
+  const retry = (): void => {
+    if (!applyInitialAppearance()) return
+    document.removeEventListener('readystatechange', retry)
+    document.removeEventListener('DOMContentLoaded', retry)
+  }
+
+  document.addEventListener('readystatechange', retry)
+  document.addEventListener('DOMContentLoaded', retry)
+}
+
+setInitialAppearance()
 
 type RendererEventListener<K extends keyof IpcMainEventChannels> = (
   event: IpcRendererEvent,

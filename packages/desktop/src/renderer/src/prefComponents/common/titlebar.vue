@@ -31,13 +31,13 @@ const handleCloseClick = () => {
   background: transparent;
   height: var(--titleBarHeight);
   box-sizing: border-box;
-  color: var(--editorColor50);
+  color: var(--text-tertiary);
   position: fixed;
   left: 0;
   top: 0;
   right: 0;
   z-index: 2;
-  transition: color 0.4s ease-in-out;
+  transition: color var(--motion-normal), background-color var(--motion-normal);
   cursor: default;
 }
 
@@ -60,11 +60,12 @@ const handleCloseClick = () => {
 }
 
 .frameless-titlebar-close:hover {
-  background-color: rgb(228, 79, 79);
+  background-color: var(--color-danger);
 }
 
 .frameless-titlebar-button svg {
-  fill: #000000;
+  fill: var(--icon-primary);
+  transition: fill var(--motion-fast);
 }
 
 .frameless-titlebar-close:hover svg {
