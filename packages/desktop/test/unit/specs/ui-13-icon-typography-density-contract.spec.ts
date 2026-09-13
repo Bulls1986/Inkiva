@@ -111,7 +111,8 @@ describe('Inkiva UI-13 icon, typography, and density contract', () => {
     const styles = readMuya('assets/styles/index.css')
     const blockStyles = readMuya('assets/styles/blockSyntax.css')
 
-    expect(styles).toContain('font-family: var(--font-family-ui')
+    expect(styles).toMatch(/font-family:\s*var\(\s*--font-family-ui/)
+
     expect(blockStyles).toContain('font-family: var(--mu-font-family, var(--font-family-ui')
     expect(blockStyles).toContain('--mu-font-family')
   })
