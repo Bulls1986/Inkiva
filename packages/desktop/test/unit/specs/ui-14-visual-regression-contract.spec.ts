@@ -1,11 +1,12 @@
 import fs from 'node:fs'
-import path from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-const repoRoot = path.resolve(__dirname, '../../../../..')
-const visualSpec = path.join(
-  repoRoot,
-  'packages/desktop/test/e2e/visual-regression.spec.ts'
+const here = dirname(fileURLToPath(import.meta.url))
+const visualSpec = resolve(
+  here,
+  '../../../e2e/visual-regression.spec.ts'
 )
 
 describe('UI-14 visual regression contract', () => {
