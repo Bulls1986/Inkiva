@@ -311,7 +311,12 @@
   },
   "recent": {
     "noTabsOpen": "開いているタブがありません。",
-    "newFile": "新しいファイル"
+    "newFile": "新しいファイル",
+    "welcomeTitle": "Markdown で書き始める",
+    "welcomeDescription": "新しいドキュメントを作成するか、既存のファイルを開きます。",
+    "actions": "ドキュメント操作",
+    "openFile": "ファイルを開く",
+    "quickOpen": "{shortcut} でファイルをすばやく開く"
   },
   "import": {
     "title": "インポートまたは開く",

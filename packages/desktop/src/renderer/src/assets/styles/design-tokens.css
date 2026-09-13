@@ -70,6 +70,7 @@
   --motion-fast: 120ms;
   --motion-normal: 180ms;
   --motion-slow: 240ms;
+  --motion-loading: 900ms;
   --elevation-none: none;
   --elevation-floating: 0 8px 28px rgb(15 23 42 / 14%);
   --focus-ring: 0 0 0 2px rgb(11 99 229 / 22%);
@@ -147,5 +148,6 @@
     --motion-fast: 0ms;
     --motion-normal: 0ms;
     --motion-slow: 0ms;
+    --motion-loading: 0ms;
   }
 }

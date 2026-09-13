@@ -311,7 +311,12 @@
   },
   "recent": {
     "noTabsOpen": "열린 탭이 없습니다.",
-    "newFile": "새 파일"
+    "newFile": "새 파일",
+    "welcomeTitle": "Markdown 작성을 시작하세요",
+    "welcomeDescription": "새 문서를 만들거나 기존 파일을 여세요.",
+    "actions": "문서 작업",
+    "openFile": "파일 열기",
+    "quickOpen": "{shortcut}를 눌러 파일 빠르게 열기"
   },
   "import": {
     "title": "가져오기 또는 열기",

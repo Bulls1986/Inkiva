@@ -311,7 +311,12 @@
   },
   "recent": {
     "noTabsOpen": "Vous n'avez aucun onglet ouvert.",
-    "newFile": "Nouveau fichier"
+    "newFile": "Nouveau fichier",
+    "welcomeTitle": "Commencez à écrire en Markdown",
+    "welcomeDescription": "Créez un nouveau document ou ouvrez un fichier existant.",
+    "actions": "Actions du document",
+    "openFile": "Ouvrir un fichier",
+    "quickOpen": "Appuyez sur {shortcut} pour ouvrir rapidement un fichier"
   },
   "import": {
     "title": "Importer ou ouvrir",

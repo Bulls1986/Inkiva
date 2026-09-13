@@ -35,16 +35,25 @@ const applyInitialAppearance = (): boolean => {
 }
 
 const setInitialAppearance = (): void => {
-  if (applyInitialAppearance()) return
+  // Electron can execute the sandboxed preload while the parser is still
+  // constructing the document, and some document lifecycles expose the final
+  // URL one turn after the preload starts. Apply immediately when possible,
+  // then retry at both parser and task boundaries before the native window is
+  // revealed.
+  applyInitialAppearance()
 
   const retry = (): void => {
     if (!applyInitialAppearance()) return
-    document.removeEventListener('readystatechange', retry)
-    document.removeEventListener('DOMContentLoaded', retry)
+    if (document.readyState !== 'loading') {
+      document.removeEventListener('readystatechange', retry)
+      document.removeEventListener('DOMContentLoaded', retry)
+    }
   }
 
   document.addEventListener('readystatechange', retry)
   document.addEventListener('DOMContentLoaded', retry)
+  queueMicrotask(retry)
+  globalThis.setTimeout(retry, 0)
 }
 
 setInitialAppearance()
