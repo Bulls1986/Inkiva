@@ -162,29 +162,34 @@ onUnmounted(() => {
   -webkit-app-region: drag;
   display: flex;
   flex-direction: column;
-  background: var(--sideBarBgColor);
+  background: var(--surface-chrome);
+  border-right: 1px solid var(--border-subtle);
   width: var(--prefSideBarWidth);
   height: 100vh;
   padding-top: 24px;
   box-sizing: border-box;
   & h3 {
     margin: 0;
-    font-size: 20px;
-    font-weight: normal;
-    text-align: center;
-    color: var(--sideBarColor);
+    padding: 0 20px;
+    font-size: 16px;
+    font-weight: 600;
+    text-align: left;
+    color: var(--text-primary);
   }
 }
 .search-wrapper {
   -webkit-app-region: no-drag;
-  padding: 0 16px;
-  margin: 18px 0;
+  padding: 0 12px;
+  margin: 16px 0;
 }
 .el-autocomplete {
   width: 100%;
 
   & .el-input__wrapper {
-    background: transparent;
+    background: var(--surface-editor);
+    box-shadow: 0 0 0 1px var(--border-default) inset;
+    border-radius: var(--radius-md);
+    transition: background-color var(--motion-fast), box-shadow var(--motion-fast);
   }
 
   & .el-input__inner {
@@ -196,10 +201,12 @@ onUnmounted(() => {
   }
 }
 .pref-autocomplete {
-  background: var(--floatBgColor);
-  border-color: var(--floatBorderColor);
+  background: var(--surface-elevated);
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-floating);
   & .el-autocomplete-suggestion__wrap li:hover {
-    background: var(--floatHoverColor);
+    background: var(--surface-hover);
   }
   & .popper__arrow {
     display: none;
@@ -213,15 +220,15 @@ onUnmounted(() => {
       text-overflow: ellipsis;
       overflow: hidden;
       font-weight: 600;
-      color: var(--editorColor80);
+      color: var(--text-primary);
     }
     & .addr {
       font-size: 12px;
-      color: var(--editorColor);
+      color: var(--text-secondary);
     }
 
     & .highlighted .addr {
-      color: var(--editorColor);
+      color: var(--text-secondary);
     }
   }
 }
@@ -229,11 +236,12 @@ onUnmounted(() => {
   -webkit-app-region: no-drag;
   overflow-y: auto;
   & .item {
-    width: 100%;
-    height: 38px;
-    font-size: 16px;
-    color: var(--sideBarColor);
-    padding-left: 16px;
+    width: calc(100% - 16px);
+    height: 36px;
+    margin: 4px 8px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    padding: 0 12px;
     box-sizing: border-box;
     display: flex;
     flex-direction: row;
@@ -241,36 +249,25 @@ onUnmounted(() => {
     cursor: pointer;
     position: relative;
     user-select: none;
+    border-radius: var(--radius-md);
+    transition: color var(--motion-fast), background-color var(--motion-fast);
     & > svg {
-      width: 18px;
-      height: 18px;
-      color: var(--sideBarColor);
-      margin-right: 12px;
+      width: 16px;
+      height: 16px;
+      color: var(--icon-secondary);
+      margin-right: 8px;
+      transition: color var(--motion-fast);
     }
     &.active > svg {
-      color: var(--sideBarTitleColor);
+      color: var(--color-accent);
     }
     &:hover {
-      background: var(--sideBarItemHoverBgColor);
-    }
-    &::before {
-      content: '';
-      width: 4px;
-      height: 0;
-      background: var(--highlightThemeColor);
-      position: absolute;
-      left: 0;
-      border-top-right-radius: 3px;
-      border-bottom-right-radius: 3px;
-      transition: height 0.25s ease-in-out;
-      top: 50%;
-      transform: translateY(-50%);
+      background: var(--surface-hover);
+      color: var(--text-primary);
     }
     &.active {
-      color: var(--sideBarTitleColor);
-    }
-    &.active::before {
-      height: 100%;
+      color: var(--text-primary);
+      background: var(--color-accent-soft);
     }
   }
 }

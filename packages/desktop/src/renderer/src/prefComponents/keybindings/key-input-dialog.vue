@@ -190,26 +190,26 @@ const isRawKeyCode = (event: KeyboardEvent, keyCode: string): boolean => {
   margin: 0 auto;
   margin-top: 8px;
   box-sizing: border-box;
-  color: var(--editorColor);
-  background: var(--floatBgColor);
-  border: 1px solid var(--floatBorderColor);
-  border-radius: 4px;
-  box-shadow: 0 3px 8px 3px var(--floatShadow);
+  color: var(--text-primary);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-floating);
   z-index: 10000;
 }
 .input-wrapper {
   display: block;
   width: 100%;
-  border: 1px solid var(--inputBgColor);
-  background: var(--inputBgColor);
-  border-radius: 3px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-editor);
+  border-radius: var(--radius-md);
 }
 input.input-textbox {
   width: 100%;
   height: 30px;
   margin: 0 10px;
   font-size: 14px;
-  color: var(--editorColor);
+  color: var(--text-primary);
   background: transparent;
   outline: none;
   border: none;
@@ -227,7 +227,7 @@ input.input-textbox {
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s;
+  transition: opacity var(--motion-normal), transform var(--motion-normal);
 }
 .fade-enter, .fade-leave-to /* .fade-leave-active below version 2.1.8 */ {
   opacity: 0;
@@ -244,7 +244,7 @@ input.input-textbox {
   justify-content: center;
   align-items: center;
   font-size: 13px;
-  color: var(--editorColor);
+  color: var(--text-primary);
   background: rgba(0, 0, 0, 0.5);
 }
 </style>

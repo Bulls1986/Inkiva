@@ -50,23 +50,28 @@ const removeFileInTab = (file: TabDescriptor): void => {
 .opened-file {
   display: flex;
   user-select: none;
-  height: 28px;
-  line-height: 28px;
+  height: 30px;
+  line-height: 30px;
+  margin-inline: 6px;
   padding-left: 35px;
   position: relative;
-  color: var(--sideBarColor);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: background-color var(--motion-fast), color var(--motion-fast);
   & > .close-icon {
     display: none;
     position: absolute;
-    top: 9px;
+    top: 10px;
     left: 10px;
     cursor: pointer;
+    color: var(--icon-secondary);
+    transition: color var(--motion-fast), opacity var(--motion-fast);
   }
   &:hover > .close-icon {
     display: inline-flex;
   }
   &:hover {
-    background: var(--sideBarItemHoverBgColor);
+    background: var(--surface-hover);
   }
   & > span {
     overflow: hidden;
@@ -75,16 +80,17 @@ const removeFileInTab = (file: TabDescriptor): void => {
   }
 }
 .opened-file.active {
-  color: var(--highlightThemeColor);
+  color: var(--text-primary);
+  background: var(--color-accent-soft);
 }
 .unsaved.opened-file::before {
   content: '';
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--highlightThemeColor);
+  background: var(--color-accent);
   position: absolute;
-  top: 11px;
+  top: 12px;
   left: 12px;
 }
 .unsaved.opened-file:hover::before {

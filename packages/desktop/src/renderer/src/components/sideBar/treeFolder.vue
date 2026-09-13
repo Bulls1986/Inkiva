@@ -152,19 +152,23 @@ onMounted(() => {
     display: flex;
     align-items: center;
     height: 30px;
+    margin-inline: 6px;
     padding-right: 15px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    transition: background-color var(--motion-fast), color var(--motion-fast);
     & > .icon-arrow {
       flex-shrink: 0;
-      color: var(--sideBarIconColor);
+      color: var(--icon-secondary);
       margin-right: 5px;
-      transition: transform 0.25s ease-out;
+      transition: transform var(--motion-normal), color var(--motion-fast);
       transform: rotate(90deg);
     }
     & > .icon-arrow.fold {
       transform: rotate(0);
     }
     &:hover {
-      background: var(--sideBarItemHoverBgColor);
+      background: var(--surface-hover);
     }
   }
 }
@@ -174,10 +178,16 @@ input.rename {
   height: 22px;
   margin: 5px 0;
   padding: 0 6px;
-  color: var(--sideBarColor);
-  border: 1px solid var(--floatBorderColor);
-  background: var(--floatBorderColor);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  background: var(--surface-editor);
   width: 70%;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
+  transition: border-color var(--motion-fast), background-color var(--motion-fast);
+}
+
+.new-input:focus,
+input.rename:focus {
+  border-color: var(--border-focus);
 }
 </style>

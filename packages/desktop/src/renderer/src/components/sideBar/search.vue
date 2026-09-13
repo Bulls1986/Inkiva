@@ -435,12 +435,16 @@ onBeforeUnmount(() => {
   padding: 0 6px;
   border-radius: 4px;
   height: 28px;
-  border: 1px solid var(--floatBorderColor);
-  background: var(--inputBgColor);
+  border: 1px solid var(--border-default);
+  background: var(--surface-editor);
   box-sizing: border-box;
   align-items: center;
+  transition: border-color var(--motion-fast), background-color var(--motion-fast);
+  &:focus-within {
+    border-color: var(--border-focus);
+  }
   & > input {
-    color: var(--sideBarColor);
+    color: var(--text-primary);
     background: transparent;
     height: 100%;
     flex: 1;
@@ -464,18 +468,18 @@ onBeforeUnmount(() => {
       align-items: center;
       justify-content: center;
       &:hover {
-        color: var(--sideBarIconColor);
+        color: var(--icon-primary);
       }
       & > svg {
         width: 14px;
         height: 14px;
-        fill: var(--sideBarIconColor);
+        fill: var(--icon-secondary);
         &:hover {
-          fill: var(--highlightThemeColor);
+          fill: var(--color-accent);
         }
       }
       &.active svg {
-        fill: var(--highlightThemeColor);
+        fill: var(--color-accent);
       }
     }
   }
@@ -487,7 +491,7 @@ onBeforeUnmount(() => {
     height: 20px;
     margin-right: 10px;
     &:hover {
-      color: var(--sideBarIconColor);
+      color: var(--icon-primary);
     }
   }
 }
@@ -503,7 +507,7 @@ onBeforeUnmount(() => {
   padding-left: 15px;
   margin-bottom: 5px;
   font-size: 12px;
-  color: var(--sideBarColor);
+  color: var(--text-secondary);
 }
 .empty,
 .search-result {
@@ -533,6 +537,8 @@ onBeforeUnmount(() => {
     background-color: var(--buttonPrimaryBgColor);
     color: var(--buttonPrimaryFontColor);
     border-color: transparent;
+    box-shadow: none;
+    transition: background-color var(--motion-fast), color var(--motion-fast);
   }
   & .no-data .el-button.is-text.is-has-bg:hover,
   & .no-data .el-button.is-text.is-has-bg:focus {

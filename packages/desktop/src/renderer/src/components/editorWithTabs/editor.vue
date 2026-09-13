@@ -133,14 +133,13 @@ import { useEditorStore } from '@/store/editor'
 import { useProjectStore } from '@/store/project'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
+import { getApplicationAppearance } from 'common/theme'
 import { SyntheticHistory, type IFileHistoryLike } from './syntheticHistory'
 
 // Importing the engine entrypoint auto-injects its editor CSS (the muya.ts
-// module imports its stylesheets at load time). Desktop themes still target the
-// legacy `ag-*` DOM (theme migration is a separate phase), so minor visual
-// differences against the new `mu-*` DOM are expected.
+// module imports its stylesheets at load time). Inkiva owns the application
+// appearance layer; the engine remains responsible for editor primitives.
 import '@muyajs/core'
-import '@/assets/themes/codemirror/one-dark.css'
 import { Close as CloseIcon } from '@element-plus/icons-vue'
 import { type InputNumberInstance } from 'element-plus'
 
@@ -1199,14 +1198,18 @@ type PendingScrollRestore = {
   target: number
   startedAt: number
   expectedScrollTop: number
+  lastMaxScrollTop: number | null
+  stableSince: number | null
   timer: ReturnType<typeof setTimeout> | null
   frame: number | null
   mutationObserver: MutationObserver
   resizeObserver: ResizeObserver
+  removeInteractionListeners: () => void
 }
 
 const SCROLL_RESTORE_FALLBACK_MS = 250
-const SCROLL_RESTORE_TIMEOUT_MS = 3000
+const SCROLL_RESTORE_SETTLE_MS = 1000
+const SCROLL_RESTORE_TIMEOUT_MS = 10000
 
 // The editor rebuilds its block tree synchronously, but diagrams and other
 // media can change the document height after their asynchronous render. Do not
@@ -1224,6 +1227,7 @@ const clearPendingScrollRestore = (): void => {
   if (pending.frame !== null) cancelAnimationFrame(pending.frame)
   pending.mutationObserver.disconnect()
   pending.resizeObserver.disconnect()
+  pending.removeInteractionListeners()
   pendingScrollRestore = null
 }
 
@@ -1250,8 +1254,18 @@ const checkPendingScrollRestore = (): void => {
     container.scrollTop = restoredScrollTop
   }
 
-  const timedOut = Date.now() - pending.startedAt >= SCROLL_RESTORE_TIMEOUT_MS
-  if (maxScrollTop >= pending.target || timedOut) {
+  const now = Date.now()
+  if (pending.lastMaxScrollTop !== maxScrollTop) {
+    pending.lastMaxScrollTop = maxScrollTop
+    pending.stableSince = maxScrollTop >= pending.target ? now : null
+  } else if (maxScrollTop < pending.target) {
+    pending.stableSince = null
+  }
+
+  const timedOut = now - pending.startedAt >= SCROLL_RESTORE_TIMEOUT_MS
+  const targetIsStable =
+    pending.stableSince !== null && now - pending.stableSince >= SCROLL_RESTORE_SETTLE_MS
+  if (pending.target === 0 || targetIsStable || timedOut) {
     // A stale position can belong to a document that is now shorter. Persist
     // the actual boundary after the retry window so the next switch does not
     // repeat the same clamp cycle.
@@ -1317,10 +1331,13 @@ const scrollToCords = (y: number) => {
     target,
     startedAt: Date.now(),
     expectedScrollTop: Math.min(target, getMaxScrollTop(container)),
+    lastMaxScrollTop: null,
+    stableSince: null,
     timer: null,
     frame: null,
     mutationObserver: new MutationObserver(schedulePendingScrollRestoreCheck),
-    resizeObserver: new ResizeObserver(schedulePendingScrollRestoreCheck)
+    resizeObserver: new ResizeObserver(schedulePendingScrollRestoreCheck),
+    removeInteractionListeners: () => {}
   }
   // Diagram rendering may replace the editor's first child. Observe the stable
   // scroll container instead so a rebuilt content root cannot cancel restore.
@@ -1331,6 +1348,18 @@ const scrollToCords = (y: number) => {
   })
   pending.resizeObserver.observe(container)
   pendingScrollRestore = pending
+  const cancelOnInteraction = () => {
+    if (pendingScrollRestore === pending) clearPendingScrollRestore()
+  }
+  const interactionEvents = ['wheel', 'touchstart', 'mousedown', 'pointerdown', 'keydown'] as const
+  for (const eventName of interactionEvents) {
+    container.addEventListener(eventName, cancelOnInteraction)
+  }
+  pending.removeInteractionListeners = () => {
+    for (const eventName of interactionEvents) {
+      container.removeEventListener(eventName, cancelOnInteraction)
+    }
+  }
   requestAnimationFrame(() => {
     if (!container) return
     // Reveal after the first real layout. If an async block later increases
@@ -1683,7 +1712,14 @@ const setMarkdownToEditor = (payload: unknown) => {
     contentAlreadyLoaded
   } = (payload ?? {}) as FileLoadedPayload
   if (editor.value) {
-    clearPendingScrollRestore()
+    // `NEW_UNTITLED_TAB` emits `file-changed` first (which starts the
+    // scroll-to-zero restore) and then emits `file-loaded` only to seed the
+    // already-mounted document's baseline/focus. Do not cancel that pending
+    // restore here: cancelling it leaves the editor hidden until the next tab
+    // switch. A genuinely newly opened file has no preceding restore to keep.
+    if (!contentAlreadyLoaded) {
+      clearPendingScrollRestore()
+    }
     if (!contentAlreadyLoaded) {
       // `setContent` resets the document and clears the undo history; only set
       // a cursor afterwards (a freshly-opened file has no history to restore).
@@ -2010,7 +2046,7 @@ onMounted(() => {
     getPathForFile: (file: File) => window.electron.webUtils.getPathForFile(file)
   }
 
-  if (/dark/i.test(theme.value)) {
+  if (getApplicationAppearance(theme.value) === 'dark') {
     Object.assign(options, {
       mermaidTheme: 'dark',
       vegaTheme: 'dark'
@@ -2146,11 +2182,11 @@ onMounted(() => {
   scrollHandler = () => {
     const pending = pendingScrollRestore
     if (pending) {
-      // Ignore the scroll event caused by the restore itself. A real user
-      // scroll cancels the retry so it is never fought by the background
-      // layout watcher.
-      if (Math.abs(container.scrollTop - pending.expectedScrollTop) <= 1) return
-      clearPendingScrollRestore()
+      // A layout pass can clamp scrollTop while diagrams or media settle. The
+      // explicit interaction listeners installed by scrollToCords cancel on
+      // real user input; a bare scroll event is not enough to distinguish
+      // programmatic layout from a user scroll, so let the watcher recover.
+      return
     }
     if (currentFile.value) {
       editorStore.updateScrollPosition(currentFile.value.id, container.scrollTop)

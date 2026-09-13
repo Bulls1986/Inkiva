@@ -192,18 +192,18 @@ const handleDeleteClick = (selectedItem: CustomDictionaryWord): void => {
   & div.description {
     margin-top: 10px;
     margin-bottom: 2px;
-    color: var(--editorColor);
+    color: var(--text-secondary);
     font-size: 14px;
   }
 }
 .el-table,
 .el-table__expanded-cell {
-  background: var(--editorBgColor);
+  background: var(--surface-editor);
 }
 .el-table button {
   padding: 1px 2px;
   margin: 5px 10px;
-  color: var(--themeColor);
+  color: var(--color-accent);
   background: none;
   border: none;
 }
@@ -221,7 +221,7 @@ const handleDeleteClick = (selectedItem: CustomDictionaryWord): void => {
 }
 .pref-spellchecker .el-table th,
 .pref-spellchecker .el-table tr {
-  background: var(--editorBgColor);
+  background: var(--surface-editor);
 }
 /* Element Plus colours table cells with its own grey --el-text-color-regular,
    which the app never themes, so the custom-dictionary words rendered as
@@ -229,7 +229,7 @@ const handleDeleteClick = (selectedItem: CustomDictionaryWord): void => {
 .pref-spellchecker .el-table,
 .pref-spellchecker .el-table th.el-table__cell,
 .pref-spellchecker .el-table td.el-table__cell {
-  color: var(--editorColor);
+  color: var(--text-secondary);
 }
 .pref-spellchecker .el-table th.el-table__cell.is-leaf,
 .pref-spellchecker .el-table th,
@@ -239,14 +239,14 @@ const handleDeleteClick = (selectedItem: CustomDictionaryWord): void => {
 .pref-spellchecker .el-table th.el-table__cell.is-leaf:last-child,
 .pref-spellchecker .el-table th:last-child,
 .pref-spellchecker .el-table td:last-child {
-  border-right: 1px solid var(--tableBorderColor);
+  border-right: 1px solid var(--border-subtle);
 }
 .pref-spellchecker .el-table--border::after,
 .pref-spellchecker .el-table--group::after,
 .pref-spellchecker .el-table::before,
 .pref-spellchecker .el-table__fixed-right::before,
 .pref-spellchecker .el-table__fixed::before {
-  background: var(--tableBorderColor);
+  background: var(--border-subtle);
 }
 /* Theme Element Plus's table colour variables so the active theme is honoured
    instead of EP's light defaults: the hovered row (--el-fill-color-light, a
@@ -254,8 +254,8 @@ const handleDeleteClick = (selectedItem: CustomDictionaryWord): void => {
    (--el-fill-color-blank / white, which left the fixed "Options" column header
    a white block on dark themes). */
 .pref-spellchecker .el-table {
-  --el-table-row-hover-bg-color: var(--selectionColor);
-  --el-table-header-bg-color: var(--editorBgColor);
+  --el-table-row-hover-bg-color: var(--surface-selected);
+  --el-table-header-bg-color: var(--surface-editor);
 }
 .pref-spellchecker .el-table .el-table__cell {
   padding: 2px 0;
@@ -263,16 +263,16 @@ const handleDeleteClick = (selectedItem: CustomDictionaryWord): void => {
 }
 
 .pref-spellchecker li.el-select-dropdown__item {
-  color: var(--editorColor);
+  color: var(--text-secondary);
   height: 30px;
 }
 .pref-spellchecker li.el-select-dropdown__item.hover,
 li.el-select-dropdown__item:hover {
-  background: var(--floatHoverColor);
+  background: var(--surface-hover);
 }
 .pref-spellchecker div.el-select-dropdown {
-  background: var(--floatBgColor);
-  border-color: var(--floatBorderColor);
+  background: var(--surface-elevated);
+  border-color: var(--border-subtle);
   & .popper__arrow {
     display: none;
   }
@@ -280,8 +280,8 @@ li.el-select-dropdown__item:hover {
 .pref-spellchecker input.el-input__inner {
   height: 30px;
   background: transparent;
-  color: var(--editorColor);
-  border-color: var(--editorColor10);
+  color: var(--text-primary);
+  border-color: var(--border-default);
 }
 .pref-spellchecker .el-input__icon,
 .pref-spellchecker .el-input__inner {

@@ -200,7 +200,7 @@ export default function ChineseHomePage() {
           <div className="split rev">
             <div className="split-text">
               <div className="sec-head reveal">
-                <span className="kicker">主题</span>
+                <span className="kicker">外观</span>
                 <h2 className="sec-title">做成你的样子。</h2>
                 <p className="sec-desc">Inkiva Light、Inkiva Dark 与 Inkiva Paper 三套主外观，围绕安静、清晰的写作体验设计。</p>
               </div>
@@ -281,7 +281,7 @@ export default function ChineseHomePage() {
         <div className="wrap">
           <div className="foot-grid">
             <div className="foot-brand"><Brand /><p>Inkiva · 墨映是一款平静、开源的所见即所得 Markdown 编辑器。写一次，看见意义。</p></div>
-            <div className="foot-col"><h5>产品</h5><a href={hash(SECTIONS.preview)}>实时预览</a><a href={hash(SECTIONS.themes)}>主题</a><a href={hash(SECTIONS.extensions)}>Markdown 支持</a><a href={hash(SECTIONS.download)}>下载</a></div>
+            <div className="foot-col"><h5>产品</h5><a href={hash(SECTIONS.preview)}>实时预览</a><a href={hash(SECTIONS.themes)}>外观</a><a href={hash(SECTIONS.extensions)}>Markdown 支持</a><a href={hash(SECTIONS.download)}>下载</a></div>
             <div className="foot-col"><h5>资源</h5><Link href="/docs">文档</Link><a href={DOWNLOAD.releases} {...EXT_LINK}>发布版本</a><a href={DOWNLOAD.contributing} {...EXT_LINK}>参与贡献</a><a href={DOWNLOAD.issues} {...EXT_LINK}>问题反馈</a></div>
             <div className="foot-col"><h5>社区</h5><a href={DOWNLOAD.repo} {...EXT_LINK}>GitHub</a></div>
           </div>

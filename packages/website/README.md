@@ -12,7 +12,7 @@ The official website for [Inkiva](https://github.com/Bulls1986/Inkiva) - A simpl
 
 - 🚀 **Modern Stack**: Built with React 18 + TypeScript + Vite
 - 📝 **Live Preview**: Interactive markdown editor with real-time rendering
-- 🎨 **Multiple Themes**: Support for Dark, Graphite, Material Dark, One Dark, and Ulysses themes
+- 🎨 **Focused Appearances**: Light, Dark, and Paper — three deliberate surfaces for focused writing
 - 📊 **Diagram Support**: Mermaid diagrams integration for flowcharts, sequence diagrams, and more
 - 🧮 **Math Rendering**: KaTeX support for mathematical formulas
 - 💅 **Syntax Highlighting**: Prism.js integration for code blocks
@@ -178,16 +178,16 @@ website/
 - **TypeScript ESLint** - TypeScript-specific linting rules
 - **Vite Plugin SVGR** - SVG to React component conversion
 
-## 🎨 Themes
+## 🎨 Appearances
 
-The website supports multiple editor themes:
+Inkiva keeps the application surface focused on three appearances:
 
-- **Cadmium Light** (Default)
-- **Dark** - Dark theme with high contrast
-- **Graphite** - Elegant dark gray theme
-- **Material Dark** - Material Design inspired dark theme
-- **One Dark** - Atom One Dark theme
-- **Ulysses** - Minimalist theme inspired by Ulysses app
+- **Light** - the default bright writing surface
+- **Dark** - a charcoal surface for low-light work
+- **Paper** - a warm reading surface with the same Inkiva blue accent
+
+These appearances share one application design system. Markdown typography,
+controls, sidebar states, and transitions stay consistent across all three.
 
 ## 📝 Markdown Features
 

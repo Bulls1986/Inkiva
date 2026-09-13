@@ -102,6 +102,9 @@ importers:
       command-exists:
         specifier: ^1.2.9
         version: 1.2.9
+      dayjs:
+        specifier: ^1.11.21
+        version: 1.11.21
       deep-equal:
         specifier: ^2.2.3
         version: 2.2.3
@@ -153,6 +156,9 @@ importers:
       html-tags:
         specifier: ^5.1.0
         version: 5.1.0
+      iconv-lite:
+        specifier: ^0.7.2
+        version: 0.7.2
       iso-639-1:
         specifier: ^3.1.5
         version: 3.1.5
@@ -171,6 +177,9 @@ importers:
       mermaid:
         specifier: ^11.17.2
         version: 11.17.2
+      minimatch:
+        specifier: ^9.0.9
+        version: 9.0.9
       mitt:
         specifier: ^3.0.1
         version: 3.0.1
@@ -289,6 +298,9 @@ importers:
       patch-package:
         specifier: ^8.0.1
         version: 8.0.1
+      playwright:
+        specifier: ^1.61.0
+        version: 1.61.0
       postcss-preset-env:
         specifier: ^11.3.1
         version: 11.3.1(postcss@8.5.15)

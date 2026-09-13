@@ -82,22 +82,22 @@ const select = (value: SelectValue) => {
 
 <style>
 .pref-select-item {
-  margin: 12px 0;
+  margin: 0;
   font-size: 14px;
-  color: var(--editorColor);
+  color: var(--text-secondary);
   & .el-select {
     width: 100%;
   }
   & div {
     background: transparent;
-    color: var(--editorColor);
-    border-color: var(--editorColor10);
+    color: var(--text-secondary);
+    border-color: var(--border-default);
   }
   & input.el-input__inner {
     height: 30px;
     background: transparent;
-    color: var(--editorColor);
-    border-color: var(--editorColor10);
+    color: var(--text-primary);
+    border-color: var(--border-default);
   }
   & .el-input__icon,
   & .el-input__inner {
@@ -110,33 +110,35 @@ const select = (value: SelectValue) => {
     margin-left: 4px;
     cursor: pointer;
     opacity: 0.7;
-    color: var(--iconColor);
+    color: var(--icon-secondary);
   }
   & svg:hover {
-    color: var(--themeColor);
+    color: var(--color-accent);
   }
 }
 li.el-select-dropdown__item {
-  color: var(--editorColor);
+  color: var(--text-secondary);
   height: 30px;
 }
 li.el-select-dropdown__item.hover,
 li.el-select-dropdown__item:hover {
-  background: var(--floatHoverColor);
+  background: var(--surface-hover);
 }
 li.el-select-dropdown__item.selected,
 li.el-select-dropdown__item.is-selected {
-  color: var(--themeColor);
-  background: var(--themeColor10);
+  color: var(--color-accent);
+  background: var(--surface-selected);
 }
 div.el-select-dropdown {
-  background: var(--floatBgColor);
-  border-color: var(--floatBorderColor);
+  background: var(--surface-elevated);
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-floating);
   & .popper__arrow {
     display: none;
   }
 }
 .el-select__wrapper.is-focused {
-  box-shadow: 0 0 0 1px var(--themeColor) inset;
+  box-shadow: 0 0 0 1px var(--border-focus) inset;
 }
 </style>
