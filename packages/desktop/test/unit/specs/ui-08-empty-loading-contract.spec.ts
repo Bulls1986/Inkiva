@@ -65,12 +65,15 @@ describe('Inkiva UI-08 empty and loading state contract', () => {
 
   it('keeps the pre-mount shell on the same three-dot loading language', () => {
     const indexHtml = readFileSync(resolve(renderer, '../index.html'), 'utf8')
+    const preload = readFileSync(resolve(here, '../../../src/preload/index.ts'), 'utf8')
 
     expect(indexHtml).toContain('inkiva-bootstrap__dot')
     expect(indexHtml).toContain('inkiva-bootstrap-dot')
     expect(indexHtml).toContain('prefers-reduced-motion: reduce')
     expect(indexHtml).not.toContain('inkiva-bootstrap-spin')
     expect(indexHtml).not.toContain('transform: rotate(360deg)')
+    expect(preload).toContain('queueMicrotask(retry)')
+    expect(preload).toContain('globalThis.setTimeout(retry, 0)')
   })
 
   it('ships welcome copy for every supported locale', () => {
