@@ -223,6 +223,14 @@
   },
   "commandPalette": {
     "placeholder": "Befehl zum Ausführen eingeben",
+    "sections": {
+      "files": "Dateien",
+      "commands": "Befehle"
+    },
+    "loading": "Launcher wird vorbereitet…",
+    "searching": "Suche…",
+    "empty": "Keine Befehle verfügbar",
+    "noResults": "Keine passenden Befehle oder Dateien",
     "placeholders": {
       "selectOption": "Option auswählen",
       "searchFileToOpen": "Datei zum Öffnen suchen",

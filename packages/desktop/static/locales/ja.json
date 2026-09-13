@@ -223,6 +223,14 @@
   },
   "commandPalette": {
     "placeholder": "実行するコマンドを入力",
+    "sections": {
+      "files": "ファイル",
+      "commands": "コマンド"
+    },
+    "loading": "ランチャーを準備中…",
+    "searching": "検索中…",
+    "empty": "利用できるコマンドがありません",
+    "noResults": "一致するコマンドまたはファイルがありません",
     "placeholders": {
       "selectOption": "オプションを選択",
       "searchFileToOpen": "開くファイルを検索",

@@ -223,6 +223,14 @@
   },
   "commandPalette": {
     "placeholder": "輸入要執行的命令",
+    "sections": {
+      "files": "檔案",
+      "commands": "命令"
+    },
+    "loading": "正在準備啟動器…",
+    "searching": "正在搜尋…",
+    "empty": "目前沒有可用命令",
+    "noResults": "找不到相符的命令或檔案",
     "placeholders": {
       "selectOption": "選擇選項",
       "searchFileToOpen": "搜尋要開啟的檔案",

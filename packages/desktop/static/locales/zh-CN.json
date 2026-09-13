@@ -223,6 +223,14 @@
   },
   "commandPalette": {
     "placeholder": "输入要执行的命令",
+    "sections": {
+      "files": "文件",
+      "commands": "命令"
+    },
+    "loading": "正在准备启动器…",
+    "searching": "正在搜索…",
+    "empty": "暂无可用命令",
+    "noResults": "未找到匹配的命令或文件",
     "placeholders": {
       "selectOption": "选择一个选项",
       "searchFileToOpen": "搜索要打开的文件",
