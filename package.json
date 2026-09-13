@@ -31,6 +31,7 @@
     "test": "pnpm --filter inkiva test",
     "test:unit": "pnpm --filter inkiva test:unit",
     "test:e2e": "pnpm --filter inkiva test:e2e",
+    "test:e2e:perf": "pnpm --filter inkiva test:e2e:perf",
     "typecheck": "pnpm --filter inkiva typecheck",
     "typecheck:watch": "pnpm --filter inkiva typecheck:watch",
     "check": "pnpm lint && pnpm typecheck",
