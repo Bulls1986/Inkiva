@@ -205,8 +205,12 @@ test.describe.serial('UI-14 visual regression baseline', () => {
 
   test('captures a floating dialog surface', async() => {
     await page.bringToFront()
-    await sendIpcToRenderer(app, 'mt::show-export-dialog', 'pdf')
     const dialog = page.locator('.print-settings-dialog')
+    // ExportSettings is an async component. Wait for its bus listener to be
+    // mounted before sending the renderer IPC, otherwise the event can be
+    // emitted into the short loading gap after the command palette test.
+    await dialog.waitFor({ state: 'attached', timeout: 5000 })
+    await sendIpcToRenderer(app, 'mt::show-export-dialog', 'pdf')
     await expect(dialog).toBeVisible({ timeout: 5000 })
     await capture(page, 'dialog')
     await page.keyboard.press('Escape')
