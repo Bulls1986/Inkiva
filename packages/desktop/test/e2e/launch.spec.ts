@@ -31,7 +31,7 @@ test.describe('Check Launch Inkiva', () => {
     const startup = await launchElectron([], {
       waitForReady: false,
       env: {
-        INKIVA_E2E_RENDERER_STARTUP_DELAY_MS: '2000'
+        INKIVA_E2E_RENDERER_STARTUP_DELAY_MS: '5000'
       }
     })
 
@@ -78,29 +78,60 @@ test.describe('Check Launch Inkiva', () => {
       userDataDir,
       waitForReady: false,
       env: {
-        INKIVA_E2E_RENDERER_STARTUP_DELAY_MS: '2000'
+        INKIVA_E2E_RENDERER_STARTUP_DELAY_MS: '5000'
       }
     })
 
     try {
       await expect
-        .poll(
-          () =>
+        .poll(async() => {
+          const [state, windowVisible] = await Promise.all([
             started.page.evaluate(() => {
               const shell = document.querySelector('.inkiva-bootstrap') as HTMLElement | null
               return {
                 appearance: document.documentElement.getAttribute('data-inkiva-appearance'),
-                loading: shell !== null,
+                loading: shell ? getComputedStyle(shell).visibility !== 'hidden' : false,
+                editorMounted: document.querySelectorAll('.editor-container').length,
                 background: shell ? getComputedStyle(shell).backgroundColor : ''
               }
             }),
-          { timeout: 10000 }
-        )
+            started.app.evaluate(
+              ({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isVisible() ?? false
+            )
+          ])
+          return { ...state, windowVisible }
+        }, { timeout: 15000 })
         .toEqual({
           appearance: 'paper',
           loading: true,
+          editorMounted: 0,
+          windowVisible: true,
           background: 'rgb(255, 253, 248)'
         })
+    } finally {
+      await closeElectron(started.app)
+      fs.rmSync(userDataDir, { recursive: true, force: true })
+    }
+  })
+
+  test('migrates retired appearance values to light in persisted preferences', async() => {
+    const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-appearance-migration-e2e-'))
+    const preferencePath = path.join(__dirname, '../../static/preference.json')
+    const preferences = JSON.parse(fs.readFileSync(preferencePath, 'utf8')) as Record<string, unknown>
+    preferences.theme = 'inkiva-paper'
+    preferences.followSystemTheme = false
+    fs.writeFileSync(path.join(userDataDir, 'preferences.json'), JSON.stringify(preferences), 'utf8')
+
+    const started = await launchElectron([], { userDataDir })
+
+    try {
+      await expect
+        .poll(() => started.page.locator('html').getAttribute('data-inkiva-appearance'))
+        .toBe('light')
+      const migrated = JSON.parse(
+        fs.readFileSync(path.join(userDataDir, 'preferences.json'), 'utf8')
+      ) as Record<string, unknown>
+      expect(migrated.theme).toBe('light')
     } finally {
       await closeElectron(started.app)
       fs.rmSync(userDataDir, { recursive: true, force: true })

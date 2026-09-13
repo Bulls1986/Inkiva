@@ -197,6 +197,9 @@ describe('Inkiva application design-system contract', () => {
 
     expect(preload).toContain('getInitialAppearanceFromSearch')
     expect(preload).toContain('data-inkiva-appearance')
+    expect(preload).toContain('const applyInitialAppearance')
+    expect(preload).toContain("document.addEventListener('DOMContentLoaded'")
+    expect(preload).toContain("document.removeEventListener('DOMContentLoaded'")
     expect(html).toContain("html[data-inkiva-appearance='dark']")
     expect(html).toContain("html[data-inkiva-appearance='paper']")
   })
