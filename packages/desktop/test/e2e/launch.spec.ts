@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { closeElectron, launchElectron, launchWithMarkdown, waitForMenuReady } from './helpers'
 
 test.describe('Check Launch Inkiva', () => {
@@ -60,6 +63,47 @@ test.describe('Check Launch Inkiva', () => {
       await expect(startup.page.locator('.editor-container')).toBeVisible({ timeout: 10000 })
     } finally {
       await closeElectron(startup.app)
+    }
+  })
+
+  test('uses the persisted appearance for the pre-mount loading shell', async() => {
+    const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-appearance-e2e-'))
+    const preferencePath = path.join(__dirname, '../../static/preference.json')
+    const preferences = JSON.parse(fs.readFileSync(preferencePath, 'utf8')) as Record<string, unknown>
+    preferences.theme = 'paper'
+    preferences.followSystemTheme = false
+    fs.writeFileSync(path.join(userDataDir, 'preferences.json'), JSON.stringify(preferences), 'utf8')
+
+    const started = await launchElectron([], {
+      userDataDir,
+      waitForReady: false,
+      env: {
+        INKIVA_E2E_RENDERER_STARTUP_DELAY_MS: '2000'
+      }
+    })
+
+    try {
+      await expect
+        .poll(
+          () =>
+            started.page.evaluate(() => {
+              const shell = document.querySelector('.inkiva-bootstrap') as HTMLElement | null
+              return {
+                appearance: document.documentElement.getAttribute('data-inkiva-appearance'),
+                loading: shell !== null,
+                background: shell ? getComputedStyle(shell).backgroundColor : ''
+              }
+            }),
+          { timeout: 10000 }
+        )
+        .toEqual({
+          appearance: 'paper',
+          loading: true,
+          background: 'rgb(255, 253, 248)'
+        })
+    } finally {
+      await closeElectron(started.app)
+      fs.rmSync(userDataDir, { recursive: true, force: true })
     }
   })
 

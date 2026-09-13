@@ -15,6 +15,9 @@ importers:
       '@babel/eslint-parser':
         specifier: ^7.29.7
         version: 7.29.7(@babel/core@7.29.6)(eslint@9.39.4(jiti@2.7.0))
+      '@eslint/js':
+        specifier: ^9.39.4
+        version: 9.39.4
       electron:
         specifier: ~42.1.0
         version: 42.1.0

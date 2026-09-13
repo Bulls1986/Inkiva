@@ -29,11 +29,24 @@ import {
   addThemeStyle,
   setEditorWidth
 } from '@/util/theme'
-import { getApplicationAppearance } from 'common/theme'
+import {
+  getApplicationAppearance,
+  getInitialAppearanceFromSearch,
+  normalizeApplicationTheme,
+  normalizeApplicationThemeSettings
+} from 'common/theme'
 
 const designTokenPath = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '../../../src/renderer/src/assets/styles/design-tokens.css'
+)
+const preloadPath = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../../src/preload/index.ts'
+)
+const rendererHtmlPath = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../../src/renderer/index.html'
 )
 
 const readDesignTokens = (): string => {
@@ -149,6 +162,43 @@ describe('Inkiva application design-system contract', () => {
     expect(getApplicationAppearance('dark')).toBe('dark')
     expect(getApplicationAppearance('paper')).toBe('paper')
     expect(getApplicationAppearance('unknown-theme')).toBe('light')
+  })
+
+  it('normalizes retired and unknown theme values to selectable appearances', () => {
+    expect(normalizeApplicationTheme('inkiva-dark')).toBe('light')
+    expect(normalizeApplicationTheme('inkiva-paper')).toBe('light')
+    expect(normalizeApplicationTheme('dracula')).toBe('light')
+
+    expect(
+      normalizeApplicationThemeSettings({
+        theme: 'inkiva-dark',
+        lightModeTheme: 'ayu-light',
+        darkModeTheme: 'dark',
+        language: 'zh-CN'
+      })
+    ).toEqual({
+      theme: 'light',
+      lightModeTheme: 'light',
+      darkModeTheme: 'dark',
+      language: 'zh-CN'
+    })
+  })
+
+  it('derives the initial appearance from the renderer URL before Vue mounts', () => {
+    expect(getInitialAppearanceFromSearch('?theme=dark')).toBe('dark')
+    expect(getInitialAppearanceFromSearch('?theme=paper')).toBe('paper')
+    expect(getInitialAppearanceFromSearch('?theme=inkiva-dark')).toBe('light')
+    expect(getInitialAppearanceFromSearch('')).toBe('light')
+  })
+
+  it('keeps preload and the inline shell wired for first-paint appearance', () => {
+    const preload = readFileSync(preloadPath, 'utf8')
+    const html = readFileSync(rendererHtmlPath, 'utf8')
+
+    expect(preload).toContain('getInitialAppearanceFromSearch')
+    expect(preload).toContain('data-inkiva-appearance')
+    expect(html).toContain("html[data-inkiva-appearance='dark']")
+    expect(html).toContain("html[data-inkiva-appearance='paper']")
   })
 
   it('exposes only the three canonical theme choices', () => {

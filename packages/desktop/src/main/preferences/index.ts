@@ -5,6 +5,7 @@ import { BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import log from 'electron-log'
 import { isWindows } from '../config'
 import { hasSameKeys } from '../utils'
+import { normalizeApplicationTheme, normalizeApplicationThemeSettings } from '../../common/theme'
 import { onInternalChannel } from '../utils/internalIpc'
 import { TypedEmitter } from '@shared/types/typedEmitter'
 import type { IUserPreferences } from '@shared/types/preferences'
@@ -89,13 +90,18 @@ class Preference extends TypedEmitter<PreferenceEvents> {
       this.store.set(defaultSettings)
     } else {
       const userSetting = this.getAll() as Record<string, unknown>
-      const requiresUpdate = !hasSameKeys(defaultSettings, userSetting)
+      const normalizedUserSetting = normalizeApplicationThemeSettings(userSetting)
+      const themeWasNormalized = ['theme', 'lightModeTheme', 'darkModeTheme'].some(
+        (key) => userSetting[key] !== normalizedUserSetting[key]
+      )
+      const requiresUpdate =
+        !hasSameKeys(defaultSettings, normalizedUserSetting) || themeWasNormalized
 
       if (requiresUpdate) {
         const normalizedSettings: Record<string, unknown> = {}
         for (const key of Object.keys(defaultSettings)) {
-          normalizedSettings[key] = Object.prototype.hasOwnProperty.call(userSetting, key)
-            ? userSetting[key]
+          normalizedSettings[key] = Object.prototype.hasOwnProperty.call(normalizedUserSetting, key)
+            ? normalizedUserSetting[key]
             : defaultSettings[key]
         }
         this.store.store = normalizedSettings as IUserPreferences
@@ -110,8 +116,11 @@ class Preference extends TypedEmitter<PreferenceEvents> {
   }
 
   setItem(key: string, value: unknown): void {
-    this.store.set(key, value)
-    ipcMain.emit('broadcast-preferences-changed', { [key]: value })
+    const normalizedValue = ['theme', 'lightModeTheme', 'darkModeTheme'].includes(key)
+      ? normalizeApplicationTheme(value)
+      : value
+    this.store.set(key, normalizedValue)
+    ipcMain.emit('broadcast-preferences-changed', { [key]: normalizedValue })
   }
 
   getItem<T = unknown>(key: string): T {
@@ -124,8 +133,9 @@ class Preference extends TypedEmitter<PreferenceEvents> {
       return
     }
 
-    this.store.set(settings)
-    ipcMain.emit('broadcast-preferences-changed', settings)
+    const normalizedSettings = normalizeApplicationThemeSettings(settings)
+    this.store.set(normalizedSettings)
+    ipcMain.emit('broadcast-preferences-changed', normalizedSettings)
   }
 
   getPreferredEol(): 'lf' | 'crlf' {

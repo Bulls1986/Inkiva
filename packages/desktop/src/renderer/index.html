@@ -69,6 +69,24 @@
         }
       }
 
+      html[data-inkiva-appearance='light'] body,
+      html[data-inkiva-appearance='light'] .inkiva-bootstrap {
+        background: #ffffff;
+        color: rgba(0, 0, 0, 0.55);
+      }
+
+      html[data-inkiva-appearance='dark'] body,
+      html[data-inkiva-appearance='dark'] .inkiva-bootstrap {
+        background: #1b1d21;
+        color: rgba(255, 255, 255, 0.62);
+      }
+
+      html[data-inkiva-appearance='paper'] body,
+      html[data-inkiva-appearance='paper'] .inkiva-bootstrap {
+        background: #fffdf8;
+        color: rgba(46, 43, 39, 0.62);
+      }
+
       @keyframes inkiva-bootstrap-spin {
         to {
           transform: rotate(360deg);
