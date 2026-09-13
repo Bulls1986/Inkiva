@@ -13,7 +13,13 @@
             disabled: followSystemTheme
           }
         ]"
+        role="button"
+        tabindex="0"
+        :aria-label="themeItem.name"
+        :aria-pressed="themeItem.name === theme"
+        :aria-disabled="followSystemTheme ? 'true' : undefined"
         @click="!followSystemTheme && onSelectChange('theme', themeItem.name)"
+        @keydown="handleThemeKeydown($event, themeItem.name)"
       >
         <!-- eslint-disable-next-line vue/no-v-html -->
         <div v-html="themeItem.html" />
@@ -138,6 +144,13 @@ onMounted(async () => {
 const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
   preferenceStore.SET_SINGLE_PREFERENCE({ type, value })
 }
+
+const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
+  if (event.target !== event.currentTarget) return
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  if (!followSystemTheme.value) onSelectChange('theme', name)
+}
 </script>
 
 <style>
@@ -170,6 +183,11 @@ const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
 .official-themes .theme:hover {
   background: var(--surface-hover);
   border-color: var(--border-default);
+}
+
+.official-themes .theme:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: -2px;
 }
 
 .official-themes .theme.light {
@@ -280,8 +298,11 @@ const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
 }
 
 .custom-css .custom-css-input:focus {
-  outline: none;
   border-color: var(--border-focus);
+}
+
+.custom-css .custom-css-input:focus-visible {
+  outline: none;
   box-shadow: var(--focus-ring);
 }
 

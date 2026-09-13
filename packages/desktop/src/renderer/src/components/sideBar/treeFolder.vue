@@ -6,7 +6,12 @@
       :style="{ 'padding-left': `${depth * 6 + 10}px` }"
       :class="[{ active: folder.id === activeItem.id }]"
       :title="folder.pathname"
+      role="button"
+      tabindex="0"
+      :aria-label="folder.name"
+      :aria-expanded="!isCollapsed"
       @click="folderNameClick"
+      @keydown="handleFolderKeydown"
     >
       <el-icon
         class="icon-arrow"
@@ -114,6 +119,13 @@ const folderNameClick = (): void => {
   isCollapsed.value = !isCollapsed.value
 }
 
+const handleFolderKeydown = (event: KeyboardEvent): void => {
+  if (event.target !== event.currentTarget) return
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  folderNameClick()
+}
+
 const noop = (): void => {}
 
 const focusRenameInput = (): void => {
@@ -170,11 +182,14 @@ onMounted(() => {
     &:hover {
       background: var(--surface-hover);
     }
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
   }
 }
 .new-input,
 input.rename {
-  outline: none;
   height: 22px;
   margin: 5px 0;
   padding: 0 6px;
@@ -189,5 +204,11 @@ input.rename {
 .new-input:focus,
 input.rename:focus {
   border-color: var(--border-focus);
+}
+
+.new-input:focus-visible,
+input.rename:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: 1px;
 }
 </style>

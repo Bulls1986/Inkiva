@@ -1,7 +1,9 @@
 <template>
   <div class="title-bar">
-    <div
+    <button
+      type="button"
       class="frameless-titlebar-button frameless-titlebar-close"
+      aria-label="Close window"
       @click.stop="handleCloseClick"
     >
       <div>
@@ -12,7 +14,7 @@
           <path :d="windowIconClose" />
         </svg>
       </div>
-    </div>
+    </button>
   </div>
 </template>
 
@@ -44,11 +46,24 @@ const handleCloseClick = () => {
 .frameless-titlebar-button {
   position: absolute;
   display: block;
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
   top: 0;
   right: 0;
   width: 46px;
   height: var(--titleBarHeight);
   -webkit-app-region: no-drag;
+}
+
+.frameless-titlebar-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .frameless-titlebar-button > div {

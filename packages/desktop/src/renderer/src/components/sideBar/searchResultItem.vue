@@ -3,19 +3,21 @@
     <div
       class="search-result"
       :title="searchResult.filePath"
+      role="button"
+      tabindex="0"
+      :aria-label="searchResult.filePath"
+      :aria-expanded="showSearchMatches"
+      @click.stop="toggleSearchMatches()"
+      @keydown="handleSearchResultKeydown"
     >
       <el-icon
         class="icon-arrow"
         :class="{ fold: !showSearchMatches }"
         :size="12"
-        @click.stop="toggleSearchMatches()"
       >
         <ArrowRight />
       </el-icon>
-      <div
-        class="file-info"
-        @click.stop="toggleSearchMatches()"
-      >
+      <div class="file-info">
         <div class="title">
           <span class="filename">
             <span class="name">{{ filename }}</span><span class="extension">{{ extension }}</span>
@@ -37,7 +39,10 @@
           :key="index"
           class="text-overflow"
           :title="searchMatch.lineText"
+          role="button"
+          tabindex="0"
           @click="handleSearchResultClick(searchMatch)"
+          @keydown="handleSearchMatchKeydown($event, searchMatch)"
         >
           <!-- <span class="line-number">{{ searchMatch.range[0][0] }}</span> -->
           <span>{{
@@ -50,12 +55,13 @@
         </li>
       </ul>
       <div v-if="!allMatchesShown">
-        <div
+        <button
+          type="button"
           class="button tiny"
           @click="handleShowMoreMatches"
         >
           {{ t('sideBar.search.showMoreMatches') }}
-        </div>
+        </button>
       </div>
     </div>
   </div>
@@ -108,6 +114,20 @@ const extension = computed<string>(() => {
 
 const toggleSearchMatches = (): void => {
   showSearchMatches.value = !showSearchMatches.value
+}
+
+const handleSearchResultKeydown = (event: KeyboardEvent): void => {
+  if (event.target !== event.currentTarget) return
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  toggleSearchMatches()
+}
+
+const handleSearchMatchKeydown = (event: KeyboardEvent, searchMatch: SearchMatch): void => {
+  if (event.target !== event.currentTarget) return
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  handleSearchResultClick(searchMatch)
 }
 
 const handleShowMoreMatches = (event: MouseEvent): void => {
@@ -177,6 +197,12 @@ const handleSearchResultClick = (searchMatch: SearchMatch): void => {
 .search-result-item > .search-result {
   display: flex;
   align-items: center;
+  border-radius: var(--radius-sm);
+}
+
+.search-result-item > .search-result:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 .search-result-item > .search-result > svg:first-child {
   margin-right: 3px;
@@ -201,8 +227,14 @@ const handleSearchResultClick = (searchMatch: SearchMatch): void => {
   padding: 2px 16px;
   padding-right: 0;
   cursor: pointer;
+  border-radius: var(--radius-sm);
   /* Hide space between inline spans */
   font-size: 0;
+}
+
+.search-result-item .matches ul li:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 .search-result-item .matches ul li .highlight {
   background: var(--color-accent-selected);
@@ -223,6 +255,12 @@ const handleSearchResultClick = (searchMatch: SearchMatch): void => {
   width: 130px;
   margin: 0 auto;
   text-align: center;
+}
+
+.search-result-item .matches button.button {
+  appearance: none;
+  border: 0;
+  font: inherit;
 }
 .search-result-item.active {
   font-weight: 600;

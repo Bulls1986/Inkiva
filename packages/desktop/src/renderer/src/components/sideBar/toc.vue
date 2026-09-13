@@ -285,6 +285,12 @@ const handleClick = (data: { slug?: unknown }): void => {
   background: var(--surface-hover);
 }
 
+.side-bar-toc .el-tree-node:focus-visible > .el-tree-node__content,
+.side-bar-toc .el-tree-node__content:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: -2px;
+}
+
 .side-bar-toc > li {
   font-size: 14px;
   margin-bottom: 15px;
