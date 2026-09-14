@@ -15,6 +15,12 @@ class InlineRenderer {
     public labels: Labels = new Map();
     public renderer: Renderer;
 
+    private _referenceDefinitionsDirty = true;
+
+    invalidateReferenceDefinitions() {
+        this._referenceDefinitionsDirty = true;
+    }
+
     constructor(public muya: Muya) {
         this.renderer = new Renderer(muya, this);
     }
@@ -75,6 +81,9 @@ class InlineRenderer {
     }
 
     private _collectReferenceDefinitions() {
+        if (!this._referenceDefinitionsDirty)
+            return;
+
         const state = this.muya.editor.jsonState.getState();
         const labels = new Map();
 
@@ -96,6 +105,7 @@ class InlineRenderer {
         travel(state);
 
         this.labels = labels;
+        this._referenceDefinitionsDirty = false;
     }
 
     getLabelInfo(blockOrState: ParagraphContent | IParagraphState) {
