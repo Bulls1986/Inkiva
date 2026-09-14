@@ -275,6 +275,11 @@ export const getLargeGateScenario = (level: LargeGateLevel): LargeGateLevelPlan 
   return {
     level,
     fixtures: [...new Set(scenarios.flatMap((scenario) => scenario.fixtures))],
-    metrics: [...new Set(scenarios.flatMap((scenario) => scenario.metrics))]
+    metrics: [
+      ...new Set([
+        ...scenarios.flatMap((scenario) => scenario.metrics),
+        'memory.heapLinearGrowth200'
+      ])
+    ]
   }
 }

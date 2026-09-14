@@ -261,6 +261,14 @@
           "limit": 0
         },
         {
+          "id": "memory-heap-linear-growth-200-count",
+          "metric": "memory.heapLinearGrowth200",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
           "id": "stability-crash-count",
           "metric": "stability.crash",
           "unit": "count",
@@ -811,6 +819,14 @@
         {
           "id": "memory-heap-linear-growth-count",
           "metric": "memory.heapLinearGrowth",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "memory-heap-linear-growth-200-count",
+          "metric": "memory.heapLinearGrowth200",
           "unit": "count",
           "statistic": "max",
           "operator": "eq",
@@ -1597,6 +1613,14 @@
           "limit": 0
         },
         {
+          "id": "memory-heap-linear-growth-200-count",
+          "metric": "memory.heapLinearGrowth200",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
           "id": "stability-crash-count",
           "metric": "stability.crash",
           "unit": "count",
@@ -2200,6 +2224,14 @@
         {
           "id": "memory-heap-linear-growth-count",
           "metric": "memory.heapLinearGrowth",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "memory-heap-linear-growth-200-count",
+          "metric": "memory.heapLinearGrowth200",
           "unit": "count",
           "statistic": "max",
           "operator": "eq",
