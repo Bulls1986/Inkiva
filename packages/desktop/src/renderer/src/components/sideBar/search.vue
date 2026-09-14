@@ -88,7 +88,7 @@
       class="search-result"
     >
       <search-result-item
-        v-for="(item, index) of searchResult"
+        v-for="(item, index) of renderedSearchResult"
         :key="index"
         :search-result="item"
       />
@@ -129,6 +129,7 @@ import FindRegexIcon from '@/assets/icons/searchIcons/iconRegex.svg'
 import { VideoPause } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import type { SearchResult } from './types'
+import { limitSearchResults } from '@/util/searchResultLimit'
 
 const { t } = useI18n()
 const layoutStore = useLayoutStore()
@@ -169,6 +170,8 @@ const searchRootPath = computed(() => {
   const currentPath = currentFile.value?.pathname
   return currentPath ? window.path.dirname(currentPath) : ''
 })
+
+const renderedSearchResult = computed(() => limitSearchResults(searchResult.value))
 
 const searchResultInfo = computed(() => {
   const fileCount = searchResult.value.length

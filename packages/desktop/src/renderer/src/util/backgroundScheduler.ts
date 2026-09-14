@@ -23,6 +23,22 @@ export interface BackgroundTaskSchedulerOptions {
   setTimeout?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>
   clearTimeout?: (timer: ReturnType<typeof setTimeout>) => void
   onError?: (error: unknown, task: BackgroundTask) => void
+  /**
+   * Monotonic clock used to measure the synchronous portion of every task.
+   * Tasks must yield and enqueue another task before this budget is exceeded.
+   */
+  now?: () => number
+  onSlice?: (task: BackgroundTask, durationMs: number) => void
+}
+
+export interface BackgroundTaskHandle {
+  promise: Promise<void>
+  cancel: () => void
+}
+
+const DEFAULT_SLICE_CLOCK = (): number => {
+  const candidate = globalThis.performance?.now
+  return typeof candidate === 'function' ? candidate.call(globalThis.performance) : Date.now()
 }
 
 export class BackgroundTaskScheduler {
@@ -34,6 +50,10 @@ export class BackgroundTaskScheduler {
   private readonly clearTimer: (timer: ReturnType<typeof setTimeout>) => void
 
   private readonly onError: (error: unknown, task: BackgroundTask) => void
+
+  private readonly now: () => number
+
+  private readonly onSlice: (task: BackgroundTask, durationMs: number) => void
 
   private readonly tasks = new Map<string, BackgroundTask>()
 
@@ -49,6 +69,8 @@ export class BackgroundTaskScheduler {
     this.setTimer = options.setTimeout ?? ((callback, delayMs) => setTimeout(callback, delayMs))
     this.clearTimer = options.clearTimeout ?? ((timer) => clearTimeout(timer))
     this.onError = options.onError ?? (() => {})
+    this.now = options.now ?? DEFAULT_SLICE_CLOCK
+    this.onSlice = options.onSlice ?? (() => {})
   }
 
   enqueue(task: BackgroundTask): () => void {
@@ -62,6 +84,58 @@ export class BackgroundTaskScheduler {
     this.schedule()
     return () => {
       if (this.tasks.get(task.id) === task) this.tasks.delete(task.id)
+    }
+  }
+
+  enqueueAndWait(task: BackgroundTask): BackgroundTaskHandle {
+    let settled = false
+    let resolvePromise: (() => void) | undefined
+    let rejectPromise: ((reason?: unknown) => void) | undefined
+    const promise = new Promise<void>((resolve, reject) => {
+      resolvePromise = resolve
+      rejectPromise = reject
+    })
+
+    const resolve = (): void => {
+      if (settled) return
+      settled = true
+      resolvePromise?.()
+    }
+    const reject = (error: unknown): void => {
+      if (settled) return
+      settled = true
+      rejectPromise?.(error)
+    }
+
+    const cancelQueuedTask = this.enqueue({
+      ...task,
+      run: () => {
+        let result: void | Promise<void>
+        try {
+          result = task.run()
+        } catch (error) {
+          reject(error)
+          throw error
+        }
+
+        if (result && typeof result.then === 'function') {
+          return result.then(resolve, (error) => {
+            reject(error)
+            throw error
+          })
+        }
+
+        resolve()
+        return result
+      }
+    })
+
+    return {
+      promise,
+      cancel: () => {
+        cancelQueuedTask()
+        reject(new Error('background task cancelled'))
+      }
     }
   }
 
@@ -103,13 +177,49 @@ export class BackgroundTaskScheduler {
 
     this.tasks.delete(task.id)
     this.running = true
+    const startedAt = this.readNow()
+    let result: void | Promise<void>
+    let failed = false
     try {
-      await task.run()
+      // Measure only the synchronous invocation. Awaited I/O is not renderer
+      // main-thread work; a task that needs more work must enqueue another
+      // bounded slice after it yields.
+      result = task.run()
+    } catch (error) {
+      failed = true
+      this.onError(error, task)
+    }
+    this.reportSlice(task, startedAt)
+
+    try {
+      if (!failed && result && typeof result.then === 'function') {
+        await result
+      }
     } catch (error) {
       this.onError(error, task)
     } finally {
       this.running = false
       if (this.tasks.size > 0) this.schedule()
+    }
+  }
+
+  private readNow(): number | undefined {
+    try {
+      const value = this.now()
+      return Number.isFinite(value) ? value : undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  private reportSlice(task: BackgroundTask, startedAt: number | undefined): void {
+    if (startedAt === undefined) return
+    const endedAt = this.readNow()
+    if (endedAt === undefined) return
+    try {
+      this.onSlice(task, Math.max(0, endedAt - startedAt))
+    } catch {
+      // Diagnostics must never affect task scheduling.
     }
   }
 
