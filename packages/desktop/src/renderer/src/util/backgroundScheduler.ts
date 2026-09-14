@@ -30,12 +30,19 @@ export class BackgroundTaskScheduler {
     callback: () => void,
     delayMs: number
   ) => ReturnType<typeof setTimeout>
+
   private readonly clearTimer: (timer: ReturnType<typeof setTimeout>) => void
+
   private readonly onError: (error: unknown, task: BackgroundTask) => void
+
   private readonly tasks = new Map<string, BackgroundTask>()
+
   private timer: ReturnType<typeof setTimeout> | null = null
+
   private running = false
+
   private interactivePending = false
+
   private closed = false
 
   constructor(options: BackgroundTaskSchedulerOptions = {}) {

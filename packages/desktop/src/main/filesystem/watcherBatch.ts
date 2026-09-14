@@ -18,15 +18,22 @@ interface PendingWatcherEvent {
 
 export class WatcherEventBatcher {
   private readonly send: WatcherBatchSender
+
   private readonly debounceMs: number
+
   private readonly setTimer: (
     callback: () => void,
     delayMs: number
   ) => ReturnType<typeof setTimeout>
+
   private readonly clearTimer: (timer: ReturnType<typeof setTimeout>) => void
+
   private readonly onSendError: (error: unknown) => void
+
   private readonly pending = new Map<string, PendingWatcherEvent>()
+
   private timer: ReturnType<typeof setTimeout> | null = null
+
   private closed = false
 
   constructor(options: WatcherEventBatcherOptions) {
