@@ -32,6 +32,7 @@ export const PERFORMANCE_EVENT_NAMES = [
   'editor_shell_mounted',
   // Document/editor work
   'document_open_start',
+  'document_first_screen',
   'muya_init_start',
   'muya_init_end',
   'first_editor_interactive',
