@@ -1,4 +1,6 @@
 export const WATCHER_EVENT_DEBOUNCE_MS = 16
+export const WATCHER_BATCH_MAX_EVENTS = 50
+export const WATCHER_BATCH_SLICE_BUDGET_MS = 5
 
 export type WatcherBatchChannel = 'mt::update-object-tree' | 'mt::update-file'
 export type WatcherBatchSender = (channel: WatcherBatchChannel, payload: unknown) => void
@@ -9,6 +11,9 @@ export interface WatcherEventBatcherOptions {
   setTimeout?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>
   clearTimeout?: (timer: ReturnType<typeof setTimeout>) => void
   onSendError?: (error: unknown) => void
+  maxEventsPerFlush?: number
+  sliceBudgetMs?: number
+  now?: () => number
 }
 
 interface PendingWatcherEvent {
@@ -30,6 +35,10 @@ export class WatcherEventBatcher {
 
   private readonly onSendError: (error: unknown) => void
 
+  private readonly maxEventsPerFlush: number
+  private readonly sliceBudgetMs: number
+  private readonly now: () => number
+
   private readonly pending = new Map<string, PendingWatcherEvent>()
 
   private timer: ReturnType<typeof setTimeout> | null = null
@@ -42,6 +51,15 @@ export class WatcherEventBatcher {
     this.setTimer = options.setTimeout ?? ((callback, delayMs) => setTimeout(callback, delayMs))
     this.clearTimer = options.clearTimeout ?? ((timer) => clearTimeout(timer))
     this.onSendError = options.onSendError ?? (() => {})
+    this.maxEventsPerFlush = Math.max(
+      1,
+      Math.floor(options.maxEventsPerFlush ?? WATCHER_BATCH_MAX_EVENTS)
+    )
+    this.sliceBudgetMs = Math.max(
+      0,
+      options.sliceBudgetMs ?? WATCHER_BATCH_SLICE_BUDGET_MS
+    )
+    this.now = options.now ?? (() => Date.now())
   }
 
   enqueue(channel: WatcherBatchChannel, payload: unknown, key: string): void {
@@ -57,16 +75,26 @@ export class WatcherEventBatcher {
       this.timer = null
     }
 
-    const entries = Array.from(this.pending.values())
-    this.pending.clear()
-    for (const entry of entries) {
+    const startedAt = this.readNow()
+    let sent = 0
+    for (const [key, entry] of this.pending) {
+      this.pending.delete(key)
       try {
         this.send(entry.channel, entry.payload)
       } catch (error) {
         this.onSendError(error)
       }
+      sent += 1
+      if (
+        sent >= this.maxEventsPerFlush ||
+        (startedAt !== undefined && this.elapsedSince(startedAt) >= this.sliceBudgetMs)
+      ) {
+        break
+      }
     }
-    return entries.length
+
+    if (this.pending.size > 0) this.schedule(0)
+    return sent
   }
 
   get pendingCount(): number {
@@ -83,11 +111,25 @@ export class WatcherEventBatcher {
     this.pending.clear()
   }
 
-  private schedule(): void {
+  private readNow(): number | undefined {
+    try {
+      const value = this.now()
+      return Number.isFinite(value) ? value : undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  private elapsedSince(startedAt: number): number {
+    const current = this.readNow()
+    return current === undefined ? 0 : Math.max(0, current - startedAt)
+  }
+
+  private schedule(delayMs = this.debounceMs): void {
     if (this.timer !== null) return
     this.timer = this.setTimer(() => {
       this.timer = null
       this.flushNow()
-    }, this.debounceMs)
+    }, delayMs)
   }
 }
