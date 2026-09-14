@@ -801,7 +801,7 @@ class App {
         message: '',
         type: 'info'
       })
-    } else if (status.state === 'up-to-date' && status.checkSource === 'manual') {
+    } else if (status.state === 'no-update' && status.checkSource === 'manual') {
       this._sendUpdateNotification({
         time: UPDATE_NOTIFICATION_TIME.upToDate,
         title: t('update.upToDate', { version: status.currentVersion }),
@@ -811,11 +811,14 @@ class App {
     } else if (status.state === 'available') {
       if (this._updatePlatform === 'win32') this._showUpdateAvailableNotification(status)
       else if (this._updatePlatform === 'darwin') this._showMacUpdateAvailableNotification(status)
-    } else if (status.state === 'ready-to-install' && this._updatePlatform === 'win32') {
+    } else if (status.state === 'ready' && this._updatePlatform === 'win32') {
       this._showUpdateReadyNotification(status)
     } else if (
-      status.state === 'error' &&
-      (status.errorCode === 'DOWNLOAD_ERROR' || status.checkSource === 'manual')
+      status.state === 'error-recoverable' &&
+      (status.errorCode === 'DOWNLOAD_ERROR' ||
+        status.errorCode === 'DOWNLOAD_CANCELLED' ||
+        status.errorCode === 'VERIFICATION_ERROR' ||
+        status.checkSource === 'manual')
     ) {
       this._showUpdateErrorNotification(status)
     }
@@ -883,7 +886,11 @@ class App {
 
   private _showUpdateErrorNotification(status: UpdateStatus): void {
     const title =
-      status.errorCode === 'DOWNLOAD_ERROR' ? t('update.downloadFailed') : t('update.checkFailed')
+      (status.errorCode === 'DOWNLOAD_ERROR' ||
+        status.errorCode === 'DOWNLOAD_CANCELLED' ||
+        status.errorCode === 'VERIFICATION_ERROR')
+        ? t('update.downloadFailed')
+        : t('update.checkFailed')
     this._sendUpdateNotification({
       time: UPDATE_NOTIFICATION_TIME.failure,
       title,
@@ -910,7 +917,7 @@ class App {
       case 'downloading':
         this._showUpdateDownloadingNotification(status)
         break
-      case 'ready-to-install':
+      case 'ready':
         if (this._updatePlatform === 'win32') this._showUpdateReadyNotification(status)
         break
       case 'disabled':

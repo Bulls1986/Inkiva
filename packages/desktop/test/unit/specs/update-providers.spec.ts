@@ -43,6 +43,42 @@ describe('WindowsUpdateProvider', () => {
     expect(updater.quitAndInstall).toHaveBeenCalledWith(false, true)
   })
 
+  it('deduplicates provider downloads and exposes cancellation to the updater', async() => {
+    let cancellationToken: { cancelled: boolean } | undefined
+    let resolveDownload: (() => void) | undefined
+    const updater = {
+      autoDownload: false,
+      allowPrerelease: false,
+      allowDowngrade: false,
+      autoInstallOnAppQuit: false,
+      on: vi.fn(),
+      checkForUpdates: vi.fn(async() => ({
+        updateInfo: { version: '1.1.0' }
+      })),
+      downloadUpdate: vi.fn((token?: unknown) => {
+        cancellationToken = token as { cancelled: boolean }
+        return new Promise<void>((resolve) => {
+          resolveDownload = resolve
+        })
+      }),
+      quitAndInstall: vi.fn()
+    }
+
+    const provider = new WindowsUpdateProvider(updater)
+    await provider.checkForUpdates()
+
+    const first = provider.downloadUpdate(() => {})
+    const second = provider.downloadUpdate(() => {})
+    expect(updater.downloadUpdate).toHaveBeenCalledTimes(1)
+
+    await provider.cancelDownload()
+    expect(cancellationToken?.cancelled).toBe(true)
+
+    expect(resolveDownload).toBeDefined()
+    resolveDownload?.()
+    await Promise.all([first, second])
+  })
+
   it('converts an empty GitHub feed into a successful empty result', async() => {
     const updater = {
       autoDownload: false,

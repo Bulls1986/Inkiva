@@ -1,8 +1,9 @@
-import type { ReleaseCandidate, StableRelease } from './types'
+import type { ReleaseCandidate, StableRelease, UpdateCheckResult } from './types'
 
 export type { ReleaseCandidate, StableRelease } from './types'
 
 interface UpdateProviderError {
+  name?: unknown
   code?: unknown
   message?: unknown
   statusCode?: unknown
@@ -55,6 +56,48 @@ export const isMissingReleaseArtifactError = (error: unknown): boolean => {
   if (!error || typeof error !== 'object') return false
   return (error as UpdateProviderError).code === 'ERR_UPDATER_CHANNEL_FILE_NOT_FOUND'
 }
+
+const getErrorText = (error: unknown): string => {
+  if (!error || typeof error !== 'object') return String(error)
+  const candidate = error as UpdateProviderError
+  return [candidate.name, candidate.code, candidate.message].filter(
+    (value): value is string => typeof value === 'string'
+  ).join(' ')
+}
+
+/**
+ * Checksum and signature failures are reported by different updater layers.
+ * Keep them distinct from transport failures so the caller can retry without
+ * presenting a misleading "no update" result.
+ */
+export const isUpdateVerificationError = (error: unknown): boolean => {
+  const candidate = error as UpdateProviderError
+  const code = candidate?.code
+  if (typeof code === 'string' && [
+    'ERR_CHECKSUM_MISMATCH',
+    'ERR_UPDATER_NO_CHECKSUM',
+    'ERR_UPDATER_INVALID_UPDATE_INFO',
+    'ERR_UPDATER_SIGNATURE_VERIFICATION_FAILED',
+    'ERR_UPDATER_INVALID_SIGNATURE'
+  ].includes(code)) return true
+
+  return /(?:checksum|sha(?:2|256|512)|signature|integrity|verification|hash)/i.test(getErrorText(error))
+}
+
+export const isUpdateCancellationError = (error: unknown): boolean => {
+  const candidate = error as UpdateProviderError
+  const code = candidate?.code
+  if (typeof code === 'string' && [
+    'ERR_CANCELED',
+    'ERR_CANCELLED',
+    'ERR_UPDATER_DOWNLOAD_CANCELLED'
+  ].includes(code)) return true
+
+  return /(?:cancelled|canceled|aborted)/i.test(getErrorText(error))
+}
+
+export const isUpdateCheckResult = (value: unknown): value is UpdateCheckResult =>
+  !!value && typeof value === 'object' && Array.isArray((value as UpdateCheckResult).candidates)
 
 const parseVersion = (value: string | undefined): ParsedVersion | undefined => {
   if (!value) return undefined

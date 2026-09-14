@@ -45,7 +45,7 @@ const getProviderState = async(app: ElectronApplication) =>
   })
 
 for (const [label, scenario] of noReleaseScenarios) {
-  test(`manual check treats ${label} as up-to-date`, async() => {
+  test(`manual check treats ${label} as no update`, async() => {
     const { app, page } = await launchElectron([], {
       env: { ...stableUpdateEnv, INKIVA_E2E_UPDATE_SCENARIO: scenario }
     })
@@ -57,7 +57,7 @@ for (const [label, scenario] of noReleaseScenarios) {
 
       await expect
         .poll(async() =>
-          (await getUpdateStatuses(app)).some(({ state }) => state === 'up-to-date')
+          (await getUpdateStatuses(app)).some(({ state }) => state === 'no-update')
         )
         .toBe(true)
       await expect
@@ -88,7 +88,9 @@ for (const [label, scenario, detail] of failedCheckScenarios) {
       await clickMenuById(app, 'checkForUpdatesMenuItem')
 
       await expect
-        .poll(async() => (await getUpdateStatuses(app)).some(({ state }) => state === 'error'))
+        .poll(async() =>
+          (await getUpdateStatuses(app)).some(({ state }) => state === 'error-recoverable')
+        )
         .toBe(true)
       await expect
         .poll(async() => (await page.locator('.mt-notification').allTextContents()).join('\n'))
@@ -121,7 +123,7 @@ test('background check with no formal release is silent and successful', async()
   try {
     await waitForMenuReady(app)
     await expect
-      .poll(async() => (await getUpdateStatuses(app)).some(({ state }) => state === 'up-to-date'))
+      .poll(async() => (await getUpdateStatuses(app)).some(({ state }) => state === 'no-update'))
       .toBe(true)
     expect(await getMessageBoxCalls(app)).toEqual([])
     expect(await getProviderState(app)).toEqual({
@@ -149,7 +151,7 @@ test('manual check reports and downloads a stable update before offering restart
       .toMatch(/1\.1\.0/)
     await expect
       .poll(async() =>
-        (await getUpdateStatuses(app)).some(({ state }) => state === 'ready-to-install')
+        (await getUpdateStatuses(app)).some(({ state }) => state === 'ready')
       )
       .toBe(true)
 
@@ -157,7 +159,7 @@ test('manual check reports and downloads a stable update before offering restart
       expect.arrayContaining([
         expect.objectContaining({ state: 'available', latestVersion: '1.1.0' }),
         expect.objectContaining({ state: 'downloading', latestVersion: '1.1.0' }),
-        expect.objectContaining({ state: 'ready-to-install', latestVersion: '1.1.0' })
+        expect.objectContaining({ state: 'ready', latestVersion: '1.1.0' })
       ])
     )
     expect(await getProviderState(app)).toEqual({
