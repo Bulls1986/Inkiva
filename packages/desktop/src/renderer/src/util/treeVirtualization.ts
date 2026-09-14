@@ -22,7 +22,8 @@ export type VirtualTreeRow = VirtualTreeFolderRow | VirtualTreeFileRow
 
 export const flattenTreeRows = (
   root: TreeNode,
-  collapsedPaths: ReadonlySet<string> = new Set()
+  collapsedPaths: ReadonlySet<string> = new Set(),
+  expandedPaths: ReadonlySet<string> = new Set()
 ): VirtualTreeRow[] => {
   const rows: VirtualTreeRow[] = []
 
@@ -33,7 +34,10 @@ export const flattenTreeRows = (
       depth,
       node: folder
     })
-    if (folder.isCollapsed === true || collapsedPaths.has(folder.pathname)) return
+    const collapsed =
+      collapsedPaths.has(folder.pathname) ||
+      (folder.isCollapsed === true && !expandedPaths.has(folder.pathname))
+    if (collapsed) return
 
     for (const child of folder.folders) visitFolder(child, depth + 1)
     for (const file of folder.files) {
