@@ -64,6 +64,12 @@ const deferred = <T>(): Deferred<T> => {
   return { promise, resolve: settle }
 }
 
+const flushScheduler = async(): Promise<void> => {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await vi.advanceTimersByTimeAsync(0)
+  }
+}
+
 describe('renderer document intelligence coordinator', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -90,10 +96,12 @@ describe('renderer document intelligence coordinator', () => {
     expect(api.createSnapshot).not.toHaveBeenCalled()
 
     await vi.advanceTimersByTimeAsync(1)
+    await flushScheduler()
     expect(api.indexDocument).toHaveBeenCalledTimes(1)
     expect(api.indexDocument).toHaveBeenCalledWith('/docs/note.md', 'three')
 
     await vi.advanceTimersByTimeAsync(100)
+    await flushScheduler()
     expect(api.createSnapshot).toHaveBeenCalledTimes(1)
     expect(api.createSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -108,6 +116,7 @@ describe('renderer document intelligence coordinator', () => {
       null
     )
     await vi.advanceTimersByTimeAsync(100)
+    await flushScheduler()
     expect(api.removeDocument).toHaveBeenCalledWith('/docs/note.md')
     expect(api.indexDocument).toHaveBeenLastCalledWith('/docs/renamed.md', 'three')
 
@@ -128,6 +137,7 @@ describe('renderer document intelligence coordinator', () => {
 
     coordinator.updateDocuments([document('one')], 'doc-1')
     await vi.advanceTimersByTimeAsync(10)
+    await flushScheduler()
 
     expect(api.indexDocument).toHaveBeenCalledWith('/docs/note.md', 'one')
     expect(api.getBacklinks).toHaveBeenCalledWith('/docs/note.md')
@@ -157,7 +167,7 @@ describe('renderer document intelligence coordinator', () => {
     expect(api.indexDocument).not.toHaveBeenCalled()
 
     coordinator.setInteractivePending(false)
-    await vi.runAllTimersAsync()
+    await flushScheduler()
     expect(api.indexDocument).toHaveBeenCalledWith('/docs/note.md', 'one')
 
     coordinator.dispose()
@@ -184,9 +194,9 @@ describe('renderer document intelligence coordinator', () => {
     const first = document('first', { id: 'first', pathname: '/docs/first.md' })
     const second = document('second', { id: 'second', pathname: '/docs/second.md' })
     coordinator.updateDocuments([first, second], first.id)
-    await vi.advanceTimersByTimeAsync(0)
+    await flushScheduler()
     coordinator.updateDocuments([first, second], second.id)
-    await vi.advanceTimersByTimeAsync(0)
+    await flushScheduler()
 
     expect(coordinator.getState()).toMatchObject({
       currentDocumentId: second.id,
@@ -208,7 +218,7 @@ describe('renderer document intelligence coordinator', () => {
       }
     ])
     firstHistory.resolve([historyEntry(first.pathname)])
-    await vi.advanceTimersByTimeAsync(0)
+    await flushScheduler()
 
     expect(coordinator.getState().currentDocumentId).toBe(second.id)
     expect(coordinator.getState().history).toEqual([historyEntry(second.pathname)])
@@ -233,7 +243,9 @@ describe('renderer document intelligence coordinator', () => {
       new Error('The Markdown file changed while Local History restore was awaiting confirmation')
     )
 
-    await expect(coordinator.restoreSnapshot('snapshot-1')).resolves.toBeNull()
+    const staleRestore = coordinator.restoreSnapshot('snapshot-1')
+    await flushScheduler()
+    await expect(staleRestore).resolves.toBeNull()
     expect(api.restoreSnapshot).toHaveBeenCalledWith({
       filePath: '/docs/note.md',
       id: 'snapshot-1',

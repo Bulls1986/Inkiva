@@ -1,5 +1,4 @@
 import type Format from '../block/base/format';
-import type ParagraphContent from '../block/content/paragraphContent';
 import type { Muya } from '../muya';
 import type { IRenderCursor } from '../selection/types';
 import type { IParagraphState, TContainerState, TState } from '../state/types';
@@ -85,7 +84,7 @@ class InlineRenderer {
             return;
 
         const labels = new Map();
-        const collect = (block: ParagraphContent | IParagraphState) => {
+        const collect = (block: Pick<IParagraphState, 'text'>) => {
             const { label, info } = this.getLabelInfo(block);
             if (label && info)
                 labels.set(label, info);
@@ -123,7 +122,7 @@ class InlineRenderer {
         this._referenceDefinitionsDirty = false;
     }
 
-    getLabelInfo(blockOrState: ParagraphContent | IParagraphState) {
+    getLabelInfo(blockOrState: Pick<IParagraphState, 'text'>) {
         const { text } = blockOrState;
         const tokens = beginRules.reference_definition.exec(text);
         let label = null;

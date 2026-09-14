@@ -62,6 +62,10 @@ describe('inline reference definition cache', () => {
         const getState = vi.spyOn(muya.editor.jsonState, 'getState');
 
         muya.setContent('[a][r]\n\n[r]: https://example.com/replaced\n');
+        getState.mockClear();
+
+        const firstContent = muya.editor.scrollPage!.firstContentInDescendant()!;
+        firstContent.update();
 
         expect(getState).not.toHaveBeenCalled();
         expect(muya.domNode.querySelector('a.mu-reference-link')?.getAttribute('href'))

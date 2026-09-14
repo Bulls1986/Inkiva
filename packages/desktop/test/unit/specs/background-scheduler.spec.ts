@@ -88,6 +88,38 @@ describe('background priority scheduler', () => {
     expect(scheduler.pendingCount).toBe(0)
   })
 
+  it('does not serialize newer slices behind awaited background I/O', async() => {
+    vi.useFakeTimers()
+    const order: string[] = []
+    let release!: () => void
+    const pending = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const scheduler = new BackgroundTaskScheduler()
+
+    scheduler.enqueue({
+      id: 'old-io',
+      priority: BACKGROUND_PRIORITY.backlinkMetadataStatistics,
+      run: async() => {
+        order.push('old-start')
+        await pending
+        order.push('old-end')
+      }
+    })
+    scheduler.enqueue({
+      id: 'new-work',
+      priority: BACKGROUND_PRIORITY.backlinkMetadataStatistics,
+      run: () => { order.push('new') }
+    })
+
+    await vi.advanceTimersByTimeAsync(0)
+    expect(order).toEqual(['old-start', 'new'])
+
+    release()
+    await vi.runAllTimersAsync()
+    expect(order).toEqual(['old-start', 'new', 'old-end'])
+  })
+
   it('measures every task as a real main-thread slice', async() => {
     vi.useFakeTimers()
     let now = 100

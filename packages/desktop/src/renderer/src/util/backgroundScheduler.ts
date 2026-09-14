@@ -170,7 +170,7 @@ export class BackgroundTaskScheduler {
     }, 0)
   }
 
-  private async runNext(): Promise<void> {
+  private runNext(): void {
     if (this.closed || this.running) return
     const task = this.pickNextTask()
     if (!task) return
@@ -179,8 +179,8 @@ export class BackgroundTaskScheduler {
     this.running = true
     const startedAt = this.readNow()
     // Measure only the synchronous invocation. Awaited I/O is not renderer
-    // main-thread work; a task that needs more work must enqueue another
-    // bounded slice after it yields.
+    // main-thread work; release the scheduler immediately after invocation so
+    // an old network/disk response cannot block newer foreground-adjacent work.
     const result = (() => {
       try {
         return task.run()
@@ -191,16 +191,19 @@ export class BackgroundTaskScheduler {
     })()
     this.reportSlice(task, startedAt)
 
-    try {
-      if (result && typeof result.then === 'function') {
-        await result
-      }
-    } catch (error) {
-      this.onError(error, task)
-    } finally {
-      this.running = false
-      if (this.tasks.size > 0) this.schedule()
+    if (result && typeof result.then === 'function') {
+      void result.catch((error) => {
+        try {
+          this.onError(error, task)
+        }
+        catch {
+          // Diagnostics must never affect scheduling.
+        }
+      })
     }
+
+    this.running = false
+    if (this.tasks.size > 0) this.schedule()
   }
 
   private readNow(): number | undefined {
