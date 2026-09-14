@@ -80,7 +80,7 @@ test.describe('Document workflow', () => {
     fs.mkdirSync(folderPath, { recursive: true })
     fs.writeFileSync(filePath, '# Recent note\n', 'utf8')
 
-    const launched = await launchElectron([])
+    const launched = await launchElectron([root])
     try {
       await waitForMenuReady(launched.app)
       const list = launched.page.locator('[data-testid="recent-documents-list"]')
