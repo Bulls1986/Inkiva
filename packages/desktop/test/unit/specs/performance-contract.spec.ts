@@ -25,7 +25,8 @@ describe('performance trace contract', () => {
         'muya_init_end',
         'first_editor_interactive',
         'document_editable',
-        'long_task'
+        'long_task',
+        'metric_sample'
       ])
     )
   })
@@ -33,6 +34,7 @@ describe('performance trace contract', () => {
   it('accepts only names from the versioned event catalog', () => {
     expect(isPerformanceEventName('process_entry')).toBe(true)
     expect(isPerformanceEventName('long_task')).toBe(true)
+    expect(isPerformanceEventName('metric_sample')).toBe(true)
     expect(isPerformanceEventName('not-a-performance-event')).toBe(false)
     expect(PERFORMANCE_TRACE_SCHEMA_VERSION).toBe(1)
   })
