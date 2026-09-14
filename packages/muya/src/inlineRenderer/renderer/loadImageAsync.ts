@@ -119,8 +119,9 @@ export default function loadImageAsync(
         else {
             const observer = new IntersectionObserver((entries) => {
                 if (!entries.some(entry =>
-                    entry.isIntersecting || entry.intersectionRatio > 0))
+                    entry.isIntersecting || entry.intersectionRatio > 0)) {
                     return;
+                }
 
                 const imageText = document.getElementById(id);
                 observer.disconnect();
