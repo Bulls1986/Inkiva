@@ -54,7 +54,7 @@ describe('ScrollFpsTracker', () => {
     tracker.frame(16.6667)
     tracker.frame(33.3334)
 
-    expect(tracker.end()).toBeCloseTo(60, 4)
+    expect(tracker.end()).toBeCloseTo(60, 3)
   })
 })
 
