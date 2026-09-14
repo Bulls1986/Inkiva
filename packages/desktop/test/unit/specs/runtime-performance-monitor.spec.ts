@@ -251,6 +251,4 @@ describe('RuntimePerformanceMonitor', () => {
     )
     monitor.dispose()
   })
-
-
 })

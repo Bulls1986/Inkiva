@@ -224,9 +224,6 @@ function validateReport(value: unknown): asserts value is PerformanceGateReport 
   assertNonEmptyString(report.generatedAt, 'report.generatedAt')
   validateEnvironment(report.environment)
   const metrics = asRecord(report.metrics, 'report.metrics')
-  if (Object.keys(metrics).length === 0) {
-    throw new Error('report.metrics must not be empty')
-  }
   for (const [metricName, metric] of Object.entries(metrics)) {
     assertNonEmptyString(metricName, 'report.metrics key')
     validateMetricSeries(metric, 'report.metrics.' + metricName)

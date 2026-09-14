@@ -36,6 +36,8 @@ export interface RuntimePerformanceMonitorOptions {
   cancelAnimationFrame?: (handle: number) => void
   setInterval?: (callback: () => void, delayMs: number) => ReturnType<typeof setInterval>
   clearInterval?: (timer: ReturnType<typeof setInterval>) => void
+  setTimeout?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>
+  clearTimeout?: (timer: ReturnType<typeof setTimeout>) => void
   memorySampleIntervalMs?: number
   eventLoopSampleIntervalMs?: number
   memoryWindowSize?: number
@@ -100,6 +102,7 @@ export class RuntimePerformanceMonitor {
   private readonly cancelAnimationFrame?: (handle: number) => void
   private readonly setInterval: (callback: () => void, delayMs: number) => ReturnType<typeof setInterval>
   private readonly clearInterval: (timer: ReturnType<typeof setInterval>) => void
+
   private readonly memorySampleIntervalMs: number
   private readonly eventLoopSampleIntervalMs: number
   private readonly setTimer: (

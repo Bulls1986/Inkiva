@@ -153,6 +153,4 @@ describe('MainProcessPerformanceMonitor', () => {
       expect.objectContaining({ phase: 'memory' })
     )
   })
-
-
 })
