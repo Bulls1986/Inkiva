@@ -1,0 +1,474 @@
+import fs from 'fs'
+import fsPromises from 'fs/promises'
+import path from 'path'
+import writeFileAtomic from 'write-file-atomic'
+import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { TypedEmitter } from '@shared/types/typedEmitter'
+import type BaseWindow from '../windows/base'
+import {
+  createEmptyBufferStoreState,
+  normalizeBufferStoreState,
+  type BufferStoreState
+} from './restore'
+import buildRestorePlan, { type RecoverySource, type RestorePlan } from '../session/restorePlan'
+
+interface EditorBufferStorePaths {
+  editorBufferStorePath: string
+}
+
+interface BufferStoreEntry {
+  id: string
+  filePath: string
+}
+
+interface EditorWindow {
+  id: number
+  win: BaseWindow
+}
+
+interface MergedBufferStoreFiles {
+  state: BufferStoreState
+  primaryFilePath: string
+  sourceFilePaths: string[]
+}
+
+interface PendingWrite {
+  running: RecoveryWriteTask | null
+  next: RecoveryWriteTask | null
+}
+
+interface RecoveryWriteTask {
+  state: BufferStoreState
+  fingerprint: string
+  waiters: Array<{ resolve: () => void; reject: (error: unknown) => void }>
+}
+
+const stableSerialize = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableSerialize(item)).join(',')}]`
+  }
+
+  if (value && typeof value === 'object') {
+    const object = value as Record<string, unknown>
+    return `{${Object.keys(object)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableSerialize(object[key])}`)
+      .join(',')}}`
+  }
+
+  return JSON.stringify(value) ?? 'undefined'
+}
+
+// No instance-level events emitted; kept as TypedEmitter for parity with the
+// other main classes.
+type EditorBufferStoreEvents = Record<string, unknown[]>
+
+class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
+  editorBufferStorePath: string
+  bufferStores: Record<string, BufferStoreEntry> | null
+  serviceName: string
+  encryptKeys: string[]
+  private _pendingWrites: Map<string, PendingWrite>
+  private _lastWrittenStateFingerprints: Map<string, string>
+
+  constructor(paths: EditorBufferStorePaths) {
+    super()
+
+    const { editorBufferStorePath } = paths
+    this.editorBufferStorePath = editorBufferStorePath
+    // Object of paths to buffer stores. Buffer stores are NOT held in memory
+    // for performance reasons — they are read from disk when needed and
+    // written to disk when updated.
+    this.bufferStores = null
+    this.serviceName = 'marktext'
+    this.encryptKeys = []
+    this._pendingWrites = new Map()
+    this._lastWrittenStateFingerprints = new Map()
+
+    this.init()
+  }
+
+  init(): void {
+    if (!fs.existsSync(this.editorBufferStorePath)) {
+      fs.mkdirSync(this.editorBufferStorePath, { recursive: true })
+    }
+    this._listenForIpcMain()
+  }
+
+  getAll(): Record<string, BufferStoreEntry> {
+    return this.getAllBufferStores()
+  }
+
+  getAllBufferStores(): Record<string, BufferStoreEntry> {
+    if (!this.bufferStores) {
+      this.bufferStores = this.findEditorBufferStores(this.editorBufferStorePath)
+    }
+
+    return this.bufferStores
+  }
+
+  clearBufferStoresWithAllSaved(): void {
+    this.bufferStores = this.getAllBufferStores()
+
+    for (const id in this.bufferStores) {
+      try {
+        const buffer = this.readBufferStoreFile(this.bufferStores[id].filePath)
+        const allSaved = buffer.tabs.every((file) => file.isSaved)
+        if (buffer.tabs.length === 0 || allSaved) {
+          try {
+            fs.unlinkSync(this.bufferStores[id].filePath)
+          } catch (e) {
+            console.error('Failed to delete buffer store file during clear', e)
+          }
+        }
+      } catch (e) {
+        console.error('Failed to read buffer store file during clear', e)
+      }
+    }
+  }
+
+  handleClose(restoreBufferId: string | undefined, editorWindows: EditorWindow[]): void {
+    // If a recovery write is still in flight, keep the recovery file. Deleting
+    // it while an async atomic write is pending can race the final state write;
+    // retaining a fully-saved buffer is harmless and it will be cleaned later.
+    if (!restoreBufferId) {
+      console.warn('No restoreBufferId found for window, skipping buffer cleanup')
+      return
+    }
+
+    const pending = this._getPendingWrites().get(
+      path.join(this.editorBufferStorePath, `${restoreBufferId}_editor_buffer_store.json`)
+    )
+    if (pending?.running || pending?.next) {
+      return
+    }
+
+    if (!this.bufferStores) {
+      this.bufferStores = this.findEditorBufferStores(this.editorBufferStorePath)
+    }
+
+    if (!(restoreBufferId in this.bufferStores)) {
+      console.warn('No buffer store found for restoreBufferId, skipping buffer cleanup')
+      return
+    }
+
+    if (editorWindows.length > 1) {
+      if (!fs.existsSync(this.bufferStores[restoreBufferId].filePath)) {
+        return
+      }
+      try {
+        const buffer = this.readBufferStoreFile(this.bufferStores[restoreBufferId].filePath)
+        const allSaved = buffer.tabs.every((file) => file.isSaved)
+        if (buffer.tabs.length === 0 || allSaved) {
+          fs.unlinkSync(this.bufferStores[restoreBufferId].filePath)
+          delete this.bufferStores[restoreBufferId]
+        }
+      } catch (e) {
+        console.error('Failed to read or parse buffer store file during cleanup', e)
+      }
+    }
+  }
+
+  findEditorBufferStores(dir: string): Record<string, BufferStoreEntry> {
+    const results: Record<string, BufferStoreEntry> = {}
+    if (!fs.existsSync(dir)) {
+      return results
+    }
+
+    const entries = fs.readdirSync(dir, { withFileTypes: true })
+
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name)
+
+      if (entry.isFile() && entry.name.endsWith('_editor_buffer_store.json')) {
+        const id = entry.name.replace('_editor_buffer_store.json', '')
+        results[id] = { id, filePath: fullPath }
+      }
+    }
+
+    return results
+  }
+
+  async findEditorBufferStoresAsync(dir: string): Promise<Record<string, BufferStoreEntry>> {
+    const results: Record<string, BufferStoreEntry> = {}
+    try {
+      const entries = await fsPromises.readdir(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (!entry.isFile() || !entry.name.endsWith('_editor_buffer_store.json')) continue
+        const id = entry.name.replace('_editor_buffer_store.json', '')
+        results[id] = { id, filePath: path.join(dir, entry.name) }
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return results
+      throw error
+    }
+
+    return results
+  }
+
+  getBufferStoreInfo(restoreBufferId: string): BufferStoreEntry {
+    if (!this.bufferStores) {
+      // Do not scan the whole recovery directory on the normal new-window path.
+      // A random UUID collision is practically impossible; populate the cache
+      // lazily with the exact requested entry instead.
+      this.bufferStores = {}
+    }
+
+    if (!this.bufferStores[restoreBufferId]) {
+      this.bufferStores[restoreBufferId] = {
+        id: restoreBufferId,
+        filePath: path.join(
+          this.editorBufferStorePath,
+          `${restoreBufferId}_editor_buffer_store.json`
+        )
+      }
+    }
+
+    return this.bufferStores[restoreBufferId]
+  }
+
+  readBufferStoreFile(filePath: string): BufferStoreState {
+    const content = fs.readFileSync(filePath, 'utf8')
+    return this._parseBufferStore(content)
+  }
+
+  async readBufferStoreFileAsync(filePath: string): Promise<BufferStoreState> {
+    const content = await fsPromises.readFile(filePath, 'utf8')
+    return this._parseBufferStore(content)
+  }
+
+  /**
+   * Read a recovery file without applying the current schema validator. The
+   * RestorePlan owns migration and validation so legacy wrappers can be
+   * handled consistently before any restore tabs are created.
+   */
+  async readRawBufferStoreFileAsync(filePath: string): Promise<unknown> {
+    const content = await fsPromises.readFile(filePath, 'utf8')
+    if (!content.trim()) throw new Error('Buffer store file is empty.')
+    return JSON.parse(content) as unknown
+  }
+
+  async buildRestorePlan(): Promise<RestorePlan> {
+    const bufferStores = await this.findEditorBufferStoresAsync(this.editorBufferStorePath)
+    this.bufferStores = bufferStores
+    const sources: RecoverySource[] = Object.values(bufferStores)
+      .filter(
+        (entry): entry is BufferStoreEntry =>
+          typeof entry.id === 'string' &&
+          entry.id.length > 0 &&
+          typeof entry.filePath === 'string' &&
+          entry.filePath.length > 0
+      )
+      .map(({ id, filePath }) => ({ id, filePath }))
+
+    return buildRestorePlan(sources, (source) => this.readRawBufferStoreFileAsync(source.filePath))
+  }
+
+  private _parseBufferStore(content: string): BufferStoreState {
+    if (!content.trim()) {
+      throw new Error('Buffer store file is empty.')
+    }
+
+    return normalizeBufferStoreState(JSON.parse(content))
+  }
+
+  /**
+   * Read all recovery files that were left by previous editor windows through
+   * the same migration/validation/deduplication pipeline used by startup.
+   * A single invalid file should not prevent valid documents from being
+   * restored after an upgrade.
+   */
+  async readAndMergeBufferStoreFilesAsync(
+    bufferStoreInfos: Array<{ id: string; filePath: string }>
+  ): Promise<MergedBufferStoreFiles> {
+    if (bufferStoreInfos.length === 0) {
+      throw new Error('No editor buffer stores were provided.')
+    }
+
+    const restorePlan = await buildRestorePlan(
+      bufferStoreInfos,
+      (source) => this.readRawBufferStoreFileAsync(source.filePath)
+    )
+    for (const skippedSource of restorePlan.skippedSources) {
+      console.error(
+        `Failed to restore editor buffer store ${skippedSource.filePath}: ${skippedSource.message}`
+      )
+    }
+
+    if (restorePlan.kind !== 'restore' || !restorePlan.state || !restorePlan.primarySource) {
+      return {
+        state: createEmptyBufferStoreState(),
+        primaryFilePath: bufferStoreInfos[0].filePath,
+        sourceFilePaths: [...new Set(bufferStoreInfos.map(({ filePath }) => filePath))]
+      }
+    }
+
+    return {
+      state: restorePlan.state,
+      primaryFilePath: restorePlan.primarySource.filePath,
+      sourceFilePaths: restorePlan.sources.map(({ filePath }) => filePath)
+    }
+  }
+
+  /**
+   * Persist the merged recovery state before deleting stale per-window
+   * files. This makes the migration recoverable if the application exits
+   * during the next startup.
+   */
+  async consolidateBufferStoreFiles(
+    primaryFilePath: string,
+    sourceFilePaths: string[],
+    state: BufferStoreState
+  ): Promise<void> {
+    if (!primaryFilePath || sourceFilePaths.length <= 1) return
+
+    try {
+      await this.writeBufferStoreFile(primaryFilePath, normalizeBufferStoreState(state))
+    } catch (error) {
+      console.error(`Failed to consolidate editor buffer stores into ${primaryFilePath}`, error)
+      return
+    }
+
+    for (const filePath of sourceFilePaths) {
+      if (filePath === primaryFilePath) continue
+      try {
+        await fsPromises.unlink(filePath)
+      } catch (error) {
+        // The file may have disappeared between the directory scan and the
+        // migration. Keep startup successful in either case.
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          console.error(`Failed to remove stale editor buffer store ${filePath}`, error)
+        }
+      }
+    }
+
+    this.bufferStores = await this.findEditorBufferStoresAsync(this.editorBufferStorePath)
+  }
+
+  async writeBufferStoreFile(filePath: string, newState: unknown): Promise<void> {
+    // Callers use _enqueueBufferWrite for version normalization and
+    // coalescing. Keep this primitive small so it remains useful to the
+    // recovery migration and direct durability tests.
+    await writeFileAtomic(filePath, JSON.stringify(newState), { encoding: 'utf8' })
+  }
+
+  private _getPendingWrites(): Map<string, PendingWrite> {
+    // Some recovery tests construct this class without Electron's constructor;
+    // initialize lazily so that path still exercises the production queue.
+    if (!this._pendingWrites) this._pendingWrites = new Map()
+    return this._pendingWrites
+  }
+
+  private _getLastWrittenStateFingerprints(): Map<string, string> {
+    if (!this._lastWrittenStateFingerprints) this._lastWrittenStateFingerprints = new Map()
+    return this._lastWrittenStateFingerprints
+  }
+
+  private _enqueueBufferWrite(filePath: string, newState: unknown): Promise<void> {
+    const state = normalizeBufferStoreState(newState)
+    const fingerprint = stableSerialize(state)
+    const lastWrittenStateFingerprints = this._getLastWrittenStateFingerprints()
+    if (lastWrittenStateFingerprints.get(filePath) === fingerprint) {
+      return Promise.resolve()
+    }
+
+    const pendingWrites = this._getPendingWrites()
+    let pending = pendingWrites.get(filePath)
+    if (!pending) {
+      pending = { running: null, next: null }
+      pendingWrites.set(filePath, pending)
+    }
+    const pendingEntry = pending
+
+    const running = pendingEntry.running
+    if (running?.fingerprint === fingerprint) {
+      return new Promise<void>((resolve, reject) => {
+        running.waiters.push({ resolve, reject })
+      })
+    }
+
+    const next = pendingEntry.next
+    if (next?.fingerprint === fingerprint) {
+      return new Promise<void>((resolve, reject) => {
+        next.waiters.push({ resolve, reject })
+      })
+    }
+
+    const result = new Promise<void>((resolve, reject) => {
+      const task: RecoveryWriteTask = {
+        state,
+        fingerprint,
+        waiters: [{ resolve, reject }]
+      }
+
+      if (pendingEntry.next) {
+        // Only one not-yet-started snapshot is needed. A newer snapshot
+        // supersedes it while all callers still await the eventual write.
+        pendingEntry.next = {
+          state,
+          fingerprint,
+          waiters: pendingEntry.next.waiters.concat(task.waiters)
+        }
+      } else {
+        pendingEntry.next = task
+      }
+    })
+
+    if (!pendingEntry.running) {
+      void this._drainBufferWrites(filePath, pendingEntry)
+    }
+    return result
+  }
+
+  private async _drainBufferWrites(filePath: string, pending: PendingWrite): Promise<void> {
+    const pendingWrites = this._getPendingWrites()
+    const lastWrittenStateFingerprints = this._getLastWrittenStateFingerprints()
+    while (pending.next) {
+      const task = pending.next
+      pending.next = null
+      pending.running = task
+
+      try {
+        await this.writeBufferStoreFile(filePath, task.state)
+        lastWrittenStateFingerprints.set(filePath, task.fingerprint)
+        task.waiters.forEach(({ resolve }) => resolve())
+      } catch (error) {
+        task.waiters.forEach(({ reject }) => reject(error))
+      } finally {
+        pending.running = null
+      }
+    }
+
+    if (!pending.running && !pending.next) {
+      pendingWrites.delete(filePath)
+    }
+  }
+
+  async updateBufferState(e: IpcMainInvokeEvent, newState: unknown): Promise<boolean> {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    const restoreBufferId = (win as unknown as { restoreBufferId?: string })?.restoreBufferId
+
+    if (!restoreBufferId) {
+      console.warn('No restoreBufferId found for window, skipping buffer state update')
+      return false
+    }
+
+    const bufferStore = this.getBufferStoreInfo(restoreBufferId)
+    await this._enqueueBufferWrite(bufferStore.filePath, newState)
+    return true
+  }
+
+  getUnUsedBufferUUID(): string {
+    // crypto.randomUUID() provides enough uniqueness that scanning every
+    // recovery file before opening each new window only adds cold-start I/O.
+    return crypto.randomUUID()
+  }
+
+  _listenForIpcMain(): void {
+    ipcMain.handle('update-buffer-state', (e, newState) => {
+      return this.updateBufferState(e, newState)
+    })
+  }
+}
+
+export default EditorBufferStore

@@ -1,0 +1,31 @@
+name: Test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    # packages/muya (TS v2) has its own test workflows (muya-test, muya-spec).
+    # Skip the desktop unit tests on muya-only PRs.
+    paths-ignore:
+      - 'packages/muya/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - name: Run Website Unit Tests
+        run: pnpm --filter inkiva-website test
+
+      - name: Build Website
+        env:
+          INKIVA_RELEASE_VERSION_LABEL: v0.0.0-test
+        run: pnpm --filter inkiva-website run build:static
+
+      - name: Run Unit Tests
+        run: pnpm test

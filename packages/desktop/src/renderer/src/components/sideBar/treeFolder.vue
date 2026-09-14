@@ -1,0 +1,214 @@
+<template>
+  <div class="side-bar-folder">
+    <div
+      ref="folderEl"
+      class="folder-name"
+      :style="{ 'padding-left': `${depth * 6 + 10}px` }"
+      :class="[{ active: folder.id === activeItem.id }]"
+      :title="folder.pathname"
+      role="button"
+      tabindex="0"
+      :aria-label="folder.name"
+      :aria-expanded="!isCollapsed"
+      @click="folderNameClick"
+      @keydown="handleFolderKeydown"
+    >
+      <el-icon
+        class="icon-arrow"
+        :class="{ fold: isCollapsed }"
+        :size="12"
+      >
+        <ArrowRight />
+      </el-icon>
+      <input
+        v-if="renameCache === folder.pathname"
+        ref="renameInput"
+        v-model="newName"
+        type="text"
+        class="rename"
+        @click.stop="noop"
+        @keypress.enter="rename"
+      >
+      <span
+        v-else
+        class="text-overflow"
+      >{{ folder.name }}</span>
+    </div>
+    <div
+      v-if="!isCollapsed"
+      class="folder-contents"
+    >
+      <tree-folder
+        v-for="childFolder of folder.folders"
+        :key="childFolder.id"
+        :folder="childFolder"
+        :depth="depth + 1"
+      />
+      <input
+        v-if="createCache.dirname === folder.pathname"
+        ref="input"
+        v-model="createName"
+        type="text"
+        class="new-input"
+        :style="{ 'margin-left': `${depth * 5 + 15}px` }"
+        @keypress.enter="handleInputEnter"
+      >
+      <File
+        v-for="file of folder.files"
+        :key="file.id"
+        :file="file"
+        :depth="depth + 1"
+      />
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useProjectStore } from '@/store/project'
+import { showContextMenu } from '../../contextMenu/sideBar'
+import bus from '../../bus'
+import File from './treeFile.vue'
+import { ArrowRight } from '@element-plus/icons-vue'
+import type { TreeFolderNode } from './types'
+
+const props = defineProps<{
+  folder: TreeFolderNode
+  depth: number
+}>()
+
+const projectStore = useProjectStore()
+
+const createName = ref('')
+const newName = ref('')
+
+const folderEl = ref<HTMLDivElement | null>(null)
+const renameInput = ref<HTMLInputElement | null>(null)
+const input = ref<HTMLInputElement | null>(null)
+
+// Use a local reactive state for isCollapsed that syncs with the prop
+const isCollapsed = ref<boolean>(!!props.folder.isCollapsed)
+
+const { renameCache } = storeToRefs(projectStore)
+const { createCache } = storeToRefs(projectStore)
+const { activeItem } = storeToRefs(projectStore)
+const { clipboard } = storeToRefs(projectStore)
+
+const handleInputFocus = (): void => {
+  // Only the folder that is the create target reacts. Expand it FIRST so the
+  // create input renders even when the folder was collapsed, then focus it on
+  // the next tick — previously the expand sat behind `if (input.value)`, which
+  // is null while collapsed, so New File on a collapsed folder did nothing
+  // (#3439).
+  if (createCache.value.dirname !== props.folder.pathname) return
+  isCollapsed.value = false
+  nextTick(() => {
+    if (input.value) {
+      input.value.focus()
+      createName.value = ''
+    }
+  })
+}
+
+const handleInputEnter = (): void => {
+  projectStore.CREATE_FILE_DIRECTORY(createName.value)
+}
+
+const folderNameClick = (): void => {
+  isCollapsed.value = !isCollapsed.value
+}
+
+const handleFolderKeydown = (event: KeyboardEvent): void => {
+  if (event.target !== event.currentTarget) return
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  folderNameClick()
+}
+
+const noop = (): void => {}
+
+const focusRenameInput = (): void => {
+  nextTick(() => {
+    if (renameInput.value) {
+      renameInput.value.focus()
+      newName.value = props.folder.name
+    }
+  })
+}
+
+const rename = (): void => {
+  if (newName.value) {
+    projectStore.RENAME_IN_SIDEBAR(newName.value)
+  }
+}
+
+onMounted(() => {
+  if (folderEl.value) {
+    folderEl.value.addEventListener('contextmenu', (event) => {
+      event.preventDefault()
+      projectStore.CHANGE_ACTIVE_ITEM(props.folder)
+      showContextMenu(event, !!clipboard.value)
+    })
+  }
+  bus.on('SIDEBAR::show-new-input', handleInputFocus)
+  bus.on('SIDEBAR::show-rename-input', focusRenameInput)
+})
+</script>
+
+<style scoped>
+.side-bar-folder {
+  & > .folder-name {
+    cursor: default;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    height: 30px;
+    margin-inline: 6px;
+    padding-right: 15px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    transition: background-color var(--motion-fast), color var(--motion-fast);
+    & > .icon-arrow {
+      flex-shrink: 0;
+      color: var(--icon-secondary);
+      margin-right: 5px;
+      transition: transform var(--motion-normal), color var(--motion-fast);
+      transform: rotate(90deg);
+    }
+    & > .icon-arrow.fold {
+      transform: rotate(0);
+    }
+    &:hover {
+      background: var(--surface-hover);
+    }
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+  }
+}
+.new-input,
+input.rename {
+  height: 22px;
+  margin: 5px 0;
+  padding: 0 6px;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  background: var(--surface-editor);
+  width: 70%;
+  border-radius: var(--radius-sm);
+  transition: border-color var(--motion-fast), background-color var(--motion-fast);
+}
+
+.new-input:focus,
+input.rename:focus {
+  border-color: var(--border-focus);
+}
+
+.new-input:focus-visible,
+input.rename:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: 1px;
+}
+</style>

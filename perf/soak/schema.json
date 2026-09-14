@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Bulls1986/Inkiva/blob/develop/perf/soak/schema.json",
+  "title": "Inkiva performance soak report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "suite", "generatedAt", "metrics"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "suite": {
+      "enum": ["desktop", "muya"]
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "commit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "unit", "value"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit": {
+            "enum": ["ms", "count", "bytes", "ratio"]
+          },
+          "value": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

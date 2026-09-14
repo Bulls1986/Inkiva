@@ -1,0 +1,190 @@
+:root {
+  /* Brand */
+  --color-accent: #0B63E5;
+  --color-accent-hover: #0959D0;
+  --color-accent-active: #084DB5;
+  --color-accent-soft: rgb(11 99 229 / 8%);
+  --color-accent-selected: rgb(11 99 229 / 10%);
+  --color-accent-focus: rgb(11 99 229 / 22%);
+
+  /* Feedback */
+  --color-success: #1f9d62;
+  --color-success-soft: rgb(31 157 98 / 10%);
+  --color-info: #3978b8;
+  --color-info-soft: rgb(57 120 184 / 10%);
+  --color-warning: #b7791f;
+  --color-warning-soft: rgb(183 121 31 / 10%);
+  --color-danger: #d64545;
+  --color-danger-soft: rgb(214 69 69 / 10%);
+
+  /* Text */
+  --text-primary: #1f2329;
+  --text-secondary: #59636e;
+  --text-tertiary: #7b8794;
+  --text-disabled: #aab2bb;
+
+  /* Surface */
+  --surface-editor: #FFFFFF;
+  --surface-chrome: #F7F8FA;
+  --surface-hover: #F0F2F5;
+  --surface-selected: rgb(11 99 229 / 10%);
+  --surface-elevated: #ffffff;
+
+  /* Markdown document layer — kept separate from application chrome so the
+     editor can evolve without allowing a document theme to recolor the UI. */
+  /* The 100px horizontal editor padding leaves an 824px writing measure in
+     the reference layout. Keep the outer column fixed and centered so the
+     document does not stretch with a large window. */
+  --markdown-content-width: 924px;
+  --editorContentTopPadding: 40px;
+  --markdown-text-primary: var(--text-primary);
+  --markdown-text-secondary: var(--text-secondary);
+  --markdown-text-muted: var(--text-tertiary);
+  --markdown-surface-code: var(--surface-chrome);
+  --markdown-border-subtle: var(--border-subtle);
+  --markdown-accent-soft: rgb(11 99 229 / 4%);
+  --markdown-accent-muted: rgb(11 99 229 / 50%);
+  --markdown-selection: rgb(11 99 229 / 12%);
+
+  /* Border and icons */
+  --border-subtle: #E7E9ED;
+  --border-default: #DADDE3;
+  --border-focus: #0B63E5;
+  --icon-primary: #3d4650;
+  --icon-secondary: #7b8794;
+  --icon-disabled: #aab2bb;
+
+  /* Shape, spacing, and type */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --font-ui-sm: 12px;
+  --font-ui-md: 13px;
+  --font-ui-lg: 14px;
+  --font-body: 18px;
+  --line-height-body: 1.7;
+
+  /* Application UI type scale: system UI fonts keep Chinese text native to the
+     platform while the document editor may still honor user font settings. */
+  --font-family-ui: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Microsoft YaHei UI', 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
+  --font-size-metadata: 11px;
+  --font-size-shortcut: 12px;
+  --font-size-secondary: 13px;
+  --font-size-ui: 14px;
+  --font-size-section: 16px;
+  --font-size-title: 20px;
+  --line-height-ui: 1.4;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-emphasis: 600;
+
+  /* Icon scale and hit targets are independent: small glyphs remain crisp
+     while interactive surfaces stay comfortable for mouse and keyboard users. */
+  --icon-size-xs: 12px;
+  --icon-size-sm: 14px;
+  --icon-size-md: 16px;
+  --icon-size-lg: 18px;
+  --icon-size-xl: 20px;
+  --hit-target-sm: 28px;
+  --hit-target-md: 32px;
+  --hit-target-lg: 36px;
+  --hit-target-sidebar: 45px;
+  --control-height-sm: 28px;
+  --control-height-md: 32px;
+  --control-height-lg: 36px;
+  --documentTabsHeight: 34px;
+
+  /* Motion and elevation */
+  --motion-fast: 120ms;
+  --motion-normal: 180ms;
+  --motion-slow: 240ms;
+  --motion-loading: 900ms;
+  --elevation-none: none;
+  --elevation-floating: 0 8px 24px rgb(15 23 42 / 12%);
+  --focus-ring: 0 0 0 2px rgb(11 99 229 / 22%);
+  --z-chrome: 10;
+  --z-floating: 100;
+  --z-modal: 200;
+}
+
+:root[data-inkiva-appearance='dark'] {
+  --color-accent: #0B63E5;
+  --color-accent-hover: #0959D0;
+  --color-accent-active: #084DB5;
+  --color-accent-soft: rgb(45 128 255 / 14%);
+  --color-accent-selected: rgb(45 128 255 / 18%);
+  --color-accent-focus: rgb(91 156 255 / 32%);
+  --color-success-soft: rgb(31 157 98 / 16%);
+  --color-info-soft: rgb(57 120 184 / 16%);
+  --color-warning-soft: rgb(183 121 31 / 16%);
+  --color-danger-soft: rgb(214 69 69 / 16%);
+
+  --text-primary: #e8ebf0;
+  --text-secondary: #aeb6c2;
+  --text-tertiary: #7f8996;
+  --text-disabled: #5d6672;
+
+  --surface-editor: #1B1D21;
+  --surface-chrome: #181A1E;
+  --surface-hover: #24272D;
+  --surface-selected: rgb(45 128 255 / 18%);
+  --surface-elevated: #25282e;
+
+  --markdown-accent-soft: rgb(91 156 255 / 8%);
+  --markdown-accent-muted: rgb(91 156 255 / 55%);
+  --markdown-selection: rgb(45 128 255 / 20%);
+
+  --border-subtle: #2B2F36;
+  --border-default: #363A42;
+  --border-focus: #5B9CFF;
+  --icon-primary: #d7dce4;
+  --icon-secondary: #8d98a6;
+  --icon-disabled: #5d6672;
+  --elevation-floating: 0 8px 24px rgb(0 0 0 / 32%);
+  --focus-ring: 0 0 0 2px rgb(91 156 255 / 32%);
+}
+
+:root[data-inkiva-appearance='paper'] {
+  --color-success-soft: rgb(31 157 98 / 9%);
+  --color-info-soft: rgb(57 120 184 / 9%);
+  --color-warning-soft: rgb(183 121 31 / 9%);
+  --color-danger-soft: rgb(214 69 69 / 9%);
+  /* Paper stays soft and low-contrast without the yellow cast that caused
+     eye strain in the previous palette. */
+  --text-primary: #303236;
+  --text-secondary: #666A70;
+  --text-tertiary: #8A9096;
+  --text-disabled: #B1B5B9;
+
+  --surface-editor: #F8F8F6;
+  --surface-chrome: #F1F2F0;
+  --surface-hover: #E9EBE8;
+  --surface-selected: rgb(11 99 229 / 9%);
+  --surface-elevated: #FBFBF9;
+
+  --markdown-accent-soft: rgb(11 99 229 / 4%);
+  --markdown-accent-muted: rgb(11 99 229 / 50%);
+  --markdown-selection: rgb(11 99 229 / 12%);
+
+  --border-subtle: #DFE1DE;
+  --border-default: #D3D6D2;
+  --icon-primary: #4C5156;
+  --icon-secondary: #7A8187;
+  --icon-disabled: #B1B5B9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-normal: 0ms;
+    --motion-slow: 0ms;
+    --motion-loading: 0ms;
+  }
+}

@@ -1,0 +1,17 @@
+[Desktop Entry]
+Name=Inkiva
+Comment=Next generation markdown editor
+Exec=inkiva %F
+Terminal=false
+Type=Application
+Icon=inkiva
+Categories=Office;TextEditor;Utility;
+MimeType=text/markdown;
+Keywords=inkiva;
+StartupWMClass=inkiva
+Actions=NewWindow;
+
+[Desktop Action NewWindow]
+Name=New Window
+Exec=inkiva --new-window %F
+Icon=inkiva

@@ -1,0 +1,115 @@
+.mu-float-wrapper.mu-image-toolbar-container {
+    overflow: visible;
+
+    border-radius: var(--interaction-radius);
+}
+
+.mu-image-toolbar {
+    width: 240px;
+    height: var(--interaction-hit-size);
+}
+
+.mu-image-toolbar ul,
+.mu-image-toolbar li {
+    margin: 0;
+    padding: 0;
+}
+
+.mu-image-toolbar ul {
+    display: flex;
+    padding: 0 7px;
+}
+
+.mu-image-toolbar li.item {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    width: var(--hit-target-sm, 28px);
+    height: var(--interaction-hit-size);
+
+    list-style: none;
+    cursor: pointer;
+}
+
+.mu-image-toolbar li.item:hover {
+    background: var(--interaction-surface-hover);
+}
+
+.mu-image-toolbar li.item.edit {
+    margin-right: 21px;
+    margin-left: 10px;
+}
+
+.mu-image-toolbar li.item.inline {
+    margin-right: 8px;
+}
+
+.mu-image-toolbar li.item:first-of-type::before {
+    position: absolute;
+    top: 7px;
+    right: -10px;
+
+    width: 1px;
+    height: 16px;
+
+    background: var(--interaction-border);
+
+    content: '';
+}
+
+.mu-image-toolbar li.item.delete {
+    margin-right: 10px;
+    margin-left: 21px;
+}
+
+.mu-image-toolbar li.item:last-of-type::before {
+    position: absolute;
+    top: 7px;
+    left: -10px;
+
+    width: 1px;
+    height: 16px;
+
+    background: var(--interaction-border);
+
+    content: '';
+}
+
+.mu-image-toolbar li.item .icon-wrapper {
+    width: var(--interaction-icon-size);
+    height: var(--interaction-icon-size);
+}
+
+.mu-image-toolbar li.item .icon-wrapper i.icon {
+    position: relative;
+
+    display: inline-block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+
+    color: var(--icon-color);
+
+    transition: all 0.25s ease-in-out;
+}
+
+.mu-image-toolbar li.item .icon-wrapper i.icon > i[class^='icon-'] {
+    position: relative;
+    left: calc(-1 * var(--interaction-icon-size));
+
+    display: inline-block;
+    width: 100%;
+    height: 100%;
+
+    filter: drop-shadow(var(--interaction-icon-size) 0 currentcolor);
+}
+
+.mu-image-toolbar li.item.active .icon-wrapper i.icon {
+    color: var(--theme-color);
+}
+.mu-image-toolbar li.item.active {
+    background: var(--interaction-selection);
+    border-radius: var(--interaction-radius);
+}

@@ -1,0 +1,176 @@
+:root {
+  --titleBarHeight: 32px;
+  --editorAreaWidth: var(--markdown-content-width, 924px);
+
+  /* Dark appearance aliases resolve to the shared semantic token system. */
+  --themeColor: var(--color-accent, #0B63E5);
+  --themeColor90: var(--color-accent-hover, #0959D0);
+  --themeColor80: var(--color-accent-hover, #0959D0);
+  --themeColor70: var(--color-accent, #0B63E5);
+  --themeColor60: var(--color-accent, #0B63E5);
+  --themeColor50: var(--markdown-accent-muted, rgb(91 156 255 / 55%));
+  --themeColor40: var(--color-accent-focus, rgb(91 156 255 / 32%));
+  --themeColor30: var(--color-accent-soft, rgb(45 128 255 / 14%));
+  --themeColor20: var(--color-accent-selected, rgb(45 128 255 / 18%));
+  --themeColor10: var(--color-accent-soft, rgb(45 128 255 / 14%));
+  --highlightThemeColor: var(--color-accent);
+  --highlightColor: var(--color-accent-focus, rgb(91 156 255 / 32%));
+  --selectionColor: var(--markdown-selection, rgb(45 128 255 / 20%));
+  --editorColor: var(--markdown-text-primary, #e8ebf0);
+  --editorColor80: var(--text-primary, #e8ebf0);
+  --editorColor60: var(--text-secondary, #aeb6c2);
+  --editorColor50: var(--markdown-text-secondary, #aeb6c2);
+  --editorColor40: var(--text-tertiary, #7f8996);
+  --editorColor30: var(--markdown-text-muted, #7f8996);
+  --editorColor10: var(--border-subtle, #2B2F36);
+  --editorColor04: var(--surface-chrome, #181A1E);
+  --editorBgColor: var(--surface-editor, #1B1D21);
+  --deleteColor: var(--color-danger, #d64545);
+  --iconColor: var(--icon-secondary, #8d98a6);
+  --codeBgColor: var(--surface-hover, #24272D);
+  --codeBlockBgColor: var(--markdown-surface-code, #24272D);
+  --footnoteBgColor: var(--surface-chrome, #181A1E);
+  --inputBgColor: var(--surface-editor, #1B1D21);
+  --focusColor: var(--color-accent);
+
+  --buttonFontColor: var(--text-secondary, #aeb6c2);
+  --buttonBgColor: var(--surface-editor, #1B1D21);
+  --buttonBorder: 1px solid var(--border-default, #363A42);
+  --buttonShadow: var(--elevation-none, none);
+  --buttonFontColorHover: var(--text-primary, #e8ebf0);
+  --buttonBgColorHover: var(--surface-hover, #24272D);
+  --buttonBorderHover: 1px solid var(--border-default, #363A42);
+  --buttonFontColorActive: var(--text-primary, #e8ebf0);
+  --buttonBgColorActive: var(--surface-selected, rgb(45 128 255 / 18%));
+  --buttonBorderActive: 1px solid var(--border-default, #363A42);
+  --buttonFocusBorder: 1px solid var(--border-focus, #5B9CFF);
+
+  --buttonPrimaryFontColor: #ffffff;
+  --buttonPrimaryBgColor: var(--color-accent, #0B63E5);
+  --buttonPrimaryBorder: none;
+  --buttonPrimaryShadow: var(--elevation-none, none);
+  --buttonPrimaryFontColorHover: var(--buttonPrimaryFontColor);
+  --buttonPrimaryBgColorHover: var(--color-accent-hover, #0959D0);
+  --buttonPrimaryBorderHover: var(--buttonPrimaryBorder);
+  --buttonPrimaryFontColorActive: var(--buttonPrimaryFontColor);
+  --buttonPrimaryBgColorActive: var(--color-accent-active, #084DB5);
+  --buttonPrimaryBorderActive: var(--buttonPrimaryBorder);
+  --buttonPrimaryFocusBorder: none;
+  --buttonPrimaryFocusShadow: var(--focus-ring, 0 0 0 2px rgb(91 156 255 / 32%));
+  --tableBorderColor: var(--markdown-border-subtle, var(--border-subtle, #2B2F36));
+
+  /* Markdown aliases remain in the document layer. */
+  --headingColor: var(--markdown-text-primary, #e8ebf0);
+  --h1Color: var(--markdown-text-primary, #e8ebf0);
+  --h2Color: var(--markdown-text-primary, #e8ebf0);
+  --h3Color: var(--markdown-text-primary, #e8ebf0);
+  --h4Color: var(--markdown-text-primary, #e8ebf0);
+  --h5Color: var(--markdown-text-secondary, #aeb6c2);
+  --h6Color: var(--markdown-text-secondary, #aeb6c2);
+  --blockquoteTextColor: var(--markdown-text-secondary, #aeb6c2);
+  --blockquoteBorderColor: var(--markdown-accent-muted, rgb(91 156 255 / 55%));
+  --hrColor: var(--markdown-border-subtle, var(--border-subtle, #2B2F36));
+  --linkColor: #5B9CFF;
+  --strongColor: var(--markdown-text-primary, #e8ebf0);
+  --emColor: #5B9CFF;
+  --listMarkerColor: var(--markdown-text-muted, #7f8996);
+
+  /* Application chrome */
+  --sideBarColor: var(--text-secondary, #aeb6c2);
+  --sideBarIconColor: var(--icon-secondary, #8d98a6);
+  --sideBarTitleColor: var(--text-primary, #e8ebf0);
+  --sideBarTextColor: var(--text-secondary, #aeb6c2);
+  --sideBarBgColor: var(--surface-chrome, #181A1E);
+  --sideBarItemHoverBgColor: var(--surface-hover, #24272D);
+  --itemBgColor: var(--surface-editor, #1B1D21);
+
+  /* Floating surfaces are the only elevated application layer. */
+  --floatFontColor: var(--text-primary, #e8ebf0);
+  --floatBgColor: var(--surface-elevated, #25282E);
+  --floatHoverColor: var(--surface-hover, #24272D);
+  --floatBorderColor: var(--border-subtle, #2B2F36);
+  --floatShadow: var(--elevation-floating, 0 8px 28px rgb(0 0 0 / 36%));
+  --maskColor: rgb(0 0 0 / 70%);
+
+  /* Feedback colors stay semantic instead of recolouring whole surfaces. */
+  --notificationPrimaryColor: #ffffff;
+  --notificationPrimaryBg: var(--color-accent, #0B63E5);
+  --notificationInfoColor: #ffffff;
+  --notificationInfoBg: var(--color-info, #3978b8);
+  --notificationWarningColor: #ffffff;
+  --notificationWarningBg: var(--color-warning, #b7791f);
+  --notificationErrorColor: #ffffff;
+  --notificationErrorBg: var(--color-danger, #d64545);
+
+  /* @muyajs/core editor variables */
+  --theme-color: var(--themeColor);
+  --highlight-color: var(--highlightColor);
+  --selection-color: var(--selectionColor);
+  --editor-color: var(--editorColor);
+  --editor-color-80: var(--editorColor80);
+  --editor-color-50: var(--editorColor50);
+  --editor-color-30: var(--editorColor30);
+  --editor-color-10: var(--editorColor10);
+  --editor-color-04: var(--editorColor04);
+  --editor-bg-color: var(--editorBgColor);
+  --editor-area-width: var(--editorAreaWidth);
+  --delete-color: var(--deleteColor);
+  --icon-color: var(--iconColor);
+  --code-block-bg-color: var(--codeBlockBgColor);
+  --table-border-color: var(--tableBorderColor);
+  --input-bg-color: var(--inputBgColor);
+  --button-font-color: var(--buttonFontColor);
+  --button-bg-color: var(--buttonBgColor);
+  --button-border: var(--buttonBorder);
+  --button-bg-color-hover: var(--buttonBgColorHover);
+  --button-border-hover: var(--buttonBorderHover);
+  --button-bg-color-active: var(--buttonBgColorActive);
+  --button-border-active: var(--buttonBorderActive);
+  --button-border-focus: var(--buttonFocusBorder);
+  --float-bg-color: var(--floatBgColor);
+  --float-hover-color: var(--floatHoverColor);
+  --float-border-color: var(--floatBorderColor);
+  --float-shadow: var(--floatShadow);
+  --link-color: var(--linkColor);
+  --h1-color: var(--h1Color);
+  --h2-color: var(--h2Color);
+  --h3-color: var(--h3Color);
+  --h4-color: var(--h4Color);
+  --h5-color: var(--h5Color);
+  --h6-color: var(--h6Color);
+  --blockquote-text-color: var(--blockquoteTextColor);
+  --blockquote-border-color: var(--blockquoteBorderColor);
+  --strong-color: var(--strongColor);
+  --em-color: var(--emColor);
+  --list-marker-color: var(--listMarkerColor);
+  --hr-color: var(--hrColor);
+}
+
+::-webkit-scrollbar {
+  background: var(--surface-editor);
+}
+
+.mu-front-menu,
+.mu-float-wrapper {
+  box-shadow: var(--elevation-floating, 0 8px 28px rgb(0 0 0 / 36%)) !important;
+}
+
+.title-bar .frameless-titlebar-button > div > svg {
+  fill: #ffffff;
+}
+
+.title-bar .frameless-titlebar-minimize:hover,
+.title-bar .frameless-titlebar-toggle:hover {
+  background-color: rgb(255 255 255 / 5%);
+}
+
+.side-bar {
+  border-right: 1px solid var(--border-subtle) !important;
+}
+
+.recent-files-projects a,
+.open-project a,
+.open-project button,
+.recent-files-projects button {
+  box-shadow: none !important;
+}

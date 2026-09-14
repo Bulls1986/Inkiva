@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a Question
+    url: https://github.com/Bulls1986/Inkiva/discussions
+    about: Use GitHub Discussions for questions, help, and general conversation about Inkiva.
+  - name: Documentation
+    url: https://github.com/Bulls1986/Inkiva/tree/develop/docs
+    about: Check the docs before asking — your answer may already be there.
