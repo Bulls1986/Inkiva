@@ -2,10 +2,40 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   WATCHER_EVENT_DEBOUNCE_MS,
   WatcherEventBatcher,
+  getWatcherEventCoalescingKey,
   type WatcherBatchChannel
 } from 'main_renderer/filesystem/watcherBatch'
 
 describe('watcher event batcher', () => {
+  it('keeps structural add/unlink events distinct from a same-path change', () => {
+    const addKey = getWatcherEventCoalescingKey(
+      'mt::update-object-tree',
+      { type: 'add' },
+      '/notes/a.md'
+    )
+    const changeKey = getWatcherEventCoalescingKey(
+      'mt::update-object-tree',
+      { type: 'change' },
+      '/notes/a.md'
+    )
+    const unlinkKey = getWatcherEventCoalescingKey(
+      'mt::update-object-tree',
+      { type: 'unlink' },
+      '/notes/a.md'
+    )
+
+    expect(addKey).not.toBe(changeKey)
+    expect(unlinkKey).not.toBe(changeKey)
+    expect(addKey).not.toBe(unlinkKey)
+    expect(
+      getWatcherEventCoalescingKey(
+        'mt::update-object-tree',
+        { type: 'change', mtimeMs: 2 },
+        '/notes/a.md'
+      )
+    ).toBe(changeKey)
+  })
+
   afterEach(() => {
     vi.useRealTimers()
   })
