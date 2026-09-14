@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { it } from 'vitest'
 import { calculateVirtualWindow } from '@/util/virtualization'
-import { flattenTocRows } from '@/util/tocVirtualization'
-import { flattenTreeRows } from '@/util/treeVirtualization'
+import { createTocRowModel, flattenTocRows } from '@/util/tocVirtualization'
+import { createTreeRowModel, flattenTreeRows } from '@/util/treeVirtualization'
 
 type TestFile = {
   id: string
@@ -113,4 +113,40 @@ it('toc flattening keeps hierarchy while allowing collapsed branches', () => {
       ['b', 0]
     ]
   )
+})
+
+it('tree row models materialize only the requested window', () => {
+  const root = {
+    ...folder('workspace'),
+    files: Array.from({ length: 10_000 }, (_, index) => file('workspace/file-' + index + '.md'))
+  }
+
+  const model = createTreeRowModel(root)
+  assert.equal(model.totalRows, 10_000)
+  const window = model.getRows(5_000, 5_300)
+
+  assert.equal(window.length, 300)
+  assert.equal(window[0]?.node.pathname, 'workspace/file-5000.md')
+  assert.equal(window.at(-1)?.node.pathname, 'workspace/file-5299.md')
+  assert.throws(() => model.getRows(-1, 2))
+  assert.throws(() => model.getRows(2, 1))
+})
+
+it('toc row models materialize only the requested window', () => {
+  const nodes = Array.from({ length: 10_000 }, (_, index) => ({
+    key: 'heading-' + index,
+    label: 'Heading ' + index,
+    slug: 'heading-' + index,
+    children: []
+  }))
+
+  const model = createTocRowModel(nodes, new Set())
+  assert.equal(model.totalRows, 10_000)
+  const window = model.getRows(9_700, 10_000)
+
+  assert.equal(window.length, 300)
+  assert.equal(window[0]?.key, 'heading-9700')
+  assert.equal(window.at(-1)?.key, 'heading-9999')
+  assert.throws(() => model.getRows(-1, 2))
+  assert.throws(() => model.getRows(2, 1))
 })
