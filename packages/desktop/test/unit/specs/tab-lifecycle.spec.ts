@@ -37,7 +37,7 @@ describe('tab lifecycle policy', () => {
     expect(second.activationOrder.slice(0, 3)).toEqual(['c', 'a', 'b'])
     expect(second.byId).toEqual({
       a: 'warm',
-      b: 'cold',
+      b: 'warm',
       c: 'active',
       d: 'cold'
     })

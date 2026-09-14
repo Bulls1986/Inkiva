@@ -51,6 +51,7 @@ export const buildTabLifecycle = ({
   activationOrder = [],
   maxWarmTabs
 }: TabLifecycleOptions): TabLifecycleSnapshot => {
+  const warmLimit = normalizeMaxWarmTabs(maxWarmTabs)
   const knownIds = uniqueKnownIds(tabIds)
   const resolvedActiveId =
     activeId === null
@@ -71,7 +72,7 @@ export const buildTabLifecycle = ({
   const warmIds = resolvedActiveId
     ? orderedIds
       .filter((id) => id !== resolvedActiveId)
-      .slice(0, normalizeMaxWarmTabs(maxWarmTabs))
+      .slice(0, warmLimit)
     : []
   const warmSet = new Set(warmIds)
   const coldIds = knownIds.filter((id) => id !== resolvedActiveId && !warmSet.has(id))
