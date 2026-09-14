@@ -13,8 +13,46 @@ export interface BufferStoreTab {
 }
 
 export interface BufferStoreState {
+  version?: number
   tabs: BufferStoreTab[]
   [key: string]: unknown
+}
+
+export const BUFFER_STORE_VERSION = 1
+
+export const createEmptyBufferStoreState = (): BufferStoreState => ({
+  version: BUFFER_STORE_VERSION,
+  tabs: [],
+  currentFileId: null,
+  restoreWarnings: []
+})
+
+/**
+ * Convert legacy recovery files to the current format and reject versions
+ * that this build cannot safely interpret.
+ */
+export const normalizeBufferStoreState = (value: unknown): BufferStoreState => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Invalid editor buffer state.')
+  }
+
+  const state = value as Record<string, unknown>
+  if (!Array.isArray(state.tabs)) {
+    throw new Error('Invalid editor buffer state.')
+  }
+  if (state.tabs.some((tab) => !tab || typeof tab !== 'object' || Array.isArray(tab))) {
+    throw new Error('Invalid editor buffer state.')
+  }
+
+  if (state.version !== undefined && state.version !== BUFFER_STORE_VERSION) {
+    throw new Error(`Unsupported editor buffer state version: ${String(state.version)}`)
+  }
+
+  return {
+    ...state,
+    version: BUFFER_STORE_VERSION,
+    tabs: state.tabs as BufferStoreTab[]
+  }
 }
 
 const getTabId = (tab: BufferStoreTab): string | null =>
@@ -86,7 +124,7 @@ const remapAliases = (from: string, to: string, idMap: Map<string, string>): voi
  */
 export const mergeBufferStoreContents = (states: readonly BufferStoreState[]): BufferStoreState => {
   if (states.length === 0) {
-    return { tabs: [], currentFileId: null, restoreWarnings: [] }
+    return createEmptyBufferStoreState()
   }
 
   const tabs: BufferStoreTab[] = []
@@ -163,6 +201,7 @@ export const mergeBufferStoreContents = (states: readonly BufferStoreState[]): B
 
   const merged: BufferStoreState = {
     ...states[0],
+    version: BUFFER_STORE_VERSION,
     tabs,
     currentFileId: mergedCurrentFileId,
     restoreWarnings

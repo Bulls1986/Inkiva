@@ -454,11 +454,15 @@ class WindowManager extends TypedEmitter<WindowManagerEvents> {
       }
     )
 
-    onInternalChannel('window-file-saved', (windowId: number, pathname: string) => {
-      // A changed event is emitted earliest after the stability threshold.
-      const duration = WATCHER_STABILITY_THRESHOLD + WATCHER_STABILITY_POLL_INTERVAL * 2
-      this._watcher.ignoreChangedEvent(windowId, pathname, duration)
-    })
+    onInternalChannel(
+      'window-file-saved',
+      (windowId: number, pathname: string, expectedContent?: string) => {
+        // Content identity is authoritative. The duration remains a fallback
+        // for legacy callers that do not provide the saved snapshot.
+        const duration = WATCHER_STABILITY_THRESHOLD + WATCHER_STABILITY_POLL_INTERVAL * 2
+        this._watcher.ignoreChangedEvent(windowId, pathname, expectedContent ?? duration, duration)
+      }
+    )
 
     onInternalChannel('window-close-by-id', (id: number) => {
       this.forceCloseById(id)

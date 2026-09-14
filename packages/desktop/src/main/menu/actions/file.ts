@@ -187,7 +187,8 @@ const handleResponseForSave = async(
   pathname: string | undefined,
   markdown: string,
   options: UnsavedFile['options'],
-  defaultPath?: string
+  defaultPath?: string,
+  revision?: number
 ): Promise<string | void> => {
   const win = BrowserWindow.fromWebContents(e.sender)
   if (!win) {
@@ -223,22 +224,26 @@ const handleResponseForSave = async(
   filePath = path.resolve(filePath)
   const extension = path.extname(filePath) || '.md'
   filePath = !filePath.endsWith(extension) ? (filePath += extension) : filePath
-  // The original JS passed `win` here; writeMarkdownFile only takes 3 args
-  // (the 4th was silently ignored). Drop it explicitly under strict mode.
   // The IPC `SaveOptions` has every field optional, but writeMarkdownFile
   // requires the strict `MarkdownDocumentOptions` shape — the renderer always
   // populates every field for the unsaved-file dialog payload, so the cast
   // is safe at this seam.
-  return writeMarkdownFile(filePath, markdown, options as Parameters<typeof writeMarkdownFile>[2])
+  return writeMarkdownFile(
+    filePath,
+    markdown,
+    options as Parameters<typeof writeMarkdownFile>[2],
+    revision
+  )
     .then(() => {
       if (!alreadyExistOnDisk) {
         ipcMain.emit('window-add-file-path', win.id, filePath)
         ipcMain.emit('menu-add-recently-used', filePath)
+        ipcMain.emit('window-file-saved', win.id, filePath, markdown)
 
         const newFilename = path.basename(filePath!)
         win.webContents.send('mt::set-pathname', { id, pathname: filePath, filename: newFilename })
       } else {
-        ipcMain.emit('window-file-saved', win.id, filePath)
+        ipcMain.emit('window-file-saved', win.id, filePath, markdown)
         win.webContents.send('mt::tab-saved', id)
       }
       return id
@@ -284,19 +289,21 @@ export const saveUnsavedFilesForUpdate = async(
       await writeMarkdownFile(
         filePath,
         file.markdown,
-        file.options as Parameters<typeof writeMarkdownFile>[2]
+        file.options as Parameters<typeof writeMarkdownFile>[2],
+        file.revision
       )
 
       if (!alreadyExistOnDisk) {
         ipcMain.emit('window-add-file-path', win.id, filePath)
         ipcMain.emit('menu-add-recently-used', filePath)
+        ipcMain.emit('window-file-saved', win.id, filePath, file.markdown)
         win.webContents.send('mt::set-pathname', {
           id: file.id,
           pathname: filePath,
           filename: path.basename(filePath)
         })
       } else {
-        ipcMain.emit('window-file-saved', win.id, filePath)
+        ipcMain.emit('window-file-saved', win.id, filePath, file.markdown)
         win.webContents.send('mt::tab-saved', file.id)
       }
     } catch (error) {
@@ -378,7 +385,8 @@ ipcMain.on('mt::save-tabs', (e, unsavedFiles: UnsavedFile[]) => {
         file.pathname,
         file.markdown,
         file.options,
-        file.defaultPath
+        file.defaultPath,
+        file.revision
       )
     )
   ).catch(log.error)
@@ -405,7 +413,8 @@ ipcMain.on('mt::save-and-close-tabs', async(e, unsavedFiles: UnsavedFile[]) => {
           file.pathname,
           file.markdown,
           file.options,
-          file.defaultPath
+          file.defaultPath,
+          file.revision
         )
       )
     )
@@ -431,7 +440,8 @@ ipcMain.on(
     pathname: string | undefined,
     markdown: string,
     options: UnsavedFile['options'],
-    defaultPath?: string
+    defaultPath?: string,
+    revision?: number
   ) => {
     const win = BrowserWindow.fromWebContents(e.sender)
     if (!win) {
@@ -454,11 +464,17 @@ ipcMain.on(
 
     if (filePath && !canceled) {
       filePath = path.resolve(filePath)
-      writeMarkdownFile(filePath, markdown, options as Parameters<typeof writeMarkdownFile>[2])
+      writeMarkdownFile(
+        filePath,
+        markdown,
+        options as Parameters<typeof writeMarkdownFile>[2],
+        revision
+      )
         .then(() => {
           if (!alreadyExistOnDisk) {
             ipcMain.emit('window-add-file-path', win.id, filePath)
             ipcMain.emit('menu-add-recently-used', filePath)
+            ipcMain.emit('window-file-saved', win.id, filePath, markdown)
 
             const newFilename = path.basename(filePath!)
             win.webContents.send('mt::set-pathname', {
@@ -469,6 +485,7 @@ ipcMain.on(
           } else if (pathname !== filePath) {
             // Update window file list and watcher.
             ipcMain.emit('window-change-file-path', win.id, filePath, pathname)
+            ipcMain.emit('window-file-saved', win.id, filePath, markdown)
 
             const newFilename = path.basename(filePath!)
             win.webContents.send('mt::set-pathname', {
@@ -477,7 +494,7 @@ ipcMain.on(
               filename: newFilename
             })
           } else {
-            ipcMain.emit('window-file-saved', win.id, filePath)
+            ipcMain.emit('window-file-saved', win.id, filePath, markdown)
             win.webContents.send('mt::tab-saved', id)
           }
         })
@@ -511,7 +528,8 @@ ipcMain.on('mt::close-window-confirm', async(e, unsavedFiles: UnsavedFile[]) => 
           file.pathname,
           file.markdown,
           file.options,
-          file.defaultPath
+          file.defaultPath,
+          file.revision
         )
       )
     )

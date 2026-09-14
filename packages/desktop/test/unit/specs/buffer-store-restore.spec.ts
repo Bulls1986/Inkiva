@@ -130,4 +130,60 @@ describe('mergeBufferStoreContents', () => {
     expect(readdirSync(editorBufferStorePath)).toEqual(['first_editor_buffer_store.json'])
     expect(JSON.parse(readFileSync(firstFilePath, 'utf8')).tabs).toHaveLength(2)
   })
+
+  it('ignores corrupt recovery candidates without blocking startup', async() => {
+    const editorBufferStorePath = mkdtempSync(path.join(tmpdir(), 'inkiva-buffer-corrupt-'))
+    temporaryDirectories.push(editorBufferStorePath)
+    const corruptFilePath = path.join(editorBufferStorePath, 'corrupt_editor_buffer_store.json')
+    writeFileSync(corruptFilePath, '{not-json', 'utf8')
+
+    const store = createStoreWithoutElectron(editorBufferStorePath)
+    const merged = await store.readAndMergeBufferStoreFilesAsync([
+      { id: 'corrupt', filePath: corruptFilePath }
+    ])
+
+    expect(merged.state).toMatchObject({ version: 1, tabs: [], currentFileId: null })
+  })
+
+  it('rejects unsupported recovery versions and normalizes legacy state', async() => {
+    const editorBufferStorePath = mkdtempSync(path.join(tmpdir(), 'inkiva-buffer-version-'))
+    temporaryDirectories.push(editorBufferStorePath)
+    const legacyFilePath = path.join(editorBufferStorePath, 'legacy_editor_buffer_store.json')
+    const futureFilePath = path.join(editorBufferStorePath, 'future_editor_buffer_store.json')
+    writeFileSync(legacyFilePath, JSON.stringify({ tabs: [] }), 'utf8')
+    writeFileSync(futureFilePath, JSON.stringify({ version: 99, tabs: [] }), 'utf8')
+
+    const store = createStoreWithoutElectron(editorBufferStorePath)
+    const merged = await store.readAndMergeBufferStoreFilesAsync([
+      { id: 'legacy', filePath: legacyFilePath },
+      { id: 'future', filePath: futureFilePath }
+    ])
+
+    expect(merged.state.version).toBe(1)
+    expect(merged.state.tabs).toEqual([])
+  })
+
+  it('coalesces identical recovery snapshots while keeping writes atomic', async() => {
+    const editorBufferStorePath = mkdtempSync(path.join(tmpdir(), 'inkiva-buffer-queue-'))
+    temporaryDirectories.push(editorBufferStorePath)
+    const filePath = path.join(editorBufferStorePath, 'window_editor_buffer_store.json')
+    const store = createStoreWithoutElectron(editorBufferStorePath) as unknown as {
+      _enqueueBufferWrite: (path: string, state: unknown) => Promise<void>
+      writeBufferStoreFile: (path: string, state: unknown) => Promise<void>
+    }
+    const writeSpy = vi.spyOn(store, 'writeBufferStoreFile')
+    const state = { tabs: [{ id: 'tab-1', markdown: 'draft' }] }
+
+    await Promise.all([
+      store._enqueueBufferWrite(filePath, state),
+      store._enqueueBufferWrite(filePath, { ...state })
+    ])
+
+    expect(writeSpy).toHaveBeenCalledTimes(1)
+    expect(writeSpy.mock.calls[0]?.[1]).toMatchObject({ version: 1, tabs: state.tabs })
+    expect(JSON.parse(readFileSync(filePath, 'utf8'))).toMatchObject({
+      version: 1,
+      tabs: state.tabs
+    })
+  })
 })

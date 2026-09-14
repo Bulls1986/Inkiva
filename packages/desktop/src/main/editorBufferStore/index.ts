@@ -5,7 +5,12 @@ import writeFileAtomic from 'write-file-atomic'
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { TypedEmitter } from '@shared/types/typedEmitter'
 import type BaseWindow from '../windows/base'
-import { mergeBufferStoreContents, type BufferStoreState } from './restore'
+import {
+  createEmptyBufferStoreState,
+  mergeBufferStoreContents,
+  normalizeBufferStoreState,
+  type BufferStoreState
+} from './restore'
 
 interface EditorBufferStorePaths {
   editorBufferStorePath: string
@@ -28,9 +33,30 @@ interface MergedBufferStoreFiles {
 }
 
 interface PendingWrite {
-  running: boolean
-  nextState: unknown | null
+  running: RecoveryWriteTask | null
+  next: RecoveryWriteTask | null
+}
+
+interface RecoveryWriteTask {
+  state: BufferStoreState
+  fingerprint: string
   waiters: Array<{ resolve: () => void; reject: (error: unknown) => void }>
+}
+
+const stableSerialize = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableSerialize(item)).join(',')}]`
+  }
+
+  if (value && typeof value === 'object') {
+    const object = value as Record<string, unknown>
+    return `{${Object.keys(object)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableSerialize(object[key])}`)
+      .join(',')}}`
+  }
+
+  return JSON.stringify(value) ?? 'undefined'
 }
 
 // No instance-level events emitted; kept as TypedEmitter for parity with the
@@ -43,6 +69,7 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
   serviceName: string
   encryptKeys: string[]
   private _pendingWrites: Map<string, PendingWrite>
+  private _lastWrittenStateFingerprints: Map<string, string>
 
   constructor(paths: EditorBufferStorePaths) {
     super()
@@ -56,6 +83,7 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
     this.serviceName = 'marktext'
     this.encryptKeys = []
     this._pendingWrites = new Map()
+    this._lastWrittenStateFingerprints = new Map()
 
     this.init()
   }
@@ -108,10 +136,10 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
       return
     }
 
-    const pending = this._pendingWrites.get(
+    const pending = this._getPendingWrites().get(
       path.join(this.editorBufferStorePath, `${restoreBufferId}_editor_buffer_store.json`)
     )
-    if (pending?.running || pending?.nextState !== null) {
+    if (pending?.running || pending?.next) {
       return
     }
 
@@ -197,12 +225,7 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
       throw new Error('Buffer store file is empty.')
     }
 
-    const buffer = JSON.parse(content) as BufferStoreState
-    if (!buffer || !Array.isArray(buffer.tabs)) {
-      throw new Error('Invalid editor buffer state.')
-    }
-
-    return buffer
+    return normalizeBufferStoreState(JSON.parse(content))
   }
 
   /**
@@ -231,7 +254,11 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
     }
 
     if (states.length === 0) {
-      throw new Error('No valid editor buffer stores could be restored.')
+      return {
+        state: createEmptyBufferStoreState(),
+        primaryFilePath: bufferStoreInfos[0].filePath,
+        sourceFilePaths: [...new Set(bufferStoreInfos.map(({ filePath }) => filePath))]
+      }
     }
 
     return {
@@ -254,7 +281,7 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
     if (!primaryFilePath || sourceFilePaths.length <= 1) return
 
     try {
-      await this.writeBufferStoreFile(primaryFilePath, state)
+      await this.writeBufferStoreFile(primaryFilePath, normalizeBufferStoreState(state))
     } catch (error) {
       console.error(`Failed to consolidate editor buffer stores into ${primaryFilePath}`, error)
       return
@@ -277,52 +304,101 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
   }
 
   async writeBufferStoreFile(filePath: string, newState: unknown): Promise<void> {
-    // Durable atomic write without blocking Electron's main thread. Calls for
-    // the same recovery file are coalesced by _enqueueBufferWrite so typing can
-    // never build an unbounded fsync queue.
+    // Callers use _enqueueBufferWrite for version normalization and
+    // coalescing. Keep this primitive small so it remains useful to the
+    // recovery migration and direct durability tests.
     await writeFileAtomic(filePath, JSON.stringify(newState), { encoding: 'utf8' })
   }
 
+  private _getPendingWrites(): Map<string, PendingWrite> {
+    // Some recovery tests construct this class without Electron's constructor;
+    // initialize lazily so that path still exercises the production queue.
+    if (!this._pendingWrites) this._pendingWrites = new Map()
+    return this._pendingWrites
+  }
+
+  private _getLastWrittenStateFingerprints(): Map<string, string> {
+    if (!this._lastWrittenStateFingerprints) this._lastWrittenStateFingerprints = new Map()
+    return this._lastWrittenStateFingerprints
+  }
+
   private _enqueueBufferWrite(filePath: string, newState: unknown): Promise<void> {
-    let pending = this._pendingWrites.get(filePath)
-    if (!pending) {
-      pending = { running: false, nextState: null, waiters: [] }
-      this._pendingWrites.set(filePath, pending)
+    const state = normalizeBufferStoreState(newState)
+    const fingerprint = stableSerialize(state)
+    const lastWrittenStateFingerprints = this._getLastWrittenStateFingerprints()
+    if (lastWrittenStateFingerprints.get(filePath) === fingerprint) {
+      return Promise.resolve()
     }
 
-    pending.nextState = newState
+    const pendingWrites = this._getPendingWrites()
+    let pending = pendingWrites.get(filePath)
+    if (!pending) {
+      pending = { running: null, next: null }
+      pendingWrites.set(filePath, pending)
+    }
+    const pendingEntry = pending
+
+    const running = pendingEntry.running
+    if (running?.fingerprint === fingerprint) {
+      return new Promise<void>((resolve, reject) => {
+        running.waiters.push({ resolve, reject })
+      })
+    }
+
+    const next = pendingEntry.next
+    if (next?.fingerprint === fingerprint) {
+      return new Promise<void>((resolve, reject) => {
+        next.waiters.push({ resolve, reject })
+      })
+    }
+
     const result = new Promise<void>((resolve, reject) => {
-      pending!.waiters.push({ resolve, reject })
+      const task: RecoveryWriteTask = {
+        state,
+        fingerprint,
+        waiters: [{ resolve, reject }]
+      }
+
+      if (pendingEntry.next) {
+        // Only one not-yet-started snapshot is needed. A newer snapshot
+        // supersedes it while all callers still await the eventual write.
+        pendingEntry.next = {
+          state,
+          fingerprint,
+          waiters: pendingEntry.next.waiters.concat(task.waiters)
+        }
+      } else {
+        pendingEntry.next = task
+      }
     })
 
-    if (!pending.running) {
-      void this._drainBufferWrites(filePath, pending)
+    if (!pendingEntry.running) {
+      void this._drainBufferWrites(filePath, pendingEntry)
     }
     return result
   }
 
   private async _drainBufferWrites(filePath: string, pending: PendingWrite): Promise<void> {
-    pending.running = true
-    try {
-      while (pending.nextState !== null) {
-        const state = pending.nextState
-        const waiters = pending.waiters.splice(0)
-        pending.nextState = null
+    const pendingWrites = this._getPendingWrites()
+    const lastWrittenStateFingerprints = this._getLastWrittenStateFingerprints()
+    while (pending.next) {
+      const task = pending.next
+      pending.next = null
+      pending.running = task
 
-        try {
-          await this.writeBufferStoreFile(filePath, state)
-          waiters.forEach(({ resolve }) => resolve())
-        } catch (error) {
-          waiters.forEach(({ reject }) => reject(error))
-        }
+      try {
+        await this.writeBufferStoreFile(filePath, task.state)
+        lastWrittenStateFingerprints.set(filePath, task.fingerprint)
+        task.waiters.forEach(({ resolve }) => resolve())
+      } catch (error) {
+        task.waiters.forEach(({ reject }) => reject(error))
+      } finally {
+        pending.running = null
       }
-    } finally {
-      pending.running = false
-      if (pending.nextState === null && pending.waiters.length === 0) {
-        this._pendingWrites.delete(filePath)
-      } else if (!pending.running) {
-        void this._drainBufferWrites(filePath, pending)
-      }
+    }
+
+    if (!pending.running && !pending.next) {
+      pendingWrites.delete(filePath)
     }
   }
 

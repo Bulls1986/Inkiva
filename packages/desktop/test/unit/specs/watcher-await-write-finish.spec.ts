@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { tmpdir } from 'os'
+import path from 'path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // #3955: newly created files appeared in the sidebar ~1s late because the
 // directory watcher inherited chokidar's `awaitWriteFinish` (stabilityThreshold
@@ -45,11 +48,16 @@ function optionsForLastWatch(): Record<string, unknown> {
 describe('watcher awaitWriteFinish (#3955)', () => {
   let watcher: Watcher
   const win = { id: 1, webContents: { send: vi.fn() } }
+  const directories: string[] = []
 
   beforeEach(() => {
     watchMock.mockClear()
     const preferences = { getItem: vi.fn(() => false) }
     watcher = new Watcher(preferences as never)
+  })
+
+  afterEach(() => {
+    for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true })
   })
 
   it('does not defer directory-tree events with awaitWriteFinish', () => {
@@ -63,5 +71,20 @@ describe('watcher awaitWriteFinish (#3955)', () => {
       stabilityThreshold: WATCHER_STABILITY_THRESHOLD,
       pollInterval: WATCHER_STABILITY_POLL_INTERVAL
     })
+  })
+
+  it('ignores a self-write only when the file still has the expected content', async() => {
+    const directory = mkdtempSync(path.join(tmpdir(), 'inkiva-watcher-'))
+    directories.push(directory)
+    const target = path.join(directory, 'note.md')
+    writeFileSync(target, 'self write', 'utf8')
+
+    watcher.ignoreChangedEvent(win.id, target, 'self write', 0)
+    await expect(watcher._shouldIgnoreEvent(win.id, target, 'file', false)).resolves.toBe(true)
+
+    writeFileSync(target, 'external change', 'utf8')
+    watcher.ignoreChangedEvent(win.id, target, 'self write', 60_000)
+    await expect(watcher._shouldIgnoreEvent(win.id, target, 'file', false)).resolves.toBe(false)
+    expect(readFileSync(target, 'utf8')).toBe('external change')
   })
 })

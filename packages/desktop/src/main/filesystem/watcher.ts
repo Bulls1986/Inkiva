@@ -13,6 +13,8 @@ import type Preference from '../preferences'
 
 export const WATCHER_STABILITY_THRESHOLD = 1000
 export const WATCHER_STABILITY_POLL_INTERVAL = 150
+const WATCHER_DEFAULT_IGNORE_DURATION =
+  WATCHER_STABILITY_THRESHOLD + WATCHER_STABILITY_POLL_INTERVAL * 2
 
 const EVENT_NAME = {
   dir: 'mt::update-object-tree' as const,
@@ -26,6 +28,7 @@ interface IgnoreEntry {
   pathname: string
   duration: number
   start: Date
+  expectedContent?: string
 }
 
 interface WatcherEntry {
@@ -337,9 +340,47 @@ class Watcher {
   ignoreChangedEvent(
     windowId: number,
     pathname: string,
-    duration: number = WATCHER_STABILITY_THRESHOLD + WATCHER_STABILITY_POLL_INTERVAL * 2
+    expectedContentOrDuration: string | number = WATCHER_DEFAULT_IGNORE_DURATION,
+    duration: number = WATCHER_DEFAULT_IGNORE_DURATION
   ): void {
-    this._ignoreChangeEvents.push({ windowId, pathname, duration, start: new Date() })
+    const expectedContent = typeof expectedContentOrDuration === 'string'
+      ? expectedContentOrDuration
+      : undefined
+    if (typeof expectedContentOrDuration === 'number') duration = expectedContentOrDuration
+
+    // A second save supersedes the first expected snapshot. Keeping stale
+    // entries would make a later external change look like an old self-write.
+    this._ignoreChangeEvents = this._ignoreChangeEvents.filter(
+      (entry) => entry.windowId !== windowId || entry.pathname !== pathname
+    )
+    this._ignoreChangeEvents.push({
+      windowId,
+      pathname,
+      duration,
+      start: new Date(),
+      expectedContent
+    })
+  }
+
+  private _getMarkdownLoadOptions(): {
+    endOfLine: LineEnding
+    autoGuessEncoding: boolean
+    trimTrailingNewline: number
+    autoNormalizeLineEndings: boolean
+  } {
+    const preferences = this._preferences as unknown as {
+      getPreferredEol?: () => LineEnding
+      getAll?: () => Record<string, unknown>
+    }
+    const all = preferences.getAll?.() ?? {}
+    return {
+      endOfLine: preferences.getPreferredEol?.() ?? 'lf',
+      autoGuessEncoding: all.autoGuessEncoding !== false,
+      trimTrailingNewline: typeof all.trimTrailingNewline === 'number'
+        ? all.trimTrailingNewline
+        : 2,
+      autoNormalizeLineEndings: all.autoNormalizeLineEndings === true
+    }
   }
 
   async _shouldIgnoreEvent(
@@ -350,14 +391,37 @@ class Watcher {
   ): Promise<boolean> {
     if (type !== 'file') return false
 
-    const currentTime = new Date()
     for (let i = 0; i < this._ignoreChangeEvents.length; ++i) {
       const entry = this._ignoreChangeEvents[i]
       if (entry.windowId !== winId || entry.pathname !== pathname) continue
 
       this._ignoreChangeEvents.splice(i, 1)
-      --i
-      if (currentTime.getTime() - entry.start.getTime() < entry.duration) return true
+      if (entry.expectedContent !== undefined) {
+        try {
+          const {
+            endOfLine,
+            autoGuessEncoding,
+            trimTrailingNewline,
+            autoNormalizeLineEndings
+          } = this._getMarkdownLoadOptions()
+          const data = await loadMarkdownFile(
+            pathname,
+            endOfLine,
+            autoGuessEncoding,
+            trimTrailingNewline,
+            autoNormalizeLineEndings
+          )
+          const normalizeLineEndings = (text: string): string => text.replace(/\r\n?/g, '\n')
+          return normalizeLineEndings(data.markdown) === normalizeLineEndings(entry.expectedContent)
+        } catch (error) {
+          // A disappeared or unreadable file is not evidence of a self-write.
+          // Let the normal watcher path report the I/O problem or unlink.
+          log.debug('Failed to compare expected self-write content:', error)
+          return false
+        }
+      }
+
+      if (new Date().getTime() - entry.start.getTime() < entry.duration) return true
 
       if (!usePolling) {
         try {

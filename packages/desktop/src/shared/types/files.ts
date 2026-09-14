@@ -137,6 +137,8 @@ export interface UnsavedFile {
   markdown: string
   options: SaveOptions
   defaultPath?: string
+  /** Dirty revision used to suppress a stale duplicate save. */
+  revision?: number
 }
 
 export interface BootstrapEditorConfig {
