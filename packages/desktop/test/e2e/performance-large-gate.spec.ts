@@ -1248,7 +1248,7 @@ const collectMemoryLeakSamples = async(
       recordSample: (metric, unit, value) =>
         recordSample(page, metric, unit, value, 'memory')
     })
-    await getRendererErrors(app)
+    await expectNoRendererErrors(app)
   } finally {
     if (app) {
       await closeElectron(app)

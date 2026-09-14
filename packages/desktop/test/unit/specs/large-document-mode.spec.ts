@@ -3,7 +3,7 @@ import {
   EXTREME_DOCUMENT_DEGRADE_THRESHOLD_BYTES,
   getDocumentByteLength,
   shouldUseDegradedLargeDocumentMode
-} from '../../src/renderer/src/util/largeDocumentMode'
+} from '../../../src/renderer/src/util/largeDocumentMode'
 
 describe('large document degradation contract', () => {
   it('keeps the threshold byte-based and exclusive', () => {
