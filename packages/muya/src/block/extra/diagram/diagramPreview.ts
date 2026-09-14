@@ -7,8 +7,8 @@ import { CLASS_NAMES, PREVIEW_DOMPURIFY_CONFIG } from '../../../config';
 import { sanitize } from '../../../utils';
 import { getDiagramRenderCoordinator } from '../../../utils/diagram/coordinator';
 import {
-    createDiagramHeightHintCache,
-    diagramHeightHintKey,
+    getDiagramHeightHint,
+    rememberDiagramHeight,
 } from './diagramHeightHint';
 import logger from '../../../utils/logger';
 import Parent from '../../base/parent';
@@ -47,7 +47,7 @@ class DiagramPreview extends Parent {
         if (!node)
             return;
 
-        const height = createDiagramHeightHintCache().get(diagramHeightHintKey(this._type, this._code));
+        const height = getDiagramHeightHint(this._type, this._code);
         if (height == null) {
             node.style.removeProperty('min-height');
             node.removeAttribute('data-diagram-height-hint');
@@ -68,7 +68,7 @@ class DiagramPreview extends Parent {
         const rectHeight = node.getBoundingClientRect().height;
         const height = Math.max(rectHeight, node.offsetHeight);
         if (height > 0) {
-            createDiagramHeightHintCache().set(diagramHeightHintKey(this._type, this._code), height);
+            rememberDiagramHeight(this._type, this._code, height);
             node.removeAttribute('data-diagram-height-hint');
             return;
         }
