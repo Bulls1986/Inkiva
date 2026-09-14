@@ -109,6 +109,7 @@ export class RuntimePerformanceMonitor {
     callback: () => void,
     delayMs: number
   ) => ReturnType<typeof setTimeout>
+
   private readonly clearTimer: (timer: ReturnType<typeof setTimeout>) => void
 
   private readonly eventLoopLagTracker: EventLoopLagTracker
