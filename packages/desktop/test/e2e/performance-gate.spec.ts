@@ -356,7 +356,6 @@ const runColdRegularSample = async(
     }
     await recordSample(page, 'document.regular.input', 'ms', observedInput)
     await recordSample(page, 'core.input.latency', 'ms', observedInput)
-    }
 
     const searchDuration = await measurePageAction(page, async() => {
       await sendIpcToRenderer(app, 'mt::editor-edit-action', 'find')

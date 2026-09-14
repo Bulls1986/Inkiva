@@ -921,7 +921,7 @@ const collectTabSamples = async(
         await page.locator('.tabs-container > li').nth((index + 1) % 8).click()
       })
       await recordSample(page, 'tabs.8.switch', 'ms', switchDuration)
-       await recordSample(page, 'core.ui.action', 'ms', switchDuration)
+      await recordSample(page, 'core.ui.action', 'ms', switchDuration)
       await recordSample(page, 'tabs.8.freeze', 'count', switchDuration > 100 ? 1 : 0)
       const inputDuration = await measureInput(page, 'tabs.8.input', index + 5000)
       await recordSample(page, 'core.input.latency', 'ms', inputDuration)
