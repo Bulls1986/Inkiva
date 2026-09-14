@@ -1,6 +1,7 @@
 import { PERFORMANCE_EVENT_CHANNEL } from '@shared/types/performance'
 import { createRendererPerformanceRecorder } from './renderer'
 import { RuntimePerformanceMonitor } from './runtimeMonitor'
+import { createPerformanceGateBridge } from './gateBridge'
 
 const electronApi = (
   globalThis as typeof globalThis & {
@@ -29,3 +30,13 @@ export const rendererPerformanceMonitor = new RuntimePerformanceMonitor({
 })
 
 rendererPerformanceMonitor.start()
+
+/**
+ * E2E performance scenarios record timings measured around real user actions
+ * through this same renderer recorder. It is exposed only for opt-in capture;
+ * production runs have no global harness surface.
+ */
+export const rendererPerformanceGate = createPerformanceGateBridge(rendererPerformance)
+if (rendererPerformance.enabled && typeof window !== 'undefined') {
+  window.__inkivaPerformanceGate = rendererPerformanceGate
+}

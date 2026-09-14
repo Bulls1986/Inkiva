@@ -12,7 +12,11 @@ import type {
 } from '@shared/types/ipc'
 import type { MenuTemplate, MenuPopupPosition } from '@shared/types/menu'
 import type { SerializedStat } from '@shared/types/files'
-import type { PerformanceBootInfo } from '@shared/types/performance'
+import type {
+  PerformanceBootInfo,
+  PerformancePhase,
+  PerformanceSampleUnit
+} from '@shared/types/performance'
 import type {
   ApplyRenameRepairRequest,
   ApplyRenameRepairResult,
@@ -109,6 +113,18 @@ declare global {
     paths: Partial<BootInfo['paths']>
     performance?: PerformanceBootInfo
     windowControl: ElectronWindowControlAPI
+  }
+
+  interface WindowPerformanceGate {
+    recordSample(
+      metric: string,
+      unit: PerformanceSampleUnit,
+      value: number,
+      options?: {
+        phase?: PerformancePhase
+        metadata?: Record<string, unknown>
+      }
+    ): void
   }
 
   interface FileUtilsAPI {
@@ -220,6 +236,7 @@ declare global {
     fonts: FontsAPI
     process: ProcessShim
     rgPath: string
+    __inkivaPerformanceGate?: WindowPerformanceGate
     // Set by the legacy editor store at runtime; consumed by muya internals.
     DIRNAME: string
     inkiva?: {
