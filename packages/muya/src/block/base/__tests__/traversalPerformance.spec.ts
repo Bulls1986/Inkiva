@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import Parent from '../parent';
 
-interface FakeNode {
+interface IIFakeNode {
     isParent: () => boolean;
     children?: { forEach: (callback: (child: FakeNode, index: number) => void) => void };
 }

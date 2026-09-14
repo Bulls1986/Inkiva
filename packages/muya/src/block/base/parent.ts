@@ -317,7 +317,6 @@ class Parent extends TreeNode {
                         stack.push(child);
                     }
                 }
-                }
             }
         }
     }
