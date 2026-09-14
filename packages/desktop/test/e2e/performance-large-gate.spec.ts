@@ -20,8 +20,7 @@ import {
 } from '../../../../perf/gate/large-collection'
 import {
   RUNTIME_COLLECTED_METRICS,
-  type LargeGateLevel,
-  getLargeGateScenario
+  type LargeGateLevel
 } from '../../../../perf/gate/large-scenarios'
 import { mergePerformanceTraceReports } from '../../../../perf/gate/trace-input'
 import {
@@ -301,6 +300,33 @@ const measureElementScrollFps = async(page: Page, selector: string): Promise<num
       }),
     selector
   )
+
+const measureSaveEditorLock = async(
+  page: Page,
+  app: ElectronApplication,
+  iteration: number
+): Promise<number> => {
+  await placeCaretInEditor(page)
+  const beforeCount = await readInputCount(page)
+  let inputWorked = true
+  try {
+    const savePromise = sendIpcToRenderer(app, 'mt::editor-ask-file-save')
+    const inputPromise = page.keyboard.insertText('save-lock-' + iteration)
+    await Promise.all([savePromise, inputPromise])
+    await page.waitForFunction(
+      (count) => {
+        const state = (globalThis as typeof globalThis & { __inkiva_large_gate_probe__?: GateProbe })
+          .__inkiva_large_gate_probe__
+        return (state?.inputDurations.length ?? 0) > count
+      },
+      beforeCount,
+      { timeout: 5000 }
+    )
+  } catch {
+    inputWorked = false
+  }
+  return inputWorked ? 0 : 1
+}
 
 const collectFrameDurations = async(page: Page): Promise<number[]> =>
   await page.evaluate(
@@ -606,10 +632,7 @@ const collectDocumentTier = async(
         await recordSample(page, 'undo.fullDomRebuild', 'count', rootWasReused ? 0 : 1)
         await sendIpcToRenderer(app, 'mt::editor-edit-action', 'redo')
 
-        const saveWhileEditing = await measureInput(page, undefined, index + 1000).then(async() => {
-          await sendIpcToRenderer(app, 'mt::editor-ask-file-save')
-          return 0
-        })
+        const saveWhileEditing = await measureSaveEditorLock(page, app, index + 1000)
         await recordSample(page, 'save.editorLock', 'count', saveWhileEditing, 'autosave')
       }
     }
@@ -746,7 +769,6 @@ const collectTreeSamples = async(
           { timeout: 180000 }
         )
       })
-      const treePrefix = targetNodes === 10000 ? 'tree.10k' : 'tree.50k'
       if (targetNodes === 10000) {
         await recordSample(page, 'tree.10k.expand', 'ms', expandDuration)
         await recordSample(page, 'tree.10k.expand1k', 'ms', expandDuration)
