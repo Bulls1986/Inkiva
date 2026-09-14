@@ -81,3 +81,15 @@ test('accepts a Muya canonical report and preserves the schema contract', () => 
     ])
   })
 })
+
+
+test('fails closed when the input path does not yield metrics', () => {
+  withInputDirectory((directory) => {
+    assert.throws(
+      () => collectSoakReport('desktop', join(directory, 'missing')),
+      /no performance metrics/
+    )
+    writeFileSync(join(directory, 'ignored.txt'), 'not a report')
+    assert.throws(() => collectSoakReport('desktop', directory), /no performance metrics/)
+  })
+})
