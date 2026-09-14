@@ -13,6 +13,7 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'perf/soak/**'
+      - 'perf/gate/**'
       - '.github/workflows/perf-soak.yml'
   workflow_dispatch:
   schedule:
@@ -30,9 +31,6 @@ jobs:
     name: Desktop @perf
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    # A PR performance run is an observation surface; it must not block code
-    # review when a runner or an inherently noisy benchmark has a bad sample.
-    continue-on-error: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v4.3.1
 
@@ -69,7 +67,6 @@ jobs:
 
       - name: Run desktop @perf lane
         id: perf
-        continue-on-error: true
         run: xvfb-run --auto-servernum pnpm test:e2e:perf
         env:
           INKIVA_PERF_CAPTURE: 'true'
@@ -86,12 +83,12 @@ jobs:
         run: pnpm exec tsx perf/soak/collect.ts --suite desktop --input packages/desktop/test-results/perf-results --output perf-results/desktop.json
 
       - name: Compare desktop performance baseline
+        id: compare
         if: always()
-        continue-on-error: true
         run: pnpm exec tsx perf/soak/compare.ts --current perf-results/desktop.json --baseline perf-baseline/desktop.json --thresholds perf/soak/thresholds.json --output perf-results/desktop-comparison.json
 
       - name: Stage desktop baseline
-        if: always() && steps.collect.outcome == 'success'
+        if: always() && steps.collect.outcome == 'success' && steps.compare.outcome == 'success'
         id: stage
         run: |
           if jq -e '.metrics | length > 0' perf-results/desktop.json >/dev/null; then
@@ -99,12 +96,12 @@ jobs:
             cp perf-results/desktop.json perf-baseline/desktop.json
             echo "updated=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::No desktop performance metrics were collected; the baseline was not updated."
-            echo "updated=false" >> "$GITHUB_OUTPUT"
+            echo "::error::No desktop performance metrics were collected."
+            exit 1
           fi
 
       - name: Save desktop baseline
-        if: always() && steps.collect.outcome == 'success' && steps.perf.outcome == 'success' && steps.stage.outputs.updated == 'true'
+        if: always() && steps.collect.outcome == 'success' && steps.perf.outcome == 'success' && steps.compare.outcome == 'success' && steps.stage.outputs.updated == 'true'
         uses: actions/cache/save@v4.2.4
         with:
           path: perf-baseline
@@ -119,14 +116,13 @@ jobs:
             perf-results/desktop.json
             perf-results/desktop-comparison.json
             packages/desktop/test-results/perf-results/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
 
   muya:
     name: Muya @perf
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    continue-on-error: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v4.3.1
       - uses: ./.github/actions/setup
@@ -144,7 +140,6 @@ jobs:
 
       - name: Run Muya @perf lane
         id: perf
-        continue-on-error: true
         run: pnpm -C packages/muya/e2e exec playwright test --project=chromium --grep "@perf"
         env:
           PERF_RESULTS_DIR: ${{ github.workspace }}/perf-results/muya
@@ -155,8 +150,8 @@ jobs:
         run: pnpm exec tsx perf/soak/collect.ts --suite muya --input perf-results/muya --output perf-results/muya.json
 
       - name: Compare Muya performance baseline
+        id: compare
         if: always()
-        continue-on-error: true
         run: pnpm exec tsx perf/soak/compare.ts --current perf-results/muya.json --baseline perf-baseline/muya.json --thresholds perf/soak/thresholds.json --output perf-results/muya-comparison.json
 
       - name: Note Muya lane outcome
@@ -172,8 +167,8 @@ jobs:
             cp perf-results/muya.json perf-baseline/muya.json
             echo "updated=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::No Muya performance metrics were collected; the baseline was not updated."
-            echo "updated=false" >> "$GITHUB_OUTPUT"
+            echo "::error::No Muya performance metrics were collected."
+            exit 1
           fi
 
       - name: Save Muya baseline
@@ -192,5 +187,5 @@ jobs:
             perf-results/muya.json
             perf-results/muya-comparison.json
             packages/muya/e2e/playwright-report/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
