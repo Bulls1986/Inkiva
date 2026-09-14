@@ -6,10 +6,16 @@ import type { IMatch } from './types';
 import { DEFAULT_SEARCH_OPTIONS } from '../config';
 import { buildRegexValue, matchString } from '../utils/search';
 
+const SEARCH_SLICE_BUDGET_MS = 4;
+
+const getSearchTime = () =>
+    typeof performance !== 'undefined' ? performance.now() : Date.now();
+
 export class Search {
     private _value: string = '';
     public matches: IMatch[] = [];
     public index: number = -1;
+    private _searchGeneration = 0;
 
     get value() {
         return this._value;
@@ -29,13 +35,12 @@ export class Search {
         this.index = -1;
     }
 
-    private _updateMatches(isClear = false) {
-        const { matches, index } = this;
-        let i;
+    private _updateMatchHighlights(matches: readonly IMatch[], isClear = false) {
+        const { index } = this;
         const len = matches.length;
         const matchesMap = new Map<Content, IHighlight[]>();
 
-        for (i = 0; i < len; i++) {
+        for (let i = 0; i < len; i++) {
             const { block, start, end } = matches[i];
             const active = i === index;
             const highlight: IHighlight = { start, end, active };
@@ -61,6 +66,10 @@ export class Search {
             if (isActive && !isClear)
                 block.focusHandler();
         }
+    }
+
+    private _updateMatches(isClear = false) {
+        this._updateMatchHighlights(this.matches, isClear);
     }
 
     private _innerReplace(matches: IMatch[], value: string) {
@@ -153,6 +162,7 @@ export class Search {
      * @param {object} opts
      */
     search(value: string, opts = {}) {
+        this._searchGeneration += 1;
         const matches: IMatch[] = [];
         const options = Object.assign({}, DEFAULT_SEARCH_OPTIONS, opts);
         const { highlightIndex, selectHighlight } = options;
@@ -216,4 +226,140 @@ export class Search {
 
         return this;
     }
-}
+
+    searchAsync(
+        value: string,
+        opts = {},
+        onUpdate?: (search: Search) => void,
+    ): Promise<this> {
+        if (!value) {
+            const result = this.search(value, opts);
+            onUpdate?.(result);
+            return Promise.resolve(result);
+        }
+
+        const generation = ++this._searchGeneration;
+        const options = Object.assign({}, DEFAULT_SEARCH_OPTIONS, opts);
+        const { highlightIndex, selectHighlight } = options;
+        const previousActiveMatch = this.matches[this.index];
+
+        this._updateMatches(true);
+        this._value = value;
+        this.matches = [];
+        this.index = -1;
+
+        const root = this._scrollPage;
+        if (!root) {
+            onUpdate?.(this);
+            return Promise.resolve(this);
+        }
+
+        const stack: TreeNode[] = [root];
+        let firstBatchPublished = false;
+        let settled = false;
+
+        return new Promise<this>((resolve) => {
+            const finish = () => {
+                if (settled)
+                    return;
+                settled = true;
+                resolve(this);
+            };
+
+            const schedule = () => {
+                setTimeout(processSlice, 0);
+            };
+
+            const processSlice = () => {
+                if (generation !== this._searchGeneration) {
+                    finish();
+                    return;
+                }
+
+                const startedAt = getSearchTime();
+                const sliceMatches: IMatch[] = [];
+                let visited = 0;
+
+                while (
+                    stack.length > 0
+                    && (visited === 0 || getSearchTime() - startedAt < SEARCH_SLICE_BUDGET_MS)
+                ) {
+                    const node = stack.pop();
+                    if (!node)
+                        continue;
+
+                    visited += 1;
+                    if (node.isParent()) {
+                        const children: TreeNode[] = [];
+                        node.children.forEach(child => children.push(child));
+                        for (let i = children.length - 1; i >= 0; i -= 1) {
+                            const child = children[i];
+                            if (child)
+                                stack.push(child);
+                        }
+                    }
+
+                    if (!node.isContent())
+                        continue;
+
+                    const { text } = node;
+                    if (!text || typeof text !== 'string')
+                        continue;
+
+                    const strMatches = matchString(text, value, options);
+                    sliceMatches.push(
+                        ...strMatches.map(({ index, match, subMatches }) => ({
+                            block: node,
+                            start: index,
+                            end: index + match.length,
+                            match,
+                            subMatches,
+                        })),
+                    );
+                }
+
+                if (sliceMatches.length > 0) {
+                    this.matches.push(...sliceMatches);
+                    if (this.index < 0)
+                        this.index = 0;
+                    this._updateMatchHighlights(sliceMatches);
+                    if (!firstBatchPublished) {
+                        firstBatchPublished = true;
+                        onUpdate?.(this);
+                    }
+                }
+                else if (!firstBatchPublished) {
+                    firstBatchPublished = true;
+                    onUpdate?.(this);
+                }
+
+                if (stack.length > 0) {
+                    schedule();
+                    return;
+                }
+
+                const previousIndex = this.index;
+                if (highlightIndex !== -1)
+                    this.index = highlightIndex;
+
+                if (highlightIndex !== -1 && previousIndex !== this.index) {
+                    const changedMatches = [this.matches[previousIndex], this.matches[this.index]]
+                        .filter((match): match is IMatch => Boolean(match));
+                    this._updateMatchHighlights(changedMatches);
+                }
+
+                if (selectHighlight) {
+                    const activeMatch = this.matches[this.index] ?? previousActiveMatch;
+                    if (activeMatch) {
+                        const { block, start, end } = activeMatch;
+                        block.setCursor(start, end, true);
+                    }
+                }
+
+                onUpdate?.(this);
+                finish();
+            };
+
+            schedule();
+        });
+    }
