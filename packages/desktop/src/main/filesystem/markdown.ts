@@ -69,7 +69,8 @@ export const normalizeMarkdownPath = (
 export const writeMarkdownFile = (
   pathname: string,
   content: string,
-  options: MarkdownDocumentOptions
+  options: MarkdownDocumentOptions,
+  revision?: number
 ): Promise<void> => {
   const { adjustLineEndingOnSave, lineEnding } = options
   const { encoding, isBom } = options.encoding
@@ -81,7 +82,7 @@ export const writeMarkdownFile = (
 
   const buffer = iconv.encode(content, encoding, { addBOM: isBom })
 
-  return writeFile(pathname, buffer, extension, undefined)
+  return writeFile(pathname, buffer, extension, undefined, revision).then(() => undefined)
 }
 
 /**

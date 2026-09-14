@@ -52,6 +52,19 @@ describe('writeFile — durable atomic save (#3786, #3828)', () => {
     expect(readFileSync(target, 'utf-8')).toBe('buffered')
   })
 
+  it('does not write twice when the dirty revision is unchanged', async() => {
+    const dir = tempDir()
+    const target = path.join(dir, 'note.md')
+
+    await writeFile(target, 'revision one', undefined, 'utf8', 1)
+    await writeFile(target, 'stale duplicate', undefined, 'utf8', 1)
+
+    expect(readFileSync(target, 'utf-8')).toBe('revision one')
+
+    await writeFile(target, 'revision two', undefined, 'utf8', 2)
+    expect(readFileSync(target, 'utf-8')).toBe('revision two')
+  })
+
   it('still recreates a missing parent directory (#3509)', async() => {
     const base = tempDir()
     const target = path.join(base, 'moved-away', 'note.md')

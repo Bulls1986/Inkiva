@@ -586,6 +586,11 @@ class EditorWindow extends BaseWindow {
 
       await Promise.all(fileOpenRequests)
       browserWindow!.webContents.send('mt::load-state', bufferState)
+      if (bufferState.tabs.length === 0) {
+        // A corrupt or empty recovery file should leave the editor usable,
+        // even though there is no recoverable tab to restore.
+        browserWindow!.webContents.send('mt::new-untitled-tab', true, '')
+      }
     } catch (err) {
       log.error('Failed to restore editor state:', err)
       const message = err instanceof Error ? err.message : String(err)
