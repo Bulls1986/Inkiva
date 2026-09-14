@@ -9,7 +9,7 @@ import { getTOC } from './getTOC';
 import { MarkdownToState } from './markdownToState';
 
 import StateToMarkdown from './stateToMarkdown';
-import { isTopLevelTocChange } from './tocChange';
+import { classifyDocumentMutation, isTopLevelTocChange } from './tocChange';
 
 const debug = logger('jsonState:');
 
@@ -207,16 +207,24 @@ class JSONState {
     }
 
     dispatch(op: JSONOp, source = 'user' /* user, api */) {
-        const prevDoc = this.getState();
-        const tocChanged = isTopLevelTocChange(op, prevDoc);
+        // ot-json1 apply returns a new tree. Keep this immutable reference for
+        // the cheap mutation classification and only deep-clone it if a legacy
+        // listener actually reads `prevDoc`.
+        const previousState = this._state;
+        const tocChanged = isTopLevelTocChange(op, previousState);
+        const mutationKind = classifyDocumentMutation(op, previousState, tocChanged);
         this._apply(op);
         const getDoc = () => this.getState();
+        let previousSnapshot: TState[] | undefined;
         debug.log(JSON.stringify(op));
         this._muya.eventCenter.emit('json-change', {
             op,
             source,
-            prevDoc,
             tocChanged,
+            mutationKind,
+            get prevDoc() {
+                return (previousSnapshot ??= deepClone(previousState));
+            },
             // Most listeners (History and the desktop shell) only need op/
             // source/prevDoc. Preserve the public `doc` field but clone the
             // current full AST only if a consumer actually reads it.
@@ -289,10 +297,12 @@ class JSONState {
         const op = this._operationCache.reduce(
             (acc, curr) => json1.type.compose(acc, curr) as JSONOpList,
         );
-        const prevDoc = this.getState();
-        const tocChanged = isTopLevelTocChange(op, prevDoc);
+        const previousState = this._state;
+        const tocChanged = isTopLevelTocChange(op, previousState);
+        const mutationKind = classifyDocumentMutation(op, previousState, tocChanged);
         this._apply(op);
         const getDoc = () => this.getState();
+        let previousSnapshot: TState[] | undefined;
         // Clear before emitting: a listener that edits synchronously then starts
         // a fresh batch instead of mutating the one being flushed.
         this._operationCache = [];
@@ -303,8 +313,11 @@ class JSONState {
         this._muya.eventCenter.emit('json-change', {
             op,
             source: 'user',
-            prevDoc,
             tocChanged,
+            mutationKind,
+            get prevDoc() {
+                return (previousSnapshot ??= deepClone(previousState));
+            },
             // Lazily materialize the post-change AST for compatibility with
             // consumers that need it, without penalizing every keystroke.
             get doc() {

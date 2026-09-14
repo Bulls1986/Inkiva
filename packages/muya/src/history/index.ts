@@ -1,6 +1,7 @@
-import type { JSONOpList } from 'ot-json1';
+import type { JSONOpComponent, JSONOpList } from 'ot-json1';
 import type { Muya } from '../muya';
 import type { IAnchorFocusInfo, IHistorySelection } from '../selection/types';
+import type { DocumentMutationKind } from '../state/tocChange';
 import type { TState } from '../state/types';
 import type { Nullable } from '../types';
 import * as json1 from 'ot-json1';
@@ -104,6 +105,23 @@ export function shouldBreakUndoGroup(
     return isWordBoundary || switchedKind;
 }
 
+function containsContextualRemoval(operation: JSONOpList): boolean {
+    for (const entry of operation) {
+        if (Array.isArray(entry) && containsContextualRemoval(entry))
+            return true;
+        if (entry == null || typeof entry !== 'object' || Array.isArray(entry))
+            continue;
+
+        const component = entry as JSONOpComponent;
+        // ot-json1's `removeOp` uses r:true as a sentinel when the removed
+        // value is not embedded. A text/diagram op with that shape still
+        // needs invertWithDoc to recover the deleted value.
+        if (component.r === true && component.i === undefined)
+            return true;
+    }
+    return false;
+}
+
 class History {
     private _lastRecorded: number = 0;
     private _lastInputKind: Nullable<TInputKind> = null;
@@ -125,16 +143,14 @@ class History {
     private _listen() {
         this._muya.eventCenter.on(
             'json-change',
-            ({
-                op,
-                source,
-                prevDoc,
-            }: {
+            (change: {
                 op: Nullable<JSONOpList>;
                 source: string;
                 prevDoc: TState[];
                 doc: TState[];
+                mutationKind?: DocumentMutationKind;
             }) => {
+                const { op, source, mutationKind } = change;
                 if (this._ignoreChange)
                     return;
 
@@ -145,10 +161,18 @@ class History {
                 if (op == null)
                     return;
 
-                if (!this._options.userOnly || source === 'user')
-                    this._record(op, prevDoc);
-                else
+                if (!this._options.userOnly || source === 'user') {
+                    this._record(
+                        op,
+                        mutationKind === 'text-only' || mutationKind === 'diagram'
+                            ? undefined
+                            : change.prevDoc,
+                        mutationKind,
+                    );
+                }
+                else {
                     this._transform(op);
+                }
             },
         );
     }
@@ -294,13 +318,34 @@ class History {
         return this._selectionStack.length === 2 ? this._selectionStack[0] : null;
     }
 
-    private _record(op: JSONOpList, doc: TState[]) {
+    private _record(
+        op: JSONOpList,
+        doc: TState[] | undefined,
+        mutationKind?: DocumentMutationKind,
+    ) {
         if (op.length === 0)
             return;
 
         let selection = this._getLastSelection();
         this._stack.redo = [];
-        let undoOperation = json1.type.invertWithDoc(op, asDoc(doc));
+        let undoOperation: JSONOpList;
+        if (
+            (mutationKind === 'text-only' || mutationKind === 'diagram')
+            && !containsContextualRemoval(op)
+        ) {
+            // Text-unicode diffs and explicit string replacements carry their
+            // deleted content in the operation. Inverting them directly keeps
+            // the previous full AST out of the normal typing path.
+            try {
+                undoOperation = json1.type.invert(op) as JSONOpList;
+            }
+            catch {
+                undoOperation = json1.type.invertWithDoc(op, asDoc(doc ?? [])) as JSONOpList;
+            }
+        }
+        else {
+            undoOperation = json1.type.invertWithDoc(op, asDoc(doc ?? [])) as JSONOpList;
+        }
 
         const timestamp = Date.now();
         if (
@@ -310,7 +355,7 @@ class History {
             const { operation: lastOperation, selection: lastSelection }
                 = this._stack.undo.pop()!;
             selection = lastSelection;
-            undoOperation = json1.type.compose(undoOperation, lastOperation);
+            undoOperation = json1.type.compose(undoOperation, lastOperation) as JSONOpList;
         }
         else {
             this._lastRecorded = timestamp;

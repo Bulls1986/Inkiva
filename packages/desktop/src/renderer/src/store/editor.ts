@@ -22,6 +22,7 @@ import { DEFAULT_RIGHT_COLUMN, useLayoutStore } from './layout'
 import { useMainStore } from '.'
 import { t } from '../i18n'
 import { debouncedSendBufferedState, sendBufferedState } from './bufferedState'
+import { AutosaveQueue, type AutosaveRequest } from './autosaveQueue'
 import type {
   IFileState,
   FileNotification,
@@ -92,6 +93,7 @@ interface ExportPayload {
 
 interface AutoSavePayload {
   id: string
+  revision: number
   filename: string
   pathname: string
   markdown: string
@@ -101,6 +103,7 @@ interface AutoSavePayload {
 interface ContentChangePayload {
   id: string
   markdown: string
+  revision?: number
   wordCount?: IFileState['wordCount']
   cursor?: unknown
   muyaIndexCursor?: unknown
@@ -152,7 +155,29 @@ export interface EditorState {
   activeTocSlug: string | null
 }
 
-const autoSaveTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const documentRevisions = new Map<string, number>()
+
+const nextDocumentRevision = (id: string): number => {
+  const revision = (documentRevisions.get(id) ?? 0) + 1
+  documentRevisions.set(id, revision)
+  return revision
+}
+
+const getDocumentRevision = (id: string): number => documentRevisions.get(id) ?? 0
+
+const autosaveQueue = new AutosaveQueue({
+  send: (request: AutosaveRequest) => {
+    window.electron.ipcRenderer.send(
+      'mt::response-file-save',
+      request.id,
+      request.filename,
+      request.pathname,
+      request.markdown,
+      deepClone(request.options),
+      request.defaultPath ?? ''
+    )
+  }
+})
 
 export const useEditorStore = defineStore('editor', {
   state: (): EditorState => ({
@@ -630,7 +655,16 @@ export const useEditorStore = defineStore('editor', {
       })
 
       window.electron.ipcRenderer.on('mt::tab-saved', (_, tabId) => {
+        const autosaveAck = autosaveQueue.acknowledge(tabId)
         const tab = this.tabs.find((f) => f.id === tabId)
+        if (autosaveAck && !autosaveAck.isLatest) {
+          // The write that just completed belongs to an older dirty revision.
+          // Leave the tab dirty; the queue will drain the newest pending
+          // revision without allowing this ack to clear it.
+          if (tab) tab.isSaved = false
+          debouncedSendBufferedState()
+          return
+        }
         if (tab) {
           const lastEditIndex = tab.history.lastEditIndex
           if (
@@ -649,6 +683,7 @@ export const useEditorStore = defineStore('editor', {
       })
 
       window.electron.ipcRenderer.on('mt::tab-save-failure', (_, tabId, msg) => {
+        autosaveQueue.acknowledge(tabId, undefined, msg)
         const tab = this.tabs.find((t) => t.id === tabId)
         if (!tab) {
           notice.notify({
@@ -1027,16 +1062,21 @@ export const useEditorStore = defineStore('editor', {
 
     FORCE_CLOSE_TAB(file: IFileState): void {
       const { tabs, currentFile } = this
+      // A text-only mutation may still have its expensive snapshot debounced
+      // in editor.vue. Flush it while the outgoing tab is still current;
+      // captureEditorSnapshot intentionally rejects a stale currentFile id.
+      if (currentFile?.id === file.id) {
+        this.flushActiveEditor()
+      }
       const index = tabs.findIndex((t) => t.id === file.id)
       if (index > -1) {
         tabs.splice(index, 1)
         this.updateTabIdToIndex()
       }
 
-      if (file.id && autoSaveTimers.has(file.id)) {
-        const timer = autoSaveTimers.get(file.id)
-        if (timer) clearTimeout(timer)
-        autoSaveTimers.delete(file.id)
+      if (file.id) {
+        autosaveQueue.cancel(file.id)
+        documentRevisions.delete(file.id)
       }
 
       this.updateTabIdToIndex() // Update before sending it out to prevent stale mappings.
@@ -1109,6 +1149,13 @@ export const useEditorStore = defineStore('editor', {
 
     CLOSE_TABS(tabIdList: string[]): void {
       if (!tabIdList || tabIdList.length === 0) return
+
+      // CLOSE_TABS changes currentFile directly below instead of going through
+      // UPDATE_CURRENT_FILE, so preserve the same outgoing-tab flush boundary
+      // before removing the active tab from the store.
+      if (this.currentFile && tabIdList.includes(this.currentFile.id)) {
+        this.flushActiveEditor()
+      }
 
       let tabIndex = 0
       tabIdList.forEach((id) => {
@@ -1446,6 +1493,7 @@ export const useEditorStore = defineStore('editor', {
     LISTEN_FOR_CONTENT_CHANGE({
       id,
       markdown,
+      revision: incomingRevision,
       wordCount,
       cursor,
       muyaIndexCursor,
@@ -1471,6 +1519,9 @@ export const useEditorStore = defineStore('editor', {
       const { filename, pathname, markdown: oldMarkdown, trimTrailingNewline } = tab
 
       markdown = adjustTrailingNewlines(markdown, trimTrailingNewline)
+      const revision = incomingRevision ?? (
+        markdown !== oldMarkdown ? nextDocumentRevision(id) : getDocumentRevision(id)
+      )
       tab.markdown = markdown
 
       if (oldMarkdown.length === 0 && markdown.length === 1 && markdown[0] === '\n') {
@@ -1505,56 +1556,52 @@ export const useEditorStore = defineStore('editor', {
       const isDirty = history === undefined ? markdown !== oldMarkdown : historyMarksDirty
       if (isDirty) {
         tab.isSaved = false
-        if (pathname && autoSave) {
-          const options = getOptionsFromState(tab)
-          this.HANDLE_AUTO_SAVE({
-            id,
-            filename,
-            pathname,
-            markdown,
-            options
-          })
-        }
       } else if (history !== undefined && tab.lastSavedHistoryId !== -1) {
         // Check here is to prevent it from overriding a restored .isSaved state
         tab.isSaved = true // An undo can trigger this
       }
+
+      // A queued/in-flight write may contain an older dirty revision. When a
+      // subsequent edit (including undo) is clean relative to disk, enqueue
+      // the newest content if work already exists so the queue converges to
+      // the current document instead of leaving a stale write as the final
+      // on-disk state.
+      if (
+        pathname &&
+        autoSave &&
+        (isDirty || (incomingRevision !== undefined && autosaveQueue.hasWork(id)))
+      ) {
+        const options = getOptionsFromState(tab)
+        this.HANDLE_AUTO_SAVE({
+          id,
+          revision,
+          filename,
+          pathname,
+          markdown,
+          options
+        })
+      }
       debouncedSendBufferedState()
     },
 
-    HANDLE_AUTO_SAVE({ id, filename, pathname, markdown, options }: AutoSavePayload): void {
+    HANDLE_AUTO_SAVE({ id, revision, filename, pathname, markdown, options }: AutoSavePayload): void {
       if (!id || !pathname) {
         throw new Error('HANDLE_AUTO_SAVE: Invalid tab.')
       }
 
       const preferencesStore = usePreferencesStore()
-      const projectStore = useProjectStore()
       const { autoSaveDelay } = preferencesStore
-
-      if (autoSaveTimers.has(id)) {
-        const timer = autoSaveTimers.get(id)
-        clearTimeout(timer)
-        autoSaveTimers.delete(id)
-      }
-
-      const timer = setTimeout(() => {
-        autoSaveTimers.delete(id)
-
-        const tab = this.tabs.find((t) => t.id === id)
-        if (tab && !tab.isSaved) {
-          const defaultPath = getRootFolderFromState(projectStore)
-          window.electron.ipcRenderer.send(
-            'mt::response-file-save',
-            id,
-            filename,
-            pathname,
-            markdown,
-            deepClone(options),
-            defaultPath
-          )
-        }
+      const projectStore = useProjectStore()
+      const defaultPath = getRootFolderFromState(projectStore)
+      autosaveQueue.schedule({
+        id,
+        revision,
+        filename,
+        pathname,
+        markdown,
+        options: deepClone(options),
+        defaultPath
       }, autoSaveDelay)
-      autoSaveTimers.set(id, timer)
     },
 
     SELECTION_CHANGE(changes: SelectionChange): void {
@@ -1576,6 +1623,18 @@ export const useEditorStore = defineStore('editor', {
       )
     },
 
+    // Advance the runtime dirty revision without serializing the document.
+    // The editor calls this at the mutation boundary; the eventual content
+    // snapshot carries the same revision into the single-flight autosave queue.
+    MARK_CONTENT_DIRTY(id: string): number {
+      if (!id) return 0
+      const revision = nextDocumentRevision(id)
+      const index = this.tabIdToIndex[id]
+      const tab = index == null ? undefined : this.tabs[index]
+      if (tab) tab.isSaved = false
+      return revision
+    },
+
     // Persist the caret for a tab without the heavy content-change pipeline. A
     // pure caret move (click / arrow key) fires `selection-change` but NOT
     // `json-change`, so `tab.cursor` — the position replayed when the tab is
@@ -1589,6 +1648,14 @@ export const useEditorStore = defineStore('editor', {
       if (index == null) return
       const tab = this.tabs[index]
       if (tab) tab.cursor = cursor
+    },
+
+    PERSIST_MUYA_INDEX_CURSOR(id: string, cursor: unknown): void {
+      if (!id || !cursor) return
+      const index = this.tabIdToIndex[id]
+      if (index == null) return
+      const tab = this.tabs[index]
+      if (tab) tab.muyaIndexCursor = cursor
     },
 
     SELECTION_FORMATS(formats: SelectionFormat[]): void {
@@ -1737,11 +1804,7 @@ export const useEditorStore = defineStore('editor', {
 
               const { autoSave } = preferencesStore
               if (autoSave) {
-                if (autoSaveTimers.has(id)) {
-                  const timer = autoSaveTimers.get(id)
-                  if (timer) clearTimeout(timer)
-                  autoSaveTimers.delete(id)
-                }
+                autosaveQueue.cancel(id)
 
                 if (isSaved) {
                   this.loadChange(change as unknown as FileChangePayload)

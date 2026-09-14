@@ -2,10 +2,10 @@
 
 import type { TState } from '../types';
 import * as json1 from 'ot-json1';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Muya } from '../../muya';
 import { asDoc } from '../index';
-import { isTopLevelTocChange } from '../tocChange';
+import { classifyDocumentMutation, isTopLevelTocChange } from '../tocChange';
 
 const bootedHosts: HTMLElement[] = [];
 
@@ -121,11 +121,13 @@ describe('isTopLevelTocChange', () => {
         expect(isTopLevelTocChange([], [heading('# Heading')])).toBe(false);
     });
 
-    it('publishes the classification on json-change without changing the event shape', () => {
+    it('publishes a text-only mutation classification without cloning the previous document', () => {
         const muya = bootMuya('body\n');
-        const changes: Array<{ tocChanged?: boolean }> = [];
+        const changes: Array<{ tocChanged?: boolean; mutationKind?: string }> = [];
+        const getState = vi.spyOn(muya.editor.jsonState, 'getState');
+        getState.mockClear();
         muya.eventCenter.on('json-change', (change) => {
-            changes.push(change as { tocChanged?: boolean });
+            changes.push(change as { tocChanged?: boolean; mutationKind?: string });
         });
 
         muya.editor.updateContents(
@@ -136,5 +138,36 @@ describe('isTopLevelTocChange', () => {
 
         expect(changes).toHaveLength(1);
         expect(changes[0].tocChanged).toBe(false);
+        expect(changes[0].mutationKind).toBe('text-only');
+        expect(getState).not.toHaveBeenCalled();
+    });
+
+    it('classifies a diagram edit separately from ordinary text input', () => {
+        const previous = [{ name: 'diagram', text: 'graph TD\nA-->B' } as TState];
+        const operation = json1.replaceOp(
+            [0, 'text'],
+            'graph TD\nA-->B',
+            'graph TD\nA-->C',
+        )!;
+
+        expect(classifyDocumentMutation(operation, previous, false)).toBe('diagram');
+    });
+
+    it('publishes structural classification for a heading edit', () => {
+        const muya = bootMuya('# before\n');
+        const changes: Array<{ mutationKind?: string; tocChanged?: boolean }> = [];
+        muya.eventCenter.on('json-change', (change) => {
+            changes.push(change as { mutationKind?: string; tocChanged?: boolean });
+        });
+
+        muya.editor.updateContents(
+            json1.replaceOp([0, 'text'], '# before', '# after')!,
+            null,
+            'user',
+        );
+
+        expect(changes).toHaveLength(1);
+        expect(changes[0].tocChanged).toBe(true);
+        expect(changes[0].mutationKind).toBe('structural');
     });
 });

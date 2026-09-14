@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
 vi.hoisted(() => {
@@ -24,6 +24,7 @@ vi.mock('@/services/notification', () => ({
 }))
 
 import { useEditorStore } from '@/store/editor'
+import { usePreferencesStore } from '@/store/preferences'
 
 // #4455: editing in Source Code mode and closing without switching back to
 // WYSIWYG silently dropped the save prompt. Source-mode content changes reach
@@ -36,6 +37,10 @@ describe('useEditorStore LISTEN_FOR_CONTENT_CHANGE — source-mode dirty trackin
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   const makeSavedTab = (store: ReturnType<typeof useEditorStore>) => {
     const tab = {
       id: 'tab-1',
@@ -45,7 +50,8 @@ describe('useEditorStore LISTEN_FOR_CONTENT_CHANGE — source-mode dirty trackin
       trimTrailingNewline: 0,
       isSaved: true,
       lastSavedHistoryId: 7,
-      history: { stack: [{ id: 7 }], lastEditIndex: 0, lastInitIndex: -1 }
+      history: { stack: [{ id: 7 }], lastEditIndex: 0, lastInitIndex: -1 },
+      wordCount: { paragraph: 1, word: 1, character: 5, all: 5 }
     }
     store.tabs = [tab] as unknown as typeof store.tabs
     store.tabIdToIndex = { 'tab-1': 0 }
@@ -81,5 +87,74 @@ describe('useEditorStore LISTEN_FOR_CONTENT_CHANGE — source-mode dirty trackin
     })
 
     expect(tab.isSaved).toBe(true)
+  })
+
+  it('does not turn the source word-count commit into a second dirty revision', () => {
+    vi.useFakeTimers()
+    const store = useEditorStore()
+    const preferences = usePreferencesStore()
+    preferences.autoSave = true
+    preferences.autoSaveDelay = 20
+    const tab = makeSavedTab(store)
+    const autoSaveSpy = vi.spyOn(store, 'HANDLE_AUTO_SAVE')
+
+    // This is the payload emitted by sourceCode.vue's CodeMirror `change`
+    // handler: the mutation boundary allocates the revision and queues the
+    // current markdown immediately.
+    const revision = store.MARK_CONTENT_DIRTY(tab.id)
+    store.LISTEN_FOR_CONTENT_CHANGE({
+      id: tab.id,
+      markdown: 'hello world',
+      revision
+    })
+
+    // This is the debounced whole-text word-count callback. It is metadata
+    // only: it must not allocate a revision or requeue the same content.
+    store.LISTEN_FOR_CONTENT_CHANGE({
+      id: tab.id,
+      markdown: 'hello world',
+      wordCount: { paragraph: 1, word: 2, character: 11, all: 11 }
+    })
+
+    expect(autoSaveSpy).toHaveBeenCalledTimes(1)
+    expect(autoSaveSpy.mock.calls[0]?.[0]).toMatchObject({ revision })
+    expect(tab.wordCount).toEqual({ paragraph: 1, word: 2, character: 11, all: 11 })
+
+    // Cancel the still-debounced request through the same close path used by
+    // the store. The assertion above is the guard: the word-count timer did
+    // not create a second request or revision.
+    store.FORCE_CLOSE_TAB(tab as unknown as Parameters<typeof store.FORCE_CLOSE_TAB>[0])
+  })
+
+  it('queues an undo-to-clean snapshot while an older autosave is pending', () => {
+    const store = useEditorStore()
+    const preferences = usePreferencesStore()
+    preferences.autoSave = true
+    preferences.autoSaveDelay = 1000
+    const tab = makeSavedTab(store)
+    const autoSaveSpy = vi.spyOn(store, 'HANDLE_AUTO_SAVE')
+    const dirtyRevision = store.MARK_CONTENT_DIRTY(tab.id)
+    store.LISTEN_FOR_CONTENT_CHANGE({
+      id: tab.id,
+      markdown: 'edited',
+      revision: dirtyRevision
+    })
+
+    const cleanRevision = store.MARK_CONTENT_DIRTY(tab.id)
+    store.LISTEN_FOR_CONTENT_CHANGE({
+      id: tab.id,
+      markdown: 'hello',
+      revision: cleanRevision,
+      history: { stack: [{ id: 7 }], index: 0, lastEditIndex: 0, lastInitIndex: -1 }
+    })
+
+    expect(dirtyRevision).toBeLessThan(cleanRevision)
+    expect(autoSaveSpy).toHaveBeenCalledTimes(2)
+    expect(autoSaveSpy.mock.calls[1]?.[0]).toMatchObject({
+      revision: cleanRevision,
+      markdown: 'hello'
+    })
+    expect(tab.isSaved).toBe(true)
+    store.FORCE_CLOSE_TAB(tab as unknown as Parameters<typeof store.FORCE_CLOSE_TAB>[0])
   })
 })
