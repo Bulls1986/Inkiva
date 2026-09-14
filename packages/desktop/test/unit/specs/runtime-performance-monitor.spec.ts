@@ -21,8 +21,9 @@ class TestPerformanceObserver {
   }
 }
 
-const createRecorder = (enabled = true) => ({
+const createRecorder = (enabled = true, longTaskObserverAvailable = true) => ({
   enabled,
+  longTaskObserverAvailable,
   recordSample: vi.fn()
 }) as unknown as RuntimePerformanceRecorder & {
   recordSample: ReturnType<typeof vi.fn>
@@ -125,6 +126,34 @@ describe('RuntimePerformanceMonitor', () => {
       1,
       expect.objectContaining({ phase: 'memory' })
     )
+    monitor.dispose()
+  })
+
+  it('records long-task observer support as a hard-gate capability sample', () => {
+    const recorder = createRecorder()
+    const schedulers = createSchedulers()
+    const performance = {
+      now: vi.fn(() => 100),
+      timeOrigin: 1_700_000_000_000
+    }
+    const monitor = new RuntimePerformanceMonitor({
+      recorder,
+      performance,
+      performanceObserver: TestPerformanceObserver,
+      ...schedulers
+    })
+
+    monitor.start()
+    schedulers.frameCallbacks[0]?.(0)
+    schedulers.frameCallbacks[1]?.(16)
+
+    expect(recorder.recordSample).toHaveBeenCalledWith(
+      'core.interactive.longTaskObserver',
+      'count',
+      1,
+      expect.objectContaining({ phase: 'editor' })
+    )
+
     monitor.dispose()
   })
 
