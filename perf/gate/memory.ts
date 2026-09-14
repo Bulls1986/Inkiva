@@ -1,6 +1,7 @@
 export const MEMORY_LEAK_SHORT_WINDOW_SIZE = 50 as const
 export const MEMORY_LEAK_LONG_WINDOW_SIZE = 200 as const
 export const MEMORY_LEAK_SAMPLE_COUNT = 20 as const
+export const MEMORY_FOOTPRINT_SAMPLE_COUNT = 20 as const
 
 export interface MemoryLeakSeriesOptions {
   shortWindowSize?: number

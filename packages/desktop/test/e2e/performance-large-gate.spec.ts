@@ -33,7 +33,10 @@ import {
   collectMemoryLeakCycleSamples,
   createRendererHeapSampler
 } from './performanceMemory'
-import { calculateHeapDelta } from '../../../../perf/gate/memory'
+import {
+  calculateHeapDelta,
+  MEMORY_FOOTPRINT_SAMPLE_COUNT
+} from '../../../../perf/gate/memory'
 import {
   closeElectron,
   expectNoRendererErrors,
@@ -1014,34 +1017,39 @@ const collectMemoryFootprintSamples = async(
     await waitForWorkspaceReady(page)
     const sampler = await createRendererHeapSampler(page)
     try {
-      const baseline = await sampler.sample()
-      for (const filePath of tabPaths) await activateFile(app, page, filePath)
-      await expect(page.locator('.tabs-container > li')).toHaveCount(8, { timeout: 180000 })
-      const loaded = await sampler.sample()
-      await recordSample(
-        page,
-        'memory.tabs8Delta',
-        'bytes',
-        calculateHeapDelta(baseline, loaded),
-        'memory'
-      )
+      // Each cycle has its own idle baseline and then exercises the complete
+      // eight-tab lifecycle. This keeps both footprint metrics backed by 20
+      // independent real observations instead of cloning one measurement.
+      for (let cycle = 0; cycle < MEMORY_FOOTPRINT_SAMPLE_COUNT; cycle += 1) {
+        const baseline = await sampler.sample()
+        for (const filePath of tabPaths) await activateFile(app, page, filePath)
+        await expect(page.locator('.tabs-container > li')).toHaveCount(8, { timeout: 180000 })
+        const loaded = await sampler.sample()
+        await recordSample(
+          page,
+          'memory.tabs8Delta',
+          'bytes',
+          calculateHeapDelta(baseline, loaded),
+          'memory'
+        )
 
-      for (let index = 0; index < tabPaths.length; index += 1) {
-        await sendIpcToRenderer(app, 'mt::editor-close-tab')
-        await expect(page.locator('.tabs-container > li')).toHaveCount(
-          tabPaths.length - index - 1,
-          { timeout: 180000 }
+        for (let index = 0; index < tabPaths.length; index += 1) {
+          await sendIpcToRenderer(app, 'mt::editor-close-tab')
+          await expect(page.locator('.tabs-container > li')).toHaveCount(
+            tabPaths.length - index - 1,
+            { timeout: 180000 }
+          )
+        }
+        await waitForPaint(page)
+        const editorDomCount = await page.locator('.editor-component').count()
+        await recordSample(
+          page,
+          'memory.closedTabsEditorDom',
+          'count',
+          editorDomCount,
+          'memory'
         )
       }
-      await waitForPaint(page)
-      const editorDomCount = await page.locator('.editor-component').count()
-      await recordSample(
-        page,
-        'memory.closedTabsEditorDom',
-        'count',
-        editorDomCount,
-        'memory'
-      )
     } finally {
       await sampler.dispose()
     }
