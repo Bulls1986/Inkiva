@@ -62,4 +62,3 @@ describe('search.searchAsync() cancellation', () => {
         expect(search.value).toBe('');
     });
 });
-});
