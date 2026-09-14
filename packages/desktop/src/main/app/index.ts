@@ -36,6 +36,12 @@ import type { UpdateStatus } from '../update/types'
 import OpenRequestCoordinator, { type OpenRequest } from '../session/openRequestCoordinator'
 import { canonicalPathKey } from '../session/pathCanonicalizer'
 import { createBlankRestorePlan, type RestorePlan } from '../session/restorePlan'
+import { SafeRestoreGuard } from '../session/safeRestoreGuard'
+import { createSafeRestoreStore } from '../session/safeRestoreStore'
+import {
+  evaluateSafeRestoreStartup,
+  markSafeRestoreStartupReady
+} from '../session/safeRestoreStartup'
 import { getNativeThemeSource, isDarkApplicationTheme } from './nativeTheme'
 import { StartupPhaseCoordinator } from './startup'
 import { mainPerformance } from '../performance/runtime'
@@ -89,6 +95,8 @@ class App {
   private _startupStarted: boolean
   private _startupCompleted: boolean
   private _startupCoordinator: StartupPhaseCoordinator
+  private _safeRestoreGuard: SafeRestoreGuard
+  private _safeRestoreAttemptSessionId: string | null
 
   /**
    * @param accessor The application accessor for application instances.
@@ -106,6 +114,10 @@ class App {
     this._startupStarted = false
     this._startupCompleted = false
     this._startupCoordinator = new StartupPhaseCoordinator()
+    this._safeRestoreGuard = new SafeRestoreGuard(
+      createSafeRestoreStore(this._accessor.paths.userDataPath)
+    )
+    this._safeRestoreAttemptSessionId = null
     this._accessor.shutdownCoordinator = new ShutdownCoordinator({
       getEditorWindows: () =>
         this._windowManager.getWindowsByType(WindowType.EDITOR).map(({ id }) => ({ id })),
@@ -309,6 +321,14 @@ class App {
       }
     }
 
+    let useSafeRestore = false
+    this._safeRestoreAttemptSessionId = null
+    if (isRestorePathway) {
+      const safeRestoreDecision = evaluateSafeRestoreStartup(this._safeRestoreGuard, true)
+      useSafeRestore = safeRestoreDecision.useSafeRestore
+      this._safeRestoreAttemptSessionId = safeRestoreDecision.attemptSessionId
+    }
+
     if (isRestorePathway) {
       this._startupCoordinator.beginRestoring()
     }
@@ -430,7 +450,7 @@ class App {
 
     const createWindow = async(): Promise<void> => {
       try {
-        if (isRestorePathway) {
+        if (isRestorePathway && !useSafeRestore) {
           // Create an empty, visible shell before touching recovery files. The
           // shell has no content yet, so the completed plan remains the only
           // source allowed to create restore tabs.
@@ -578,12 +598,15 @@ class App {
     } | null = null,
     deferInitialContent: boolean = false
   ): EditorWindow {
+    const safeRestoreAttemptSessionId = this._safeRestoreAttemptSessionId
+    this._safeRestoreAttemptSessionId = null
     const editor = new EditorWindow(this._accessor)
     editor.on('window-shell-visible', () => {
       this._startupCoordinator.markShellVisible()
     })
     editor.once('window-interactive', () => {
       this._startupCoordinator.markEditorInteractive()
+      markSafeRestoreStartupReady(this._safeRestoreGuard, safeRestoreAttemptSessionId)
     })
     if (rootDirectory) {
       this._accessor.preferences.setItems({ lastOpenedFolder: rootDirectory })
