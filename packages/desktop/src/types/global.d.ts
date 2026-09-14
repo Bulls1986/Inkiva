@@ -13,6 +13,19 @@ import type {
 import type { MenuTemplate, MenuPopupPosition } from '@shared/types/menu'
 import type { SerializedStat } from '@shared/types/files'
 import type { PerformanceBootInfo } from '@shared/types/performance'
+import type {
+  ApplyRenameRepairRequest,
+  ApplyRenameRepairResult,
+  LocalHistoryCreateRequest,
+  LocalHistoryEntry,
+  LocalHistoryPruneResult,
+  LocalHistoryRestoreRequest,
+  LocalHistorySnapshot,
+  MarkdownBacklink,
+  MarkdownLinkCandidate,
+  PrepareRenameRepairRequest,
+  RenameRepairPlan
+} from '@shared/types/documentIntelligence'
 
 declare global {
   // ---- Build-time defines (electron-vite `define`) ----
@@ -170,6 +183,21 @@ declare global {
     list(): Promise<string[]>
   }
 
+  interface DocumentIntelligenceAPI {
+    indexDocument(pathname: string, markdown: string): Promise<void>
+    removeDocument(pathname: string): Promise<void>
+    getBacklinks(targetPath: string): Promise<MarkdownBacklink[]>
+    getLinkCandidates(sourcePath: string, pathnames: string[]): Promise<MarkdownLinkCandidate[]>
+    prepareRenameRepair(request: PrepareRenameRepairRequest): Promise<RenameRepairPlan>
+    applyRenameRepair(request: ApplyRenameRepairRequest): Promise<ApplyRenameRepairResult>
+    createSnapshot(request: LocalHistoryCreateRequest): Promise<LocalHistoryEntry>
+    listSnapshots(filePath: string): Promise<LocalHistoryEntry[]>
+    getSnapshot(filePath: string, id: string): Promise<LocalHistorySnapshot | null>
+    deleteSnapshot(filePath: string, id: string): Promise<boolean>
+    restoreSnapshot(request: LocalHistoryRestoreRequest): Promise<LocalHistorySnapshot>
+    pruneHistory(): Promise<LocalHistoryPruneResult>
+  }
+
   interface ProcessShim {
     platform: NodeJS.Platform
     arch?: string
@@ -188,6 +216,7 @@ declare global {
     i18nUtils: I18nUtilsAPI
     ripgrep: RipgrepAPI
     uploader: UploaderAPI
+    documentIntelligence: DocumentIntelligenceAPI
     fonts: FontsAPI
     process: ProcessShim
     rgPath: string
