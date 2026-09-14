@@ -143,6 +143,7 @@ jobs:
           INKIVA_PERF_OFFLINE: 'true'
           INKIVA_PERF_RUNNER_LABEL: reference-low-end
           INKIVA_PERF_GATE_LEVELS: P1,P2
+          INKIVA_RUN_PERF_LARGE_GATE: 'true'
           INKIVA_PERF_REPORT_DIR: ${{ github.workspace }}/perf-results/raw-large
 
       - name: Build P1 metadata

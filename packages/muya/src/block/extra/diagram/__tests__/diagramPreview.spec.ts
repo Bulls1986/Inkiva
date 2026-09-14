@@ -169,8 +169,6 @@ describe('diagramPreview — invalid / error state', () => {
         expect(html).toContain('class="mu-diagram-error"');
         expect(html).toContain('图表渲染失败');
     });
-});
-
 
     it('exposes one render attempt and never retries a failed diagram', async () => {
         vi.useFakeTimers();
@@ -183,6 +181,7 @@ describe('diagramPreview — invalid / error state', () => {
 
         expect(preview.domNode!.getAttribute('data-diagram-render-attempts')).toBe('1');
     });
+});
 
 describe('diagramPreview — Mermaid auto-rendering', () => {
     it('keeps source visible after background validation while the block is active', async () => {

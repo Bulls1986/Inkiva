@@ -110,7 +110,7 @@ export class BackgroundTaskScheduler {
     const cancelQueuedTask = this.enqueue({
       ...task,
       run: () => {
-        let result: void | Promise<void> = undefined
+        let result: void | Promise<void>
         try {
           result = task.run()
         } catch (error) {

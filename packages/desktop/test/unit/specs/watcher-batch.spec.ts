@@ -49,7 +49,6 @@ describe('watcher event batcher', () => {
     ])
   })
 
-
   it('bounds each flush and yields the remaining events', () => {
     vi.useFakeTimers()
     const send = vi.fn()

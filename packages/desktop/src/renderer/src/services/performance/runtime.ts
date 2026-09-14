@@ -10,7 +10,7 @@ const electronApi = (
 ).electron
 
 const configuredSampleInterval = Number(
-  electronApi?.process.env.INKIVA_PERF_SAMPLE_INTERVAL_MS ?? ''
+  electronApi?.process?.env.INKIVA_PERF_SAMPLE_INTERVAL_MS ?? ''
 )
 const sampleIntervalMs =
   Number.isFinite(configuredSampleInterval) && configuredSampleInterval > 0
@@ -26,7 +26,7 @@ export const rendererPerformance = createRendererPerformanceRecorder({
   enabled: electronApi?.performance?.enabled === true,
   traceId: electronApi?.performance?.traceId,
   sink: (event) => {
-    electronApi?.ipcRenderer.send(PERFORMANCE_EVENT_CHANNEL, event)
+    electronApi?.ipcRenderer?.send(PERFORMANCE_EVENT_CHANNEL, event)
   },
   longTaskContext: () => ({
     phase: 'editor'
