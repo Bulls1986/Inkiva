@@ -1761,6 +1761,71 @@ const scheduleTocRefresh = (id: string): void => {
 }
 
 // listen for `open-single-file` event, it will call this method only when open a new file.
+const editorPerformanceOperationId = (documentId?: string): string =>
+  documentId ? `document-${documentId}` : 'document-initial'
+
+const beginEditorPerformanceOperation = (documentId?: string): void => {
+  const element = editorRef.value
+  if (element) {
+    element.dataset.editorOpenStartAt = String(performance.now())
+    delete element.dataset.editorFirstScreenAt
+    delete element.dataset.editorInteractiveAt
+    delete element.dataset.editorEditableAt
+  }
+
+  rendererPerformance.mark('document_open_start', {
+    phase: 'document-open',
+    operationId: editorPerformanceOperationId(documentId),
+    documentId
+  })
+}
+
+const markEditorFirstScreen = (documentId?: string): void => {
+  const element = editorRef.value
+  if (element) {
+    element.dataset.editorFirstScreenAt = String(performance.now())
+  }
+
+  rendererPerformance.mark('document_first_screen', {
+    phase: 'document-open',
+    operationId: editorPerformanceOperationId(documentId),
+    documentId
+  })
+}
+
+const markEditorInteractive = (documentId?: string): void => {
+  const element = editorRef.value
+  if (element) {
+    element.dataset.editorInteractiveAt = String(performance.now())
+  }
+
+  rendererPerformance.mark('first_editor_interactive', {
+    phase: 'editor',
+    operationId: editorPerformanceOperationId(documentId),
+    documentId
+  })
+}
+
+const scheduleEditorEditable = (documentId?: string, notifyMainProcess = false): void => {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const element = editorRef.value
+      if (element) {
+        element.dataset.editorEditableAt = String(performance.now())
+      }
+
+      rendererPerformance.mark('document_editable', {
+        phase: 'startup',
+        operationId: editorPerformanceOperationId(documentId),
+        documentId
+      })
+      if (notifyMainProcess) {
+        window.electron.ipcRenderer.send('mt::document-editable')
+      }
+    })
+  })
+}
+
 const setMarkdownToEditor = (payload: unknown) => {
   const {
     id,
@@ -1769,6 +1834,9 @@ const setMarkdownToEditor = (payload: unknown) => {
     contentAlreadyLoaded
   } = (payload ?? {}) as FileLoadedPayload
   if (editor.value) {
+    if (!contentAlreadyLoaded) {
+      beginEditorPerformanceOperation(id)
+    }
     // `NEW_UNTITLED_TAB` emits `file-changed` first (which starts the
     // scroll-to-zero restore) and then emits `file-loaded` only to seed the
     // already-mounted document's baseline/focus. Do not cancel that pending
@@ -1783,6 +1851,7 @@ const setMarkdownToEditor = (payload: unknown) => {
       recordEditorSetContent('markdown')
       editor.value.setContent(newMarkdown ?? '')
       editorLayoutReconciler?.reset()
+      markEditorFirstScreen(id)
     }
     // The freshly loaded content is this tab's clean baseline (id 0). Re-seed
     // the monotonic save-tracking allocator so undoing an edit back to this
@@ -1807,6 +1876,8 @@ const setMarkdownToEditor = (payload: unknown) => {
     refreshEditorToc()
     // A freshly created/opened tab should be ready to type into.
     focusFreshEditor()
+    markEditorInteractive(id)
+    scheduleEditorEditable(id)
   }
 }
 
@@ -1848,7 +1919,10 @@ const handleFileChange = (payload: unknown) => {
 
   clearPendingScrollRestore()
 
+  const isSourceModeHandoff =
+    isIndexCursor(muyaIndexCursor) && !newCursor && payloadHistory == null
   if (typeof newMarkdown === 'string') {
+    beginEditorPerformanceOperation(id)
     // Returning from source-code mode: the WYSIWYG engine is never unmounted
     // while source mode is up (index.vue overlays it via `v-if`), so it still
     // holds the PRE-source-mode document and undo history. Record the bulk
@@ -1866,8 +1940,6 @@ const handleFileChange = (payload: unknown) => {
     // editor.ts carries both `cursor` and `history` alongside, so requiring
     // those absent reliably isolates the WYSIWYG<-source handoff from a tab
     // activation that merely replays a tab's persisted `muyaIndexCursor`.
-    const isSourceModeHandoff =
-      isIndexCursor(muyaIndexCursor) && !newCursor && payloadHistory == null
 
     if (isSourceModeHandoff) {
       // Record the bulk source-mode edit as a single undo boundary. When the
@@ -1948,6 +2020,7 @@ const handleFileChange = (payload: unknown) => {
       }
     }
     editorLayoutReconciler?.reset()
+    markEditorFirstScreen(id)
   } else if (newCursor) {
     applyCursor(editor.value, newCursor)
   }
@@ -1960,6 +2033,11 @@ const handleFileChange = (payload: unknown) => {
     container.style.visibility = 'visible'
     container.style.pointerEvents = 'auto'
     scrollToCursor(0)
+  }
+
+  if (typeof newMarkdown === 'string') {
+    markEditorInteractive(id)
+    scheduleEditorEditable(id)
   }
 }
 
@@ -2026,15 +2104,11 @@ onMounted(() => {
   const performanceOperationId = performanceDocumentId
     ? `document-${performanceDocumentId}`
     : 'document-initial'
-  rendererPerformance.mark('document_open_start', {
-    phase: 'document-open',
-    operationId: performanceOperationId,
-    documentId: performanceDocumentId
-  })
 
   printer = new Printer()
   const ele = editorRef.value
   if (!ele) return
+  beginEditorPerformanceOperation(performanceDocumentId)
 
   // Register the engine UI plugins once per renderer process (see
   // `muyaPluginsRegistered`). The image-edit tool receives the desktop's image
@@ -2142,6 +2216,7 @@ onMounted(() => {
     documentId: performanceDocumentId
   })
   editor.value = muya
+  markEditorFirstScreen(performanceDocumentId)
   // The first document's content is set via constructor options, so no
   // `file-loaded` / `setMarkdownToEditor` runs for it — seed its TOC here.
   refreshEditorToc()
@@ -2364,25 +2439,12 @@ onMounted(() => {
   document.addEventListener('keyup', keyup)
 
   setEditorWidth(editorLineWidth.value)
-  rendererPerformance.mark('first_editor_interactive', {
-    phase: 'editor',
-    operationId: performanceOperationId,
-    documentId: performanceDocumentId
-  })
+  markEditorInteractive(performanceDocumentId)
 
   // The main process uses this milestone—not the earlier bootstrap handshake—
   // to release deferred startup work and safe-restore state. Two animation
   // frames ensure the first editable surface has reached a paint boundary.
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      rendererPerformance.mark('document_editable', {
-        phase: 'startup',
-        operationId: performanceOperationId,
-        documentId: performanceDocumentId
-      })
-      window.electron.ipcRenderer.send('mt::document-editable')
-    })
-  })
+  scheduleEditorEditable(performanceDocumentId, true)
 })
 
 onBeforeUnmount(() => {

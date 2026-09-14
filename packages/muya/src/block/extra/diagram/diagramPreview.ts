@@ -230,6 +230,14 @@ class DiagramPreview extends Parent {
         if (this._disposed || generation !== this._renderGeneration)
             return;
 
+        const renderStartedAt = performance.now();
+        const node = this.domNode;
+        if (node) {
+            node.setAttribute('data-diagram-render-start', String(renderStartedAt));
+            if (!node.hasAttribute('data-diagram-first-render-start')) {
+                node.setAttribute('data-diagram-first-render-start', String(renderStartedAt));
+            }
+        }
         this._renderAttempts += 1;
         this.domNode?.setAttribute('data-diagram-render-attempts', String(this._renderAttempts));
 

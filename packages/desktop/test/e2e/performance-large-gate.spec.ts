@@ -23,6 +23,11 @@ import {
   RUNTIME_COLLECTED_METRICS,
   type LargeGateLevel
 } from '../../../../perf/gate/large-scenarios'
+import {
+  measureEditorMilestones,
+  type EditorMilestoneDurations,
+  type EditorMilestoneTimestamps
+} from '../../../../perf/gate/editorMilestones'
 import { mergePerformanceTraceReports } from '../../../../perf/gate/trace-input'
 import {
   closeElectron,
@@ -362,16 +367,65 @@ const readCurrentPath = async(page: Page): Promise<string | null> =>
     return pinia?._s?.get('editor')?.currentFile?.pathname ?? null
   })
 
+interface EditorMilestoneRead {
+  timestamps: EditorMilestoneTimestamps
+  durations: EditorMilestoneDurations
+}
+
+const readEditorMilestones = async(
+  page: Page,
+  minimumOpenStartAt = 0,
+  timeout = 180000
+): Promise<EditorMilestoneRead> => {
+  await page.waitForFunction(
+    (minimum) => {
+      const element = document.querySelector('.editor-component')
+      if (!element) return false
+      const openStartAt = Number(element.getAttribute('data-editor-open-start-at'))
+      const firstScreenAt = Number(element.getAttribute('data-editor-first-screen-at'))
+      const editableAt = Number(element.getAttribute('data-editor-editable-at'))
+      return (
+        Number.isFinite(openStartAt) &&
+        Number.isFinite(firstScreenAt) &&
+        Number.isFinite(editableAt) &&
+        openStartAt >= minimum &&
+        firstScreenAt >= openStartAt &&
+        editableAt > firstScreenAt
+      )
+    },
+    minimumOpenStartAt,
+    { timeout }
+  )
+
+  const timestamps = await page.evaluate(() => {
+    const element = document.querySelector('.editor-component')
+    if (!element) throw new Error('editor component is missing for performance milestones')
+    return {
+      openStartAt: Number(element.getAttribute('data-editor-open-start-at')),
+      firstScreenAt: Number(element.getAttribute('data-editor-first-screen-at')),
+      editableAt: Number(element.getAttribute('data-editor-editable-at'))
+    }
+  }) as EditorMilestoneTimestamps
+
+  return {
+    timestamps,
+    durations: measureEditorMilestones(timestamps)
+  }
+}
+
 const activateFile = async(
   app: ElectronApplication,
   page: Page,
   filePath: string
-): Promise<number> => {
-  const started = hostPerformance.now()
+): Promise<EditorMilestoneDurations> => {
+  const startedAt = await page.evaluate(() => performance.now())
   await sendIpcToRenderer(app!, 'mt::open-file', filePath, {})
   await expect.poll(() => readCurrentPath(page), { timeout: 180000 }).toBe(filePath)
-  await waitForPaint(page)
-  return Math.max(0, hostPerformance.now() - started)
+  const milestones = await readEditorMilestones(page, startedAt)
+  return {
+    firstScreenMs: Math.max(0, milestones.timestamps.firstScreenAt - startedAt),
+    editableMs: Math.max(0, milestones.timestamps.editableAt - startedAt)
+  }
 }
 
 const writeDocumentSet = (
@@ -507,15 +561,15 @@ const collectDocumentTier = async(
   const paths = writeDocumentSet(fixtureRoot, tier, SAMPLE_COUNT)
   let app: ElectronApplication | undefined
   try {
-    const started = hostPerformance.now()
     const launched = await launchCaptured([fixtureRoot, paths[0] as string], capture)
     app = launched.app
     const { page } = launched
     await installGateProbe(page)
     await page.waitForSelector('.editor-component', { state: 'visible', timeout: 180000 })
     await waitForEditor(page, 180000)
-    const initialFirstScreen = hostPerformance.now() - started
-    const initialEditable = hostPerformance.now() - started
+    const initialMilestones = await readEditorMilestones(page)
+    const initialFirstScreen = initialMilestones.durations.firstScreenMs
+    const initialEditable = initialMilestones.durations.editableMs
     await recordSample(
       page,
       'document.' + tier + '.firstScreen',
@@ -528,9 +582,21 @@ const collectDocumentTier = async(
     for (let index = 0; index < paths.length; index += 1) {
       const filePath = paths[index] as string
       if (index > 0) {
-        const openDuration = await activateFile(app!, page, filePath)
-        await recordSample(page, 'document.' + tier + '.firstScreen', 'ms', openDuration, 'document-open')
-        await recordSample(page, 'document.' + tier + '.editable', 'ms', openDuration, 'document-open')
+        const openDurations = await activateFile(app!, page, filePath)
+        await recordSample(
+          page,
+          'document.' + tier + '.firstScreen',
+          'ms',
+          openDurations.firstScreenMs,
+          'document-open'
+        )
+        await recordSample(
+          page,
+          'document.' + tier + '.editable',
+          'ms',
+          openDurations.editableMs,
+          'document-open'
+        )
       }
 
       await showSidebarPanel(app!, page, 'files')
@@ -899,19 +965,25 @@ const collectTabSamples = async(
     const paths = writeTabSet(root, 8, tabTier)
     let app: ElectronApplication | undefined
     try {
-      const started = hostPerformance.now()
       const launched = await launchCaptured([root, paths[0] as string], capture, 180000)
       app = launched.app
       const { page } = launched
       await waitForEditor(page, 180000)
-      await recordSample(page, 'tabs.8.openFirst', 'ms', hostPerformance.now() - started, 'document-open')
+      const initialMilestones = await readEditorMilestones(page)
+      await recordSample(
+        page,
+        'tabs.8.openFirst',
+        'ms',
+        initialMilestones.durations.editableMs,
+        'document-open'
+      )
       for (let index = 1; index < paths.length; index += 1) {
         const duration = await activateFile(app!, page, paths[index] as string)
         await recordSample(
           page,
           index <= 3 ? 'tabs.8.open2to4' : 'tabs.8.open5to8',
           'ms',
-          duration,
+          duration.editableMs,
           'document-open'
         )
       }
@@ -1012,22 +1084,39 @@ const collectDiagramImageSamples = async(
         const { page } = launched
         await installGateProbe(page)
         await page.waitForSelector('.editor-component', { state: 'visible', timeout: 180000 })
-        const editorReadyBeforeLoad = await page.evaluate(() => {
-          const now = performance.now()
+        const editorMilestones = await readEditorMilestones(page)
+        const earliestImageLoadStart = await page.evaluate(() => {
           const starts = Array.from(document.querySelectorAll('.mu-inline-image'))
             .map((wrapper) => Number(wrapper.getAttribute('data-image-load-start')))
             .filter((value) => Number.isFinite(value))
-          const earliestStart = starts.length > 0 ? Math.min(...starts) : undefined
-          return earliestStart !== undefined && earliestStart < now ? now - earliestStart : 0
+          if (starts.length === 0) {
+            throw new Error('diagram image gate produced no real image-load-start milestone')
+          }
+          return Math.min(...starts)
         })
+        const editorReadyBeforeLoad = Math.max(
+          0,
+          editorMilestones.timestamps.editableAt - earliestImageLoadStart
+        )
         await recordSample(page, 'image.editorReadyBeforeLoad', 'ms', editorReadyBeforeLoad, 'diagram')
         const placeholderDuration = await measurePageAction(page, async() => {
           await expect(page.locator('.mu-diagram-block').first()).toBeAttached({ timeout: 180000 })
           await expect(page.locator('.mu-diagram-preview').first()).toBeAttached({ timeout: 180000 })
         })
         await recordSample(page, 'diagram.placeholder', 'ms', placeholderDuration, 'diagram')
-        const initialRendered = await page.locator('.mu-diagram-preview svg, .mu-diagram-preview canvas').count()
-        await recordSample(page, 'diagram.firstScreenSyncRender', 'count', initialRendered > 0 ? 1 : 0, 'diagram')
+        const firstDiagramRenderStart = Number(
+          await page.locator('.mu-diagram-preview').first().getAttribute('data-diagram-first-render-start')
+        )
+        if (!Number.isFinite(firstDiagramRenderStart)) {
+          throw new Error('diagram preview did not expose a real first-render milestone')
+        }
+        await recordSample(
+          page,
+          'diagram.firstScreenSyncRender',
+          'count',
+          firstDiagramRenderStart < editorMilestones.timestamps.editableAt ? 1 : 0,
+          'diagram'
+        )
         const imageStates = await page.locator('.mu-inline-image img').evaluateAll((images) =>
           images.map((image) => {
             const wrapper = image.closest('.mu-inline-image')
@@ -1042,19 +1131,22 @@ const collectDiagramImageSamples = async(
         )
         const viewportHeight = page.viewportSize()?.height ?? 720
         const offscreen = imageStates.find((image) => image.top > viewportHeight)
-        const offscreenLazy = offscreen?.lazy === 'pending'
+        if (!offscreen) {
+          throw new Error('diagram image gate produced no measurable offscreen image')
+        }
+        const offscreenLazy = offscreen.lazy === 'pending'
         await recordSample(
           page,
           'image.offscreenRequest',
           'count',
-          offscreen && offscreenLazy && !offscreen.loadStarted ? 0 : 1,
+          offscreenLazy && !offscreen.loadStarted ? 0 : 1,
           'diagram'
         )
         await recordSample(
           page,
           'image.offscreenDecode',
           'count',
-          offscreen && offscreenLazy && !offscreen.complete && offscreen.naturalWidth <= 0 ? 0 : 1,
+          offscreenLazy && !offscreen.complete && offscreen.naturalWidth <= 0 ? 0 : 1,
           'diagram'
         )
         const attempts = Number(
