@@ -41,7 +41,8 @@
     "test:e2e:perf": "cross-env INKIVA_RUN_PERF=true playwright test test/e2e --config=test/e2e/playwright.config.ts --grep @perf",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
     "typecheck:watch": "vue-tsc --noEmit -p tsconfig.json --watch",
-    "test:e2e:gate": "cross-env INKIVA_RUN_PERF_GATE=true playwright test test/e2e/performance-gate.spec.ts --config=test/e2e/playwright.config.ts --grep @perf-gate"
+    "test:e2e:gate": "cross-env INKIVA_RUN_PERF_GATE=true playwright test test/e2e/performance-gate.spec.ts --config=test/e2e/playwright.config.ts --grep @perf-gate",
+    "test:e2e:gate:large": "cross-env INKIVA_RUN_PERF_LARGE_GATE=true playwright test test/e2e/performance-large-gate.spec.ts --config=test/e2e/playwright.config.ts --grep @perf-gate-large"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",

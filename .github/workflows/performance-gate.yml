@@ -6,6 +6,7 @@ on:
     paths:
       - 'packages/desktop/src/**'
       - 'packages/desktop/test/e2e/performance-gate.spec.ts'
+      - 'packages/desktop/test/e2e/performance-large-gate.spec.ts'
       - 'packages/desktop/test/performance/**'
       - 'perf/gate/**'
       - 'scripts/verifyPerformanceEnvironment.ts'
