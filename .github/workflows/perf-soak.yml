@@ -16,6 +16,12 @@ on:
       - 'perf/gate/**'
       - '.github/workflows/perf-soak.yml'
   workflow_dispatch:
+    inputs:
+      bootstrap_baseline:
+        description: 'Explicitly create a new Soak baseline when no baseline exists'
+        required: true
+        default: false
+        type: boolean
   schedule:
     - cron: '0 3 * * *'
 
@@ -61,9 +67,9 @@ jobs:
         uses: actions/cache/restore@v4.2.4
         with:
           path: perf-baseline
-          key: perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json') }}-${{ github.sha }}
+          key: perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json', 'perf/soak/baseline-version.json') }}-${{ github.sha }}
           restore-keys: |
-            perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json') }}-
+            perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json', 'perf/soak/baseline-version.json') }}-
 
       - name: Run desktop @perf lane
         id: perf
@@ -87,8 +93,13 @@ jobs:
         if: always()
         run: pnpm exec tsx perf/soak/compare.ts --current perf-results/desktop.json --baseline perf-baseline/desktop.json --thresholds perf/soak/thresholds.json --output perf-results/desktop-comparison.json
 
+      - name: Bootstrap desktop baseline (manual only)
+        id: bootstrap
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.bootstrap_baseline == true && steps.perf.outcome == 'success' && steps.collect.outcome == 'success' && steps.compare.outcome == 'failure'
+        run: pnpm exec tsx perf/soak/bootstrap.ts --current perf-results/desktop.json --output perf-baseline/desktop.json
+
       - name: Stage desktop baseline
-        if: always() && steps.collect.outcome == 'success' && steps.compare.outcome == 'success'
+        if: always() && steps.collect.outcome == 'success' && (steps.compare.outcome == 'success' || steps.bootstrap.outcome == 'success')
         id: stage
         run: |
           if jq -e '.metrics | length > 0' perf-results/desktop.json >/dev/null; then
@@ -101,11 +112,11 @@ jobs:
           fi
 
       - name: Save desktop baseline
-        if: always() && steps.collect.outcome == 'success' && steps.perf.outcome == 'success' && steps.compare.outcome == 'success' && steps.stage.outputs.updated == 'true'
+        if: always() && steps.collect.outcome == 'success' && steps.perf.outcome == 'success' && (steps.compare.outcome == 'success' || steps.bootstrap.outcome == 'success') && steps.stage.outputs.updated == 'true'
         uses: actions/cache/save@v4.2.4
         with:
           path: perf-baseline
-          key: perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json') }}-${{ github.sha }}
+          key: perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json', 'perf/soak/baseline-version.json') }}-${{ github.sha }}
 
       - name: Upload desktop performance reports
         if: always()
@@ -131,9 +142,9 @@ jobs:
         uses: actions/cache/restore@v4.2.4
         with:
           path: perf-baseline
-          key: perf-soak-muya-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json') }}-${{ github.sha }}
+          key: perf-soak-muya-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json', 'perf/soak/baseline-version.json') }}-${{ github.sha }}
           restore-keys: |
-            perf-soak-muya-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json') }}-
+            perf-soak-muya-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json', 'perf/soak/baseline-version.json') }}-
 
       - name: Install Playwright browser (chromium)
         run: pnpm -C packages/muya/e2e exec playwright install --with-deps chromium
@@ -154,12 +165,17 @@ jobs:
         if: always()
         run: pnpm exec tsx perf/soak/compare.ts --current perf-results/muya.json --baseline perf-baseline/muya.json --thresholds perf/soak/thresholds.json --output perf-results/muya-comparison.json
 
+      - name: Bootstrap Muya baseline (manual only)
+        id: bootstrap
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.bootstrap_baseline == true && steps.perf.outcome == 'success' && steps.collect.outcome == 'success' && steps.compare.outcome == 'failure'
+        run: pnpm exec tsx perf/soak/bootstrap.ts --current perf-results/muya.json --output perf-baseline/muya.json
+
       - name: Note Muya lane outcome
         if: always() && steps.perf.outcome != 'success'
         run: echo "::warning::Muya @perf did not complete; the sample was uploaded and the previous baseline was kept."
 
       - name: Stage Muya baseline
-        if: always() && steps.collect.outcome == 'success'
+        if: always() && steps.collect.outcome == 'success' && (steps.compare.outcome == 'success' || steps.bootstrap.outcome == 'success')
         id: stage
         run: |
           if jq -e '.metrics | length > 0' perf-results/muya.json >/dev/null; then
@@ -172,11 +188,11 @@ jobs:
           fi
 
       - name: Save Muya baseline
-        if: always() && steps.collect.outcome == 'success' && steps.perf.outcome == 'success' && steps.stage.outputs.updated == 'true'
+        if: always() && steps.collect.outcome == 'success' && steps.perf.outcome == 'success' && (steps.compare.outcome == 'success' || steps.bootstrap.outcome == 'success') && steps.stage.outputs.updated == 'true'
         uses: actions/cache/save@v4.2.4
         with:
           path: perf-baseline
-          key: perf-soak-muya-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json') }}-${{ github.sha }}
+          key: perf-soak-muya-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json', 'perf/soak/baseline-version.json') }}-${{ github.sha }}
 
       - name: Upload Muya performance reports
         if: always()
