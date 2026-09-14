@@ -10,9 +10,9 @@ Contract rules:
 - Missing metrics, invalid units, insufficient samples, missing baselines, and incomplete reports fail closed.
 - The P2 and P3 degradation contract compares core interaction metrics against a P0 baseline and permits at most 25% relative increase.
 - The reference runner is Windows 11 64-bit, 4-core low-voltage x86, 8 GB RAM, SATA SSD or entry NVMe, integrated graphics, 1920x1080 at 60Hz, Balanced power, and offline networking.
-- Vue 3 commit time is represented by the equivalent renderer commit metric; the runner must provide it once the renderer harness is wired.
+- Vue 3 commit time is represented by the equivalent renderer commit metric; the renderer must continue to expose it through the runtime trace when that probe is available.
 
-This first phase establishes the hard contract and contract tests. Later phases must add real application runners and reports. Until those runners are enforcing the same contract, v0.3.0 is not Performance Gate PASS and must not be presented as release-qualified.
+The contract is now wired to opt-in real Electron collectors: P0 uses the regular mixed Markdown scenario, while P1/P2 use the large-document, heading-storm, workspace, multi-tab, diagram/image, and combination collectors. The official workflow requires raw traces, validates the reference environment, evaluates P1/P2, and blocks release on any missing sample or failed gate. A developer-machine result is never release qualification.
 
 Phase 01 fixtures and runner rules:
 
@@ -20,7 +20,7 @@ Phase 01 fixtures and runner rules:
 - The 50K fixture includes headings, lists, tables, code, quotes, links, images, a diagram, and inline formatting.
 - Heading Storm covers exactly 500, 2,000, 5,000, and 10,000 headings.
 - Workspace fixtures cover exactly 1,000, 10,000, 50,000, and 100,000 nodes.
-- Tree fixture helpers expose a hard viewport multiplier and cap of 300 rendered rows; application virtualization will be gated against this contract in a later phase.
+- Tree and Outline fixture helpers expose a hard viewport multiplier and cap of 300 rendered rows; the application gate asserts bounded virtual DOM rows. Search results are also capped at 300 rendered file rows.
 - The sample collector retains raw samples, rejects invalid/unit-changing data, requires 20 samples per metric, and writes reports through the Phase 00 contract.
 
 Phase 02 startup and restore rules:
