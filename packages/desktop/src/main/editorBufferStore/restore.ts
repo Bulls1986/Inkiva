@@ -1,5 +1,4 @@
-import path from 'path'
-import { isSamePathSync } from 'common/filesystem/paths'
+import { canonicalPathKey } from '../session/pathCanonicalizer'
 
 /**
  * The persisted buffer format is intentionally permissive because it must be
@@ -72,19 +71,10 @@ const getCurrentFileId = (state: BufferStoreState): string | null => {
   return null
 }
 
-const sameRestoredPath = (pathA: string, pathB: string): boolean => {
-  if (!pathA || !pathB) return false
-  if (isSamePathSync(pathA, pathB)) return true
-
-  // isSamePathSync deliberately avoids treating two missing paths as equal.
-  // During an upgrade, however, a stale recovery file can point at a path
-  // that is temporarily unavailable. Windows and macOS paths are normally
-  // case-insensitive, so use their normalized spelling as a safe fallback.
-  if (process.platform === 'win32' || process.platform === 'darwin') {
-    return path.normalize(pathA).toLowerCase() === path.normalize(pathB).toLowerCase()
-  }
-
-  return false
+const sameRestoredPath = (pathA: string, pathB: string, platform: NodeJS.Platform): boolean => {
+  const keyA = canonicalPathKey(pathA, platform)
+  const keyB = canonicalPathKey(pathB, platform)
+  return keyA !== null && keyA === keyB
 }
 
 const shouldReplaceDuplicate = (existing: BufferStoreTab, candidate: BufferStoreTab): boolean => {
@@ -122,7 +112,11 @@ const remapAliases = (from: string, to: string, idMap: Map<string, string>): voi
  * one restored editor window. Saved files are deduplicated by path; untitled
  * tabs are kept because each one is an independent recovery buffer.
  */
-export const mergeBufferStoreContents = (states: readonly BufferStoreState[]): BufferStoreState => {
+export const mergeBufferStoreContents = (
+  states: readonly BufferStoreState[],
+  options: { platform?: NodeJS.Platform } = {}
+): BufferStoreState => {
+  const platform = options.platform ?? process.platform
   if (states.length === 0) {
     return createEmptyBufferStoreState()
   }
@@ -140,7 +134,7 @@ export const mergeBufferStoreContents = (states: readonly BufferStoreState[]): B
       const existingIndex = pathname
         ? tabs.findIndex((existing) => {
           const existingPath = typeof existing.pathname === 'string' ? existing.pathname : ''
-          return sameRestoredPath(existingPath, pathname)
+          return sameRestoredPath(existingPath, pathname, platform)
         })
         : -1
 

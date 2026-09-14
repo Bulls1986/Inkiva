@@ -12,6 +12,7 @@ import type Preference from '../preferences'
 import { WindowType } from '../windows/base'
 import type { WindowTypeValue } from '../windows/base'
 import type EditorWindow from '../windows/editor'
+import { canonicalPathKey } from '../session/pathCanonicalizer'
 
 class WindowActivityList {
   // Oldest             Newest
@@ -76,10 +77,7 @@ interface AppMenuLike {
 }
 
 interface EditorBufferStoreLike {
-  handleClose(
-    restoreBufferId: string | undefined,
-    windows: { id: number; win: BaseWindow }[]
-  ): void
+  handleClose(restoreBufferId: string | undefined, windows: { id: number; win: BaseWindow }[]): void
 }
 
 class WindowManager extends TypedEmitter<WindowManagerEvents> {
@@ -248,6 +246,32 @@ class WindowManager extends TypedEmitter<WindowManagerEvents> {
       }
     }
     return result
+  }
+
+  findEditorWindowWithPath(pathname: string): EditorWindow | undefined {
+    const key = canonicalPathKey(pathname)
+    if (!key) return undefined
+
+    for (const window of this._windows.values()) {
+      if (window.type !== WindowType.EDITOR) continue
+      const editor = window as EditorWindow
+      if (editor.hasPath(pathname)) return editor
+    }
+
+    return undefined
+  }
+
+  findEditorWindowWithRoot(pathname: string): EditorWindow | undefined {
+    const key = canonicalPathKey(pathname)
+    if (!key) return undefined
+
+    for (const window of this._windows.values()) {
+      if (window.type !== WindowType.EDITOR) continue
+      const editor = window as EditorWindow
+      if (editor.hasRootDirectory(pathname)) return editor
+    }
+
+    return undefined
   }
 
   /**

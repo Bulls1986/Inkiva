@@ -3,7 +3,7 @@ import { BrowserWindow, dialog, ipcMain } from 'electron'
 import type { BrowserWindowConstructorOptions, IpcMainEvent } from 'electron'
 import log from 'electron-log'
 import windowStateKeeper from 'electron-window-state'
-import { isChildOfDirectory, isSamePathSync } from 'common/filesystem/paths'
+import { isChildOfDirectory } from 'common/filesystem/paths'
 import BaseWindow, { showWindowWhenRendererReady, WindowLifecycle, WindowType } from './base'
 import type Accessor from '../app/accessor'
 import { ensureWindowPosition, zoomIn, zoomOut } from './utils'
@@ -13,6 +13,8 @@ import { loadMarkdownFile } from '../filesystem/markdown'
 import { switchLanguage } from '../spellchecker'
 import type { BufferStoreState } from '../editorBufferStore/restore'
 import { mainPerformance } from '../performance/runtime'
+import { canonicalPathKey } from '../session/pathCanonicalizer'
+import type { RestorePlan } from '../session/restorePlan'
 
 type RawMarkdownDocument = Awaited<ReturnType<typeof loadMarkdownFile>>
 
@@ -26,6 +28,7 @@ interface BufferStoreInfo {
   id: string
   filePath: string | null
   restoreBufferStores?: Array<{ id: string; filePath: string }>
+  restoredState?: BufferStoreState
 }
 
 interface CandidateScore {
@@ -54,6 +57,12 @@ class EditorWindow extends BaseWindow {
   private _openedRootDirectory: string | null
   private _openedFiles: string[] | null
   private _openingFiles: Set<string>
+  private _initialFilePaths: Set<string>
+  private _initialRootDirectories: Set<string>
+  private _contentDeferred: boolean
+  private _deferredRestorePlan: RestorePlan | null
+  private _deferredContentReady: Promise<void> | null
+  private _deferredContentResolver: (() => void) | null
 
   public bufferStoreInfo: BufferStoreInfo | null
 
@@ -66,6 +75,12 @@ class EditorWindow extends BaseWindow {
     this._openedRootDirectory = ''
     this._openedFiles = []
     this._openingFiles = new Set()
+    this._initialFilePaths = new Set()
+    this._initialRootDirectories = new Set()
+    this._contentDeferred = false
+    this._deferredRestorePlan = null
+    this._deferredContentReady = null
+    this._deferredContentResolver = null
     this.bufferStoreInfo = null
   }
 
@@ -74,7 +89,8 @@ class EditorWindow extends BaseWindow {
     fileList: string[] = [],
     markdownList: string[] = [],
     options: Partial<BrowserWindowConstructorOptions> = {},
-    bufferStoreInfo: BufferStoreInfo | null = null
+    bufferStoreInfo: BufferStoreInfo | null = null,
+    deferInitialContent: boolean = false
   ): BrowserWindow {
     const { menu: appMenu, env, preferences, editorBufferStore } = this._accessor
     mainPerformance.mark('create_window_start', {
@@ -82,7 +98,11 @@ class EditorWindow extends BaseWindow {
       metadata: { windowType: 'editor' }
     })
     const addBlankTab =
-      !bufferStoreInfo && !rootDirectory && fileList.length === 0 && markdownList.length === 0
+      !deferInitialContent &&
+      !bufferStoreInfo &&
+      !rootDirectory &&
+      fileList.length === 0 &&
+      markdownList.length === 0
 
     const mainWindowState = windowStateKeeper({ defaultWidth: 1200, defaultHeight: 800 })
     const { x, y, width, height } = ensureWindowPosition(mainWindowState)
@@ -144,8 +164,18 @@ class EditorWindow extends BaseWindow {
     this.bufferStoreInfo = {
       id: bufferStoreInfo ? bufferStoreInfo.id : editorBufferStore.getUnUsedBufferUUID(),
       filePath: bufferStoreInfo ? bufferStoreInfo.filePath : null,
-      restoreBufferStores: bufferStoreInfo?.restoreBufferStores
+      restoreBufferStores: bufferStoreInfo?.restoreBufferStores,
+      restoredState: bufferStoreInfo?.restoredState
     }
+    this._reserveInitialRestoreState(bufferStoreInfo?.restoredState)
+    this._contentDeferred = deferInitialContent
+    this._deferredRestorePlan = null
+    this._deferredContentReady = deferInitialContent
+      ? new Promise<void>((resolve) => {
+        this._deferredContentResolver = resolve
+      })
+      : null
+    if (!deferInitialContent) this._deferredContentResolver = null
     ;(win as unknown as { restoreBufferId: string }).restoreBufferId = this.bufferStoreInfo.id
     this.id = win.id
     const performanceOperationId = `window-${win.id}`
@@ -176,7 +206,9 @@ class EditorWindow extends BaseWindow {
         sourceCodeModeEnabled
       })
 
-      if (this.bufferStoreInfo!.filePath) {
+      if (this._contentDeferred) {
+        this._applyDeferredRestorePlan()
+      } else if (this.bufferStoreInfo!.filePath) {
         void this._restoreAllState()
       } else {
         this._doOpenFilesToOpen()
@@ -277,6 +309,11 @@ class EditorWindow extends BaseWindow {
     win.on('closed', () => {
       rendererWebContents.removeListener('ipc-message', onRendererIpcMessage)
       this.lifecycle = WindowLifecycle.QUITTED
+      this._contentDeferred = false
+      this._deferredRestorePlan = null
+      this._initialFilePaths.clear()
+      this._initialRootDirectories.clear()
+      this._resolveDeferredContent()
       this.emit('window-closed')
       win = null
     })
@@ -286,9 +323,15 @@ class EditorWindow extends BaseWindow {
     win.webContents.setIgnoreMenuShortcuts(true)
 
     setTimeout(() => {
-      if (rootDirectory) this.openFolder(rootDirectory)
-      if (fileList.length) this.openTabsFromPaths(fileList)
+      if (rootDirectory) this._openInitialFolder(rootDirectory)
+      if (fileList.length) this._openInitialTabsFromPaths(fileList)
     }, 0)
+    if (rootDirectory) {
+      this._initialRootDirectories.add(this._getOpeningPathKey(rootDirectory))
+    }
+    for (const filePath of fileList) {
+      this._initialFilePaths.add(this._getOpeningPathKey(filePath))
+    }
 
     return win
   }
@@ -299,14 +342,23 @@ class EditorWindow extends BaseWindow {
   }
 
   openTabsFromPaths(filePaths: string[]): void {
+    this._openTabsFromPaths(filePaths)
+  }
+
+  private _openInitialTabsFromPaths(filePaths: string[]): void {
+    this._openTabsFromPaths(filePaths, true)
+  }
+
+  private _openTabsFromPaths(filePaths: string[], allowInitialPaths: boolean = false): void {
     if (!filePaths || filePaths.length === 0) return
     const fileList = filePaths.map((p) => ({ filePath: p, options: {}, selected: false }))
     fileList[0].selected = true
-    this.openTabs(fileList)
+    this.openTabs(fileList, allowInitialPaths)
   }
 
   openTabs(
-    fileList: { filePath: string; selected: boolean; options: Record<string, unknown> }[]
+    fileList: { filePath: string; selected: boolean; options: Record<string, unknown> }[],
+    allowInitialPaths: boolean = false
   ): void {
     if (this.lifecycle === WindowLifecycle.QUITTED) return
 
@@ -317,14 +369,23 @@ class EditorWindow extends BaseWindow {
       preferences.getAll()
 
     for (const { filePath, options, selected } of fileList) {
-      const openedPath = this._openedFiles!.find((pathname) => isSamePathSync(pathname, filePath))
+      const openingKey = this._getOpeningPathKey(filePath)
+      if (allowInitialPaths) this._initialFilePaths.delete(openingKey)
+      const openedPath = this._openedFiles!.find(
+        (pathname) => this._getOpeningPathKey(pathname) === openingKey
+      )
       if (openedPath) {
         browserWindow!.webContents.send('mt::switch-tab-by-file_path', openedPath)
         continue
       }
 
-      const openingKey = this._getOpeningPathKey(filePath)
-      if (this._openingFiles.has(openingKey)) {
+      // Initial paths are reservations used by App/WindowManager to make a
+      // just-created window visible to duplicate open requests. Only the
+      // scheduled initial open may consume the reservation; an external
+      // request must wait for that operation instead of starting a second
+      // load that would produce a duplicate tab.
+      if ((!allowInitialPaths && this._initialFilePaths.has(openingKey)) ||
+        this._openingFiles.has(openingKey)) {
         continue
       }
       this._openingFiles.add(openingKey)
@@ -369,10 +430,12 @@ class EditorWindow extends BaseWindow {
   }
 
   openFolder(pathname: string): void {
+    const pathKey = this._getOpeningPathKey(pathname)
     if (
       !pathname ||
       this.lifecycle === WindowLifecycle.QUITTED ||
-      isSamePathSync(pathname, this._openedRootDirectory ?? '')
+      pathKey === this._getOpeningPathKey(this._openedRootDirectory ?? '') ||
+      this._initialRootDirectories.has(pathKey)
     ) {
       return
     }
@@ -397,14 +460,15 @@ class EditorWindow extends BaseWindow {
 
   addToOpenedFiles(filePath: string): void {
     const { _openedFiles, browserWindow } = this
-    if (_openedFiles!.some((pathname) => isSamePathSync(pathname, filePath))) return
+    if (this.hasPath(filePath)) return
     _openedFiles!.push(filePath)
     ipcMain.emit('watcher-watch-file', browserWindow, filePath)
   }
 
   changeOpenedFilePath(pathname: string, oldPathname: string): void {
     const { _openedFiles, browserWindow } = this
-    const index = _openedFiles!.findIndex((p) => p === oldPathname)
+    const oldPathKey = this._getOpeningPathKey(oldPathname)
+    const index = _openedFiles!.findIndex((p) => this._getOpeningPathKey(p) === oldPathKey)
     if (index === -1) {
       _openedFiles!.push(pathname)
     } else {
@@ -416,7 +480,8 @@ class EditorWindow extends BaseWindow {
 
   removeFromOpenedFiles(pathname: string): void {
     const { _openedFiles, browserWindow } = this
-    const index = _openedFiles!.findIndex((p) => p === pathname)
+    const pathKey = this._getOpeningPathKey(pathname)
+    const index = _openedFiles!.findIndex((p) => this._getOpeningPathKey(p) === pathKey)
     if (index !== -1) _openedFiles!.splice(index, 1)
     ipcMain.emit('watcher-unwatch-file', browserWindow, pathname)
   }
@@ -426,7 +491,7 @@ class EditorWindow extends BaseWindow {
     const buf: CandidateScore[] = []
     for (const pathname of fileList) {
       let score = 0
-      if (_openedFiles!.some((p) => p === pathname)) {
+      if (this.hasPath(pathname)) {
         score = -1
       } else {
         if (isChildOfDirectory(_openedRootDirectory ?? '', pathname)) score += 5
@@ -448,6 +513,11 @@ class EditorWindow extends BaseWindow {
     this._openedRootDirectory = ''
     this._openedFiles = []
     this._openingFiles.clear()
+    this._initialFilePaths.clear()
+    this._initialRootDirectories.clear()
+    this._contentDeferred = false
+    this._deferredRestorePlan = null
+    this._resolveDeferredContent()
 
     browserWindow!.webContents.once('did-finish-load', () => {
       this.lifecycle = WindowLifecycle.READY
@@ -477,10 +547,128 @@ class EditorWindow extends BaseWindow {
     this._openedRootDirectory = null
     this._openedFiles = null
     this._openingFiles.clear()
+    this._initialFilePaths.clear()
+    this._initialRootDirectories.clear()
+    this._contentDeferred = false
+    this._deferredRestorePlan = null
+    this._resolveDeferredContent()
   }
 
   get openedRootDirectory(): string | null {
     return this._openedRootDirectory
+  }
+
+  hasPath(filePath: string): boolean {
+    const key = this._getOpeningPathKey(filePath)
+    return (
+      this._openedFiles?.some((pathname) => this._getOpeningPathKey(pathname) === key) ||
+      this._openingFiles.has(key) ||
+      this._initialFilePaths.has(key)
+    )
+  }
+
+  hasRootDirectory(pathname: string): boolean {
+    const key = this._getOpeningPathKey(pathname)
+    return !!key && (
+      (this._openedRootDirectory != null &&
+        this._getOpeningPathKey(this._openedRootDirectory) === key) ||
+      (this._directoryToOpen != null && this._getOpeningPathKey(this._directoryToOpen) === key) ||
+      this._initialRootDirectories.has(key)
+    )
+  }
+
+  waitUntilReady(): Promise<void> {
+    if (this.lifecycle === WindowLifecycle.READY) return Promise.resolve()
+    if (this.lifecycle === WindowLifecycle.QUITTED) return Promise.resolve()
+
+    return new Promise<void>((resolve) => {
+      const onReady = (): void => {
+        this.removeListener('window-closed', onClosed)
+        resolve()
+      }
+      const onClosed = (): void => {
+        this.removeListener('window-ready', onReady)
+        resolve()
+      }
+
+      this.once('window-ready', onReady)
+      this.once('window-closed', onClosed)
+    })
+  }
+
+  applyRestorePlan(plan: RestorePlan): Promise<void> {
+    if (!this._contentDeferred) return Promise.resolve()
+
+    this._deferredRestorePlan = plan
+    if (plan.kind === 'restore' && plan.state && plan.primarySource) {
+      this.bufferStoreInfo = {
+        id: plan.primarySource.id,
+        filePath: plan.primarySource.filePath,
+        restoreBufferStores: plan.sources,
+        restoredState: plan.state
+      }
+      this._reserveInitialRestoreState(plan.state)
+      if (this.browserWindow) {
+        ;(this.browserWindow as unknown as { restoreBufferId: string }).restoreBufferId =
+          plan.primarySource.id
+      }
+    }
+
+    this._applyDeferredRestorePlan()
+    return this._deferredContentReady ?? Promise.resolve()
+  }
+
+  private _openInitialFolder(pathname: string): void {
+    this._initialRootDirectories.delete(this._getOpeningPathKey(pathname))
+    this.openFolder(pathname)
+  }
+
+  private _applyDeferredRestorePlan(): void {
+    if (!this._contentDeferred || this.lifecycle !== WindowLifecycle.READY) return
+    const plan = this._deferredRestorePlan
+    if (!plan) return
+
+    this._deferredRestorePlan = null
+    this._contentDeferred = false
+    if (plan.kind === 'restore' && plan.state && plan.primarySource) {
+      void this._restoreAllState().then(
+        () => this._resolveDeferredContent(),
+        (error: unknown) => {
+          log.error('Failed to apply deferred restore plan:', error)
+          this._resolveDeferredContent()
+        }
+      )
+      return
+    }
+
+    try {
+      this.browserWindow?.webContents.send('mt::new-untitled-tab', true, '')
+    } finally {
+      this._resolveDeferredContent()
+    }
+  }
+
+  private _resolveDeferredContent(): void {
+    const resolve = this._deferredContentResolver
+    this._deferredContentResolver = null
+    resolve?.()
+  }
+
+  private _reserveInitialRestoreState(state: BufferStoreState | undefined): void {
+    if (!state) return
+
+    for (const tab of state.tabs) {
+      if (typeof tab.pathname === 'string' && tab.pathname) {
+        this._initialFilePaths.add(this._getOpeningPathKey(tab.pathname))
+      }
+    }
+
+    const project = state.project
+    if (!project || typeof project !== 'object' || Array.isArray(project)) return
+    const rootDirectory = (project as { rootDirectory?: unknown }).rootDirectory
+    if (typeof rootDirectory === 'string' && rootDirectory) {
+      this._initialRootDirectories.add(this._getOpeningPathKey(rootDirectory))
+    }
   }
 
   private _doOpenTab(
@@ -494,13 +682,18 @@ class EditorWindow extends BaseWindow {
     this._openingFiles.delete(this._getOpeningPathKey(pathname))
     ipcMain.emit('watcher-watch-file', browserWindow, pathname)
     appMenu.addRecentlyUsedDocument(pathname)
-    _openedFiles!.push(pathname)
+    if (
+      !this._openedFiles!.some(
+        (openedPath) => this._getOpeningPathKey(openedPath) === this._getOpeningPathKey(pathname)
+      )
+    ) {
+      _openedFiles!.push(pathname)
+    }
     browserWindow!.webContents.send('mt::open-new-tab', rawDocument, options, selected)
   }
 
   private _getOpeningPathKey(filePath: string): string {
-    const normalized = path.normalize(filePath)
-    return isOsx || process.platform === 'win32' ? normalized.toLowerCase() : normalized
+    return canonicalPathKey(filePath) ?? path.normalize(filePath)
   }
 
   private _doOpenFilesToOpen(): void {
@@ -525,25 +718,29 @@ class EditorWindow extends BaseWindow {
       const restoreBufferStores = bufferStoreInfo!.restoreBufferStores ?? [
         { id: bufferStoreInfo!.id, filePath: bufferStoreInfo!.filePath! }
       ]
-      const {
-        state: restoredState,
-        primaryFilePath,
-        sourceFilePaths
-      } = await editorBufferStore.readAndMergeBufferStoreFilesAsync(restoreBufferStores)
-      // Consolidate before loading files. The renderer has no tabs yet, so a
-      // slow disk read cannot race with a user edit and overwrite a newer
-      // recovery snapshot.
-      await editorBufferStore.consolidateBufferStoreFiles(
-        primaryFilePath,
-        sourceFilePaths,
-        restoredState
-      )
-
-      const bufferState = restoredState as RestoredBufferState
+      let bufferState: RestoredBufferState
+      if (bufferStoreInfo!.restoredState) {
+        bufferState = bufferStoreInfo!.restoredState as RestoredBufferState
+      } else {
+        const {
+          state: restoredState,
+          primaryFilePath,
+          sourceFilePaths
+        } = await editorBufferStore.readAndMergeBufferStoreFilesAsync(restoreBufferStores)
+        // Consolidate before loading files. The renderer has no tabs yet, so a
+        // slow disk read cannot race with a user edit and overwrite a newer
+        // recovery snapshot.
+        await editorBufferStore.consolidateBufferStoreFiles(
+          primaryFilePath,
+          sourceFilePaths,
+          restoredState
+        )
+        bufferState = restoredState as RestoredBufferState
+      }
       if (!Array.isArray(bufferState.restoreWarnings)) bufferState.restoreWarnings = []
 
       const rootDirectory = bufferState.project?.rootDirectory
-      if (rootDirectory) this.openFolder(rootDirectory)
+      if (rootDirectory) this._openInitialFolder(rootDirectory)
 
       const eol = preferences.getPreferredEol()
       const { autoGuessEncoding, trimTrailingNewline, autoNormalizeLineEndings } =
@@ -552,6 +749,7 @@ class EditorWindow extends BaseWindow {
       const fileOpenRequests: Promise<void>[] = []
       for (const tab of bufferState.tabs) {
         if (!tab.pathname) continue
+        const openingKey = this._getOpeningPathKey(tab.pathname)
 
         fileOpenRequests.push(
           loadMarkdownFile(
@@ -566,12 +764,14 @@ class EditorWindow extends BaseWindow {
                 tab.markdown = rawDocument.markdown
               }
 
-              if (!this._openedFiles!.includes(tab.pathname)) {
+              this._initialFilePaths.delete(openingKey)
+              if (!this.hasPath(tab.pathname)) {
                 this.addToOpenedFiles(tab.pathname)
                 appMenu.addRecentlyUsedDocument(tab.pathname)
               }
             })
             .catch((err: Error) => {
+              this._initialFilePaths.delete(openingKey)
               const { message, stack } = err
               tab.isSaved = false
               log.error(`[ERROR] Cannot open file: ${message}\n\n${stack}`)
