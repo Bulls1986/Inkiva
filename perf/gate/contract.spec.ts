@@ -84,7 +84,7 @@ test('statistics use deterministic interpolated percentiles', () => {
   assert.equal(statistics.count, 20)
 })
 
-test('canonical thresholds validate and cover every release level', async () => {
+test('canonical thresholds validate and cover every release level', async() => {
   const raw = await readFile(new URL('./thresholds.json', import.meta.url), 'utf8')
   const config = parsePerformanceGateConfig(JSON.parse(raw))
   for (const level of ['P0', 'P1', 'P2', 'P3'] as const) {
