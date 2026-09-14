@@ -140,7 +140,10 @@ import {
   EditorSnapshotScheduler,
   getEditorMutationPolicy
 } from './editorHotPath'
-import { rendererPerformance } from '@/services/performance/runtime'
+import {
+  rendererPerformance,
+  rendererPerformanceMonitor
+} from '@/services/performance/runtime'
 
 // Importing the engine entrypoint auto-injects its editor CSS (the muya.ts
 // module imports its stylesheets at load time). Inkiva owns the application
@@ -295,6 +298,7 @@ let switchLanguageCommand: SpellcheckerLanguageCommand | null = null
 let imageViewer: SimpleImageViewer | null = null
 // The engine has no `scroll` event; we listen on the scroll container directly.
 let scrollHandler: ((e: Event) => void) | null = null
+let scrollPerformanceEndTimer: ReturnType<typeof setTimeout> | null = null
 let tocScrollSync: ReturnType<typeof createTocScrollSync> | null = null
 let editorLayoutReconciler: ReturnType<typeof createEditorLayoutReconciler> | null = null
 const tocRefreshScheduler = createTocRefreshScheduler()
@@ -2237,6 +2241,15 @@ onMounted(() => {
     if (currentFile.value) {
       editorStore.updateScrollPosition(currentFile.value.id, container.scrollTop)
     }
+
+    if (rendererPerformance.enabled) {
+      rendererPerformanceMonitor.beginScroll()
+      if (scrollPerformanceEndTimer !== null) clearTimeout(scrollPerformanceEndTimer)
+      scrollPerformanceEndTimer = setTimeout(() => {
+        scrollPerformanceEndTimer = null
+        rendererPerformanceMonitor.endScroll()
+      }, 120)
+    }
   }
   container.addEventListener('scroll', scrollHandler, { passive: true })
 
@@ -2386,6 +2399,12 @@ onBeforeUnmount(() => {
     container?.removeEventListener('scroll', scrollHandler)
   }
   scrollHandler = null
+
+  if (scrollPerformanceEndTimer !== null) {
+    clearTimeout(scrollPerformanceEndTimer)
+    scrollPerformanceEndTimer = null
+  }
+  rendererPerformanceMonitor.endScroll()
 
   tocRefreshScheduler.cancel()
   editorLayoutReconciler?.destroy()
