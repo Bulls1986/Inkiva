@@ -20,7 +20,7 @@ test.describe('Inkiva keyboard focus and accessibility', () => {
     await showSidebarPanel(app, page, 'files')
 
     const rail = page.locator('.side-bar .sidebar-icon-button')
-    await expect(rail).toHaveCount(4)
+    await expect(rail).toHaveCount(5)
     await expect(rail.first()).toHaveAttribute('aria-label', /.+/)
 
     await rail.first().focus()
