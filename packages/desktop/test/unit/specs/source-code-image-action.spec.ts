@@ -82,18 +82,13 @@ const makeDeps = (over: Record<string, unknown> = {}) => ({
   adjustCursor: (c: unknown) => c,
   bus: { on: () => {}, off: () => {}, emit: () => {} },
   SourceSnapshotScheduler: class {
-    request (): void {
-      return
-    }
-    flush (): void {
-      return
-    }
-    cancel (): void {
-      return
-    }
-    dispose (): void {
-      return
-    }
+    request(): void { /* noop */ }
+
+    flush(): void { /* noop */ }
+
+    cancel(): void { /* noop */ }
+
+    dispose(): void { /* noop */ }
   },
   ...over
 })
