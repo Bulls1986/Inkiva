@@ -327,6 +327,10 @@ export class RendererPerformanceRecorder {
     return this.measure(name, first, second)
   }
 
+  get longTaskObserverAvailable(): boolean {
+    return this.observer !== undefined
+  }
+
   dispose(): void {
     if (this.disposed) return
     this.disposed = true

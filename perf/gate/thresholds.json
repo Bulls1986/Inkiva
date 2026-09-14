@@ -85,6 +85,14 @@
           "limit": 0
         },
         {
+          "id": "milk-long-task-observer-support",
+          "metric": "core.interactive.longTaskObserver",
+          "unit": "count",
+          "statistic": "min",
+          "operator": "gte",
+          "limit": 1
+        },
+        {
           "id": "milk-main-block-max",
           "metric": "core.main.block",
           "unit": "ms",
@@ -375,6 +383,14 @@
           "statistic": "max",
           "operator": "eq",
           "limit": 0
+        },
+        {
+          "id": "milk-long-task-observer-support",
+          "metric": "core.interactive.longTaskObserver",
+          "unit": "count",
+          "statistic": "min",
+          "operator": "gte",
+          "limit": 1
         },
         {
           "id": "milk-main-block-max",
@@ -923,6 +939,14 @@
           "statistic": "max",
           "operator": "eq",
           "limit": 0
+        },
+        {
+          "id": "milk-long-task-observer-support",
+          "metric": "core.interactive.longTaskObserver",
+          "unit": "count",
+          "statistic": "min",
+          "operator": "gte",
+          "limit": 1
         },
         {
           "id": "milk-main-block-max",
@@ -1716,6 +1740,14 @@
           "statistic": "max",
           "operator": "eq",
           "limit": 0
+        },
+        {
+          "id": "milk-long-task-observer-support",
+          "metric": "core.interactive.longTaskObserver",
+          "unit": "count",
+          "statistic": "min",
+          "operator": "gte",
+          "limit": 1
         },
         {
           "id": "milk-main-block-max",

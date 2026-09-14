@@ -31,6 +31,7 @@ export class Search {
     // Drop match state when the document is replaced (e.g. a tab switch), so
     // stale matches don't reference the previous document's blocks (#1932).
     reset() {
+        this._searchGeneration += 1;
         this._value = '';
         this.matches = [];
         this.index = -1;

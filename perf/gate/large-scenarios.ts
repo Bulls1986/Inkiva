@@ -23,6 +23,7 @@ export const RUNTIME_COLLECTED_METRICS = [
   'core.frame.over16_7',
   'core.frame.over33',
   'core.interactive.longTask',
+  'core.interactive.longTaskObserver',
   'core.main.block',
   'core.scroll.fps',
   'core.gc.over50',

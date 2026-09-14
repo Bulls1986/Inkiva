@@ -16,7 +16,9 @@ import type {
 export type RuntimePerformanceRecorder = Pick<
   RendererPerformanceRecorder,
   'enabled' | 'recordSample'
->
+> & {
+  longTaskObserverAvailable?: boolean
+}
 
 export interface RuntimePerformanceMemory {
   usedJSHeapSize?: number
@@ -347,6 +349,12 @@ export class RuntimePerformanceMonitor {
           'core.forcedReflow',
           'count',
           this.layoutTracker.consumeForcedReflows(),
+          { phase: 'editor' }
+        )
+        this.record(
+          'core.interactive.longTaskObserver',
+          'count',
+          this.recorder.longTaskObserverAvailable === true ? 1 : 0,
           { phase: 'editor' }
         )
         this.record('core.interactive.longTask', 'count', 0, { phase: 'editor' })
