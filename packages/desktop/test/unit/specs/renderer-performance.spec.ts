@@ -364,4 +364,18 @@ describe('RendererPerformanceRecorder', () => {
 
     expect(eventAt(sink).name).toBe('document_open_start')
   })
+  it('accepts separate document screen milestones in the performance event catalog', () => {
+    const { recorder, sink } = createRecorder()
+
+    recorder.mark('document_open_start', { phase: 'document-open' })
+    recorder.mark('document_first_screen', { phase: 'document-open' })
+    recorder.mark('document_editable', { phase: 'document-open' })
+
+    expect(sink.mock.calls.map(([event]) => event.name)).toEqual([
+      'document_open_start',
+      'document_first_screen',
+      'document_editable'
+    ])
+  })
+
 })
