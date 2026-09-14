@@ -9,6 +9,8 @@ interface LayoutPartial {
   showSideBar?: boolean
   showTabBar?: boolean
   sideBarWidth?: number | string
+  splitEditor?: boolean
+  splitTabId?: string | null
 }
 
 export const DEFAULT_RIGHT_COLUMN = 'toc'
@@ -35,6 +37,8 @@ interface BufferedLayout {
   showSideBar: boolean
   showTabBar: boolean
   sideBarWidth: number
+  splitEditor: boolean
+  splitTabId: string | null
 }
 
 const createBufferedLayoutState = (state: unknown): BufferedLayout | null => {
@@ -45,7 +49,9 @@ const createBufferedLayoutState = (state: unknown): BufferedLayout | null => {
     rightColumn: s.rightColumn,
     showSideBar: !!s.showSideBar,
     showTabBar: !!s.showTabBar,
-    sideBarWidth: normalizeSideBarWidth(s.sideBarWidth)
+    sideBarWidth: normalizeSideBarWidth(s.sideBarWidth),
+    splitEditor: !!s.splitEditor,
+    splitTabId: typeof s.splitTabId === 'string' ? s.splitTabId : null
   }
 }
 
@@ -57,6 +63,8 @@ export const useLayoutStore = defineStore('layout', () => {
   const showSideBar = ref(false)
   const showTabBar = ref(false)
   const sideBarWidth = ref<number>(initialSideBarWidth)
+  const splitEditor = ref(false)
+  const splitTabId = ref<string | null>(null)
 
   const effectiveSideBarWidth = computed<number>(() => {
     if (!showSideBar.value) return 0
@@ -85,6 +93,9 @@ export const useLayoutStore = defineStore('layout', () => {
     if (layout.showSideBar !== undefined) showSideBar.value = !!layout.showSideBar
     if (layout.showTabBar !== undefined) showTabBar.value = !!layout.showTabBar
     if (layout.sideBarWidth !== undefined) sideBarWidth.value = layout.sideBarWidth as number
+    if (layout.splitEditor !== undefined) splitEditor.value = !!layout.splitEditor
+    if (layout.splitTabId !== undefined) splitTabId.value = layout.splitTabId ?? null
+    if (layout.splitEditor === false) splitTabId.value = null
     if (scheduleBufferUpdate) {
       debouncedSendBufferedState()
     }
@@ -95,7 +106,9 @@ export const useLayoutStore = defineStore('layout', () => {
       rightColumn: rightColumn.value,
       showSideBar: showSideBar.value,
       showTabBar: showTabBar.value,
-      sideBarWidth: sideBarWidth.value
+      sideBarWidth: sideBarWidth.value,
+      splitEditor: splitEditor.value,
+      splitTabId: splitTabId.value
     })
   }
 
@@ -108,14 +121,16 @@ export const useLayoutStore = defineStore('layout', () => {
       {
         rightColumn: layout.rightColumn,
         showSideBar: layout.showSideBar,
-        showTabBar: layout.showTabBar
+        showTabBar: layout.showTabBar,
+        splitEditor: layout.splitEditor,
+        splitTabId: layout.splitTabId
       },
       { scheduleBufferUpdate: false }
     )
     DISPATCH_LAYOUT_MENU_ITEMS()
   }
 
-  function TOGGLE_LAYOUT_ENTRY(entryName: 'showSideBar' | 'showTabBar'): void {
+  function TOGGLE_LAYOUT_ENTRY(entryName: 'showSideBar' | 'showTabBar' | 'splitEditor'): void {
     if (entryName === 'showSideBar') {
       showSideBar.value = !showSideBar.value
       const preferencesStore = usePreferencesStore()
@@ -125,6 +140,9 @@ export const useLayoutStore = defineStore('layout', () => {
       })
     } else if (entryName === 'showTabBar') {
       showTabBar.value = !showTabBar.value
+    } else if (entryName === 'splitEditor') {
+      splitEditor.value = !splitEditor.value
+      if (!splitEditor.value) splitTabId.value = null
     }
     debouncedSendBufferedState()
   }
@@ -157,16 +175,21 @@ export const useLayoutStore = defineStore('layout', () => {
     })
 
     window.electron.ipcRenderer.on('mt::toggle-view-layout-entry', (_e, entryName) => {
-      TOGGLE_LAYOUT_ENTRY(entryName as 'showSideBar' | 'showTabBar')
+      TOGGLE_LAYOUT_ENTRY(entryName as 'showSideBar' | 'showTabBar' | 'splitEditor')
       DISPATCH_LAYOUT_MENU_ITEMS()
     })
 
     bus.on('view:toggle-layout-entry', (entryName: unknown) => {
-      const name = entryName as 'showSideBar' | 'showTabBar'
+      const name = entryName as 'showSideBar' | 'showTabBar' | 'splitEditor'
       TOGGLE_LAYOUT_ENTRY(name)
       const { windowId } = window.inkiva?.env ?? {}
       window.electron.ipcRenderer.send('mt::view-layout-changed', Number(windowId), {
-        [name]: name === 'showSideBar' ? showSideBar.value : showTabBar.value
+        [name]:
+          name === 'showSideBar'
+            ? showSideBar.value
+            : name === 'showTabBar'
+              ? showTabBar.value
+              : splitEditor.value
       })
     })
   }
@@ -175,8 +198,21 @@ export const useLayoutStore = defineStore('layout', () => {
     const { windowId } = window.inkiva?.env ?? {}
     window.electron.ipcRenderer.send('mt::view-layout-changed', Number(windowId), {
       showTabBar: showTabBar.value,
-      showSideBar: showSideBar.value
+      showSideBar: showSideBar.value,
+      splitEditor: splitEditor.value
     })
+  }
+
+  function SET_SPLIT_TAB(tabId: string | null): void {
+    splitTabId.value = tabId
+    if (tabId !== null) splitEditor.value = true
+    debouncedSendBufferedState()
+  }
+
+  function SET_SPLIT_EDITOR(enabled: boolean, tabId?: string | null): void {
+    splitEditor.value = enabled
+    splitTabId.value = enabled ? (tabId ?? splitTabId.value) : null
+    debouncedSendBufferedState()
   }
 
   function CHANGE_SIDE_BAR_WIDTH(width: number | string): void {
@@ -188,6 +224,8 @@ export const useLayoutStore = defineStore('layout', () => {
     showSideBar,
     showTabBar,
     sideBarWidth,
+    splitEditor,
+    splitTabId,
     effectiveSideBarWidth,
     SET_LAYOUT,
     CREATE_BUFFERED_STATE,
@@ -196,6 +234,8 @@ export const useLayoutStore = defineStore('layout', () => {
     SET_SIDE_BAR_WIDTH,
     LISTEN_FOR_LAYOUT,
     DISPATCH_LAYOUT_MENU_ITEMS,
-    CHANGE_SIDE_BAR_WIDTH
+    CHANGE_SIDE_BAR_WIDTH,
+    SET_SPLIT_TAB,
+    SET_SPLIT_EDITOR
   }
 })

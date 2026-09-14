@@ -50,6 +50,22 @@ test.describe('Layout panel toggles', () => {
     await clickMenuById(app, 'tabBarMenuItem')
   })
 
+  test('Split Editor exposes a second document pane and can be closed', async() => {
+    const splitPane = page.locator('[data-testid="split-document-pane"]')
+    await expect(splitPane).toHaveCount(0)
+
+    await clickMenuById(app, 'splitEditorMenuItem')
+    await expect(page.locator('[data-testid="editor-split-container"]')).toHaveAttribute(
+      'data-testid',
+      'editor-split-container'
+    )
+    await expect(splitPane).toBeVisible()
+    await expect(page.locator('[data-testid="primary-editor-pane"]')).toBeVisible()
+
+    await clickMenuById(app, 'splitEditorMenuItem')
+    await expect(splitPane).toHaveCount(0)
+  })
+
   test('TOC menu toggles ToC panel without throwing', async() => {
     // Ensure sidebar is visible so TOC has somewhere to render.
     const sideBar = page.locator('.side-bar')

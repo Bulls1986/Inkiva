@@ -59,6 +59,10 @@ export const toggleTabBar = (win: Win): void => {
   toggleLayout(win, 'showTabBar')
 }
 
+export const toggleSplitEditor = (win: Win): void => {
+  toggleLayout(win, 'splitEditor')
+}
+
 export const showTabBar = (win: Win): void => {
   setLayout(win, 'showTabBar', true)
 }
@@ -85,6 +89,7 @@ export const loadViewCommands = (commandManager: CommandManager): void => {
   commandManager.add(COMMANDS.VIEW_FORCE_RELOAD_IMAGES, reloadImageCache)
   commandManager.add(COMMANDS.VIEW_SOURCE_CODE_MODE, toggleSourceCodeMode)
   commandManager.add(COMMANDS.VIEW_TOGGLE_SIDEBAR, toggleSidebar)
+  commandManager.add(COMMANDS.VIEW_TOGGLE_SPLIT_EDITOR, toggleSplitEditor)
   commandManager.add(COMMANDS.VIEW_TOGGLE_TABBAR, toggleTabBar)
   commandManager.add(COMMANDS.VIEW_TOGGLE_TOC, showTableOfContents)
   commandManager.add(COMMANDS.VIEW_TYPEWRITER_MODE, toggleTypewriterMode)
@@ -123,6 +128,9 @@ export const viewLayoutChanged = (
         break
       case 'showTabBar':
         changeMenuByName('tabBarMenuItem', value)
+        break
+      case 'splitEditor':
+        changeMenuByName('splitEditorMenuItem', value)
         break
       case 'sourceCode':
         changeMenuByName('sourceCodeModeMenuItem', !!value)
