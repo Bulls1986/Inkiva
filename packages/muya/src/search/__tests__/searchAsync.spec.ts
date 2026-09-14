@@ -41,4 +41,25 @@ describe('search.searchAsync()', () => {
         expect(updates.some(count => count > 0)).toBe(true);
         expect(updates.at(-1)).toBe(1200);
     });
+
+
+describe('search.searchAsync() cancellation', () => {
+    it('does not publish stale matches after the document is reset', async () => {
+        const markdown = Array.from(
+            { length: 1200 },
+            (_, index) => `Paragraph ${index} ${'content '.repeat(8)}`,
+        ).join('\\n\\n');
+        const muya = bootMuya(markdown);
+        const search = muya.editor.searchModule;
+
+        const pending = search.searchAsync('Paragraph');
+        search.reset();
+
+        await pending;
+
+        expect(search.matches).toHaveLength(0);
+        expect(search.index).toBe(-1);
+        expect(search.value).toBe('');
+    });
+});
 });
