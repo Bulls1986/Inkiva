@@ -200,4 +200,25 @@ describe('MainPerformanceRecorder', () => {
     expect(recorder.getTrace().events).toHaveLength(1)
     expect(recorder.getTrace().events[0]?.name).toBe('process_entry')
   })
+  it('records metric samples without mixing process clocks', () => {
+    const { recorder, clock } = createRecorder()
+    setClockNow(clock, 15)
+
+    const event = recorder.recordSample('memory.main.privateBytes', 'bytes', 2_048, {
+      phase: 'memory',
+      metadata: { source: 'process-memory' }
+    })
+
+    expect(event).toMatchObject({
+      name: 'metric_sample',
+      process: 'main',
+      phase: 'memory',
+      metadata: {
+        metric: 'memory.main.privateBytes',
+        unit: 'bytes',
+        value: 2_048,
+        source: 'process-memory'
+      }
+    })
+  })
 })

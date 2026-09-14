@@ -169,6 +169,7 @@ describe('RuntimePerformanceMonitor', () => {
     monitor.dispose()
     expect(schedulers.cancelAnimationFrame).toHaveBeenCalled()
     expect(schedulers.clearInterval).toHaveBeenCalled()
-    expect(TestPerformanceObserver.instances).toHaveLength(0)
+    expect(TestPerformanceObserver.instances).toHaveLength(2)
+    expect(TestPerformanceObserver.instances.every(observer => observer.disconnect)).toBe(true)
   })
 })

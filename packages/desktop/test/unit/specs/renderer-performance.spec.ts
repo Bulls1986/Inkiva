@@ -335,6 +335,28 @@ describe('RendererPerformanceRecorder', () => {
     ).toBeUndefined()
   })
 
+  it('records bounded metric samples with their unit and value', () => {
+    const { recorder, clock, sink } = createRecorder()
+    setClockNow(clock, 42)
+
+    recorder.recordSample('core.input.latency', 'ms', 7, {
+      phase: 'editor',
+      metadata: { source: 'event-timing' }
+    })
+
+    expect(eventAt(sink)).toMatchObject({
+      name: 'metric_sample',
+      process: 'renderer',
+      phase: 'editor',
+      durationMs: undefined,
+      metadata: {
+        metric: 'core.input.latency',
+        unit: 'ms',
+        value: 7,
+        source: 'event-timing'
+      }
+    })
+  })
   it('keeps the event catalog type-safe at the recorder boundary', () => {
     const { recorder, sink } = createRecorder()
     const name: PerformanceEventName = 'document_open_start'
