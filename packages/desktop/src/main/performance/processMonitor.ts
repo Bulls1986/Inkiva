@@ -22,6 +22,8 @@ export interface MainProcessPerformanceMonitorOptions {
   setInterval?: (callback: () => void, delayMs: number) => ReturnType<typeof setInterval>
   clearInterval?: (timer: ReturnType<typeof setInterval>) => void
   sampleIntervalMs?: number
+  cpuRunawayThreshold?: number
+  cpuRunawaySamples?: number
 }
 
 const isFiniteNonNegative = (value: unknown): value is number =>
@@ -33,7 +35,10 @@ export class MainProcessPerformanceMonitor {
   private readonly setInterval: (callback: () => void, delayMs: number) => ReturnType<typeof setInterval>
   private readonly clearInterval: (timer: ReturnType<typeof setInterval>) => void
   private readonly sampleIntervalMs: number
+  private readonly cpuRunawayThreshold: number
+  private readonly cpuRunawaySamples: number
   private timer: ReturnType<typeof setInterval> | null = null
+  private cpuRunawayStreak = 0
   private disposed = false
 
   constructor(options: MainProcessPerformanceMonitorOptions) {
@@ -42,6 +47,8 @@ export class MainProcessPerformanceMonitor {
     this.setInterval = options.setInterval ?? ((callback, delayMs) => setInterval(callback, delayMs))
     this.clearInterval = options.clearInterval ?? (timer => clearInterval(timer))
     this.sampleIntervalMs = Math.max(250, Math.floor(options.sampleIntervalMs ?? 1_000))
+    this.cpuRunawayThreshold = Math.max(0, options.cpuRunawayThreshold ?? 0.8)
+    this.cpuRunawaySamples = Math.max(1, Math.floor(options.cpuRunawaySamples ?? 5))
   }
 
   start(): void {
@@ -58,6 +65,23 @@ export class MainProcessPerformanceMonitor {
       this.clearInterval(this.timer)
       this.timer = null
     }
+    this.cpuRunawayStreak = 0
+  }
+
+  recordCrash(): void {
+    if (this.disposed) return
+    this.record('stability.crash', 'count', 1)
+  }
+
+  recordRendererCrash(isOom: boolean): void {
+    if (this.disposed) return
+    this.record('stability.rendererCrash', 'count', 1)
+    if (isOom) this.record('stability.oom', 'count', 1)
+  }
+
+  recordRendererHang(): void {
+    if (this.disposed) return
+    this.record('stability.rendererHang', 'count', 1)
   }
 
   private async sample(): Promise<void> {
@@ -80,8 +104,19 @@ export class MainProcessPerformanceMonitor {
 
     const rendererCpu = cpuValues.reduce((total, value) => total + value, 0)
     const maxTabCpu = cpuValues.length > 0 ? Math.max(...cpuValues) : 0
+    this.cpuRunawayStreak =
+      rendererCpu >= this.cpuRunawayThreshold ? this.cpuRunawayStreak + 1 : 0
     this.record('background.rendererIdleCpu', 'ratio', rendererCpu)
     this.record('background.tabCpu', 'ratio', maxTabCpu)
+    this.record('stability.crash', 'count', 0)
+    this.record('stability.rendererCrash', 'count', 0)
+    this.record('stability.oom', 'count', 0)
+    this.record('stability.rendererHang', 'count', 0)
+    this.record(
+      'stability.cpuRunaway',
+      'count',
+      this.cpuRunawayStreak >= this.cpuRunawaySamples ? 1 : 0
+    )
 
     try {
       const memory = await this.source.getProcessMemoryInfo()

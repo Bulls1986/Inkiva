@@ -12,7 +12,7 @@ import { showEditorContextMenu } from '../contextMenu/editor'
 import { loadMarkdownFile } from '../filesystem/markdown'
 import { switchLanguage } from '../spellchecker'
 import type { BufferStoreState } from '../editorBufferStore/restore'
-import { mainPerformance } from '../performance/runtime'
+import { mainPerformance, mainProcessPerformanceMonitor } from '../performance/runtime'
 import { canonicalPathKey } from '../session/pathCanonicalizer'
 import type { RestorePlan } from '../session/restorePlan'
 
@@ -259,6 +259,7 @@ class EditorWindow extends BaseWindow {
       // window instead of waiting forever for a response that cannot arrive.
       rendererInitialized = false
       if (reason === 'clean-exit') return
+      mainProcessPerformanceMonitor.recordRendererCrash(reason === 'oom')
 
       const msg = `The renderer process has crashed unexpected or is killed (${reason}).`
       log.error(msg)
@@ -279,6 +280,10 @@ class EditorWindow extends BaseWindow {
             return this.reload()
         }
       }
+    })
+
+    win.webContents.on('unresponsive', () => {
+      mainProcessPerformanceMonitor.recordRendererHang()
     })
 
     win.on('focus', () => {
