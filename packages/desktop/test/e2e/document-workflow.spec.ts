@@ -9,7 +9,8 @@ import {
   launchWithMarkdown,
   sendIpcToRenderer,
   waitForEditor,
-  waitForMenuReady
+  waitForMenuReady,
+  waitForWorkspaceReady
 } from './helpers'
 
 const readTabIds = (page: Page): Promise<string[]> =>
@@ -82,6 +83,7 @@ test.describe('Document workflow', () => {
 
     const launched = await launchElectron([root])
     try {
+      await waitForWorkspaceReady(launched.page)
       await waitForMenuReady(launched.app)
       const list = launched.page.locator('[data-testid="recent-documents-list"]')
       await expect(list).toBeVisible()

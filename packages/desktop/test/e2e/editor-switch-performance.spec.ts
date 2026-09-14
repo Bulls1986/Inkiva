@@ -66,12 +66,16 @@ test.describe('editor switch rebuild performance', () => {
         await sendIpcToRenderer(app, 'mt::new-untitled-tab', true, `tab ${index}\n`)
       }
 
-      const lifecycles = await page.locator('.tabs-container > li').evaluateAll((tabs) =>
-        tabs.map((tab) => tab.getAttribute('data-tab-lifecycle'))
-      )
-      expect(lifecycles.filter((value) => value === 'active')).toHaveLength(1)
-      expect(lifecycles.filter((value) => value === 'warm')).toHaveLength(2)
-      expect(lifecycles.filter((value) => value === 'cold')).toHaveLength(2)
+      await expect.poll(async() => {
+        const lifecycles = await page.locator('.tabs-container > li').evaluateAll((tabs) =>
+          tabs.map((tab) => tab.getAttribute('data-tab-lifecycle'))
+        )
+        return {
+          active: lifecycles.filter((value) => value === 'active').length,
+          warm: lifecycles.filter((value) => value === 'warm').length,
+          cold: lifecycles.filter((value) => value === 'cold').length
+        }
+      }, { timeout: 10000 }).toEqual({ active: 1, warm: 2, cold: 2 })
       expect(page.locator('.primary-editor-pane > .editor-wrapper')).toHaveCount(1)
     } finally {
       await app.close()

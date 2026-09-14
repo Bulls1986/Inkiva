@@ -10,7 +10,8 @@ import {
   sendIpcToRenderer,
   showSidebarPanel,
   setSourceMarkdown,
-  waitForMenuReady
+  waitForMenuReady,
+  waitForWorkspaceReady
 } from './helpers'
 
 const MARKDOWN_KITCHEN_SINK = `# Inkiva visual baseline
@@ -264,6 +265,7 @@ test.describe.serial('UI-14 visual regression baseline', () => {
     const emptyDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-visual-empty-'))
     const empty = await launchElectron([emptyDirectory])
     try {
+      await waitForWorkspaceReady(empty.page)
       await waitForMenuReady(empty.app)
       await setWindowSize(empty.app, 1280)
       await expect(empty.page.locator('[data-testid="welcome-surface"]')).toBeVisible({

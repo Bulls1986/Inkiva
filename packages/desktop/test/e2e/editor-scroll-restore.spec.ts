@@ -52,8 +52,11 @@ test.describe('Editor scroll restoration', () => {
 
     try {
       await waitForMenuReady(app)
+      const diagram = page.locator('.mu-diagram-block').first()
+      await expect(diagram).toBeAttached({ timeout: 15000 })
+      await diagram.scrollIntoViewIfNeeded()
       await expect(page.locator('.mu-diagram-preview svg').first()).toBeVisible({ timeout: 15000 })
-      await expect(page.locator('.mu-diagram-block').first()).toHaveClass(/mu-diagram-preview-only/)
+      await expect(diagram).toHaveClass(/mu-diagram-preview-only/)
 
       const captured = await page.evaluate(() => {
         const container = document.querySelector('.editor-component') as HTMLElement | null
@@ -82,12 +85,15 @@ test.describe('Editor scroll restoration', () => {
         .toBe(0)
 
       await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 0)
-      await expect(page.locator('.mu-diagram-preview svg').first()).toBeVisible({ timeout: 15000 })
-      await expect(page.locator('.mu-diagram-block').first()).toHaveClass(/mu-diagram-preview-only/)
 
       await expect
         .poll(async() => (await readScrollMetrics(page))?.scrollTop ?? -1, { timeout: 5000 })
         .toBeGreaterThan(captured - 2)
+
+      await expect(diagram).toBeAttached({ timeout: 15000 })
+      await diagram.scrollIntoViewIfNeeded()
+      await expect(page.locator('.mu-diagram-preview svg').first()).toBeVisible({ timeout: 15000 })
+      await expect(diagram).toHaveClass(/mu-diagram-preview-only/)
 
       const restored = await readScrollMetrics(page)
       expect(restored).not.toBeNull()
