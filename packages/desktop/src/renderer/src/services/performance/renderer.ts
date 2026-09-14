@@ -428,6 +428,9 @@ export class RendererPerformanceRecorder {
           entry.duration
         )
         this.deliver(event)
+        if (entry.duration > 50) {
+          this.recordSample('core.interactive.longTask', 'count', 1, context)
+        }
       }
     } catch {
       // A malformed observer entry must not interrupt the remaining renderer

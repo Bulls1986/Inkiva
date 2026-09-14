@@ -230,6 +230,8 @@ export class RuntimePerformanceMonitor {
         this.record('core.frame.duration', 'ms', duration, { phase: 'editor' })
         this.record('core.frame.over16_7', 'ratio', duration > 16.7 ? 1 : 0, { phase: 'editor' })
         this.record('core.frame.over33', 'ratio', duration > 33 ? 1 : 0, { phase: 'editor' })
+        this.record('core.interactive.longTask', 'count', 0, { phase: 'editor' })
+        this.record('core.gc.over50', 'count', 0, { phase: 'memory' })
       }
       this.lastFrameTimestamp = timestamp
       this.frameHandle = requestAnimationFrame(sampleFrame)
