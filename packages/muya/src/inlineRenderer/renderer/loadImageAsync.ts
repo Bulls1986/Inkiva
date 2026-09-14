@@ -91,7 +91,7 @@ export default function loadImageAsync(
                         url,
                         width,
                         height,
-                });
+                    });
                 })
                 .catch(() => {
                     const imageText: HTMLElement | null = document.querySelector(`#${id}`);

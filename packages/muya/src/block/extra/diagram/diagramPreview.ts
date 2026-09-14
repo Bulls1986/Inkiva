@@ -86,8 +86,9 @@ class DiagramPreview extends Parent {
         this.domNode?.setAttribute('data-diagram-lazy', 'pending');
         this._viewportObserver = new IntersectionObserver((entries) => {
             if (this._disposed || !entries.some(entry =>
-                entry.isIntersecting || entry.intersectionRatio > 0))
+                entry.isIntersecting || entry.intersectionRatio > 0)) {
                 return;
+            }
 
             this._isViewportReady = true;
             this.domNode?.removeAttribute('data-diagram-lazy');

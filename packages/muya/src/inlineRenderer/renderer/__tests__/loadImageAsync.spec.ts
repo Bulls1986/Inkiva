@@ -152,6 +152,10 @@ describe('loadImageAsync — failed cache should retry', () => {
 // of a `file://` source must therefore hit a unique URL so the browser
 // re-reads the file. Remote (http/https) URLs are left untouched.
 describe('loadImageAsync — viewport lazy loading', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
     it('does not call loadImage until the image intersects the viewport', async () => {
         vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
         const { loadImage } = await import('../../../utils/image');
