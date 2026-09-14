@@ -282,9 +282,11 @@ class Parent extends TreeNode {
 
     breadthFirstTraverse(this: Parent, callback: (node: TreeNode) => void) {
         const queue: TreeNode[] = [this];
+        let nextIndex = 0;
 
-        while (queue.length) {
-            const node = queue.shift()!;
+        while (nextIndex < queue.length) {
+            const node = queue[nextIndex++];
+            if (!node) continue;
 
             callback(node);
 
@@ -297,13 +299,18 @@ class Parent extends TreeNode {
         const stack: TreeNode[] = [this];
 
         while (stack.length) {
-            const node = stack.shift()!;
+            const node = stack.pop();
+            if (!node) continue;
 
             callback(node);
 
             if (node.isParent()) {
-                // Use splice ot make sure the first block in document is process first.
-                node.children.forEach((child, i) => stack.splice(i, 0, child));
+                const children: TreeNode[] = [];
+                node.children.forEach(child => children.push(child));
+                for (let i = children.length - 1; i >= 0; i--) {
+                    const child = children[i];
+                    if (child) stack.push(child);
+                }
             }
         }
     }
