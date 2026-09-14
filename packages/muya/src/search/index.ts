@@ -8,8 +8,9 @@ import { buildRegexValue, matchString } from '../utils/search';
 
 const SEARCH_SLICE_BUDGET_MS = 4;
 
-const getSearchTime = () =>
-    typeof performance !== 'undefined' ? performance.now() : Date.now();
+function getSearchTime() {
+    return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
 
 export class Search {
     private _value: string = '';
@@ -266,11 +267,12 @@ export class Search {
                 resolve(this);
             };
 
+            let processSlice: () => void;
             const schedule = () => {
                 setTimeout(processSlice, 0);
             };
 
-            const processSlice = () => {
+            processSlice = () => {
                 if (generation !== this._searchGeneration) {
                     finish();
                     return;

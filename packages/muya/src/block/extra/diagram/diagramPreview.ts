@@ -6,11 +6,11 @@ import { fromEvent } from 'rxjs';
 import { CLASS_NAMES, PREVIEW_DOMPURIFY_CONFIG } from '../../../config';
 import { sanitize } from '../../../utils';
 import { getDiagramRenderCoordinator } from '../../../utils/diagram/coordinator';
+import logger from '../../../utils/logger';
 import {
     getDiagramHeightHint,
     rememberDiagramHeight,
 } from './diagramHeightHint';
-import logger from '../../../utils/logger';
 import Parent from '../../base/parent';
 
 const debug = logger('diagramPreview:');
@@ -76,7 +76,6 @@ class DiagramPreview extends Parent {
         if (previousMinHeight)
             node.style.minHeight = previousMinHeight;
     }
-
 
     static override blockName = 'diagram-preview';
 
