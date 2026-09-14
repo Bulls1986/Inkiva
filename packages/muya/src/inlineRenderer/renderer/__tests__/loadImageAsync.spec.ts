@@ -33,35 +33,40 @@ function makeRenderer(): IFakeRenderer {
 
 class TestIntersectionObserver {
     static instances: TestIntersectionObserver[] = [];
-    private readonly callback: IntersectionObserverCallback;
-    private target: Element | null = null;
+    private readonly _callback: IntersectionObserverCallback;
+    private _target: Element | null = null;
 
     constructor(callback: IntersectionObserverCallback) {
-        this.callback = callback;
+        this._callback = callback;
         TestIntersectionObserver.instances.push(this);
     }
 
     observe(target: Element) {
-        this.target = target;
+        this._target = target;
     }
 
     disconnect() {
-        this.target = null;
+        this._target = null;
     }
 
     trigger(isIntersecting: boolean) {
-        if (!this.target)
+        if (!this._target) {
             return;
+        }
 
-        this.callback([
+        this._callback([
             {
-                target: this.target,
+                target: this._target,
                 isIntersecting,
                 intersectionRatio: isIntersecting ? 1 : 0,
             } as IntersectionObserverEntry,
         ], this as unknown as IntersectionObserver);
     }
 }
+
+beforeEach(() => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+});
 
 afterEach(() => {
     vi.unstubAllGlobals();

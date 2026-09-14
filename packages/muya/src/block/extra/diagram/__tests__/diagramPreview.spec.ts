@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import type { Muya } from '../../../../muya';
 import type { IDiagramMeta, IDiagramState } from '../../../../state/types';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLASS_NAMES } from '../../../../config';
 import I18n from '../../../../i18n';
 import { en } from '../../../../locales/en';
@@ -21,31 +21,36 @@ vi.mock('../../../../utils/diagram', () => ({
 
 const bootedHosts: HTMLElement[] = [];
 
+beforeEach(() => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+});
+
 class TestIntersectionObserver {
     static instances: TestIntersectionObserver[] = [];
-    private readonly callback: IntersectionObserverCallback;
-    private target: Element | null = null;
+    private readonly _callback: IntersectionObserverCallback;
+    private _target: Element | null = null;
 
     constructor(callback: IntersectionObserverCallback) {
-        this.callback = callback;
+        this._callback = callback;
         TestIntersectionObserver.instances.push(this);
     }
 
     observe(target: Element) {
-        this.target = target;
+        this._target = target;
     }
 
     disconnect() {
-        this.target = null;
+        this._target = null;
     }
 
     trigger(isIntersecting: boolean) {
-        if (!this.target)
+        if (!this._target) {
             return;
+        }
 
-        this.callback([
+        this._callback([
             {
-                target: this.target,
+                target: this._target,
                 isIntersecting,
                 intersectionRatio: isIntersecting ? 1 : 0,
             } as IntersectionObserverEntry,

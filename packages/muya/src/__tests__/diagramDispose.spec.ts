@@ -16,6 +16,7 @@ const bootedHosts: HTMLElement[] = [];
 
 beforeEach(() => {
     vi.useFakeTimers();
+    vi.stubGlobal('IntersectionObserver', undefined);
     const host = document.createElement('div');
     document.body.appendChild(host);
     bootedHosts.push(host);
@@ -23,6 +24,7 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
     renderDiagramMock.mockReset();
     while (bootedHosts.length)
         bootedHosts.pop()!.remove();

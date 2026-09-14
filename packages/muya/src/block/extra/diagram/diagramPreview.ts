@@ -98,8 +98,9 @@ class DiagramPreview extends Parent {
 
         this._viewportObserveTimer = setTimeout(() => {
             this._viewportObserveTimer = null;
-            if (this._disposed || !this.domNode)
+            if (this._disposed || !this.domNode) {
                 return;
+            }
 
             this._viewportObserver?.observe(this.domNode);
         }, 0);

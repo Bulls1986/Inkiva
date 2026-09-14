@@ -24,12 +24,14 @@ let originalVersion: string | undefined;
 let hadVersion = false;
 
 beforeEach(() => {
+    vi.stubGlobal('IntersectionObserver', undefined);
     hadVersion = 'MUYA_VERSION' in window;
     originalVersion = window.MUYA_VERSION;
     window.MUYA_VERSION = 'test';
 });
 
 afterEach(() => {
+    vi.unstubAllGlobals();
     while (bootedHosts.length) {
         const host = bootedHosts.pop()!;
         host.remove();

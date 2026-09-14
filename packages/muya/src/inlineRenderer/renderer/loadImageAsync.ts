@@ -39,58 +39,58 @@ export default function loadImageAsync(
         const startLoad = () => {
             loadImage(loadSrc, isUnknownType)
                 .then(({ url, width, height }) => {
-                const imageText: HTMLElement | null = document.querySelector(`#${id}`);
-                const img = document.createElement('img');
-                img.src = url;
-                if (attrs.alt)
-                    img.alt = attrs.alt.replace(/[`*{}[\]()#+\-.!_>~:|<$]/g, '');
-                if (attrs.title)
-                    img.setAttribute('title', attrs.title);
-                if (attrs.width && typeof attrs.width === 'number')
-                    img.setAttribute('width', attrs.width);
+                    const imageText: HTMLElement | null = document.querySelector(`#${id}`);
+                    const img = document.createElement('img');
+                    img.src = url;
+                    if (attrs.alt)
+                        img.alt = attrs.alt.replace(/[`*{}[\]()#+\-.!_>~:|<$]/g, '');
+                    if (attrs.title)
+                        img.setAttribute('title', attrs.title);
+                    if (attrs.width && typeof attrs.width === 'number')
+                        img.setAttribute('width', attrs.width);
 
-                if (attrs.height && typeof attrs.height === 'number')
-                    img.setAttribute('height', attrs.height);
+                    if (attrs.height && typeof attrs.height === 'number')
+                        img.setAttribute('height', attrs.height);
 
-                if (imageClass)
-                    img.classList.add(imageClass);
+                    if (imageClass)
+                        img.classList.add(imageClass);
 
-                if (imageText) {
-                    if (imageText.classList.contains(`${CLASS_NAMES.MU_INLINE_IMAGE}`)) {
-                        const imageContainer = imageText.querySelector(
-                            `.${CLASS_NAMES.MU_IMAGE_CONTAINER}`,
-                        );
-                        const oldImage = imageContainer!.querySelector('img');
-                        if (oldImage)
-                            oldImage.remove();
+                    if (imageText) {
+                        if (imageText.classList.contains(`${CLASS_NAMES.MU_INLINE_IMAGE}`)) {
+                            const imageContainer = imageText.querySelector(
+                                `.${CLASS_NAMES.MU_IMAGE_CONTAINER}`,
+                            );
+                            const oldImage = imageContainer!.querySelector('img');
+                            if (oldImage)
+                                oldImage.remove();
 
-                        imageContainer!.appendChild(img);
-                        imageText.classList.remove(CLASS_NAMES.MU_IMAGE_LOADING);
-                        imageText.classList.add(CLASS_NAMES.MU_IMAGE_SUCCESS);
-                        // Tag small images on the first async load — otherwise the class
-                        // would only appear on the next re-render after the cache is
-                        // populated. See `image.ts` for why the class is kept as a theming
-                        // hook with no in-package CSS consumer; downstream stylesheets own
-                        // the visual treatment.
-                        if (width < 100 || height < 100)
-                            imageText.classList.add(CLASS_NAMES.MU_SMALL_IMAGE);
+                            imageContainer!.appendChild(img);
+                            imageText.classList.remove(CLASS_NAMES.MU_IMAGE_LOADING);
+                            imageText.classList.add(CLASS_NAMES.MU_IMAGE_SUCCESS);
+                            // Tag small images on the first async load — otherwise the class
+                            // would only appear on the next re-render after the cache is
+                            // populated. See `image.ts` for why the class is kept as a theming
+                            // hook with no in-package CSS consumer; downstream stylesheets own
+                            // the visual treatment.
+                            if (width < 100 || height < 100)
+                                imageText.classList.add(CLASS_NAMES.MU_SMALL_IMAGE);
+                        }
+                        else {
+                            insertAfter(img, imageText);
+                            if (className)
+                                operateClassName(imageText, 'add', className);
+                        }
                     }
-                    else {
-                        insertAfter(img, imageText);
-                        if (className)
-                            operateClassName(imageText, 'add', className);
-                    }
-                }
 
-                if (this.urlMap.has(src))
-                    this.urlMap.delete(src);
+                    if (this.urlMap.has(src))
+                        this.urlMap.delete(src);
 
-                this.loadImageMap.set(src, {
-                    id,
-                    isSuccess: true,
-                    url,
-                    width,
-                    height,
+                    this.loadImageMap.set(src, {
+                        id,
+                        isSuccess: true,
+                        url,
+                        width,
+                        height,
                 });
                 })
                 .catch(() => {
@@ -124,8 +124,9 @@ export default function loadImageAsync(
 
                 const imageText = document.getElementById(id);
                 observer.disconnect();
-                if (!imageText)
+                if (!imageText) {
                     return;
+                }
 
                 imageText.removeAttribute('data-image-lazy');
                 startLoad();
