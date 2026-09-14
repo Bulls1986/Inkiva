@@ -36,3 +36,10 @@ Phase 03 tab lifecycle rules:
 - Active is the only tab allowed to own the full Muya editor surface.
 - Warm tabs may retain lightweight navigation/preview state; cold tabs retain document model state only.
 - The lifecycle policy is deterministic, bounded, and exported as `data-tab-lifecycle` for E2E gate assertions.
+
+Phase 04 background isolation rules:
+
+- Filesystem watcher updates are debounced and coalesced by channel and path before renderer IPC.
+- Watcher disposal cancels pending batched work and sender failures cannot cascade into the editor.
+- Background work uses the P0-P8 priority catalog; P6-P8 tasks pause while interaction is pending and never outrank P0-P2.
+- Search/index/backlink/maintenance work must remain cancellable and yield between slices.

@@ -7,6 +7,7 @@ import { hasMarkdownExtension, checkPathExcludePattern } from 'common/filesystem
 import { getUniqueId } from '../utils'
 import { loadMarkdownFile } from '../filesystem/markdown'
 import { isLinux, isOsx } from '../config'
+import { WatcherEventBatcher, type WatcherBatchChannel } from './watcherBatch'
 import type { BrowserWindow } from 'electron'
 import type { LineEnding } from '@shared/types/files'
 import type Preference from '../preferences'
@@ -22,6 +23,7 @@ const EVENT_NAME = {
 }
 
 type WatchType = 'dir' | 'file'
+type WatcherEventEmitter = (channel: WatcherBatchChannel, payload: unknown, key: string) => void
 
 interface IgnoreEntry {
   windowId: number
@@ -47,7 +49,8 @@ const add = async(
   autoGuessEncoding: boolean,
   trimTrailingNewline: number,
   autoNormalizeLineEndings: boolean,
-  isActive: () => boolean
+  isActive: () => boolean,
+  emit: WatcherEventEmitter
 ): Promise<void> => {
   if (!isActive()) return
   const stats = await fsPromises.stat(pathname)
@@ -95,11 +98,16 @@ const add = async(
   }
 
   if (!isActive()) return
-  win.webContents.send(EVENT_NAME[type], { type: 'add', change: file })
+  emit(EVENT_NAME[type], { type: 'add', change: file }, pathname)
 }
 
-const unlink = (win: BrowserWindow, pathname: string, type: WatchType): void => {
-  win.webContents.send(EVENT_NAME[type], { type: 'unlink', change: { pathname } })
+const unlink = (
+  win: BrowserWindow,
+  pathname: string,
+  type: WatchType,
+  emit: WatcherEventEmitter
+): void => {
+  emit(EVENT_NAME[type], { type: 'unlink', change: { pathname } }, pathname)
 }
 
 const change = async(
@@ -110,17 +118,18 @@ const change = async(
   autoGuessEncoding: boolean,
   trimTrailingNewline: number,
   autoNormalizeLineEndings: boolean,
-  isActive: () => boolean
+  isActive: () => boolean,
+  emit: WatcherEventEmitter
 ): Promise<void> => {
   if (!isActive()) return
   if (type === 'dir') {
     try {
       const stats = await fsPromises.stat(pathname)
       if (!isActive()) return
-      win.webContents.send('mt::update-object-tree', {
+      emit('mt::update-object-tree', {
         type: 'change',
         change: { pathname, mtimeMs: stats.mtimeMs }
-      })
+      }, pathname)
     } catch {
       // File may disappear between the event and stat.
     }
@@ -141,10 +150,10 @@ const change = async(
       fsPromises.stat(pathname)
     ])
     if (!isActive()) return
-    win.webContents.send('mt::update-file', {
+    emit('mt::update-file', {
       type: 'change',
       change: { pathname, data, mtimeMs: stats.mtimeMs }
-    })
+    }, pathname)
   } catch (err) {
     if (!isActive()) return
     win.webContents.send('mt::show-notification', {
@@ -155,9 +164,14 @@ const change = async(
   }
 }
 
-const addDir = (win: BrowserWindow, pathname: string, type: WatchType): void => {
+const addDir = (
+  win: BrowserWindow,
+  pathname: string,
+  type: WatchType,
+  emit: WatcherEventEmitter
+): void => {
   if (type === 'file') return
-  win.webContents.send('mt::update-object-tree', {
+  emit('mt::update-object-tree', {
     type: 'addDir',
     change: {
       pathname,
@@ -169,15 +183,20 @@ const addDir = (win: BrowserWindow, pathname: string, type: WatchType): void => 
       folders: [],
       files: []
     }
-  })
+  }, pathname)
 }
 
-const unlinkDir = (win: BrowserWindow, pathname: string, type: WatchType): void => {
+const unlinkDir = (
+  win: BrowserWindow,
+  pathname: string,
+  type: WatchType,
+  emit: WatcherEventEmitter
+): void => {
   if (type === 'file') return
-  win.webContents.send('mt::update-object-tree', {
+  emit('mt::update-object-tree', {
     type: 'unlinkDir',
     change: { pathname }
-  })
+  }, pathname)
 }
 
 class Watcher {
@@ -264,6 +283,13 @@ class Watcher {
     let disposed = false
     let enospcReached = false
     let renameTimer: NodeJS.Timeout | null = null
+    const batcher = new WatcherEventBatcher({
+      send: (channel, payload) => win.webContents.send(channel, payload),
+      onSendError: (error) => log.debug('Failed to send batched watcher event:', error)
+    })
+    const emit: WatcherEventEmitter = (channel, payload, key) => {
+      batcher.enqueue(channel, payload, key)
+    }
 
     watcher
       .on('add', async(pathname: string) => {
@@ -283,7 +309,8 @@ class Watcher {
           autoGuessEncoding,
           trimTrailingNewline,
           autoNormalizeLineEndings,
-          () => !disposed
+          () => !disposed,
+          emit
         )
       })
       .on('change', async(pathname: string) => {
@@ -303,17 +330,18 @@ class Watcher {
           autoGuessEncoding,
           trimTrailingNewline,
           autoNormalizeLineEndings,
-          () => !disposed
+          () => !disposed,
+          emit
         )
       })
       .on('unlink', (pathname: string) => {
-        if (!disposed) unlink(win, pathname, type)
+        if (!disposed) unlink(win, pathname, type, emit)
       })
       .on('addDir', (pathname: string) => {
-        if (!disposed) addDir(win, pathname, type)
+        if (!disposed) addDir(win, pathname, type, emit)
       })
       .on('unlinkDir', (pathname: string) => {
-        if (!disposed) unlinkDir(win, pathname, type)
+        if (!disposed) unlinkDir(win, pathname, type, emit)
       })
       .on('raw', (event: string, subpath: string, details: unknown) => {
         if (globalThis.INKIVA_DEBUG_VERBOSE >= 3) {
@@ -360,6 +388,7 @@ class Watcher {
         clearTimeout(renameTimer)
         renameTimer = null
       }
+      batcher.close()
       void watcher.close()
     }
 
