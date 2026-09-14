@@ -152,7 +152,7 @@ const handleDragOver = (e: DragEvent): void => {
 
 onMounted(async () => {
   rendererPerformance.mark('editor_shell_mounted', { phase: 'startup' })
-  void recentDocumentsStore.HYDRATE()
+  recentDocumentsStore.HYDRATE().catch(() => undefined)
 
   if (window.inkiva?.initialState) {
     preferencesStore.SET_USER_PREFERENCE(window.inkiva.initialState)
