@@ -1,0 +1,89 @@
+name: Performance Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'packages/desktop/src/**'
+      - 'packages/desktop/test/e2e/performance-gate.spec.ts'
+      - 'packages/desktop/test/performance/**'
+      - 'perf/gate/**'
+      - 'scripts/verifyPerformanceEnvironment.ts'
+      - 'scripts/writePerformanceGateMetadata.ts'
+      - 'package.json'
+      - 'packages/desktop/package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/performance-gate.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: performance-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  reference-p0:
+    name: Reference Windows P0 Milk Gate
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4.3.1
+        with:
+          fetch-depth: 1
+
+      - uses: ./.github/actions/setup
+
+      - name: Validate reference hardware and test mode
+        shell: bash
+        run: pnpm exec tsx scripts/verifyPerformanceEnvironment.ts --output perf-results/reference-environment.json
+        env:
+          INKIVA_PERF_OFFLINE: 'true'
+          INKIVA_PERF_RUNNER_LABEL: reference-low-end
+
+      - name: Run postinstall
+        run: pnpm tsx scripts/postinstall.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm_config_user_agent: pnpm
+          USE_ELECTRON_CLANG: '0'
+
+      - name: Build app
+        run: pnpm build
+
+      - name: Validate performance gate contracts
+        run: pnpm test:perf:gate
+
+      - name: Collect P0 real measurements
+        run: pnpm test:e2e:gate
+        env:
+          INKIVA_PERF_CAPTURE: 'true'
+          INKIVA_PERF_OFFLINE: 'true'
+          INKIVA_PERF_RUNNER_LABEL: reference-low-end
+          INKIVA_PERF_REPORT_DIR: ${{ github.workspace }}/perf-results/raw
+
+      - name: Build P0 metadata
+        if: always()
+        run: pnpm exec tsx scripts/writePerformanceGateMetadata.ts --environment perf-results/reference-environment.json --level P0 --output perf-results/P0.metadata.json
+
+      - name: Require P0 raw artifact
+        if: always()
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'perf-results/raw/P0.raw.json')) {
+            throw 'P0 raw trace artifact is missing; the official gate cannot evaluate.'
+          }
+
+      - name: Evaluate P0 release gate
+        if: always()
+        run: pnpm exec tsx perf/gate/evaluate.ts --input perf-results/raw/P0.raw.json --metadata perf-results/P0.metadata.json --thresholds perf/gate/thresholds.json --report-output perf-results/P0.report.json --output perf-results/P0.evaluation.json --reference
+
+      - name: Upload P0 gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: inkiva-performance-gate-p0
+          path: perf-results
+          if-no-files-found: warn
+          retention-days: 30
