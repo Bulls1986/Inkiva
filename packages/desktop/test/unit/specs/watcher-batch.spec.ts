@@ -49,6 +49,30 @@ describe('watcher event batcher', () => {
     ])
   })
 
+
+  it('bounds each flush and yields the remaining events', () => {
+    vi.useFakeTimers()
+    const send = vi.fn()
+    const batcher = new WatcherEventBatcher({
+      send,
+      maxEventsPerFlush: 2,
+      debounceMs: 1000
+    })
+
+    batcher.enqueue('mt::update-object-tree', { path: '/a.md' }, '/a.md')
+    batcher.enqueue('mt::update-object-tree', { path: '/b.md' }, '/b.md')
+    batcher.enqueue('mt::update-object-tree', { path: '/c.md' }, '/c.md')
+
+    expect(batcher.flushNow()).toBe(2)
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(batcher.pendingCount).toBe(1)
+
+    vi.runAllTimers()
+
+    expect(send).toHaveBeenCalledTimes(3)
+    expect(batcher.pendingCount).toBe(0)
+  })
+
   it('does not emit after close and cancels the debounce timer', () => {
     vi.useFakeTimers()
     const send = vi.fn()
