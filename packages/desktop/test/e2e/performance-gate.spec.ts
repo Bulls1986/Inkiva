@@ -51,10 +51,14 @@ const createCaptureDirectory = (): CaptureDirectory => {
   }
 }
 
-const clearCaptureFiles = (directory: string, level: GateLevel): void => {
+const clearCategoryFiles = (directory: string): void => {
   for (const category of categoryNames) {
     fs.rmSync(path.join(directory, category + '.json'), { force: true })
   }
+}
+
+const clearCaptureFiles = (directory: string, level: GateLevel): void => {
+  clearCategoryFiles(directory)
   fs.rmSync(path.join(directory, level + '.raw.json'), { force: true })
 }
 
@@ -101,7 +105,7 @@ const openCaptured = async(
   userDataDir?: string,
   waitForEditorTimeout = 120000
 ): Promise<{ app: ElectronApplication; page: Page }> => {
-  clearCaptureFiles(capture.directory, level)
+  clearCategoryFiles(capture.directory)
   const launched = await launchElectron([filePath], {
     suppressErrorDialog: true,
     waitForReady: false,
