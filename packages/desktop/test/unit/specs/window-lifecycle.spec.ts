@@ -164,9 +164,11 @@ describe('editor window lifecycle', () => {
     expect(() => editor.destroy()).not.toThrow()
   })
 
-  it('emits editor-interactive once after the renderer bootstrap handshake', () => {
+  it('emits renderer-ready before editor-interactive and gates interactive on document-editable', () => {
     const editor = new EditorWindow(createAccessor() as never)
+    const rendererReady = vi.fn()
     const interactive = vi.fn()
+    editor.on('window-renderer-ready', rendererReady)
     editor.on('window-interactive', interactive)
     editor.createWindow()
 
@@ -175,6 +177,12 @@ describe('editor window lifecycle', () => {
     }
     browserWindow.webContents.emitIpcMessage('mt::window-initialized')
     browserWindow.webContents.emitIpcMessage('mt::window-initialized')
+
+    expect(rendererReady).toHaveBeenCalledTimes(2)
+    expect(interactive).not.toHaveBeenCalled()
+
+    browserWindow.webContents.emitIpcMessage('mt::document-editable')
+    browserWindow.webContents.emitIpcMessage('mt::document-editable')
 
     expect(interactive).toHaveBeenCalledOnce()
   })

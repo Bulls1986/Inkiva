@@ -35,6 +35,7 @@ export const PERFORMANCE_EVENT_NAMES = [
   'muya_init_start',
   'muya_init_end',
   'first_editor_interactive',
+  'document_editable',
   // Runtime signals
   'long_task'
 ] as const
