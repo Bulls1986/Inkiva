@@ -39,7 +39,7 @@
       </div>
     </div>
     <el-tree
-      v-if="filteredToc.length"
+      v-if="filteredToc.length && !shouldVirtualize"
       ref="treeRef"
       :data="filteredToc"
       node-key="key"
@@ -63,6 +63,16 @@
         </span>
       </template>
     </el-tree>
+    <toc-virtualized
+      v-else-if="filteredToc.length"
+      :nodes="filteredToc"
+      :expanded-keys="expandedKeys"
+      :active-toc-slug="activeTocSlug"
+      :word-wrap="wordWrapInToc"
+      @node-click="handleClick"
+      @node-expand="onExpand"
+      @node-collapse="onCollapse"
+    />
     <div
       v-else
       class="toc-empty"
@@ -78,6 +88,8 @@ import { useEditorStore } from '@/store/editor'
 import { usePreferencesStore } from '@/store/preferences'
 import { deriveKeyedToc, type KeyedTocNode } from '@/util/tocKeys'
 import { filterTocTree, getExpandableTocKeys } from '@/util/tocOutline'
+import { flattenTocRows } from '@/util/tocVirtualization'
+import TocVirtualized from './tocVirtualized.vue'
 import bus from '../../bus'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
@@ -147,6 +159,10 @@ const expandedKeys = computed<string[]>(() => {
   walk(filteredToc.value, false)
   return keys
 })
+
+const shouldVirtualize = computed(() =>
+  flattenTocRows(filteredToc.value, new Set(expandedKeys.value)).length > 300
+)
 
 watch(
   expandedKeys,

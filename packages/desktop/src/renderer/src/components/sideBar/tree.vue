@@ -105,6 +105,11 @@
         id="project-tree-content"
         class="tree-wrapper"
       >
+        <virtualized-tree
+          v-if="isVirtualizedTree"
+          :project-tree="projectTree"
+        />
+        <template v-else>
         <folder
           v-for="folder of projectTree.folders"
           :key="folder.id"
@@ -145,6 +150,8 @@
             </button>
           </div>
         </div>
+
+        </template>
       </div>
     </div>
     <div
@@ -173,11 +180,13 @@ import { useEditorStore } from '@/store/editor'
 import { usePreferencesStore } from '@/store/preferences'
 import Folder from './treeFolder.vue'
 import File from './treeFile.vue'
+import VirtualizedTree from './treeVirtualized.vue'
 import OpenedFile from './treeOpenedTab.vue'
 import bus from '../../bus'
 import { showContextMenu } from '../../contextMenu/sideBar'
 import { useI18n } from 'vue-i18n'
 import { ArrowRight } from '@element-plus/icons-vue'
+import { hasMoreThanTreeRows } from '@/util/treeVirtualization'
 import type { TreeNode, TabDescriptor } from './types'
 
 const { t } = useI18n()
@@ -193,6 +202,10 @@ const props = defineProps<{
 }>()
 
 const depth = 0
+
+const isVirtualizedTree = computed(() =>
+  props.projectTree !== null && hasMoreThanTreeRows(props.projectTree, 300)
+)
 // Persist the section collapse state (#2421). The tree is rendered under a
 // v-if and is destroyed when the sidebar collapses to its icon strip, so local
 // refs reset to expanded on re-open. Back them with localStorage (like the

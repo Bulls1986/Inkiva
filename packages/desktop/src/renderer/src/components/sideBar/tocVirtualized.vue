@@ -6,11 +6,11 @@
   >
     <div
       class="toc-virtual-spacer"
-      :style="{ height: \`\${windowState.totalHeight}px\` }"
+      :style="{ height: `${windowState.totalHeight}px` }"
     >
       <div
         class="toc-virtual-window"
-        :style="{ transform: \`translateY(\${windowState.offsetTop}px)\` }"
+        :style="{ transform: `translateY(${windowState.offsetTop}px)` }"
       >
         <div
           v-for="row in visibleRows"
@@ -20,7 +20,7 @@
         >
           <div
             class="el-tree-node__content"
-            :style="{ paddingLeft: \`\${row.depth * 10 + 8}px\` }"
+            :style="{ paddingLeft: `${row.depth * 10 + 8}px` }"
             @click="emit('node-click', { slug: row.slug })"
           >
             <button

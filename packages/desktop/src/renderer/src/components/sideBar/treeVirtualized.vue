@@ -6,11 +6,11 @@
   >
     <div
       class="tree-virtual-spacer"
-      :style="{ height: \`\${windowState.totalHeight}px\` }"
+      :style="{ height: `${windowState.totalHeight}px` }"
     >
       <div
         class="tree-virtual-window"
-        :style="{ transform: \`translateY(\${windowState.offsetTop}px)\` }"
+        :style="{ transform: `translateY(${windowState.offsetTop}px)` }"
       >
         <template
           v-for="row in visibleRows"
@@ -23,7 +23,7 @@
           >
             <div
               class="folder-name"
-              :style="{ paddingLeft: \`\${row.depth * 6 + 10}px\` }"
+              :style="{ paddingLeft: `${row.depth * 6 + 10}px` }"
               role="button"
               tabindex="0"
               :title="row.node.pathname"
@@ -66,7 +66,7 @@
             :aria-current="currentFile?.pathname === row.node.pathname ? 'page' : undefined"
             :aria-disabled="row.node.isMarkdown ? undefined : 'true'"
             :style="{
-              paddingLeft: \`\${row.depth * 6 + 10}px\`,
+              paddingLeft: `${row.depth * 6 + 10}px`,
               opacity: row.node.isMarkdown ? 1 : 0.75
             }"
             @click="handleFileClick(row.node)"
@@ -88,7 +88,7 @@
           <div
             v-else
             class="new-input-row"
-            :style="{ paddingLeft: \`\${row.depth * 6 + 10}px\` }"
+            :style="{ paddingLeft: `${row.depth * 6 + 10}px` }"
           >
             <input
               ref="createInput"
