@@ -13,3 +13,12 @@ Contract rules:
 - Vue 3 commit time is represented by the equivalent renderer commit metric; the runner must provide it once the renderer harness is wired.
 
 This first phase establishes the hard contract and contract tests. Later phases must add real application runners and reports. Until those runners are enforcing the same contract, v0.3.0 is not Performance Gate PASS and must not be presented as release-qualified.
+
+Phase 01 fixtures and runner rules:
+
+- Markdown fixtures use exact character counts of 30,000, 50,000, 100,000, 500,000, and 1,000,000 characters.
+- The 50K fixture includes headings, lists, tables, code, quotes, links, images, a diagram, and inline formatting.
+- Heading Storm covers exactly 500, 2,000, 5,000, and 10,000 headings.
+- Workspace fixtures cover exactly 1,000, 10,000, 50,000, and 100,000 nodes.
+- Tree fixture helpers expose a hard viewport multiplier and cap of 300 rendered rows; application virtualization will be gated against this contract in a later phase.
+- The sample collector retains raw samples, rejects invalid/unit-changing data, requires 20 samples per metric, and writes reports through the Phase 00 contract.
