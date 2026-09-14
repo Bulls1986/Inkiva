@@ -1264,6 +1264,7 @@ const collectLevel = async(level: LargeGateLevel, capture: CaptureDirectory): Pr
   if (level === 'P1') {
     await collectDocumentTier(level, '50k', capture)
     await collectDocumentTier(level, '100k', capture)
+    await collectDocumentTier(level, '500k', capture)
     await collectDocumentTier(level, '1m', capture)
     await collectTreeSamples(level, 10000, 1000, capture)
     await collectTabSamples(level, capture)
