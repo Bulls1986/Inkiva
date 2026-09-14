@@ -166,6 +166,9 @@ export const collectSoakReport = (suite: SoakSuite, inputPath: string): SoakRepo
   const metrics: SoakMetric[] = [...samples.entries()]
     .map(([name, sample]) => ({ name, unit: sample.unit, value: median(sample.values) }))
     .sort((left, right) => left.name.localeCompare(right.name))
+  if (metrics.length === 0) {
+    throw new Error('no performance metrics collected from ' + inputPath)
+  }
   const environment: Record<string, string> = {
     node: process.version,
     platform: process.platform
