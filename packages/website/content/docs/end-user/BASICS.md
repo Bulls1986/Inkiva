@@ -10,11 +10,12 @@ Inkiva is a realtime preview editor for markdown with various markdown extension
 
 #### Toggle sidebar
 
-The sidebar consists of three panels and you can toggle the sidebar by pressing <kbd>CmdOrCtrl</kbd>+<kbd>J</kbd>:
+The sidebar consists of four panels and you can toggle the sidebar by pressing <kbd>CmdOrCtrl</kbd>+<kbd>J</kbd>:
 
 - Filesystem explorer (tree view) of the opened root directory. The tree also exposes a collapsible *Opened Files* subsection — toggle it via the `openedFilesInSidebar` preference.
 - Find in files
 - Table of contents of the selected tab
+- Document Info: backlinks and Local History for the selected document
 
 #### Toggle tabs
 

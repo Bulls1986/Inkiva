@@ -81,6 +81,7 @@ import { useCommandCenterStore } from '@/store/commandCenter'
 import { useProjectStore } from '@/store/project'
 import { useRecentDocumentsStore } from '@/store/recentDocuments'
 import { useNotificationStore } from '@/store/notification'
+import { useDocumentIntelligenceStore } from '@/store/documentIntelligence'
 import { rendererPerformance } from '@/services/performance/runtime'
 
 const AboutDialog = defineAsyncComponent(() => import('@/components/about/index.vue'))
@@ -100,6 +101,7 @@ const recentDocumentsStore = useRecentDocumentsStore()
 const listenForMainStore = useListenForMainStore()
 const commandCenterStore = useCommandCenterStore()
 const notificationStore = useNotificationStore()
+const documentIntelligenceStore = useDocumentIntelligenceStore()
 
 const timer = ref<ReturnType<typeof setTimeout> | null>(null)
 
@@ -200,6 +202,7 @@ onMounted(async () => {
   editorStore.LISTEN_WINDOW_ZOOM()
   editorStore.LISTEN_FOR_RELOAD_IMAGES()
   editorStore.LISTEN_FOR_CONTEXT_MENU()
+  documentIntelligenceStore.START()
 
   notificationStore.listenForNotification()
   window.addEventListener('dragover', handleDragOver, false)
@@ -217,6 +220,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  documentIntelligenceStore.STOP()
   window.removeEventListener('dragover', handleDragOver, false)
   if (timer.value) {
     clearTimeout(timer.value)

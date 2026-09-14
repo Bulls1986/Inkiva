@@ -2,6 +2,7 @@ import {
   Folder as FilesIcon,
   Search as SearchIcon,
   Memo as TocIcon,
+  Connection as DocumentIntelligenceIcon,
   Setting as SettingIcon
 } from '@element-plus/icons-vue'
 import { t } from '@/i18n'
@@ -27,6 +28,11 @@ export const sideBarIcons: SideBarIconEntry[] = [
     id: 'toc',
     name: () => t('sideBar.icons.toc'),
     icon: TocIcon
+  },
+  {
+    id: 'document-intelligence',
+    name: () => t('sideBar.icons.documentIntelligence'),
+    icon: DocumentIntelligenceIcon
   }
 ]
 
