@@ -1,5 +1,6 @@
 import { PERFORMANCE_EVENT_CHANNEL } from '@shared/types/performance'
 import { createRendererPerformanceRecorder } from './renderer'
+import { RuntimePerformanceMonitor } from './runtimeMonitor'
 
 const electronApi = (
   globalThis as typeof globalThis & {
@@ -22,3 +23,9 @@ export const rendererPerformance = createRendererPerformanceRecorder({
     phase: 'editor'
   })
 })
+
+export const rendererPerformanceMonitor = new RuntimePerformanceMonitor({
+  recorder: rendererPerformance
+})
+
+rendererPerformanceMonitor.start()

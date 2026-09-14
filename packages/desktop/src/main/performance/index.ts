@@ -3,7 +3,8 @@ import {
   type PerformanceBootInfo,
   type PerformanceEvent,
   type PerformanceEventName,
-  type PerformanceReport
+  type PerformanceReport,
+  type PerformanceSampleUnit
 } from '@shared/types/performance'
 import {
   MainPerformanceRecorder,
@@ -43,6 +44,12 @@ export interface MainPerformanceCoordinator {
   measure(
     name: PerformanceEventName,
     options: MainPerformanceMeasureOptions
+  ): PerformanceEvent | undefined
+  recordSample(
+    metric: string,
+    unit: PerformanceSampleUnit,
+    value: number,
+    options: MainPerformanceEventOptions
   ): PerformanceEvent | undefined
   recordRendererEvent(event: unknown): boolean
   getBootInfo(): PerformanceBootInfo
@@ -100,6 +107,16 @@ class MainPerformanceCoordinatorImpl implements MainPerformanceCoordinator {
     return event
   }
 
+  recordSample(
+    metric: string,
+    unit: PerformanceSampleUnit,
+    value: number,
+    options: MainPerformanceEventOptions
+  ): PerformanceEvent | undefined {
+    const event = this.recorder.recordSample(metric, unit, value, options)
+    if (event) this.reportStore.recordEvent(event)
+    return event
+  }
   recordRendererEvent(event: unknown): boolean {
     if (!this.enabled || this.rendererEventCount >= this.maxRendererEvents) return false
 

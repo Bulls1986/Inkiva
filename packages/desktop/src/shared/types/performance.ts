@@ -37,10 +37,12 @@ export const PERFORMANCE_EVENT_NAMES = [
   'first_editor_interactive',
   'document_editable',
   // Runtime signals
-  'long_task'
+  'long_task',
+  'metric_sample'
 ] as const
 
 export type PerformanceEventName = (typeof PERFORMANCE_EVENT_NAMES)[number]
+export type PerformanceSampleUnit = 'ms' | 'count' | 'bytes' | 'ratio'
 export type PerformanceProcess = 'main' | 'renderer'
 export type PerformancePhase =
   | 'startup'
@@ -108,6 +110,9 @@ export const isPerformanceEventName = (value: unknown): value is PerformanceEven
 
 export const isPerformancePhase = (value: unknown): value is PerformancePhase =>
   typeof value === 'string' && PERFORMANCE_PHASES.has(value as PerformancePhase)
+
+export const isPerformanceSampleUnit = (value: unknown): value is PerformanceSampleUnit =>
+  value === 'ms' || value === 'count' || value === 'bytes' || value === 'ratio'
 
 export const sanitizePerformanceIdentifier = (value: unknown): string | undefined =>
   typeof value === 'string' && value.length > 0 && value.length <= PERFORMANCE_MAX_IDENTIFIER_LENGTH

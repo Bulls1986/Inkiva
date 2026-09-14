@@ -3,12 +3,14 @@ import { performance as nodePerformance } from 'node:perf_hooks'
 import {
   isPerformanceEventName,
   isPerformancePhase,
+  isPerformanceSampleUnit,
   sanitizePerformanceIdentifier,
   sanitizePerformanceMetadata,
   PERFORMANCE_TRACE_SCHEMA_VERSION,
   type PerformanceEvent,
   type PerformanceEventName,
   type PerformancePhase,
+  type PerformanceSampleUnit,
   type PerformanceTrace
 } from '@shared/types/performance'
 
@@ -126,6 +128,39 @@ export class MainPerformanceRecorder {
     return cloneEvent(event)
   }
 
+  recordSample(
+    metric: string,
+    unit: PerformanceSampleUnit,
+    value: number,
+    options: MainPerformanceEventOptions
+  ): PerformanceEvent | undefined {
+    const metricName = sanitizePerformanceIdentifier(metric)
+    if (!this.canCollect() || !metricName || !isPerformanceSampleUnit(unit)) return undefined
+    if (!isFiniteNumber(value) || value < 0) return undefined
+
+    const monotonicMs = this.readNow()
+    if (monotonicMs === undefined) return undefined
+    const timestampEpochMs = this.toEpochMs(monotonicMs)
+    if (timestampEpochMs === undefined) return undefined
+
+    const contextMetadata =
+      options.metadata !== null &&
+      typeof options.metadata === 'object' &&
+      !Array.isArray(options.metadata)
+        ? options.metadata as Record<string, unknown>
+        : {}
+    const event = this.createEvent(
+      'metric_sample',
+      {
+        ...options,
+        metadata: { ...contextMetadata, metric: metricName, unit, value }
+      },
+      monotonicMs,
+      timestampEpochMs
+    )
+    this.events.push(event)
+    return cloneEvent(event)
+  }
   measure(
     name: PerformanceEventName,
     options: MainPerformanceMeasureOptions

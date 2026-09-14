@@ -1,4 +1,6 @@
+import { app } from 'electron'
 import { createMainPerformanceCoordinator } from './index'
+import { MainProcessPerformanceMonitor } from './processMonitor'
 import { resolvePerformanceCaptureConfig } from './config'
 
 const captureConfig = resolvePerformanceCaptureConfig(process.env)
@@ -23,3 +25,13 @@ mainPerformance.mark('process_entry', {
 })
 
 export { captureConfig }
+
+export const mainProcessPerformanceMonitor = new MainProcessPerformanceMonitor({
+  recorder: mainPerformance,
+  source: {
+    getAppMetrics: () => app.getAppMetrics(),
+    getProcessMemoryInfo: () => app.getProcessMemoryInfo()
+  }
+})
+
+mainProcessPerformanceMonitor.start()
