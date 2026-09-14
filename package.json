@@ -39,7 +39,8 @@
     "gen-third-party": "tsx scripts/generateThirdPartyLicense.ts",
     "validate-licenses": "tsx scripts/validateLicenses.ts",
     "verify-update-artifacts": "tsx scripts/verifyUpdateArtifacts.ts",
-    "test:perf:gate": "node --import tsx --test perf/gate/*.spec.ts"
+    "test:perf:gate": "node --import tsx --test perf/gate/*.spec.ts",
+    "test:e2e:gate": "pnpm --filter inkiva test:e2e:gate"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.29.7",
