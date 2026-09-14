@@ -1,5 +1,6 @@
 import type { CDPSession, ElectronApplication, Page } from 'playwright'
 import {
+  calculateHeapDelta,
   evaluateMemoryLeakSeries,
   MEMORY_LEAK_LONG_WINDOW_SIZE,
   MEMORY_LEAK_SAMPLE_COUNT,
@@ -7,7 +8,7 @@ import {
 } from '../../../../perf/gate/memory'
 import { placeCaretInEditor, sendIpcToRenderer } from './helpers'
 
-export type MemoryLeakSampleUnit = 'count' | 'ratio'
+export type MemoryLeakSampleUnit = 'bytes' | 'count' | 'ratio'
 
 export type MemoryLeakSampleRecorder = (
   metric: string,
@@ -45,7 +46,7 @@ const waitForActiveTab = async(page: Page, pathname: string): Promise<void> => {
   )
 }
 
-const readUsedHeapSize = async(client: CDPSession): Promise<number> => {
+export const readUsedHeapSize = async(client: CDPSession): Promise<number> => {
   const usage = await client.send('Runtime.getHeapUsage') as { usedSize?: unknown }
   const value = usage.usedSize
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
@@ -54,7 +55,7 @@ const readUsedHeapSize = async(client: CDPSession): Promise<number> => {
   return value
 }
 
-const collectGarbage = async(client: CDPSession): Promise<void> => {
+export const collectGarbage = async(client: CDPSession): Promise<void> => {
   try {
     await client.send('HeapProfiler.collectGarbage')
   } catch (error) {
@@ -62,6 +63,51 @@ const collectGarbage = async(client: CDPSession): Promise<void> => {
       'renderer garbage collection could not be requested for the memory leak gate: ' +
         (error instanceof Error ? error.message : String(error))
     )
+  }
+}
+
+export interface RendererHeapSampler {
+  sample: () => Promise<number>
+  dispose: () => Promise<void>
+}
+
+export const createRendererHeapSampler = async(page: Page): Promise<RendererHeapSampler> => {
+  const client = await page.context().newCDPSession(page)
+  try {
+    await client.send('HeapProfiler.enable')
+  } catch (error) {
+    try {
+      await client.detach()
+    } catch {
+      // Best-effort cleanup after an unavailable CDP heap profiler.
+    }
+    throw new Error(
+      'renderer heap profiler could not be enabled for the memory footprint gate: ' +
+        (error instanceof Error ? error.message : String(error))
+    )
+  }
+
+  let disposed = false
+  return {
+    sample: async() => {
+      if (disposed) throw new Error('renderer heap sampler is already disposed')
+      await collectGarbage(client)
+      return await readUsedHeapSize(client)
+    },
+    dispose: async() => {
+      if (disposed) return
+      disposed = true
+      try {
+        await client.send('HeapProfiler.disable')
+      } catch {
+        // The session may already be closed while the app is shutting down.
+      }
+      try {
+        await client.detach()
+      } catch {
+        // CDP cleanup is best effort after the samples are recorded.
+      }
+    }
   }
 }
 
@@ -117,16 +163,14 @@ export const collectMemoryLeakCycleSamples = async(
   options: MemoryLeakCycleOptions
 ): Promise<MemoryLeakSeriesEvaluation> => {
   const { app, page, firstPath, cyclePath, recordSample } = options
-  const client = await page.context().newCDPSession(page)
   const heapSamples: number[] = []
+  const sampler = await createRendererHeapSampler(page)
 
   try {
-    await client.send('HeapProfiler.enable')
     const cycleCount = MEMORY_LEAK_LONG_WINDOW_SIZE + MEMORY_LEAK_SAMPLE_COUNT - 1
     for (let index = 0; index < cycleCount; index += 1) {
       await openEditSwitchClose(app, page, firstPath, cyclePath, index)
-      await collectGarbage(client)
-      heapSamples.push(await readUsedHeapSize(client))
+      heapSamples.push(await sampler.sample())
 
       if (heapSamples.length < MEMORY_LEAK_LONG_WINDOW_SIZE) continue
       const evaluation = evaluateMemoryLeakSeries(heapSamples)
@@ -149,11 +193,6 @@ export const collectMemoryLeakCycleSamples = async(
 
     return evaluateMemoryLeakSeries(heapSamples)
   } finally {
-    try {
-      await client.send('HeapProfiler.disable')
-    } catch {
-      // The session is detached immediately below; cleanup is best effort.
-    }
-    await client.detach()
+    await sampler.dispose()
   }
 }

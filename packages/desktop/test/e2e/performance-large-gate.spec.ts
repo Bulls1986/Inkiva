@@ -29,7 +29,11 @@ import {
   type EditorMilestoneTimestamps
 } from '../../../../perf/gate/editorMilestones'
 import { mergePerformanceTraceReports } from '../../../../perf/gate/trace-input'
-import { collectMemoryLeakCycleSamples } from './performanceMemory'
+import {
+  collectMemoryLeakCycleSamples,
+  createRendererHeapSampler
+} from './performanceMemory'
+import { calculateHeapDelta } from '../../../../perf/gate/memory'
 import {
   closeElectron,
   expectNoRendererErrors,
@@ -958,6 +962,98 @@ const collectTreeSamples = async(
   }
 }
 
+const collectMemoryFootprintSamples = async(
+  level: LargeGateLevel,
+  capture: CaptureDirectory
+): Promise<void> => {
+  const singleRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-memory-single-'))
+  const singleFile = path.join(singleRoot, 'memory-single-50k.md')
+  fs.writeFileSync(singleFile, createMarkdownFixture('50k').markdown, 'utf8')
+
+  try {
+    for (let index = 0; index < SAMPLE_COUNT; index += 1) {
+      let app: ElectronApplication | undefined
+      try {
+        const launched = await launchCaptured([singleRoot], capture, 180000)
+        app = launched.app
+        const { page } = launched
+        await waitForWorkspaceReady(page)
+        const sampler = await createRendererHeapSampler(page)
+        try {
+          const baseline = await sampler.sample()
+          await activateFile(app, page, singleFile)
+          const loaded = await sampler.sample()
+          await recordSample(
+            page,
+            'memory.single50kDelta',
+            'bytes',
+            calculateHeapDelta(baseline, loaded),
+            'memory'
+          )
+        } finally {
+          await sampler.dispose()
+        }
+      } finally {
+        if (app) {
+          await closeElectron(app)
+          appendCapture(capture.directory, level)
+        }
+      }
+    }
+  } finally {
+    fs.rmSync(singleRoot, { recursive: true, force: true })
+  }
+
+  const tabsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-memory-tabs-'))
+  const tabPaths = writeTabSet(tabsRoot, 8, '50k')
+  let app: ElectronApplication | undefined
+  try {
+    const launched = await launchCaptured([tabsRoot], capture, 180000)
+    app = launched.app
+    const { page } = launched
+    await waitForWorkspaceReady(page)
+    const sampler = await createRendererHeapSampler(page)
+    try {
+      const baseline = await sampler.sample()
+      for (const filePath of tabPaths) await activateFile(app, page, filePath)
+      await expect(page.locator('.tabs-container > li')).toHaveCount(8, { timeout: 180000 })
+      const loaded = await sampler.sample()
+      await recordSample(
+        page,
+        'memory.tabs8Delta',
+        'bytes',
+        calculateHeapDelta(baseline, loaded),
+        'memory'
+      )
+
+      for (let index = 0; index < tabPaths.length; index += 1) {
+        await sendIpcToRenderer(app, 'mt::editor-close-tab')
+        await expect(page.locator('.tabs-container > li')).toHaveCount(
+          tabPaths.length - index - 1,
+          { timeout: 180000 }
+        )
+      }
+      await waitForPaint(page)
+      const editorDomCount = await page.locator('.editor-component').count()
+      await recordSample(
+        page,
+        'memory.closedTabsEditorDom',
+        'count',
+        editorDomCount,
+        'memory'
+      )
+    } finally {
+      await sampler.dispose()
+    }
+  } finally {
+    if (app) {
+      await closeElectron(app)
+      appendCapture(capture.directory, level)
+    }
+    fs.rmSync(tabsRoot, { recursive: true, force: true })
+  }
+}
+
 const collectTabSamples = async(
   level: LargeGateLevel,
   capture: CaptureDirectory,
@@ -1268,6 +1364,7 @@ const collectLevel = async(level: LargeGateLevel, capture: CaptureDirectory): Pr
     await collectDocumentTier(level, '1m', capture)
     await collectTreeSamples(level, 10000, 1000, capture)
     await collectTabSamples(level, capture)
+    await collectMemoryFootprintSamples(level, capture)
     await collectMemoryLeakSamples(level, capture)
     assertRawCoverage(capture.directory, level)
     return
@@ -1293,6 +1390,7 @@ const collectLevel = async(level: LargeGateLevel, capture: CaptureDirectory): Pr
   await collectHeadingTier(level, 10000, capture)
   await collectTreeSamples(level, 50000, 5000, capture)
   await collectTabSamples(level, capture)
+  await collectMemoryFootprintSamples(level, capture)
   await collectDiagramImageSamples(level, capture)
   await collectCombinationSamples(level, capture)
   await collectMemoryLeakSamples(level, capture)

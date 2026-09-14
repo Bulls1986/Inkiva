@@ -95,7 +95,10 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
       'undo.normal',
       'redo.normal',
       'undo.large',
-      'undo.fullDomRebuild'
+      'undo.fullDomRebuild',
+      'memory.single50kDelta',
+      'memory.tabs8Delta',
+      'memory.closedTabsEditorDom'
     ]
   },
   {
@@ -171,7 +174,10 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
       'undo.normal',
       'redo.normal',
       'undo.large',
-      'undo.fullDomRebuild'
+      'undo.fullDomRebuild',
+      'memory.single50kDelta',
+      'memory.tabs8Delta',
+      'memory.closedTabsEditorDom'
     ]
   },
   {

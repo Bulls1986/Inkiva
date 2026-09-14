@@ -21,6 +21,18 @@ export interface MemoryLeakSeriesEvaluation {
 const isFiniteNonNegative = (value: number): boolean =>
   Number.isFinite(value) && value >= 0
 
+/**
+ * Converts an idle-baseline and post-load heap reading into a non-negative
+ * footprint delta. CDP values are validated here so a broken sampler cannot
+ * accidentally satisfy a memory gate.
+ */
+export const calculateHeapDelta = (baseline: number, measured: number): number => {
+  if (!isFiniteNonNegative(baseline) || !isFiniteNonNegative(measured)) {
+    throw new Error('heap footprint values must be finite non-negative numbers')
+  }
+  return Math.max(0, measured - baseline)
+}
+
 const calculateRSquared = (values: readonly number[]): number => {
   if (values.length < 2) return 0
 

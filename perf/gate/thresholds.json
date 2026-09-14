@@ -871,6 +871,30 @@
           "statistic": "max",
           "operator": "eq",
           "limit": 0
+        },
+        {
+          "id": "memory-single-50k-delta-max",
+          "metric": "memory.single50kDelta",
+          "unit": "bytes",
+          "statistic": "max",
+          "operator": "lte",
+          "limit": 26214400
+        },
+        {
+          "id": "memory-tabs-8-50k-delta-max",
+          "metric": "memory.tabs8Delta",
+          "unit": "bytes",
+          "statistic": "max",
+          "operator": "lte",
+          "limit": 157286400
+        },
+        {
+          "id": "memory-closed-tabs-editor-dom-count",
+          "metric": "memory.closedTabsEditorDom",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
         }
       ]
     },
@@ -1655,6 +1679,30 @@
         {
           "id": "stability-renderer-hang-count",
           "metric": "stability.rendererHang",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "memory-single-50k-delta-max",
+          "metric": "memory.single50kDelta",
+          "unit": "bytes",
+          "statistic": "max",
+          "operator": "lte",
+          "limit": 26214400
+        },
+        {
+          "id": "memory-tabs-8-50k-delta-max",
+          "metric": "memory.tabs8Delta",
+          "unit": "bytes",
+          "statistic": "max",
+          "operator": "lte",
+          "limit": 157286400
+        },
+        {
+          "id": "memory-closed-tabs-editor-dom-count",
+          "metric": "memory.closedTabsEditorDom",
           "unit": "count",
           "statistic": "max",
           "operator": "eq",
