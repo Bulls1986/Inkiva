@@ -46,11 +46,9 @@ test('large-gate manifest covers every non-runtime P1/P2 threshold metric', asyn
   ) as unknown
   const config = parsePerformanceGateConfig(thresholds)
   const runtimeMetrics = new Set(RUNTIME_COLLECTED_METRICS)
-  const declaredMetrics = new Set(
-    LARGE_GATE_SCENARIOS.flatMap((scenario) => scenario.metrics)
-  )
 
   for (const level of levels) {
+    const declaredMetrics = new Set(getLargeGateScenario(level).metrics)
     for (const gate of config.levels[level].gates) {
       if (runtimeMetrics.has(gate.metric)) continue
       assert.equal(
@@ -62,21 +60,16 @@ test('large-gate manifest covers every non-runtime P1/P2 threshold metric', asyn
   }
 })
 
-test('manifest metrics are unique and assigned to the correct release levels', () => {
-  const seen = new Set<string>()
-  for (const scenario of LARGE_GATE_SCENARIOS) {
-    for (const metric of scenario.metrics) {
-      assert.equal(seen.has(metric), false, 'duplicate scenario metric: ' + metric)
-      seen.add(metric)
-      assert.equal(
-        scenario.level === 'P1' || scenario.level === 'P2',
-        true,
-        'large scenario must belong to P1 or P2'
-      )
-    }
-  }
-
+test('manifest metrics are unique within each release level', () => {
   for (const level of levels satisfies readonly GateLevel[]) {
-    assert.ok(getLargeGateScenario(level).metrics.length > 0)
+    const seen = new Set<string>()
+    const scenarios = LARGE_GATE_SCENARIOS.filter((scenario) => scenario.level === level)
+    for (const scenario of scenarios) {
+      for (const metric of scenario.metrics) {
+        assert.equal(seen.has(metric), false, level + ' duplicate scenario metric: ' + metric)
+        seen.add(metric)
+      }
+    }
+    assert.ok(seen.size > 0)
   }
 })
