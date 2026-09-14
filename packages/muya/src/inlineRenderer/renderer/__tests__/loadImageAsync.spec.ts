@@ -181,6 +181,8 @@ describe('loadImageAsync — viewport lazy loading', () => {
 
         observer.trigger(true);
         expect(loadImage).toHaveBeenCalledTimes(1);
+        expect(document.getElementById(out.id)?.getAttribute('data-image-load-start'))
+            .toMatch(/^\d+(\.\d+)?$/);
         expect(loadImage).toHaveBeenCalledWith(
             'https://example.com/lazy.png',
             false,

@@ -171,6 +171,19 @@ describe('diagramPreview — invalid / error state', () => {
     });
 });
 
+
+    it('exposes one render attempt and never retries a failed diagram', async () => {
+        vi.useFakeTimers();
+        loadRendererMock.mockRejectedValue(new Error('invalid diagram'));
+        const { preview } = makePreview('invalid diagram');
+
+        const pending = preview.update('invalid diagram');
+        await vi.advanceTimersByTimeAsync(200);
+        await pending;
+
+        expect(preview.domNode!.getAttribute('data-diagram-render-attempts')).toBe('1');
+    });
+
 describe('diagramPreview — Mermaid auto-rendering', () => {
     it('keeps source visible after background validation while the block is active', async () => {
         vi.useFakeTimers();
