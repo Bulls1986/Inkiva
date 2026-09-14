@@ -12,6 +12,7 @@ import en from 'element-plus/es/locale/lang/en'
 
 // I18n translation system
 import i18nPlugin from './i18n'
+import { rendererPerformance } from './services/performance/runtime'
 
 // something is wrong here! \/
 import services from './services/index'
@@ -24,6 +25,7 @@ import './assets/styles/printService.css'
 // -----------------------------------------------
 
 window.inkiva = {}
+rendererPerformance.mark('renderer_bootstrap_start', { phase: 'startup' })
 bootstrapRenderer()
 
 // -----------------------------------------------
@@ -60,6 +62,7 @@ app.config.globalProperties.$http = axios
 
 const mountApp = (): void => {
   app.mount('#app')
+  rendererPerformance.mark('app_shell_mounted', { phase: 'startup' })
 }
 
 // Keep a deterministic gap between the inline shell and Vue mounting for the
@@ -99,9 +102,11 @@ const preloadSettingsWhenIdle = (): void => {
   }
 
   if ('requestIdleCallback' in window) {
-    ;(window as Window & {
-      requestIdleCallback: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
-    }).requestIdleCallback(preload, { timeout: 2500 })
+    ;(
+      window as Window & {
+        requestIdleCallback: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+      }
+    ).requestIdleCallback(preload, { timeout: 2500 })
   } else {
     globalThis.setTimeout(preload, 1200)
   }

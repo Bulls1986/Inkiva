@@ -2,6 +2,7 @@ import { app, ipcMain } from 'electron'
 import { rgPath } from '@vscode/ripgrep'
 import { MARKDOWN_INCLUSIONS } from 'common/filesystem/paths'
 import type { BootInfo } from '@shared/types/ipc'
+import { mainPerformance } from '../performance/runtime'
 
 const ENV_ALLOWLIST = [
   'NODE_ENV',
@@ -10,6 +11,7 @@ const ENV_ALLOWLIST = [
   'APPIMAGE',
   'INKIVA_VERSION',
   'INKIVA_VERSION_STRING',
+  'INKIVA_PERF_CAPTURE',
   'INKIVA_RIPGREP_PATH',
   'PATH',
   'HOME'
@@ -46,7 +48,8 @@ const buildBootInfo = (): BootInfo => ({
     userData: app.getPath('userData'),
     cwd: process.cwd()
   },
-  MARKDOWN_INCLUSIONS: [...MARKDOWN_INCLUSIONS]
+  MARKDOWN_INCLUSIONS: [...MARKDOWN_INCLUSIONS],
+  performance: mainPerformance.getBootInfo()
 })
 
 let cached: BootInfo | null = null

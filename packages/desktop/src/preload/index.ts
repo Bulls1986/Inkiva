@@ -360,6 +360,11 @@ const electronAPI = {
     cwd: bootInfo?.paths?.cwd
   },
   paths: bootInfo?.paths || {},
+  performance: bootInfo?.performance ?? {
+    enabled: false,
+    traceId: '',
+    mainTimeOriginEpochMs: 0
+  },
   windowControl: windowControlAPI
 }
 

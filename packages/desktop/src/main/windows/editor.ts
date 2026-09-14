@@ -12,6 +12,7 @@ import { showEditorContextMenu } from '../contextMenu/editor'
 import { loadMarkdownFile } from '../filesystem/markdown'
 import { switchLanguage } from '../spellchecker'
 import type { BufferStoreState } from '../editorBufferStore/restore'
+import { mainPerformance } from '../performance/runtime'
 
 type RawMarkdownDocument = Awaited<ReturnType<typeof loadMarkdownFile>>
 
@@ -76,6 +77,10 @@ class EditorWindow extends BaseWindow {
     bufferStoreInfo: BufferStoreInfo | null = null
   ): BrowserWindow {
     const { menu: appMenu, env, preferences, editorBufferStore } = this._accessor
+    mainPerformance.mark('create_window_start', {
+      phase: 'startup',
+      metadata: { windowType: 'editor' }
+    })
     const addBlankTab =
       !bufferStoreInfo && !rootDirectory && fileList.length === 0 && markdownList.length === 0
 
@@ -138,6 +143,12 @@ class EditorWindow extends BaseWindow {
     }
     ;(win as unknown as { restoreBufferId: string }).restoreBufferId = this.bufferStoreInfo.id
     this.id = win.id
+    const performanceOperationId = `window-${win.id}`
+    mainPerformance.mark('browser_window_created', {
+      phase: 'startup',
+      operationId: performanceOperationId,
+      metadata: { windowType: 'editor' }
+    })
     showWindowWhenRendererReady(win)
 
     // Attach load lifecycle handlers before starting navigation, then start the
@@ -183,6 +194,11 @@ class EditorWindow extends BaseWindow {
     })
 
     this.lifecycle = WindowLifecycle.LOADING
+    mainPerformance.mark('load_url_start', {
+      phase: 'startup',
+      operationId: performanceOperationId,
+      metadata: { windowType: 'editor' }
+    })
     void win.loadURL(this._buildUrlString(this.id, env, preferences))
 
     if (spellcheckerEnabled && !isOsx) {
@@ -246,10 +262,7 @@ class EditorWindow extends BaseWindow {
 
     win.on('close', (event) => {
       this.emit('window-close')
-      if (
-        this._accessor.shutdownCoordinator?.isUpdateInstallApproved() ||
-        !rendererInitialized
-      ) {
+      if (this._accessor.shutdownCoordinator?.isUpdateInstallApproved() || !rendererInitialized) {
         return
       }
       event.preventDefault()
