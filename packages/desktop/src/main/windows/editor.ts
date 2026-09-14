@@ -124,6 +124,7 @@ class EditorWindow extends BaseWindow {
     // Keep the already-created WebContents object for lifecycle cleanup.
     const rendererWebContents = win.webContents
     let rendererInitialized = false
+    let editorInteractive = false
 
     // A renderer that has not completed the bootstrap handshake cannot have
     // unsaved editor state. Allow the native close to continue in that phase;
@@ -132,6 +133,10 @@ class EditorWindow extends BaseWindow {
     const onRendererIpcMessage = (event: IpcMainEvent, channel: string): void => {
       if (event.sender === rendererWebContents && channel === 'mt::window-initialized') {
         rendererInitialized = true
+        if (!editorInteractive) {
+          editorInteractive = true
+          this.emit('window-interactive')
+        }
       }
     }
     rendererWebContents.on('ipc-message', onRendererIpcMessage)
@@ -149,7 +154,7 @@ class EditorWindow extends BaseWindow {
       operationId: performanceOperationId,
       metadata: { windowType: 'editor' }
     })
-    showWindowWhenRendererReady(win)
+    showWindowWhenRendererReady(win, () => this.emit('window-shell-visible'))
 
     // Attach load lifecycle handlers before starting navigation, then start the
     // renderer immediately. The lightweight HTML shell can now paint while the

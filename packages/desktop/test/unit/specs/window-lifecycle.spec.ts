@@ -36,6 +36,10 @@ const testDoubles = vi.hoisted(() => {
   class FakeWebContents extends FakeEventEmitter {
     public readonly send = vi.fn()
     public readonly setIgnoreMenuShortcuts = vi.fn()
+
+    emitIpcMessage(channel: string): void {
+      this.emit('ipc-message', { sender: this }, channel)
+    }
   }
 
   class FakeBrowserWindow extends FakeEventEmitter {
@@ -79,6 +83,7 @@ const testDoubles = vi.hoisted(() => {
 
   return {
     FakeBrowserWindow,
+    FakeWebContents,
     dialog: { showMessageBox: vi.fn() },
     ipcMain: new FakeEventEmitter(),
     screen: {
@@ -157,5 +162,20 @@ describe('editor window lifecycle', () => {
     editor.createWindow()
 
     expect(() => editor.destroy()).not.toThrow()
+  })
+
+  it('emits editor-interactive once after the renderer bootstrap handshake', () => {
+    const editor = new EditorWindow(createAccessor() as never)
+    const interactive = vi.fn()
+    editor.on('window-interactive', interactive)
+    editor.createWindow()
+
+    const browserWindow = editor.browserWindow as unknown as {
+      webContents: InstanceType<typeof testDoubles.FakeWebContents>
+    }
+    browserWindow.webContents.emitIpcMessage('mt::window-initialized')
+    browserWindow.webContents.emitIpcMessage('mt::window-initialized')
+
+    expect(interactive).toHaveBeenCalledOnce()
   })
 })

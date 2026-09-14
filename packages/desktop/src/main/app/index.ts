@@ -33,6 +33,7 @@ import { WindowsUpdateProvider } from '../update/WindowsUpdateProvider'
 import { ElectronUpdateCheckStore } from '../update/store'
 import type { UpdateStatus } from '../update/types'
 import { getNativeThemeSource, isDarkApplicationTheme } from './nativeTheme'
+import { StartupPhaseCoordinator } from './startup'
 import { mainPerformance } from '../performance/runtime'
 import type Accessor from './accessor'
 import type WindowManager from './windowManager'
@@ -82,6 +83,7 @@ class App {
   private _updatePreflight: RendererUpdatePreflight
   private readonly _updatePlatform: NodeJS.Platform
   private _backgroundUpdateCheckScheduled: boolean
+  private _startupCoordinator: StartupPhaseCoordinator
 
   /**
    * @param accessor The application accessor for application instances.
@@ -95,6 +97,7 @@ class App {
     this._windowManager = this._accessor.windowManager
     this._updatePreflight = new RendererUpdatePreflight()
     this._backgroundUpdateCheckScheduled = false
+    this._startupCoordinator = new StartupPhaseCoordinator()
     this._accessor.shutdownCoordinator = new ShutdownCoordinator({
       getEditorWindows: () =>
         this._windowManager.getWindowsByType(WindowType.EDITOR).map(({ id }) => ({ id })),
@@ -317,6 +320,11 @@ class App {
       }
     }
 
+    if (isRestorePathway) {
+      this._startupCoordinator.beginRestoring()
+    }
+    this._startupCoordinator.onEditorInteractive(() => this._scheduleBackgroundUpdateCheck())
+
     nativeTheme.themeSource = getNativeThemeSource({ followSystemTheme, theme })
 
     // Apply theme at startup if "Follow system theme" is enabled
@@ -469,25 +477,12 @@ class App {
       }
     }
 
-    if (isLinux) {
-      let windowCreated = false
-
-      const createWindowOnce = (): void => {
-        if (windowCreated) return
-        windowCreated = true
-        createWindow()
-      }
-
-      // Wait for theme to settle (Linux-specific issue?)
-      nativeTheme.once('updated', createWindowOnce)
-      // Fallback timeout in case 'updated' never fires (no theme change)
-      setTimeout(createWindowOnce, 150)
-    } else {
-      // Create immediately on Windows/macOS
-      createWindow()
-    }
-
-    this._scheduleBackgroundUpdateCheck()
+    // The native window background and the renderer's pre-mount appearance
+    // are both derived from persisted preferences before the window is
+    // created. Waiting for a Linux nativeTheme event only delays the first
+    // shell and can still fall back to a timer when the event never arrives.
+    // Theme changes continue to be handled by the listener registered above.
+    createWindow()
 
     // this.shortcutCapture = new ShortcutCapture()
     // if (process.env.NODE_ENV === 'development') {
@@ -548,6 +543,12 @@ class App {
     } | null = null
   ): EditorWindow {
     const editor = new EditorWindow(this._accessor)
+    editor.on('window-shell-visible', () => {
+      this._startupCoordinator.markShellVisible()
+    })
+    editor.once('window-interactive', () => {
+      this._startupCoordinator.markEditorInteractive()
+    })
     if (rootDirectory) {
       this._accessor.preferences.setItems({ lastOpenedFolder: rootDirectory })
     }

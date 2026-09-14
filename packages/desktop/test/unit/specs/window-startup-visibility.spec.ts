@@ -4,7 +4,7 @@ import { editorWinOptions, preferencesWinOptions } from 'main_renderer/config'
 import { WINDOW_INITIAL_SHELL_READY_CHANNEL } from '@shared/types/ipc'
 import { showWindowWhenRendererReady } from 'main_renderer/windows/base'
 
-const createWindowDouble = (): {
+const createWindowDouble = (onShellVisible?: () => void): {
   window: BrowserWindow
   show: ReturnType<typeof vi.fn>
   fireDomReady: () => void
@@ -25,7 +25,7 @@ const createWindowDouble = (): {
     webContents
   } as unknown as BrowserWindow
 
-  showWindowWhenRendererReady(window)
+  showWindowWhenRendererReady(window, onShellVisible)
 
   const domReadyListener = once.mock.calls.find(([event]) => event === 'dom-ready')?.[1] as
     | (() => void)
@@ -64,6 +64,17 @@ describe('window startup visibility', () => {
     fireRendererReady()
 
     expect(show).toHaveBeenCalledOnce()
+  })
+
+  it('reports shell visibility once after the native window is shown', () => {
+    const shellVisible = vi.fn()
+    const { show, fireRendererReady } = createWindowDouble(shellVisible)
+
+    fireRendererReady()
+    fireRendererReady()
+
+    expect(show).toHaveBeenCalledOnce()
+    expect(shellVisible).toHaveBeenCalledOnce()
   })
 
   it('does not show an already visible or destroyed window', () => {
