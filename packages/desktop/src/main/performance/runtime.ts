@@ -30,7 +30,14 @@ export const mainProcessPerformanceMonitor = new MainProcessPerformanceMonitor({
   recorder: mainPerformance,
   source: {
     getAppMetrics: () => app.getAppMetrics(),
-    getProcessMemoryInfo: () => app.getProcessMemoryInfo()
+    getProcessMemoryInfo: () => {
+      const electronProcess = process as typeof process & {
+        getProcessMemoryInfo?: () => Promise<{ privateBytes?: number; workingSetSize?: number }>
+      }
+      return electronProcess.getProcessMemoryInfo
+        ? electronProcess.getProcessMemoryInfo()
+        : Promise.resolve({})
+    }
   }
 })
 
