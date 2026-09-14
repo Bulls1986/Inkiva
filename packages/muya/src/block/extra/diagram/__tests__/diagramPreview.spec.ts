@@ -143,8 +143,8 @@ describe('diagramPreview — lazy height restoration', () => {
             }),
         });
 
-        const first = makePreview('graph TD\\n  A --> B');
-        await first.preview.update('graph TD\\n  A --> B');
+        const first = makePreview('graph TD\n  A --> B');
+        await first.preview.update('graph TD\n  A --> B');
         Object.defineProperty(first.preview.domNode!, 'offsetHeight', {
             configurable: true,
             value: 640,
@@ -154,7 +154,7 @@ describe('diagramPreview — lazy height restoration', () => {
         } as DOMRect);
         first.preview.dispose();
 
-        const second = makePreview('graph TD\\n  A --> B');
+        const second = makePreview('graph TD\n  A --> B');
 
         expect(second.preview.domNode!.style.minHeight).toBe('640px');
         expect(second.preview.domNode!.getAttribute('data-diagram-height-hint')).toBe('640');
@@ -371,7 +371,7 @@ describe('diagramPreview — viewport lazy rendering', () => {
             render,
         });
 
-        const { preview } = makePreview('graph TD\\n  A --> B');
+        const { preview } = makePreview('graph TD\n  A --> B');
         await new Promise<void>(resolve => setTimeout(resolve, 0));
 
         expect(loadRendererMock).not.toHaveBeenCalled();
