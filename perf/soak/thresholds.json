@@ -4,6 +4,6 @@
   "schemaVersion": 1,
   "comparison": "relative",
   "maxRelativeRegression": 0.1,
-  "regressionPolicy": "warning-only",
+  "regressionPolicy": "blocking",
   "absoluteGates": []
 }
