@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import Parent from '../parent';
 
-type FakeNode = {
+interface FakeNode {
     isParent: () => boolean;
     children?: { forEach: (callback: (child: FakeNode, index: number) => void) => void };
-};
+}
 
-const createFlatTree = (count: number): Parent => {
+function createFlatTree = (count: number): Parent => {
     const children = Array.from({ length: count }, () => ({
         isParent: () => false,
     })) as FakeNode[];
@@ -17,9 +17,9 @@ const createFlatTree = (count: number): Parent => {
         },
     };
     return root as unknown as Parent;
-};
+}
 
-describe('Parent traversal performance', () => {
+describe('parent traversal performance', () => {
     it('keeps flat depth-first traversal bounded for large sibling lists', () => {
         const root = createFlatTree(100_000);
         let visited = 0;

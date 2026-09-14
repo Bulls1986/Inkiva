@@ -286,7 +286,9 @@ class Parent extends TreeNode {
 
         while (nextIndex < queue.length) {
             const node = queue[nextIndex++];
-            if (!node) continue;
+            if (!node) {
+                continue;
+            }
 
             callback(node);
 
@@ -309,7 +311,9 @@ class Parent extends TreeNode {
                 node.children.forEach(child => children.push(child));
                 for (let i = children.length - 1; i >= 0; i--) {
                     const child = children[i];
-                    if (child) stack.push(child);
+                    if (child) {
+                    stack.push(child);
+                }
                 }
             }
         }
