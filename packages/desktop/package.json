@@ -39,6 +39,7 @@
     "test": "vitest run",
     "test:unit": "vitest run test/unit",
     "test:e2e": "playwright test test/e2e --config=test/e2e/playwright.config.ts",
+    "test:e2e:perf": "cross-env INKIVA_RUN_PERF=true playwright test test/e2e --config=test/e2e/playwright.config.ts --grep @perf",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
     "typecheck:watch": "vue-tsc --noEmit -p tsconfig.json --watch"
   },
