@@ -1,16 +1,7 @@
-import type { ReactNode } from 'react'
-import { DOWNLOAD } from '@/lib/downloads'
+import { DOWNLOAD_TARGETS } from '@/lib/downloads'
 import { EXT_LINK } from '@/lib/links'
 import { SECTIONS } from '@/lib/sections'
-import { LinuxIcon, MacIcon, WindowsIcon } from './Icons'
-
-type Platform = { icon: ReactNode; label: string; sub: string }
-
-const PLATFORMS: Platform[] = [
-  { icon: <MacIcon />, label: 'macOS', sub: '.dmg · Apple Silicon & Intel' },
-  { icon: <WindowsIcon />, label: 'Windows', sub: '.exe · x64 & ARM64' },
-  { icon: <LinuxIcon />, label: 'Linux', sub: '.AppImage · .deb · .rpm' }
-]
+import { MacIcon, WindowsIcon } from './Icons'
 
 export default function Download() {
   return (
@@ -24,15 +15,18 @@ export default function Download() {
           </h2>
           <p>One download. No account, no subscription. Every desktop you write on.</p>
           <div className="platforms">
-            {PLATFORMS.map((p) => (
-              <a className="plat" key={p.label} href={DOWNLOAD.releases} {...EXT_LINK}>
-                {p.icon}
-                <div>
-                  <b>{p.label}</b>
-                  <span>{p.sub}</span>
-                </div>
-              </a>
-            ))}
+            {DOWNLOAD_TARGETS.map((target) => {
+              const Icon = target.id === 'windows-x64' ? WindowsIcon : MacIcon
+              return (
+                <a className="plat" key={target.id} href={target.href} {...EXT_LINK}>
+                  <Icon />
+                  <div>
+                    <b>{target.label}</b>
+                    <span>{target.detail}</span>
+                  </div>
+                </a>
+              )
+            })}
           </div>
           <div className="hero-note hero-note--cta">
             <span>

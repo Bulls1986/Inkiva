@@ -24,8 +24,8 @@ export default function Hero() {
           Write in Markdown. <span className="grad-text">See it take shape.</span>
         </h1>
         <p className={revealClass('d2', 'hero-sub')}>
-          A calm WYSIWYG Markdown editor where the document stays visible while you write.
-          No split pane. No preview button. Just meaning, in place.
+          A calm WYSIWYG Markdown editor where the document stays visible while you write. Keep one
+          document in focus, or open a second pane when comparison helps.
         </p>
         <div className={revealClass('d3', 'hero-cta')}>
           <a className="btn btn-primary btn-lg" href={DOWNLOAD.releases} {...EXT_LINK}>
@@ -42,7 +42,7 @@ export default function Hero() {
             <CheckIcon /> WYSIWYG, rendered in place
           </span>
           <span>
-            <CheckIcon /> Windows · macOS · Linux
+            <CheckIcon /> Windows x64 · macOS Intel · Apple Silicon
           </span>
           <span>
             <CheckIcon /> GPL-3.0 · open source
@@ -57,8 +57,9 @@ export default function Hero() {
             </h1>
             <p className="doc-sub">A living document, written entirely in Markdown.</p>
             <p className="lead">
-              Inkiva renders your formatting <strong>as you type</strong> — headings grow, <em>emphasis</em> leans,
-              and <code className="inline">code</code> snaps into place without leaving the page.
+              Inkiva renders your formatting <strong>as you type</strong> — headings grow,{' '}
+              <em>emphasis</em> leans, and <code className="inline">code</code> snaps into place
+              without leaving the page.
             </p>
             <h2>What changed</h2>
             <ul>

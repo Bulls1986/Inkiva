@@ -11,17 +11,13 @@
 
 - A lot of patience
 
-### 1.2 Linux Specific Pre-requisites
-
-- Linux environments require additional dependencies, please see [Linux Specific Pre-reqs](LINUX_DEV.md)
-
-### 1.3 Windows Specific Pre-requisites
+### 1.2 Windows Specific Pre-requisites
 
 - You will need [Build Tools for Visual Studio 2022](https://visualstudio.microsoft.com/downloads/) (Scroll all the way to the bottom)
   - Additionally, you need **spectre-mitigated MSVC**, go to "Individual Components" and select "MSVC ... - VS2022 C++ Spectre-Mitigated Libs"
   - Many native libraries do not support ClangCL well yet, hence we force it to use MSVC in our `.npmrc` (pnpm respects this file)
 
-### 1.4 Clone and Install
+### 1.3 Clone and Install
 
 ```bash
 git clone https://github.com/Bulls1986/Inkiva.git
@@ -29,7 +25,7 @@ cd inkiva
 pnpm install
 ```
 
-### 1.5 Create minified locale files
+### 1.4 Create minified locale files
 
 - This is **automatically ran** when building for production, but not for dev for performance
 
@@ -37,13 +33,13 @@ pnpm install
 pnpm run minify-locales
 ```
 
-### 1.6 Run in Development
+### 1.5 Run in Development
 
 ```bash
 pnpm run dev
 ```
 
-#### 1.6.1 Some Points to Note:
+#### 1.5.1 Some Points to Note:
 
 - The `main` and `preload` processes are **NOT** automatically hot-loaded on edit, you need to **reload the development process** on each edit unfortunately
   - The good news is Vite bundles it _really really quickly_ so it shouldnt be too big of a hassle
@@ -52,7 +48,7 @@ pnpm run dev
   - `main` and `preload` still compile to `CommonJS`
   - `renderer` is `ESModules` only (take note when using any legacy `CommonJS` libraries)
 
-### 1.7 Build for Production
+### 1.6 Build for Production
 
 ```bash
 # For windows
@@ -61,8 +57,6 @@ $ pnpm run build:win
 # For macOS
 $ pnpm run build:mac
 
-# For Linux
-$ pnpm run build:linux
 ```
 
 ## 2. Sub-sections

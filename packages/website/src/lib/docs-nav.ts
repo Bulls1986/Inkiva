@@ -30,43 +30,141 @@ export const DOC_TABS: DocTab[] = [
       {
         label: 'Quick start',
         pages: [
-          { slug: ['introduction'], title: 'Introduction', file: 'README.md', hint: 'Overview & getting started' },
-          { slug: ['installation'], title: 'Installation', file: 'end-user/INSTALLATION.md', hint: 'Download & install on every platform' },
-          { slug: ['linux'], title: 'Linux notes', file: 'end-user/LINUX.md', hint: 'Distro-specific install tips & quirks' },
-          { slug: ['basics'], title: 'Basics', file: 'end-user/BASICS.md', hint: 'The interface, files & tabs' },
-          { slug: ['editing'], title: 'Editing in depth', file: 'end-user/EDITING.md', hint: 'Shortcuts, format bar & find/replace' },
-          { slug: ['spelling'], title: 'Spelling', file: 'end-user/SPELLING.md', hint: 'Spell checker & dictionaries' },
-          { slug: ['markdown-syntax'], title: 'Markdown syntax', file: 'end-user/MARKDOWN_SYNTAX.md', hint: 'Every element Inkiva renders' }
+          {
+            slug: ['introduction'],
+            title: 'Introduction',
+            file: 'README.md',
+            hint: 'Overview & getting started'
+          },
+          {
+            slug: ['installation'],
+            title: 'Installation',
+            file: 'end-user/INSTALLATION.md',
+            hint: 'Download & install on Windows or macOS'
+          },
+          {
+            slug: ['basics'],
+            title: 'Basics',
+            file: 'end-user/BASICS.md',
+            hint: 'The interface, files & tabs'
+          },
+          {
+            slug: ['editing'],
+            title: 'Editing in depth',
+            file: 'end-user/EDITING.md',
+            hint: 'Shortcuts, format bar & find/replace'
+          },
+          {
+            slug: ['spelling'],
+            title: 'Spelling',
+            file: 'end-user/SPELLING.md',
+            hint: 'Spell checker & dictionaries'
+          },
+          {
+            slug: ['markdown-syntax'],
+            title: 'Markdown syntax',
+            file: 'end-user/MARKDOWN_SYNTAX.md',
+            hint: 'Every element Inkiva renders'
+          }
         ]
       },
       {
         label: 'Configuration',
         pages: [
-          { slug: ['preferences'], title: 'Preferences', file: 'end-user/PREFERENCES.md', hint: 'App settings reference' },
-          { slug: ['key-bindings'], title: 'Key bindings', file: 'end-user/KEYBINDINGS.md', hint: 'Default & custom shortcuts' },
-          { slug: ['key-bindings-macos'], title: 'Key bindings (macOS)', file: 'end-user/KEYBINDINGS_OSX.md', hint: 'Default shortcuts on macOS' },
-          { slug: ['key-bindings-linux'], title: 'Key bindings (Linux)', file: 'end-user/KEYBINDINGS_LINUX.md', hint: 'Default shortcuts on Linux' },
-          { slug: ['key-bindings-windows'], title: 'Key bindings (Windows)', file: 'end-user/KEYBINDINGS_WINDOWS.md', hint: 'Default shortcuts on Windows' },
-          { slug: ['application-data-directory'], title: 'Application data directory', file: 'end-user/APPLICATION_DATA_DIRECTORY.md', hint: 'Where Inkiva stores user data' },
-          { slug: ['environment-variables'], title: 'Environment variables', file: 'end-user/ENVIRONMENT.md', hint: 'Runtime environment overrides' },
-          { slug: ['cli'], title: 'Command line interface', file: 'end-user/CLI.md', hint: 'Flags, switches, exit codes' }
+          {
+            slug: ['preferences'],
+            title: 'Preferences',
+            file: 'end-user/PREFERENCES.md',
+            hint: 'App settings reference'
+          },
+          {
+            slug: ['key-bindings'],
+            title: 'Key bindings',
+            file: 'end-user/KEYBINDINGS.md',
+            hint: 'Default & custom shortcuts'
+          },
+          {
+            slug: ['key-bindings-macos'],
+            title: 'Key bindings (macOS)',
+            file: 'end-user/KEYBINDINGS_OSX.md',
+            hint: 'Default shortcuts on macOS'
+          },
+          {
+            slug: ['key-bindings-windows'],
+            title: 'Key bindings (Windows)',
+            file: 'end-user/KEYBINDINGS_WINDOWS.md',
+            hint: 'Default shortcuts on Windows'
+          },
+          {
+            slug: ['application-data-directory'],
+            title: 'Application data directory',
+            file: 'end-user/APPLICATION_DATA_DIRECTORY.md',
+            hint: 'Where Inkiva stores user data'
+          },
+          {
+            slug: ['environment-variables'],
+            title: 'Environment variables',
+            file: 'end-user/ENVIRONMENT.md',
+            hint: 'Runtime environment overrides'
+          },
+          {
+            slug: ['cli'],
+            title: 'Command line interface',
+            file: 'end-user/CLI.md',
+            hint: 'Flags, switches, exit codes'
+          }
         ]
       },
       {
         label: 'Export & appearance',
         pages: [
-          { slug: ['export'], title: 'Export a document', file: 'end-user/EXPORT.md', hint: 'PDF, HTML, image export' },
-          { slug: ['themes'], title: 'Appearances', file: 'end-user/THEMES.md', hint: 'Light, Dark & Paper app surfaces' },
-          { slug: ['export-themes'], title: 'Themes for exporting', file: 'end-user/EXPORT_THEMES.md', hint: 'Style your exported HTML' },
-          { slug: ['images'], title: 'Image support', file: 'end-user/IMAGES.md', hint: 'Copy images to a local folder' },
-          { slug: ['image-uploader'], title: 'Image uploader configuration', file: 'end-user/IMAGE_UPLOADER_CONFIGRATION.md', hint: 'Cloud image hosts' }
+          {
+            slug: ['export'],
+            title: 'Export a document',
+            file: 'end-user/EXPORT.md',
+            hint: 'PDF, HTML, image export'
+          },
+          {
+            slug: ['themes'],
+            title: 'Appearances',
+            file: 'end-user/THEMES.md',
+            hint: 'Light, Dark & Paper app surfaces'
+          },
+          {
+            slug: ['export-themes'],
+            title: 'Themes for exporting',
+            file: 'end-user/EXPORT_THEMES.md',
+            hint: 'Style your exported HTML'
+          },
+          {
+            slug: ['images'],
+            title: 'Image support',
+            file: 'end-user/IMAGES.md',
+            hint: 'Copy images to a local folder'
+          },
+          {
+            slug: ['image-uploader'],
+            title: 'Image uploader configuration',
+            file: 'end-user/IMAGE_UPLOADER_CONFIGRATION.md',
+            hint: 'Cloud image hosts'
+          }
         ]
       },
       {
         label: 'More',
         pages: [
-          { slug: ['portable'], title: 'Portable mode', file: 'end-user/PORTABLE.md', hint: 'Run Inkiva from a USB stick' },
-          { slug: ['faq'], title: 'FAQ', file: 'end-user/FAQ.md', hint: 'Frequently asked questions' }
+          {
+            slug: ['portable'],
+            title: 'Portable mode',
+            file: 'end-user/PORTABLE.md',
+            hint: 'Run Inkiva from a USB stick'
+          },
+          {
+            slug: ['faq'],
+            title: 'FAQ',
+            file: 'end-user/FAQ.md',
+            hint: 'Frequently asked questions'
+          }
         ]
       }
     ]
@@ -78,33 +176,87 @@ export const DOC_TABS: DocTab[] = [
       {
         label: 'Get started',
         pages: [
-          { slug: ['dev', 'overview'], title: 'Developer overview', file: 'dev/README.md', hint: 'Where to start contributing' },
-          { slug: ['dev', 'build'], title: 'Build instructions', file: 'dev/BUILD.md', hint: 'Build Inkiva from source' },
-          { slug: ['dev', 'linux-dev'], title: 'Linux dev environment', file: 'dev/LINUX_DEV.md', hint: 'Distro-specific tooling notes' },
-          { slug: ['dev', 'debugging'], title: 'Debugging', file: 'dev/DEBUGGING.md', hint: 'Attach to main / renderer' }
+          {
+            slug: ['dev', 'overview'],
+            title: 'Developer overview',
+            file: 'dev/README.md',
+            hint: 'Where to start contributing'
+          },
+          {
+            slug: ['dev', 'build'],
+            title: 'Build instructions',
+            file: 'dev/BUILD.md',
+            hint: 'Build Inkiva from source'
+          },
+          {
+            slug: ['dev', 'debugging'],
+            title: 'Debugging',
+            file: 'dev/DEBUGGING.md',
+            hint: 'Attach to main / renderer'
+          }
         ]
       },
       {
         label: 'Architecture & code',
         pages: [
-          { slug: ['dev', 'architecture'], title: 'Architecture', file: 'dev/ARCHITECTURE.md', hint: 'Process model & module layering' },
-          { slug: ['dev', 'interface'], title: 'Interface', file: 'dev/INTERFACE.md', hint: 'Muya & renderer public interfaces' },
-          { slug: ['dev', 'ipc'], title: 'IPC', file: 'dev/IPC.md', hint: 'Typed mt:: channel catalog' },
-          { slug: ['dev', 'typescript'], title: 'TypeScript', file: 'dev/TYPESCRIPT.md', hint: 'TS conventions & strict mode' },
-          { slug: ['dev', 'performance'], title: 'Performance', file: 'dev/PERFORMANCE.md', hint: 'Measurement workflow' }
+          {
+            slug: ['dev', 'architecture'],
+            title: 'Architecture',
+            file: 'dev/ARCHITECTURE.md',
+            hint: 'Process model & module layering'
+          },
+          {
+            slug: ['dev', 'interface'],
+            title: 'Interface',
+            file: 'dev/INTERFACE.md',
+            hint: 'Muya & renderer public interfaces'
+          },
+          {
+            slug: ['dev', 'ipc'],
+            title: 'IPC',
+            file: 'dev/IPC.md',
+            hint: 'Typed mt:: channel catalog'
+          },
+          {
+            slug: ['dev', 'typescript'],
+            title: 'TypeScript',
+            file: 'dev/TYPESCRIPT.md',
+            hint: 'TS conventions & strict mode'
+          },
+          {
+            slug: ['dev', 'performance'],
+            title: 'Performance',
+            file: 'dev/PERFORMANCE.md',
+            hint: 'Measurement workflow'
+          }
         ]
       },
       {
         label: 'Release',
         pages: [
-          { slug: ['dev', 'release'], title: 'Release process', file: 'dev/RELEASE.md', hint: 'Cut a public release' },
-          { slug: ['dev', 'hotfix'], title: 'Hotfix release', file: 'dev/RELEASE_HOTFIX.md', hint: 'Patch a published release' }
+          {
+            slug: ['dev', 'release'],
+            title: 'Release process',
+            file: 'dev/RELEASE.md',
+            hint: 'Cut a public release'
+          },
+          {
+            slug: ['dev', 'hotfix'],
+            title: 'Hotfix release',
+            file: 'dev/RELEASE_HOTFIX.md',
+            hint: 'Patch a published release'
+          }
         ]
       },
       {
         label: 'Project',
         pages: [
-          { slug: ['dev', 'code-of-conduct'], title: 'Code of conduct', file: 'dev/CODE_OF_CONDUCT.md', hint: 'Community guidelines' },
+          {
+            slug: ['dev', 'code-of-conduct'],
+            title: 'Code of conduct',
+            file: 'dev/CODE_OF_CONDUCT.md',
+            hint: 'Community guidelines'
+          },
           { slug: ['changelog'], title: 'Changelog', file: 'CHANGELOG.md', hint: 'Release history' }
         ]
       }

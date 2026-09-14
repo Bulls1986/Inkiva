@@ -32,5 +32,4 @@ Please don't bind `AltGr`, use `Cltr+Alt` instead.
 ## Available key bindings
 
 - [Key bindings for macOS](KEYBINDINGS_OSX.md)
-- [Key bindings for Linux](KEYBINDINGS_LINUX.md)
 - [Key bindings for Windows](KEYBINDINGS_WINDOWS.md)

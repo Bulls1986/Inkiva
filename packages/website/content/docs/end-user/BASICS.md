@@ -18,11 +18,19 @@ The sidebar consists of three panels and you can toggle the sidebar by pressing 
 
 #### Toggle tabs
 
-Inkiva can be used as a single editor but opens all files in a separate tab. Tabs can be toggled via <kbd>CmdOrCtrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> and reordered by drag and drop.
+Inkiva can be used as a single editor but opens all files in a separate tab. Tabs can be toggled via <kbd>CmdOrCtrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd>, reordered by drag and drop, pinned, and reopened after closing.
 
 **Want to use tabs without showing them?**
 
 You can hide tabs and use key bindings such as <kbd>CmdOrCtrl</kbd>+<kbd>Tab</kbd> to cycle through tabs or the sidebar *opened files* panel.
+
+#### Split Editor
+
+Use **View → Split Editor** or <kbd>CmdOrCtrl</kbd>+<kbd>Shift</kbd>+<kbd>\\</kbd> to open a second document pane. Inkiva shows A|B when another tab is available and A|A when the current document is the only open tab. The secondary pane is a comparison surface; choose **Use as editor** when you want to continue editing that document.
+
+#### Recent documents and Quick Open
+
+The welcome surface lists recently opened documents and folders. **Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>) searches Markdown files in the current folder and gives already-open documents priority.
 
 ![](../assets/inkiva-interface-1.png)
 

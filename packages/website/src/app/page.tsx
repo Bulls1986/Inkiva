@@ -1,4 +1,5 @@
 import Download from '@/components/Download'
+import DocumentWorkflow from '@/components/DocumentWorkflow'
 import Extensions from '@/components/Extensions'
 import FocusExport from '@/components/FocusExport'
 import Footer from '@/components/Footer'
@@ -18,6 +19,7 @@ export default function Home() {
       <span id="top" />
       <Hero />
       <Stats />
+      <DocumentWorkflow />
       <Preview />
       <Extensions />
       <Themes />
