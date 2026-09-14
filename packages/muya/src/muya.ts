@@ -5,7 +5,6 @@ import type { Listener } from './event/types';
 import type { ILocale } from './i18n/types';
 import type { Search as SearchModule } from './search';
 import type { IIndexCursor } from './selection/offsetCursor';
-import type { Search as SearchModule } from './search';
 import type { IHistorySelection, IPublicCursorInput } from './selection/types';
 import type { ITocItem } from './state/getTOC';
 import type { IBulletListState, IOrderListState, ITableState, ITaskListState, TState } from './state/types';
