@@ -168,6 +168,11 @@ const activateSecondary = (): void => {
   overflow: hidden;
 }
 
+.degraded-editor-component > :deep(.source-code) {
+  flex: 1;
+  min-height: 0;
+}
+
 .degraded-editor-notice {
   flex: 0 0 auto;
   padding: var(--space-2) var(--space-4);

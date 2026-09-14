@@ -45,17 +45,11 @@ const waitForActiveTab = async(page: Page, pathname: string): Promise<void> => {
   )
 }
 
-const readUsedHeapSize = async(page: Page): Promise<number> => {
-  const value = await page.evaluate(() => {
-    const memory = (
-      performance as Performance & {
-        memory?: { usedJSHeapSize?: unknown }
-      }
-    ).memory
-    return memory?.usedJSHeapSize
-  })
+const readUsedHeapSize = async(client: CDPSession): Promise<number> => {
+  const usage = await client.send('Runtime.getHeapUsage') as { usedSize?: unknown }
+  const value = usage.usedSize
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-    throw new Error('renderer usedJSHeapSize is unavailable for the memory leak gate')
+    throw new Error('renderer V8 heap usage is unavailable for the memory leak gate')
   }
   return value
 }
@@ -132,7 +126,7 @@ export const collectMemoryLeakCycleSamples = async(
     for (let index = 0; index < cycleCount; index += 1) {
       await openEditSwitchClose(app, page, firstPath, cyclePath, index)
       await collectGarbage(client)
-      heapSamples.push(await readUsedHeapSize(page))
+      heapSamples.push(await readUsedHeapSize(client))
 
       if (heapSamples.length < MEMORY_LEAK_LONG_WINDOW_SIZE) continue
       const evaluation = evaluateMemoryLeakSeries(heapSamples)
