@@ -162,4 +162,3 @@ test('rejects malformed metric_sample events instead of ignoring unsupported cap
     )
   })
 })
-

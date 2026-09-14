@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { it } from 'vitest'
 import { calculateVirtualWindow } from '@/util/virtualization'
 import { flattenTocRows } from '@/util/tocVirtualization'
 import { flattenTreeRows } from '@/util/treeVirtualization'
@@ -24,7 +24,7 @@ const file = (pathname: string) => ({
   isMarkdown: true
 })
 
-test('virtual windows cap rendered rows to viewport times three and 300 max', () => {
+it('virtual windows cap rendered rows to viewport times three and 300 max', () => {
   const window = calculateVirtualWindow(100_000, 30, 50_000, 3_000)
 
   assert.ok(window.endIndex - window.startIndex <= 300)
@@ -35,7 +35,7 @@ test('virtual windows cap rendered rows to viewport times three and 300 max', ()
   assert.throws(() => calculateVirtualWindow(10, 30, -1, 300))
 })
 
-test('tree flattening includes only visible descendants and preserves folder-first order', () => {
+it('tree flattening includes only visible descendants and preserves folder-first order', () => {
   const root = {
     ...folder('workspace'),
     folders: [folder('workspace/docs', [folder('workspace/docs/nested')])],
@@ -59,7 +59,7 @@ test('tree flattening includes only visible descendants and preserves folder-fir
   )
 })
 
-test('toc flattening keeps hierarchy while allowing collapsed branches', () => {
+it('toc flattening keeps hierarchy while allowing collapsed branches', () => {
   const rows = flattenTocRows(
     [
       {
