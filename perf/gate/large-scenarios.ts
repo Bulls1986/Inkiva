@@ -42,7 +42,7 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
   {
     id: 'p1-documents',
     level: 'P1',
-    fixtures: ['50k-markdown', '100k-markdown'],
+    fixtures: ['50k-markdown', '100k-markdown', '1m-markdown'],
     metrics: [
       'document.50k.firstScreen',
       'document.50k.editable',
@@ -78,6 +78,7 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
       'tabs.8.warmSwitch',
       'tabs.8.coldSwitch',
       'tabs.8.switch',
+      'core.ui.action',
       'tabs.8.freeze',
       'tabs.8.input',
       'search.current.50k',
@@ -150,6 +151,7 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
       'tabs.8.warmSwitch',
       'tabs.8.coldSwitch',
       'tabs.8.switch',
+      'core.ui.action',
       'tabs.8.freeze',
       'tabs.8.input',
       'background.taskSlice',
