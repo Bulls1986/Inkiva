@@ -302,7 +302,9 @@ class Parent extends TreeNode {
 
         while (stack.length) {
             const node = stack.pop();
-            if (!node) continue;
+            if (!node) {
+                continue;
+            }
 
             callback(node);
 
@@ -312,7 +314,8 @@ class Parent extends TreeNode {
                 for (let i = children.length - 1; i >= 0; i--) {
                     const child = children[i];
                     if (child) {
-                    stack.push(child);
+                        stack.push(child);
+                    }
                 }
                 }
             }

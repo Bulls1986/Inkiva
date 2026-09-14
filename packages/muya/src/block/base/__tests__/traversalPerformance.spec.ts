@@ -6,7 +6,7 @@ interface FakeNode {
     children?: { forEach: (callback: (child: FakeNode, index: number) => void) => void };
 }
 
-function createFlatTree = (count: number): Parent => {
+function createFlatTree(count: number): Parent {
     const children = Array.from({ length: count }, () => ({
         isParent: () => false,
     })) as FakeNode[];

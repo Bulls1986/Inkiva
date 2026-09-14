@@ -170,15 +170,20 @@ onMounted(async () => {
   editorStore.LISTEN_FOR_BOOTSTRAP_WINDOW()
   editorStore.LISTEN_FOR_STATE_REPLACE()
 
+  // Register project IPC listeners before awaiting command descriptions. The
+  // main process can emit the initial directory event immediately after the
+  // window loads; losing that event leaves the sidebar and workspace readiness
+  // state permanently empty.
+  projectStore.LISTEN_FOR_UPDATE_PROJECT()
+  projectStore.LISTEN_FOR_LOAD_PROJECT()
+  projectStore.LISTEN_FOR_SIDEBAR_CONTEXT_MENU()
+
   await commandCenterStore.LISTEN_COMMAND_CENTER_BUS()
   layoutStore.LISTEN_FOR_LAYOUT()
   listenForMainStore.LISTEN_FOR_EDIT()
   preferencesStore.LISTEN_FOR_VIEW()
   listenForMainStore.LISTEN_FOR_SHOW_DIALOG()
   listenForMainStore.LISTEN_FOR_PARAGRAPH_INLINE_STYLE()
-  projectStore.LISTEN_FOR_UPDATE_PROJECT()
-  projectStore.LISTEN_FOR_LOAD_PROJECT()
-  projectStore.LISTEN_FOR_SIDEBAR_CONTEXT_MENU()
   preferencesStore.ASK_FOR_USER_PREFERENCE()
   preferencesStore.LISTEN_TOGGLE_VIEW()
   editorStore.LISTEN_SCREEN_SHOT()
