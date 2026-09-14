@@ -195,7 +195,7 @@ const handleLeftBottomClick = (name: string): void => {
   display: flex;
   flex-shrink: 0;
   flex-grow: 0;
-  width: 270px;
+  width: 288px;
   height: 100%;
   min-width: 220px;
   box-sizing: border-box;
