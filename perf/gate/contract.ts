@@ -87,6 +87,7 @@ export interface PerformanceGateConfig {
 export interface GateFailure {
   code:
     | 'invalid-report'
+    | 'invalid-config'
     | 'metric-missing'
     | 'unit-mismatch'
     | 'insufficient-samples'

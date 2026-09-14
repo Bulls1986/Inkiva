@@ -133,9 +133,29 @@ const collectDesktopTraceReport = (
   for (const trace of value.traces) {
     if (!isRecord(trace) || !Array.isArray(trace.events)) continue
     for (const event of trace.events) {
-      if (!isRecord(event) || typeof event.name !== 'string' || typeof event.process !== 'string') {
+      if (!isRecord(event) || typeof event.name !== 'string') continue
+
+      if (event.name === 'metric_sample') {
+        if (!isRecord(event.metadata)) {
+          throw new Error('metric_sample metadata must be an object')
+        }
+        const metric = event.metadata.metric
+        const unit = event.metadata.unit
+        const value = event.metadata.value
+        if (typeof metric !== 'string' || metric.trim() === '') {
+          throw new Error('metric_sample metric must be a non-empty string')
+        }
+        if (unit !== 'ms' && unit !== 'count' && unit !== 'bytes' && unit !== 'ratio') {
+          throw new Error('metric_sample unit is invalid')
+        }
+        if (!isFiniteNonNegativeNumber(value)) {
+          throw new Error('metric_sample value must be finite and non-negative')
+        }
+        addSample(samples, metric, unit, value)
         continue
       }
+
+      if (typeof event.process !== 'string') continue
       const field = isFiniteNonNegativeNumber(event.durationMs)
         ? 'durationMs'
         : isFiniteNonNegativeNumber(event.elapsedMs)

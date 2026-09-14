@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 export const SOAK_SCHEMA_VERSION = 1 as const
 
 export type SoakSuite = 'desktop' | 'muya'
-export type MetricUnit = 'ms' | 'count' | 'bytes'
+export type MetricUnit = 'ms' | 'count' | 'bytes' | 'ratio'
 
 export interface SoakMetric {
   name: string
@@ -74,7 +74,7 @@ const allowedThresholdKeys = new Set([
   'regressionPolicy',
   'absoluteGates'
 ])
-const metricUnits: readonly MetricUnit[] = ['ms', 'count', 'bytes']
+const metricUnits: readonly MetricUnit[] = ['ms', 'count', 'bytes', 'ratio']
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
