@@ -144,6 +144,7 @@ import {
   rendererPerformance,
   rendererPerformanceMonitor
 } from '@/services/performance/runtime'
+import { createInputParseProbe } from '@/services/performance/inputParse'
 
 // Importing the engine entrypoint auto-injects its editor CSS (the muya.ts
 // module imports its stylesheets at load time). Inkiva owns the application
@@ -303,6 +304,15 @@ let tocScrollSync: ReturnType<typeof createTocScrollSync> | null = null
 let editorLayoutReconciler: ReturnType<typeof createEditorLayoutReconciler> | null = null
 const tocRefreshScheduler = createTocRefreshScheduler()
 const editorSnapshotScheduler = new EditorSnapshotScheduler()
+const inputParseProbe = createInputParseProbe({
+  enabled: rendererPerformance.enabled,
+  now: () => performance.now(),
+  record: (duration) => {
+    rendererPerformance.recordSample('parse.inputSync', 'ms', duration, {
+      phase: 'editor'
+    })
+  }
+})
 
 const flushActiveEditor = () => {
   const id = currentFile.value?.id
@@ -2132,6 +2142,11 @@ onMounted(() => {
 
   const container = getScrollContainer()!
 
+  const inputParseStartEvents = ['beforeinput', 'compositionend', 'paste'] as const
+  for (const eventName of inputParseStartEvents) {
+    container.addEventListener(eventName, inputParseProbe.begin, true)
+  }
+
   // Cache top-level heading positions for active-TOC highlighting. The sync
   // reads layout only during outline/DOM rebuilds; scroll events use a binary
   // search over the cache so diagram nodes and large documents do not trigger
@@ -2211,6 +2226,11 @@ onMounted(() => {
   // input and only flushed synchronously for structural work or an explicit
   // boundary such as save/tab switch.
   editor.value.on('json-change', (change: MuyaChange = {}) => {
+    // Muya emits json-change synchronously while handling beforeinput. This
+    // probe records the actual synchronous input-to-model boundary; it never
+    // estimates parsing from a timer or a test-side constant.
+    inputParseProbe.finish()
+
     // There is a chance that this event is fired AFTER the tab is switched. If we purely rely on this.currentFile later on
     // it can cause invalid updates. Hence, we need the id to identify changes as part of each tab
     if (!currentFile.value || !editor.value) return
@@ -2394,6 +2414,14 @@ onBeforeUnmount(() => {
 
   // Remove the manual scroll listener; engine `on(...)` listeners are torn down
   // by `destroy()` → `eventCenter.unsubscribeAll()`.
+  const inputContainer = getScrollContainer()
+  if (inputContainer) {
+    for (const eventName of ['beforeinput', 'compositionend', 'paste'] as const) {
+      inputContainer.removeEventListener(eventName, inputParseProbe.begin, true)
+    }
+  }
+  inputParseProbe.cancel()
+
   if (scrollHandler && editor.value) {
     const container = getScrollContainer()
     container?.removeEventListener('scroll', scrollHandler)
