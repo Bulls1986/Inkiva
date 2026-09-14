@@ -84,25 +84,40 @@ class InlineRenderer {
         if (!this._referenceDefinitionsDirty)
             return;
 
-        const state = this.muya.editor.jsonState.getState();
         const labels = new Map();
+        const collect = (block: ParagraphContent | IParagraphState) => {
+            const { label, info } = this.getLabelInfo(block);
+            if (label && info)
+                labels.set(label, info);
+        };
+        const scrollPage = this.muya.editor.scrollPage;
 
-        const travel = (sts: TState[]) => {
-            if (Array.isArray(sts) && sts.length) {
-                for (const st of sts) {
-                    if (st.name === 'paragraph') {
-                        const { label, info } = this.getLabelInfo(st);
-                        if (label && info)
-                            labels.set(label, info);
-                    }
-                    else if ((st as TContainerState).children) {
-                        travel((st as TContainerState).children);
+        // Once a live tree exists, read its current content directly. This
+        // avoids cloning the full JSON AST and also observes a definition whose
+        // edit is still waiting for JSONState's animation-frame flush.
+        if (scrollPage?.firstChild) {
+            scrollPage.breadthFirstTraverse((node) => {
+                if (node.isContent() && node.blockName === 'paragraph.content')
+                    collect(node);
+            });
+        }
+        else {
+            // During the initial detached build/updateState the live tree is
+            // empty. The authoritative JSON state is complete at this point,
+            // so use it once to seed the cache.
+            const state = this.muya.editor.jsonState.getState();
+            const travel = (sts: TState[]) => {
+                if (Array.isArray(sts) && sts.length) {
+                    for (const st of sts) {
+                        if (st.name === 'paragraph')
+                            collect(st);
+                        else if ((st as TContainerState).children)
+                            travel((st as TContainerState).children);
                     }
                 }
-            }
-        };
-
-        travel(state);
+            };
+            travel(state);
+        }
 
         this.labels = labels;
         this._referenceDefinitionsDirty = false;

@@ -498,6 +498,7 @@ export class Editor {
         this.jsonState.dispatch(operations, source);
 
         const state = this.jsonState.getState();
+        this.inlineRenderer.invalidateReferenceDefinitions();
         this.scrollPage!.updateState(state);
 
         // The tree was rebuilt wholesale, so the selection's cached block
@@ -509,6 +510,7 @@ export class Editor {
         this.jsonState.setContent(content);
         const state = this.jsonState.getState();
 
+        this.inlineRenderer.invalidateReferenceDefinitions();
         this.scrollPage!.updateState(state);
         this.history.clear();
         this.searchModule.reset();
