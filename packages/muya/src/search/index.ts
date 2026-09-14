@@ -363,3 +363,4 @@ export class Search {
             schedule();
         });
     }
+}
