@@ -32,6 +32,7 @@ import { mergePerformanceTraceReports } from '../../../../perf/gate/trace-input'
 import { collectMemoryLeakCycleSamples } from './performanceMemory'
 import {
   closeElectron,
+  expectNoRendererErrors,
   getRendererErrors,
   launchElectron,
   placeCaretInEditor,
@@ -673,6 +674,7 @@ const collectDocumentTier = async(
           await expect(page.locator('.search-bar')).toBeHidden({ timeout: 10000 })
         })
         await recordSample(page, 'search.current.' + tier, 'ms', searchDuration, 'search')
+        await recordSample(page, 'document.' + tier + '.searchFirst', 'ms', searchDuration, 'search')
 
         const saveToken = 'large-gate-input-' + String(index)
         const saveDuration = await measurePageAction(page, async() => {
