@@ -107,7 +107,13 @@ const waitForPaint = async(page: Page): Promise<void> => {
 }
 
 const readEditorText = (page: Page): Promise<string> =>
-  page.evaluate(() => document.querySelector('.editor-component')?.textContent ?? '')
+  page.evaluate(() => {
+    const codeMirror = document.querySelector('.editor-component .CodeMirror') as
+      | (Element & { CodeMirror?: { getValue(): string } })
+      | null
+    if (codeMirror?.CodeMirror) return codeMirror.CodeMirror.getValue()
+    return document.querySelector('.editor-component')?.textContent ?? ''
+  })
 
 const measureOperation = async(
   page: Page,
@@ -178,25 +184,52 @@ const runFixture = async(fixture: LargeDocumentFixture): Promise<FixtureMetric> 
 
     operations.push(
       await measureOperation(page, 'paste', async() => {
-        await page.evaluate((value) => {
+        const pasted = await page.evaluate((value) => {
           const target = document.querySelector('.editor-component span.mu-paragraph-content')
-          if (!target) throw new Error('editor content target not found')
-          const dataTransfer = new DataTransfer()
-          dataTransfer.setData('text/plain', value)
-          target.dispatchEvent(
-            new ClipboardEvent('paste', {
-              clipboardData: dataTransfer,
-              bubbles: true,
-              cancelable: true
-            })
-          )
+          if (target) {
+            const dataTransfer = new DataTransfer()
+            dataTransfer.setData('text/plain', value)
+            target.dispatchEvent(
+              new ClipboardEvent('paste', {
+                clipboardData: dataTransfer,
+                bubbles: true,
+                cancelable: true
+              })
+            )
+            return true
+          }
+          const codeMirror = document.querySelector('.editor-component .CodeMirror') as
+            | (Element & { CodeMirror?: { replaceSelection(value: string): void } })
+            | null
+          if (codeMirror?.CodeMirror) {
+            codeMirror.CodeMirror.replaceSelection(value)
+            return true
+          }
+          return false
         }, pasteMarker)
+        if (!pasted) throw new Error('editor content target not found')
         await expect.poll(() => readEditorText(page), { timeout: 30000 }).toContain(pasteMarker)
       })
     )
 
     operations.push(
       await measureOperation(page, 'search', async() => {
+        const degraded = await page.locator('[data-editor-mode="bounded-source"]').count() > 0
+        if (degraded) {
+          const found = await page.evaluate(() => {
+            const codeMirror = document.querySelector('.editor-component .CodeMirror') as
+              | (Element & {
+                CodeMirror?: {
+                  getSearchCursor(query: string): { findNext(): boolean }
+                }
+              })
+              | null
+            const cursor = codeMirror?.CodeMirror?.getSearchCursor('Paragraph')
+            return cursor?.findNext() === true
+          })
+          if (!found) throw new Error('bounded source search did not find Paragraph')
+          return
+        }
         await sendIpcToRenderer(launched.app, 'mt::editor-edit-action', 'find')
         const input = page.locator('.search-bar .search input')
         await expect(input).toBeVisible({ timeout: 10000 })

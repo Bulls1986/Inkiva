@@ -16,6 +16,7 @@ import { wordCount as getWordCount } from '@muyajs/core'
 import { adjustCursor } from '../../util'
 import bus from '../../bus'
 import { getApplicationAppearance } from 'common/theme'
+import { EXTREME_DOCUMENT_VIEWPORT_MARGIN } from '@/util/largeDocumentMode'
 
 // CodeMirror 5 ships no first-party types; the wrapper in src/renderer/src/
 // codeMirror/index.ts also keeps the surface intentionally loose.
@@ -31,6 +32,7 @@ const props = defineProps<{
   markdown?: string
   muyaIndexCursor?: unknown
   textDirection: string
+  degraded?: boolean
 }>()
 
 const editorStore = useEditorStore()
@@ -45,6 +47,8 @@ const tabId = ref<string | null>(null)
 let applyingFileChange = false
 
 const { theme, sourceCode } = storeToRefs(preferencesStore)
+
+const isSourceSurface = (): boolean => sourceCode.value || props.degraded === true
 const { currentFile: currentTab } = storeToRefs(editorStore)
 
 const isValidMuyaIndexCursor = (cursor: unknown): cursor is MuyaIndexCursorLike => {
@@ -213,7 +217,7 @@ const handleInvalidateImageCache = () => {
 }
 
 const handleSelectAll = () => {
-  if (!sourceCode.value) {
+  if (!isSourceSurface()) {
     return
   }
 
@@ -232,7 +236,7 @@ const handleSelectAll = () => {
 }
 
 const handleUndo = () => {
-  if (!sourceCode.value) {
+  if (!isSourceSurface()) {
     return
   }
 
@@ -242,7 +246,7 @@ const handleUndo = () => {
 }
 
 const handleRedo = () => {
-  if (!sourceCode.value) {
+  if (!isSourceSurface()) {
     return
   }
 
@@ -378,14 +382,15 @@ onMounted(() => {
 
   const { markdown, muyaIndexCursor, textDirection } = props
   const container = sourceCodeContainer.value
+  const degraded = props.degraded === true
   const codeMirrorConfig: Record<string, unknown> = {
     value: markdown,
     lineNumbers: true,
     autofocus: true,
-    lineWrapping: true,
+    lineWrapping: !degraded,
     styleActiveLine: true,
     direction: textDirection,
-    viewportMargin: Infinity,
+    viewportMargin: degraded ? EXTREME_DOCUMENT_VIEWPORT_MARGIN : Infinity,
     lineNumberFormatter (line: number) {
       if (line % 10 === 0 || line === 1) {
         return line

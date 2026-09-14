@@ -14,16 +14,35 @@
         :data-tab-lifecycle="currentFile ? tabLifecycle[currentFile.id] ?? 'active' : 'none'"
       >
         <editor
-          :markdown="markdown"
-          :cursor="cursor"
-          :text-direction="textDirection"
-          :platform="platform"
+          v-if="!isExtremeDocument"
+          :markdown="props.markdown"
+          :cursor="props.cursor"
+          :text-direction="props.textDirection"
+          :platform="props.platform"
         />
+        <div
+          v-else
+          class="editor-component degraded-editor-component"
+          data-editor-mode="bounded-source"
+        >
+          <div
+            class="degraded-editor-notice"
+            role="status"
+          >
+            Large document mode keeps the full text editable while rendering only visible lines.
+          </div>
+          <source-code
+            :markdown="props.markdown"
+            :muya-index-cursor="props.muyaIndexCursor"
+            :text-direction="props.textDirection"
+            :degraded="true"
+          />
+        </div>
         <source-code
-          v-if="sourceCode"
-          :markdown="markdown"
-          :muya-index-cursor="muyaIndexCursor"
-          :text-direction="textDirection"
+          v-if="sourceCode && !isExtremeDocument"
+          :markdown="props.markdown"
+          :muya-index-cursor="props.muyaIndexCursor"
+          :text-direction="props.textDirection"
         />
       </div>
       <split-document-pane
@@ -39,6 +58,7 @@
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, watch } from 'vue'
+import { shouldUseDegradedLargeDocumentMode } from '@/util/largeDocumentMode'
 import Editor from './editor.vue'
 import TabNotifications from './notifications.vue'
 import SplitDocumentPane from './splitDocumentPane.vue'
@@ -52,7 +72,7 @@ import type { IFileState } from '@shared/types/files'
 // language/runtime dependencies out of the WYSIWYG first-paint path.
 const SourceCode = defineAsyncComponent(() => import('./sourceCode.vue'))
 
-defineProps<{
+const props = defineProps<{
   markdown: string
   cursor: unknown
   muyaIndexCursor?: unknown
@@ -131,9 +151,28 @@ const activateSecondary = (): void => {
 }
 
 .primary-editor-pane > :deep(.editor-wrapper),
-.primary-editor-pane > :deep(.source-code) {
+.primary-editor-pane > :deep(.source-code),
+.primary-editor-pane > .degraded-editor-component {
   min-width: 0;
   min-height: 0;
+}
+
+.degraded-editor-component {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.degraded-editor-notice {
+  flex: 0 0 auto;
+  padding: var(--space-2) var(--space-4);
+  color: var(--text-tertiary);
+  background: var(--surface-chrome);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-size-shortcut);
 }
 
 .is-split .primary-editor-pane {
