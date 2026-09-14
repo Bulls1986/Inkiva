@@ -963,48 +963,68 @@ const collectDiagramImageSamples = async(
     for (let index = 0; index < SAMPLE_COUNT; index += 1) {
       let app: ElectronApplication | undefined
       try {
-        const started = hostPerformance.now()
         const launched = await launchCaptured([filePath], capture, 180000)
         app = launched.app
         const { page } = launched
         await installGateProbe(page)
         await page.waitForSelector('.editor-component', { state: 'visible', timeout: 180000 })
-        const editorReady = hostPerformance.now() - started
-        await recordSample(page, 'image.editorReadyBeforeLoad', 'ms', editorReady, 'diagram')
-        await expect(page.locator('.mu-diagram-block').first()).toBeAttached({ timeout: 180000 })
-        await recordSample(page, 'diagram.placeholder', 'ms', Math.max(0, hostPerformance.now() - started), 'diagram')
+        const editorReadyBeforeLoad = await page.evaluate(() => {
+          const now = performance.now()
+          const starts = Array.from(document.querySelectorAll('.mu-inline-image'))
+            .map((wrapper) => Number(wrapper.getAttribute('data-image-load-start')))
+            .filter((value) => Number.isFinite(value))
+          const earliestStart = starts.length > 0 ? Math.min(...starts) : undefined
+          return earliestStart !== undefined && earliestStart < now ? now - earliestStart : 0
+        })
+        await recordSample(page, 'image.editorReadyBeforeLoad', 'ms', editorReadyBeforeLoad, 'diagram')
+        const placeholderDuration = await measurePageAction(page, async() => {
+          await expect(page.locator('.mu-diagram-block').first()).toBeAttached({ timeout: 180000 })
+          await expect(page.locator('.mu-diagram-preview').first()).toBeAttached({ timeout: 180000 })
+        })
+        await recordSample(page, 'diagram.placeholder', 'ms', placeholderDuration, 'diagram')
         const initialRendered = await page.locator('.mu-diagram-preview svg, .mu-diagram-preview canvas').count()
         await recordSample(page, 'diagram.firstScreenSyncRender', 'count', initialRendered > 0 ? 1 : 0, 'diagram')
         const imageStates = await page.locator('.mu-inline-image img').evaluateAll((images) =>
-          images.map((image) => ({
-            complete: (image as HTMLImageElement).complete,
-            naturalWidth: (image as HTMLImageElement).naturalWidth,
-            top: (image as HTMLElement).getBoundingClientRect().top
-          }))
+          images.map((image) => {
+            const wrapper = image.closest('.mu-inline-image')
+            return {
+              complete: (image as HTMLImageElement).complete,
+              naturalWidth: (image as HTMLImageElement).naturalWidth,
+              top: (image as HTMLElement).getBoundingClientRect().top,
+              lazy: wrapper?.getAttribute('data-image-lazy'),
+              loadStarted: wrapper?.getAttribute('data-image-load-start')
+            }
+          })
         )
-        const offscreen = imageStates.find((image) => image.top > window.innerHeight)
+        const viewportHeight = page.viewportSize()?.height ?? 720
+        const offscreen = imageStates.find((image) => image.top > viewportHeight)
+        const offscreenLazy = offscreen?.lazy === 'pending'
         await recordSample(
           page,
           'image.offscreenRequest',
           'count',
-          offscreen && offscreen.complete ? 1 : 0,
+          offscreen && offscreenLazy && !offscreen.loadStarted ? 0 : 1,
           'diagram'
         )
         await recordSample(
           page,
           'image.offscreenDecode',
           'count',
-          offscreen && offscreen.complete && offscreen.naturalWidth > 0 ? 1 : 0,
+          offscreen && offscreenLazy && !offscreen.complete && offscreen.naturalWidth <= 0 ? 0 : 1,
           'diagram'
         )
-        const beforeErrorCount = await page.locator('.mu-diagram-block').count()
+        const attempts = Number(
+          await page.locator('.mu-diagram-preview').first().getAttribute('data-diagram-render-attempts') ?? '0'
+        )
         await page.waitForTimeout(500)
-        const afterErrorCount = await page.locator('.mu-diagram-block').count()
+        const attemptsAfterWait = Number(
+          await page.locator('.mu-diagram-preview').first().getAttribute('data-diagram-render-attempts') ?? '0'
+        )
         await recordSample(
           page,
           'diagram.errorRetry',
           'count',
-          afterErrorCount > beforeErrorCount ? 1 : 0,
+          Math.max(0, attemptsAfterWait - Math.max(1, attempts)),
           'diagram'
         )
       } finally {

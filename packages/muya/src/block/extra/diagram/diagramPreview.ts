@@ -37,6 +37,7 @@ class DiagramPreview extends Parent {
     private _viewportObserver: IntersectionObserver | null = null;
     private _viewportObserveTimer: ReturnType<typeof setTimeout> | null = null;
     private _isViewportReady = false;
+    private _renderAttempts = 0;
 
     static override blockName = 'diagram-preview';
 
@@ -189,6 +190,9 @@ class DiagramPreview extends Parent {
         const { i18n } = this.muya;
         if (this._disposed || generation !== this._renderGeneration)
             return;
+
+        this._renderAttempts += 1;
+        this.domNode?.setAttribute('data-diagram-render-attempts', String(this._renderAttempts));
 
         if (!code) {
             this._hasRenderedResult = false;

@@ -37,6 +37,8 @@ export default function loadImageAsync(
             ? `${src}${src.includes('?') ? '&' : '?'}mucache=${id}`
             : src;
         const startLoad = () => {
+            const imageText = document.getElementById(id);
+            imageText?.setAttribute('data-image-load-start', String(performance.now()));
             loadImage(loadSrc, isUnknownType)
                 .then(({ url, width, height }) => {
                     const imageText: HTMLElement | null = document.querySelector(`#${id}`);
@@ -56,6 +58,7 @@ export default function loadImageAsync(
                         img.classList.add(imageClass);
 
                     if (imageText) {
+                        imageText.setAttribute('data-image-load-ready', String(performance.now()));
                         if (imageText.classList.contains(`${CLASS_NAMES.MU_INLINE_IMAGE}`)) {
                             const imageContainer = imageText.querySelector(
                                 `.${CLASS_NAMES.MU_IMAGE_CONTAINER}`,
