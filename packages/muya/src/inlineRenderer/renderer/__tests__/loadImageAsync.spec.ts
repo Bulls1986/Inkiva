@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import type Renderer from '../index';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import loadImageAsync from '../loadImageAsync';
 
 // Narrow cast for the fake renderer used in every test below — it only
@@ -30,6 +30,44 @@ function makeRenderer(): IFakeRenderer {
         urlMap: new Map(),
     };
 }
+
+class TestIntersectionObserver {
+    static instances: TestIntersectionObserver[] = [];
+    private readonly callback: IntersectionObserverCallback;
+    private target: Element | null = null;
+
+    constructor(callback: IntersectionObserverCallback) {
+        this.callback = callback;
+        TestIntersectionObserver.instances.push(this);
+    }
+
+    observe(target: Element) {
+        this.target = target;
+    }
+
+    disconnect() {
+        this.target = null;
+    }
+
+    trigger(isIntersecting: boolean) {
+        if (!this.target)
+            return;
+
+        this.callback([
+            {
+                target: this.target,
+                isIntersecting,
+                intersectionRatio: isIntersecting ? 1 : 0,
+            } as IntersectionObserverEntry,
+        ], this as unknown as IntersectionObserver);
+    }
+}
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.innerHTML = '';
+    TestIntersectionObserver.instances = [];
+});
 
 // Regression for marktext commit bca2ed62 (#3001 / #3010):
 // "Internal image cache isn't reset if failed to load".
@@ -108,6 +146,38 @@ describe('loadImageAsync — failed cache should retry', () => {
 // serves from its in-memory image cache, keeping the stale bitmap. Each load
 // of a `file://` source must therefore hit a unique URL so the browser
 // re-reads the file. Remote (http/https) URLs are left untouched.
+describe('loadImageAsync — viewport lazy loading', () => {
+    it('does not call loadImage until the image intersects the viewport', async () => {
+        vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const { loadImage } = await import('../../../utils/image');
+        const r = makeRenderer();
+        const out = loadImageAsync.call(
+            asRenderer(r),
+            { isUnknownType: false, src: 'https://example.com/lazy.png' },
+            {},
+        );
+
+        const wrapper = document.createElement('span');
+        wrapper.id = out.id;
+        document.body.appendChild(wrapper);
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+        expect(TestIntersectionObserver.instances).toHaveLength(1);
+        expect(loadImage).not.toHaveBeenCalled();
+
+        const observer = TestIntersectionObserver.instances[0];
+        observer.trigger(false);
+        await Promise.resolve();
+        expect(loadImage).not.toHaveBeenCalled();
+
+        observer.trigger(true);
+        expect(loadImage).toHaveBeenCalledTimes(1);
+        expect(loadImage).toHaveBeenCalledWith(
+            'https://example.com/lazy.png',
+            false,
+        );
+    });
+});
 describe('loadImageAsync — local file cache-busting', () => {
     beforeEach(() => {
         vi.clearAllMocks();

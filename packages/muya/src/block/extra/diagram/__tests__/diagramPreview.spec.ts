@@ -21,8 +21,42 @@ vi.mock('../../../../utils/diagram', () => ({
 
 const bootedHosts: HTMLElement[] = [];
 
+class TestIntersectionObserver {
+    static instances: TestIntersectionObserver[] = [];
+    private readonly callback: IntersectionObserverCallback;
+    private target: Element | null = null;
+
+    constructor(callback: IntersectionObserverCallback) {
+        this.callback = callback;
+        TestIntersectionObserver.instances.push(this);
+    }
+
+    observe(target: Element) {
+        this.target = target;
+    }
+
+    disconnect() {
+        this.target = null;
+    }
+
+    trigger(isIntersecting: boolean) {
+        if (!this.target)
+            return;
+
+        this.callback([
+            {
+                target: this.target,
+                isIntersecting,
+                intersectionRatio: isIntersecting ? 1 : 0,
+            } as IntersectionObserverEntry,
+        ], this as unknown as IntersectionObserver);
+    }
+}
+
 afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+    TestIntersectionObserver.instances = [];
     while (bootedHosts.length) bootedHosts.pop()!.remove();
     loadRendererMock.mockReset();
 });
@@ -280,6 +314,38 @@ describe('diagramPreview — Mermaid auto-rendering', () => {
     });
 });
 
+describe('diagramPreview — viewport lazy rendering', () => {
+    it('does not start the renderer until the preview intersects the viewport', async () => {
+        vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const render = vi.fn().mockResolvedValue({
+            svg: '<svg data-rendered="lazy"></svg>',
+        });
+        loadRendererMock.mockResolvedValue({
+            initialize: vi.fn(),
+            registerIconPacks: vi.fn(),
+            render,
+        });
+
+        const { preview } = makePreview('graph TD\\n  A --> B');
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+        expect(loadRendererMock).not.toHaveBeenCalled();
+        expect(preview.domNode!.getAttribute('data-diagram-lazy')).toBe('pending');
+        expect(TestIntersectionObserver.instances).toHaveLength(1);
+
+        const observer = TestIntersectionObserver.instances[0];
+        observer.trigger(false);
+        await Promise.resolve();
+        expect(loadRendererMock).not.toHaveBeenCalled();
+
+        observer.trigger(true);
+        for (let attempt = 0; attempt < 10 && render.mock.calls.length === 0; attempt += 1)
+            await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+        expect(render).toHaveBeenCalledTimes(1);
+        expect(preview.domNode!.getAttribute('data-diagram-lazy')).toBeNull();
+    });
+});
 describe('diagramBlock — focus lifecycle', () => {
     it('reveals the prepared preview only on the active block blur transition', async () => {
         const { muya } = makeFakeMuya();
