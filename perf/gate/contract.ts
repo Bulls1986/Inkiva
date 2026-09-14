@@ -26,6 +26,23 @@ export const ENVIRONMENT_KEYS = [
 ] as const
 export type EnvironmentKey = (typeof ENVIRONMENT_KEYS)[number]
 
+/**
+ * The only environment that may produce an official release-gate result.
+ * Runner metadata is deliberately explicit so a developer machine cannot be
+ * mistaken for the low-end reference profile.
+ */
+export const REFERENCE_ENVIRONMENT: PerformanceGateEnvironment = {
+  os: 'Windows 11 64-bit',
+  cpu: '4-core low-voltage x86',
+  memory: '8 GB',
+  disk: 'SATA SSD',
+  gpu: 'integrated graphics',
+  display: '1920x1080 @ 60Hz',
+  power: 'Balanced',
+  network: 'offline',
+  runner: 'reference-low-end'
+}
+
 export interface MetricSeries {
   unit: MetricUnit
   samples: number[]
@@ -184,6 +201,33 @@ function validateEnvironment(value: unknown): asserts value is PerformanceGateEn
   assertKnownKeys(environment, ENVIRONMENT_KEYS, 'report.environment')
   for (const key of ENVIRONMENT_KEYS) {
     assertNonEmptyString(environment[key], 'report.environment.' + key)
+  }
+}
+
+export function validateReferenceEnvironment(
+  value: unknown,
+): asserts value is PerformanceGateEnvironment {
+  const environment = asRecord(value, 'report.environment')
+  validateEnvironment(environment)
+
+  const aliases: Record<string, readonly string[]> = {
+    os: [REFERENCE_ENVIRONMENT.os],
+    cpu: [REFERENCE_ENVIRONMENT.cpu],
+    memory: [REFERENCE_ENVIRONMENT.memory],
+    disk: ['SATA SSD', 'entry NVMe'],
+    gpu: ['integrated', 'integrated graphics'],
+    display: ['1920x1080@60Hz', '1920x1080 @ 60Hz'],
+    power: [REFERENCE_ENVIRONMENT.power],
+    network: [REFERENCE_ENVIRONMENT.network],
+    runner: [REFERENCE_ENVIRONMENT.runner]
+  }
+
+  for (const key of ENVIRONMENT_KEYS) {
+    if (!aliases[key]?.includes(environment[key])) {
+      throw new Error(
+        'report.environment.' + key + ' must describe the Windows low-end reference profile'
+      )
+    }
   }
 }
 

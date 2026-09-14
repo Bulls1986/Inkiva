@@ -10,13 +10,15 @@ import {
   type GateFailure,
   type PerformanceGateConfig,
   type PerformanceGateEvaluation,
-  type PerformanceGateReport
+  type PerformanceGateReport,
+  validateReferenceEnvironment
 } from './contract.js'
 import { collectPerformanceReportSamples } from './performance-report.js'
 import {
   createPerformanceGateReport,
   type PerformanceGateReportMetadata,
-  PerformanceSampleCollector
+  PerformanceSampleCollector,
+  writePerformanceGateReport
 } from './runner.js'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -95,6 +97,9 @@ interface CliOptions {
   thresholdsPath: string
   outputPath: string
   baselinePath?: string
+  metadataPath?: string
+  reportOutputPath?: string
+  requireReferenceEnvironment: boolean
 }
 
 const readJson = (filePath: string): unknown => {
@@ -108,34 +113,74 @@ const readJson = (filePath: string): unknown => {
 }
 
 const parseArgs = (args: string[]): CliOptions => {
-  const options: Partial<CliOptions> = {}
+  const options: Partial<CliOptions> = {
+    requireReferenceEnvironment: false
+  }
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index]
+    if (argument === '--reference') {
+      options.requireReferenceEnvironment = true
+      continue
+    }
     const value = args[index + 1]
     if (argument === '--input' && value) options.inputPath = value
     else if (argument === '--thresholds' && value) options.thresholdsPath = value
     else if (argument === '--output' && value) options.outputPath = value
     else if (argument === '--baseline' && value) options.baselinePath = value
+    else if (argument === '--metadata' && value) options.metadataPath = value
+    else if (argument === '--report-output' && value) options.reportOutputPath = value
     else throw new Error(`unknown or incomplete argument: ${argument}`)
     index += 1
   }
   if (!options.inputPath || !options.thresholdsPath || !options.outputPath) {
     throw new Error(
-      'usage: evaluate.ts --input <gate-report.json> --thresholds <thresholds.json> --output <evaluation.json> [--baseline <report.json>]'
+      'usage: evaluate.ts --input <trace-or-report.json> --thresholds <thresholds.json> --output <evaluation.json> [--metadata <metadata.json>] [--report-output <report.json>] [--baseline <report.json>] [--reference]'
     )
   }
   return options as CliOptions
 }
 
+const isTraceInput = (value: unknown): value is { traces: unknown } =>
+  isRecord(value) && Array.isArray(value.traces)
+
+const readCliReport = (options: CliOptions): PerformanceGateReport => {
+  const input = readJson(options.inputPath)
+  let report: PerformanceGateReport
+
+  if (isTraceInput(input)) {
+    if (options.metadataPath === undefined) {
+      throw new Error('raw trace input requires --metadata <metadata.json>')
+    }
+    report = createPerformanceGateReportFromTrace(
+      input,
+      readJson(options.metadataPath) as PerformanceGateReportMetadata
+    )
+  } else {
+    if (options.metadataPath !== undefined) {
+      throw new Error('--metadata is only valid when --input is a raw trace')
+    }
+    report = parsePerformanceGateReport(input)
+  }
+
+  if (options.requireReferenceEnvironment) {
+    validateReferenceEnvironment(report.environment)
+  }
+  if (options.reportOutputPath !== undefined) {
+    writePerformanceGateReport(options.reportOutputPath, report)
+  }
+  return report
+}
+
 export const runPerformanceGateCli = (args: string[]): PerformanceGateEvaluation => {
   const options = parseArgs(args)
+  const report = readCliReport(options)
   const result = evaluatePerformanceGateInput(
-    readJson(options.inputPath),
+    report,
     readJson(options.thresholdsPath),
     options.baselinePath === undefined ? undefined : readJson(options.baselinePath)
   )
   mkdirSync(dirname(options.outputPath), { recursive: true })
-  writeFileSync(options.outputPath, JSON.stringify(result, null, 2) + '\\n', 'utf8')
+  writeFileSync(options.outputPath, JSON.stringify(result, null, 2) + '\n', 'utf8')
   for (const item of result.failures) {
     console.error(
       '::error title=Performance gate failed::' + item.code + ': ' + item.detail

@@ -127,7 +127,7 @@ test('CLI writes and evaluates a canonical report from a raw trace', () => {
     ])
 
     assert.equal(result.passed, true)
-    const writtenReport = JSON.parse(readFileSync(reportPath, 'utf8')) as typeof report
+    const writtenReport = JSON.parse(readFileSync(reportPath, 'utf8')) as ReturnType<typeof report>
     assert.equal(writtenReport.metrics['core.input.latency']?.samples.length, 20)
     assert.equal(JSON.parse(readFileSync(evaluationPath, 'utf8')).passed, true)
   } finally {
