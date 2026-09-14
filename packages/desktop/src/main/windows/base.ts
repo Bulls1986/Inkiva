@@ -37,6 +37,8 @@ export type WindowLifecycleValue = (typeof WindowLifecycle)[keyof typeof WindowL
  */
 export interface BaseWindowEvents {
   'window-ready': []
+  'window-shell-visible': []
+  'window-interactive': []
   'window-focus': []
   'window-blur': []
   'window-close': []
@@ -66,7 +68,10 @@ export interface EnvLike {
  * arrives at `readyState=interactive`, before deferred/module scripts run;
  * `dom-ready` remains a fallback for alternate renderer entry points.
  */
-export const showWindowWhenRendererReady = (win: BrowserWindow): void => {
+export const showWindowWhenRendererReady = (
+  win: BrowserWindow,
+  onShellVisible?: () => void
+): void => {
   let shown = false
   // Keep the WebContents reference captured before the BrowserWindow can be
   // destroyed. Accessing `win.webContents` from a `closed`/`destroyed` event
@@ -83,6 +88,7 @@ export const showWindowWhenRendererReady = (win: BrowserWindow): void => {
     shown = true
     cleanup()
     if (!win.isVisible()) win.show()
+    onShellVisible?.()
   }
 
   const onIpcMessage = (event: IpcMainEvent, channel: string): void => {

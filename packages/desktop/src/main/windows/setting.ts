@@ -70,7 +70,7 @@ class SettingWindow extends BaseWindow {
     })
 
     this.id = win.id
-    showWindowWhenRendererReady(win)
+    showWindowWhenRendererReady(win, () => this.emit('window-shell-visible'))
 
     // Create a menu for the current window
     appMenu.addSettingMenu(win)
