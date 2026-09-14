@@ -28,6 +28,7 @@ export { captureConfig }
 
 export const mainProcessPerformanceMonitor = new MainProcessPerformanceMonitor({
   recorder: mainPerformance,
+  sampleIntervalMs: captureConfig.sampleIntervalMs,
   source: {
     getAppMetrics: () => app.getAppMetrics(),
     getProcessMemoryInfo: () => {

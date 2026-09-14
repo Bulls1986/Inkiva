@@ -1,6 +1,17 @@
+export const DEFAULT_PERFORMANCE_SAMPLE_INTERVAL_MS = 1_000
+export const MIN_PERFORMANCE_SAMPLE_INTERVAL_MS = 250
+
 export interface PerformanceCaptureConfig {
   enabled: boolean
   reportDirectory: string | null
+  sampleIntervalMs: number
+}
+
+const parseSampleInterval = (value: string | undefined): number => {
+  if (value === undefined || value.trim() === '') return DEFAULT_PERFORMANCE_SAMPLE_INTERVAL_MS
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_PERFORMANCE_SAMPLE_INTERVAL_MS
+  return Math.max(MIN_PERFORMANCE_SAMPLE_INTERVAL_MS, Math.floor(parsed))
 }
 
 /**
@@ -20,5 +31,9 @@ export const resolvePerformanceCaptureConfig = (
   const reportDirectory =
     enabled && env.INKIVA_PERF_REPORT_DIR?.trim() ? env.INKIVA_PERF_REPORT_DIR.trim() : null
 
-  return { enabled, reportDirectory }
+  return {
+    enabled,
+    reportDirectory,
+    sampleIntervalMs: parseSampleInterval(env.INKIVA_PERF_SAMPLE_INTERVAL_MS)
+  }
 }

@@ -9,6 +9,14 @@ const electronApi = (
   }
 ).electron
 
+const configuredSampleInterval = Number(
+  electronApi?.process.env.INKIVA_PERF_SAMPLE_INTERVAL_MS ?? ''
+)
+const sampleIntervalMs =
+  Number.isFinite(configuredSampleInterval) && configuredSampleInterval > 0
+    ? Math.max(250, Math.floor(configuredSampleInterval))
+    : 1_000
+
 /**
  * Renderer-side singleton for the current BrowserWindow. The preload boot
  * context supplies the main-process trace id; all output remains best-effort
@@ -26,7 +34,8 @@ export const rendererPerformance = createRendererPerformanceRecorder({
 })
 
 export const rendererPerformanceMonitor = new RuntimePerformanceMonitor({
-  recorder: rendererPerformance
+  recorder: rendererPerformance,
+  memorySampleIntervalMs: sampleIntervalMs
 })
 
 rendererPerformanceMonitor.start()
