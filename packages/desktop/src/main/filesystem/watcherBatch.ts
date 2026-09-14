@@ -5,6 +5,31 @@ export const WATCHER_BATCH_SLICE_BUDGET_MS = 5
 export type WatcherBatchChannel = 'mt::update-object-tree' | 'mt::update-file'
 export type WatcherBatchSender = (channel: WatcherBatchChannel, payload: unknown) => void
 
+/**
+ * Do not let a structural event disappear behind a same-path mtime event.
+ * Chokidar can report add/change or unlink/add in one debounce window; only
+ * repeat events of the same kind are safe to coalesce.
+ */
+export const getWatcherEventCoalescingKey = (
+  channel: WatcherBatchChannel,
+  payload: unknown,
+  key: string
+): string => {
+  if (
+    channel !== 'mt::update-object-tree' ||
+    payload === null ||
+    typeof payload !== 'object' ||
+    Array.isArray(payload)
+  ) {
+    return key
+  }
+
+  const type = (payload as { type?: unknown }).type
+  return typeof type === 'string' && type !== 'change'
+    ? key + '\u0000' + type
+    : key
+}
+
 export interface WatcherEventBatcherOptions {
   send: WatcherBatchSender
   debounceMs?: number

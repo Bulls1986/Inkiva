@@ -7,7 +7,11 @@ import { hasMarkdownExtension, checkPathExcludePattern } from 'common/filesystem
 import { getUniqueId } from '../utils'
 import { loadMarkdownFile } from '../filesystem/markdown'
 import { isLinux, isOsx } from '../config'
-import { WatcherEventBatcher, type WatcherBatchChannel } from './watcherBatch'
+import {
+  getWatcherEventCoalescingKey,
+  WatcherEventBatcher,
+  type WatcherBatchChannel
+} from './watcherBatch'
 import type { BrowserWindow } from 'electron'
 import type { LineEnding } from '@shared/types/files'
 import type Preference from '../preferences'
@@ -288,7 +292,11 @@ class Watcher {
       onSendError: (error) => log.debug('Failed to send batched watcher event:', error)
     })
     const emit: WatcherEventEmitter = (channel, payload, key) => {
-      batcher.enqueue(channel, payload, key)
+      batcher.enqueue(
+        channel,
+        payload,
+        getWatcherEventCoalescingKey(channel, payload, key)
+      )
     }
 
     watcher
