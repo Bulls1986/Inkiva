@@ -27,6 +27,7 @@ vi.mock('@/services/notification', () => ({
 
 import { useEditorStore } from '@/store/editor'
 import bus from '@/bus'
+import { EditorSnapshotScheduler } from '@/components/editorWithTabs/editorHotPath'
 
 // #3803: the store snapshots `currentFile.markdown` (refreshed only on the
 // engine's deferred rAF `json-change`) to send to the main process. A keystroke
@@ -61,8 +62,8 @@ function seedCurrentFile(
     adjustLineEndingOnSave: false,
     trimTrailingNewline: 2,
     ...overrides
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any
+  } as unknown as NonNullable<ReturnType<typeof useEditorStore>['currentFile']>
+  return store.currentFile
 }
 
 // Mirror editor.vue's listener: commit the pending keystroke into the store on
@@ -165,5 +166,42 @@ describe('editor store — flush pending edits before saving (#3803)', () => {
     expect(flushOrder).toBeDefined()
     expect(renameOrder).toBeDefined()
     expect(flushOrder as number).toBeLessThan(renameOrder as number)
+  })
+
+  it('flushes a deferred outgoing snapshot before changing the active tab', () => {
+    const store = useEditorStore()
+    const oldTab = seedCurrentFile(store)
+    const nextTab = { ...oldTab, id: 'tab-2', filename: 'next.md', markdown: 'next' }
+    store.tabs = [oldTab, nextTab] as unknown as typeof store.tabs
+    store.tabIdToIndex = { 'tab-1': 0, 'tab-2': 1 }
+    store.currentFile = oldTab as unknown as typeof store.currentFile
+
+    const scheduler = new EditorSnapshotScheduler({ delayMs: 50, maxWaitMs: 200 })
+    const snapshots: string[] = []
+    scheduler.request('tab-1', () => {
+      // Mirror captureEditorSnapshot's currentFile guard. If the flush moves
+      // after UPDATE_CURRENT_FILE, this callback is discarded as stale.
+      if (store.currentFile?.id === 'tab-1') {
+        snapshots.push(store.currentFile.markdown)
+      }
+    })
+
+    const flush = () => {
+      const id = store.currentFile?.id
+      if (id) scheduler.flush(id)
+    }
+    bus.on('flush-active-editor', flush)
+
+    try {
+      store.UPDATE_CURRENT_FILE(
+        nextTab as unknown as Parameters<typeof store.UPDATE_CURRENT_FILE>[0]
+      )
+    } finally {
+      bus.off('flush-active-editor', flush)
+      scheduler.dispose()
+    }
+
+    expect(snapshots).toEqual([STALE])
+    expect(store.currentFile?.id).toBe('tab-2')
   })
 })

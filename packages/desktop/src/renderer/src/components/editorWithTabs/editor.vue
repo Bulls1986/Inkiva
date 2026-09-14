@@ -136,6 +136,10 @@ import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { getApplicationAppearance } from 'common/theme'
 import { SyntheticHistory, type IFileHistoryLike } from './syntheticHistory'
+import {
+  EditorSnapshotScheduler,
+  getEditorMutationPolicy
+} from './editorHotPath'
 import { rendererPerformance } from '@/services/performance/runtime'
 
 // Importing the engine entrypoint auto-injects its editor CSS (the muya.ts
@@ -194,6 +198,7 @@ interface MuyaChange {
   cursorCoords?: { y?: number } | null
   formats?: SelectionFormatLike[]
   tocChanged?: boolean
+  mutationKind?: 'text-only' | 'structural' | 'diagram'
   [key: string]: unknown
 }
 
@@ -293,6 +298,13 @@ let scrollHandler: ((e: Event) => void) | null = null
 let tocScrollSync: ReturnType<typeof createTocScrollSync> | null = null
 let editorLayoutReconciler: ReturnType<typeof createEditorLayoutReconciler> | null = null
 const tocRefreshScheduler = createTocRefreshScheduler()
+const editorSnapshotScheduler = new EditorSnapshotScheduler()
+
+const flushActiveEditor = () => {
+  const id = currentFile.value?.id
+  editor.value?.flush()
+  if (id) editorSnapshotScheduler.flush(id)
+}
 
 // The engine's undo/redo history (`getHistory()`) has a different shape than
 // the desktop store's `tab.history` (which drives the save/dirty tracking and
@@ -333,6 +345,25 @@ const resetSyntheticHistory = (id: string, baselineContent: string): void => {
 }
 const makeSyntheticHistory = (id: string, content: string): IFileHistoryLike => {
   return getSyntheticHistory(id, content).build(content)
+}
+
+const captureEditorSnapshot = (id: string, revision: number): void => {
+  if (!currentFile.value || currentFile.value.id !== id || !editor.value) return
+
+  const markdown = editor.value.getMarkdown()
+  const engineHistory = editor.value.getHistory()
+  engineHistoryByTab.set(id, engineHistory)
+  editorStore.LISTEN_FOR_CONTENT_CHANGE({
+    id,
+    revision,
+    markdown,
+    wordCount: muyaWordCount(markdown),
+    cursor: serializeCursor(editor.value.getSelection()),
+    // Synthetic, desktop-shaped history so the store's save/dirty tracking
+    // keeps working (the engine history shape is incompatible).
+    history: makeSyntheticHistory(id, markdown),
+    blocks: editor.value.getState()
+  })
 }
 // Drop per-tab bookkeeping for tabs that no longer exist. Tab ids are unique
 // over the session, so without pruning these maps (and the content -> id map
@@ -846,6 +877,10 @@ watch(
   (value, oldValue) => {
     if (value && value !== oldValue) {
       if (editor.value) {
+        // Flush the WYSIWYG operation batch and its deferred snapshot before
+        // the source editor mounts. The source view reads currentFile.markdown
+        // as its initial value, so entering it must not expose a stale frame.
+        flushActiveEditor()
         editor.value.hideAllFloatTools()
         // Compute the WYSIWYG caret as a source-markdown `{ line, ch }` index
         // cursor JUST-IN-TIME, only when entering source mode (Phase G — G7),
@@ -1907,10 +1942,6 @@ const blurEditor = () => {
   editor.value?.blur(false, true)
 }
 
-const flushActiveEditor = () => {
-  editor.value?.flush()
-}
-
 const focusEditor = () => {
   editor.value?.focus()
 }
@@ -2170,38 +2201,26 @@ onMounted(() => {
   bus.on('open-command-spellchecker-switch-language', openSpellcheckerLanguageCommand)
   bus.on('replace-misspelling', replaceMisspelling)
 
-  // The engine emits a low-level `json-change` ({ op, source, prevDoc, doc })
-  // on every document mutation; the desktop's content-change pipeline wants the
-  // derived document snapshot (markdown / word count / cursor / history /
-  // block AST), so we compute it here — mirroring the legacy engine's
-  // `dispatchChange` payload. `tocChanged` comes from the operation path, so
-  // ordinary paragraph typing does not parse/rebuild the entire outline.
+  // The engine emits a low-level `json-change` on every document mutation. Keep
+  // the input callback to classification, dirty-revision allocation, and
+  // scheduling only. Markdown/history/AST serialization is deferred for text
+  // input and only flushed synchronously for structural work or an explicit
+  // boundary such as save/tab switch.
   editor.value.on('json-change', (change: MuyaChange = {}) => {
     // There is a chance that this event is fired AFTER the tab is switched. If we purely rely on this.currentFile later on
     // it can cause invalid updates. Hence, we need the id to identify changes as part of each tab
     if (!currentFile.value || !editor.value) return
     const { id } = currentFile.value
     if (!id) return
-    const markdown = editor.value.getMarkdown()
-    // Stash the real engine history for in-session tab-switch restoration. The
-    // synthetic save-tracking id is derived from the live document content (a
-    // monotonic, never-reused id — see `syntheticHistory.ts`), NOT the engine
-    // undo-stack depth, which is reused and falsely showed a divergently
-    // re-edited tab as clean (Phase G — G6).
-    const engineHistory = editor.value.getHistory()
-    engineHistoryByTab.set(id, engineHistory)
-    editorStore.LISTEN_FOR_CONTENT_CHANGE({
+    const policy = getEditorMutationPolicy(change)
+    const revision = editorStore.MARK_CONTENT_DIRTY(id)
+    editorSnapshotScheduler.request(
       id,
-      markdown,
-      wordCount: muyaWordCount(markdown),
-      cursor: serializeCursor(editor.value.getSelection()),
-      // Synthetic, desktop-shaped history so the store's save/dirty tracking
-      // keeps working (the engine history shape is incompatible).
-      history: makeSyntheticHistory(id, markdown),
-      blocks: editor.value.getState()
-    })
+      () => captureEditorSnapshot(id, revision),
+      policy.snapshot === 'immediate'
+    )
 
-    if (change.tocChanged === true) scheduleTocRefresh(id)
+    if (policy.refreshToc) scheduleTocRefresh(id)
   })
 
   // The engine does not emit `scroll`; listen on the scroll container directly
@@ -2305,6 +2324,9 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  flushActiveEditor()
+  editorSnapshotScheduler.dispose()
+
   bus.off('file-loaded', setMarkdownToEditor)
   bus.off('invalidate-image-cache', handleInvalidateImageCache)
   bus.off('undo', handleUndo)

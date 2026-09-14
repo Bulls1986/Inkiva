@@ -42,6 +42,7 @@ const editor = ref<CMInstance>(null)
 const commitTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const viewDestroyed = ref(false)
 const tabId = ref<string | null>(null)
+let applyingFileChange = false
 
 const { theme, sourceCode } = storeToRefs(preferencesStore)
 const { currentFile: currentTab } = storeToRefs(editorStore)
@@ -60,11 +61,10 @@ watch(
   }
 )
 
-const getMarkdownAndCursor = (cm: CMInstance) => {
+const getCursor = (cm: CMInstance) => {
   let focus = cm.getCursor('head')
   let anchor = cm.getCursor('anchor')
 
-  const markdown: string = cm.getValue()
   const convertToMuyaCursor = (cursor: CMCursor) => {
     const line = cm.getLine(cursor.line)
     const preLine = cm.getLine(cursor.line - 1)
@@ -91,7 +91,19 @@ const getMarkdownAndCursor = (cm: CMInstance) => {
     focus = anchor
     anchor = tmpCursor
   }
-  return { cursor: { focus, anchor }, markdown }
+  return { focus, anchor }
+}
+
+const getMarkdownAndCursor = (cm: CMInstance) => {
+  return { cursor: getCursor(cm), markdown: cm.getValue() as string }
+}
+
+const commitWordCount = (id: string, markdown: string): void => {
+  editorStore.LISTEN_FOR_CONTENT_CHANGE({
+    id,
+    markdown,
+    wordCount: getWordCount(markdown)
+  })
 }
 
 /**
@@ -99,13 +111,22 @@ const getMarkdownAndCursor = (cm: CMInstance) => {
  * @param id
  */
 const prepareTabSwitch = () => {
-  if (commitTimer.value) clearTimeout(commitTimer.value)
+  if (commitTimer.value) {
+    clearTimeout(commitTimer.value)
+    commitTimer.value = null
+  }
   if (tabId.value) {
     const { cursor, markdown: newMarkdown } = getMarkdownAndCursor(editor.value)
     editorStore.LISTEN_FOR_CONTENT_CHANGE({
       id: tabId.value,
       markdown: newMarkdown,
-      muyaIndexCursor: cursor
+      muyaIndexCursor: cursor,
+      // The timer is metadata-only and is cancelled at a tab boundary. Publish
+      // the final count here so switching tabs cannot leave stale derived
+      // state; this does not allocate a new dirty revision or duplicate the
+      // content autosave because the markdown was already committed by
+      // `change`.
+      wordCount: getWordCount(newMarkdown)
     })
     tabId.value = null
   }
@@ -160,7 +181,12 @@ const handleFileChange = (payload: unknown) => {
   }
 
   if (typeof newMarkdown === 'string') {
-    editor.value.setValue(newMarkdown)
+    applyingFileChange = true
+    try {
+      editor.value.setValue(newMarkdown)
+    } finally {
+      applyingFileChange = false
+    }
   }
 
   // t('editor.sourceCode.cursorNullComment')
@@ -283,17 +309,28 @@ const handleImageAction = (payload: unknown) => {
 
 const saveContent = (cm: CMInstance) => {
   const { cursor, markdown: newMarkdown } = getMarkdownAndCursor(cm)
-  // Attention: the cursor may be `{focus: null, anchor: null}` when press `backspace`
-  const wordCount = getWordCount(newMarkdown)
   // See "beforeDestroy" note
   if (!viewDestroyed.value) {
     if (tabId.value) {
+      const id = tabId.value
+      const revision = editorStore.MARK_CONTENT_DIRTY(id)
       editorStore.LISTEN_FOR_CONTENT_CHANGE({
-        id: tabId.value,
+        id,
         markdown: newMarkdown,
-        wordCount,
+        revision,
         muyaIndexCursor: cursor
       })
+
+      // Word counting scans the whole source text. Keep it out of the
+      // CodeMirror change callback and publish it once the user pauses.
+      if (commitTimer.value) clearTimeout(commitTimer.value)
+      commitTimer.value = setTimeout(() => {
+        commitTimer.value = null
+        if (viewDestroyed.value || tabId.value !== id) return
+        const latestMarkdown = editor.value?.getValue()
+        if (typeof latestMarkdown !== 'string') return
+        commitWordCount(id, latestMarkdown)
+      }, 120)
     } else {
       // This may occur during tab switching but should not occur otherwise.
       console.warn('LISTEN_FOR_CONTENT_CHANGE: Cannot commit changes because not tab id was set!')
@@ -301,9 +338,17 @@ const saveContent = (cm: CMInstance) => {
   }
 }
 
+const saveCursor = (cm: CMInstance) => {
+  if (viewDestroyed.value || applyingFileChange || !tabId.value) return
+  editorStore.PERSIST_MUYA_INDEX_CURSOR(tabId.value, getCursor(cm))
+}
+
 const listenChange = () => {
+  editor.value.on('change', (cm: CMInstance) => {
+    if (!applyingFileChange) saveContent(cm)
+  })
   editor.value.on('cursorActivity', (cm: CMInstance) => {
-    saveContent(cm)
+    saveCursor(cm)
   })
 }
 
@@ -402,6 +447,7 @@ onBeforeUnmount(() => {
   bus.off('scroll-to-header', handleScrollToHeader)
 
   const { cursor, markdown: newMarkdown } = getMarkdownAndCursor(editor.value)
+  if (tabId.value) commitWordCount(tabId.value, newMarkdown)
   bus.emit('file-changed', {
     id: tabId.value,
     markdown: newMarkdown,
