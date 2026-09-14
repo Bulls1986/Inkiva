@@ -198,6 +198,7 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
       'combo.crash',
       'combo.rendererHang'
     ]
+  },
   {
     id: 'p3-documents-headings',
     level: 'P3',
@@ -265,7 +266,6 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
       'combo.crash',
       'combo.rendererHang'
     ]
-  }
   }
 ]
 

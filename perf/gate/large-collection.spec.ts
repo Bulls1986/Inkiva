@@ -14,7 +14,7 @@ test('large collection defaults to both release levels', () => {
 })
 
 test('large collection rejects levels without a real large-scenario runner', () => {
-  assert.throws(() => parseLargeGateLevels('P0'), /P1 or P2/)
+  assert.throws(() => parseLargeGateLevels('P0'), /P1, P2, or P3/)
   assert.doesNotThrow(() => parseLargeGateLevels('P3'))
   assert.throws(() => parseLargeGateLevels('P1,unknown'), /unknown/)
 })

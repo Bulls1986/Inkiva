@@ -16,6 +16,12 @@ on:
       - 'pnpm-lock.yaml'
       - '.github/workflows/performance-gate.yml'
   workflow_dispatch:
+    inputs:
+      run_p3:
+        description: Run the opt-in P3 extreme performance gate
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: performance-gate-${{ github.ref }}
@@ -177,6 +183,74 @@ jobs:
         uses: actions/upload-artifact@v4.6.2
         with:
           name: inkiva-performance-gate-large
+          path: perf-results
+          if-no-files-found: warn
+          retention-days: 30
+
+
+  reference-p3:
+    name: Reference Windows P3 Extreme Gate
+    if: github.event_name == 'workflow_dispatch' && inputs.run_p3 == true
+    runs-on: windows-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4.3.1
+        with:
+          fetch-depth: 1
+
+      - uses: ./.github/actions/setup
+
+      - name: Validate reference hardware and test mode
+        shell: bash
+        run: pnpm exec tsx scripts/verifyPerformanceEnvironment.ts --output perf-results/reference-environment.json --observation-output perf-results/reference-observation.json
+        env:
+          INKIVA_PERF_OFFLINE: 'true'
+          INKIVA_PERF_RUNNER_LABEL: reference-low-end
+
+      - name: Run postinstall
+        run: pnpm tsx scripts/postinstall.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm_config_user_agent: pnpm
+          USE_ELECTRON_CLANG: '0'
+
+      - name: Build app
+        run: pnpm build
+
+      - name: Validate performance gate contracts
+        run: pnpm test:perf:gate
+
+      - name: Collect P3 real measurements
+        run: pnpm test:e2e:gate:large
+        env:
+          INKIVA_PERF_CAPTURE: 'true'
+          INKIVA_PERF_OFFLINE: 'true'
+          INKIVA_PERF_RUNNER_LABEL: reference-low-end
+          INKIVA_PERF_GATE_LEVELS: P3
+          INKIVA_RUN_PERF_LARGE_GATE: 'true'
+          INKIVA_PERF_REPORT_DIR: ${{ github.workspace }}/perf-results/raw-p3
+
+      - name: Build P3 metadata
+        if: always()
+        run: pnpm exec tsx scripts/writePerformanceGateMetadata.ts --environment perf-results/reference-environment.json --level P3 --output perf-results/P3.metadata.json
+
+      - name: Require P3 raw artifact
+        if: always()
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'perf-results/raw-p3/P3.raw.json')) {
+            throw 'P3 raw trace artifact is missing; the official extreme gate cannot evaluate.'
+          }
+
+      - name: Evaluate P3 release gate
+        if: always()
+        run: pnpm exec tsx perf/gate/evaluate.ts --input perf-results/raw-p3/P3.raw.json --metadata perf-results/P3.metadata.json --thresholds perf/gate/thresholds.json --report-output perf-results/P3.report.json --output perf-results/P3.evaluation.json --reference
+
+      - name: Upload P3 gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: inkiva-performance-gate-p3
           path: perf-results
           if-no-files-found: warn
           retention-days: 30

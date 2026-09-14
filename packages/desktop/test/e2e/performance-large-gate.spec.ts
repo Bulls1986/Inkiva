@@ -562,6 +562,13 @@ const collectDocumentTier = async(
         )
       }
 
+      if (level === 'P3' && tier === '1m') {
+        const rendererHang = page.isClosed()
+          ? 1
+          : (await readMaxEventLoopLag(page)) > 100 ? 1 : 0
+        await recordSample(page, 'document.1m.rendererHang', 'count', rendererHang)
+      }
+
       const headingDuration = await measurePageAction(page, async() => {
         await page.locator('.side-bar-toc [data-testid="toc-node-label"]').last().click()
       })
