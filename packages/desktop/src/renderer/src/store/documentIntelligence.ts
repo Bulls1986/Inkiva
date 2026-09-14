@@ -11,6 +11,8 @@ import {
   type DocumentIntelligenceError,
   type DocumentIntelligenceState
 } from '@/services/documentIntelligence'
+import { rendererPerformance } from '@/services/performance/runtime'
+import { BackgroundTaskScheduler } from '@/util/backgroundScheduler'
 import { useEditorStore } from './editor'
 
 const toDocument = (
@@ -35,7 +37,10 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
   const started = ref(false)
 
   let coordinator: DocumentIntelligenceCoordinator | null = null
+  let scheduler: BackgroundTaskScheduler | null = null
   let stopWatchingEditor: WatchStopHandle | null = null
+  let stopInteractionListeners: (() => void) | null = null
+  let interactionReleaseFrame: number | null = null
 
   const editorStore = useEditorStore()
   const canRestore = computed(() => {
@@ -59,10 +64,47 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
 
   function START(): void {
     if (started.value) return
+    scheduler = new BackgroundTaskScheduler({
+      onSlice: (task, durationMs) => {
+        rendererPerformance.recordSample('background.taskSlice', 'ms', durationMs, {
+          phase: 'editor',
+          metadata: {
+            priority: task.priority,
+            task: task.id
+          }
+        })
+      }
+    })
     coordinator = new DocumentIntelligenceCoordinator({
       api: window.documentIntelligence,
+      scheduler,
       onStateChange: applyState
     })
+
+    const markInteractionPending = (): void => {
+      coordinator?.setInteractivePending(true)
+      if (interactionReleaseFrame !== null) {
+        window.cancelAnimationFrame(interactionReleaseFrame)
+      }
+      interactionReleaseFrame = window.requestAnimationFrame(() => {
+        interactionReleaseFrame = null
+        coordinator?.setInteractivePending(false)
+      })
+    }
+    const interactionEvents = ['beforeinput', 'input', 'keydown', 'compositionstart']
+    for (const eventName of interactionEvents) {
+      window.addEventListener(eventName, markInteractionPending, true)
+    }
+    stopInteractionListeners = () => {
+      if (interactionReleaseFrame !== null) {
+        window.cancelAnimationFrame(interactionReleaseFrame)
+        interactionReleaseFrame = null
+      }
+      for (const eventName of interactionEvents) {
+        window.removeEventListener(eventName, markInteractionPending, true)
+      }
+    }
+
     started.value = true
 
     stopWatchingEditor = watch(
@@ -76,10 +118,13 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
   }
 
   function STOP(): void {
+    stopInteractionListeners?.()
+    stopInteractionListeners = null
     stopWatchingEditor?.()
     stopWatchingEditor = null
     coordinator?.dispose()
     coordinator = null
+    scheduler = null
     started.value = false
   }
 

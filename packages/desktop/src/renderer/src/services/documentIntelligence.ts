@@ -1,3 +1,8 @@
+import {
+  BACKGROUND_PRIORITY,
+  BackgroundTaskScheduler,
+  type BackgroundPriority
+} from '@/util/backgroundScheduler'
 import type {
   LocalHistoryCreateRequest,
   LocalHistoryEntry,
@@ -51,6 +56,7 @@ interface DocumentIntelligenceCoordinatorOptions {
   onStateChange?: (state: DocumentIntelligenceState) => void
   indexDelayMs?: number
   snapshotDelayMs?: number
+  scheduler?: BackgroundTaskScheduler
 }
 
 const DEFAULT_INDEX_DELAY_MS = 350
@@ -81,6 +87,8 @@ const isStaleRestoreError = (error: unknown): boolean => {
  */
 export class DocumentIntelligenceCoordinator {
   private readonly api: DocumentIntelligenceApi
+  private readonly scheduler: BackgroundTaskScheduler
+  private readonly pendingBackgroundCancels = new Set<() => void>()
   private readonly onStateChange?: (state: DocumentIntelligenceState) => void
   private readonly indexDelayMs: number
   private readonly snapshotDelayMs: number
@@ -92,11 +100,13 @@ export class DocumentIntelligenceCoordinator {
   private indexTimer: ReturnType<typeof setTimeout> | null = null
   private snapshotTimer: ReturnType<typeof setTimeout> | null = null
   private selectionVersion = 0
+  private backgroundTaskSequence = 0
   private disposed = false
   private state = initialState()
 
   constructor(options: DocumentIntelligenceCoordinatorOptions) {
     this.api = options.api
+    this.scheduler = options.scheduler ?? new BackgroundTaskScheduler()
     this.onStateChange = options.onStateChange
     this.indexDelayMs = options.indexDelayMs ?? DEFAULT_INDEX_DELAY_MS
     this.snapshotDelayMs = options.snapshotDelayMs ?? DEFAULT_SNAPSHOT_DELAY_MS
@@ -108,6 +118,10 @@ export class DocumentIntelligenceCoordinator {
       backlinks: [...this.state.backlinks],
       history: [...this.state.history]
     }
+  }
+
+  setInteractivePending(pending: boolean): void {
+    this.scheduler.setInteractivePending(pending)
   }
 
   updateDocuments(
@@ -211,11 +225,16 @@ export class DocumentIntelligenceCoordinator {
     const expectedContent = current.markdown
     this.patchState({ restoringSnapshotId: id, error: null })
     try {
-      const snapshot = await this.api.restoreSnapshot({
-        filePath: current.pathname,
-        id,
-        expectedCurrentContent: expectedContent
-      })
+      const snapshot = await this.runBackground(
+        this.nextBackgroundTaskId('snapshot-restore'),
+        BACKGROUND_PRIORITY.tabNavigation,
+        () =>
+          this.api.restoreSnapshot({
+            filePath: current.pathname,
+            id,
+            expectedCurrentContent: expectedContent
+          })
+      )
       if (version !== this.selectionVersion || this.disposed) return null
       this.lastSnapshotContent.set(current.pathname, snapshot.content)
       this.patchState({ restoringSnapshotId: null })
@@ -242,12 +261,40 @@ export class DocumentIntelligenceCoordinator {
     this.pendingIndexes.clear()
     this.pendingRemovals.clear()
     this.pendingSnapshots.clear()
+    for (const cancel of this.pendingBackgroundCancels) cancel()
+    this.pendingBackgroundCancels.clear()
+    this.scheduler.close()
   }
 
   private patchState(patch: Partial<DocumentIntelligenceState>): void {
     if (this.disposed) return
     this.state = { ...this.state, ...patch }
     this.onStateChange?.(this.getState())
+  }
+
+  private nextBackgroundTaskId(prefix: string): string {
+    this.backgroundTaskSequence += 1
+    return prefix + ':' + this.backgroundTaskSequence
+  }
+
+  private runBackground<T>(
+    id: string,
+    priority: BackgroundPriority,
+    task: () => Promise<T>
+  ): Promise<T> {
+    let value!: T
+    const handle = this.scheduler.enqueueAndWait({
+      id,
+      priority,
+      run: async() => {
+        value = await task()
+      }
+    })
+    const cancel = handle.cancel
+    this.pendingBackgroundCancels.add(cancel)
+    return handle.promise.finally(() => {
+      this.pendingBackgroundCancels.delete(cancel)
+    }).then(() => value)
   }
 
   private scheduleIndexFlush(): void {
@@ -284,9 +331,23 @@ export class DocumentIntelligenceCoordinator {
     this.pendingIndexes.clear()
 
     try {
-      await Promise.all(removals.map((pathname) => this.api.removeDocument(pathname)))
       await Promise.all(
-        indexes.map((document) => this.api.indexDocument(document.pathname, document.markdown))
+        removals.map((pathname) =>
+          this.runBackground(
+            this.nextBackgroundTaskId('document-remove'),
+            BACKGROUND_PRIORITY.backgroundIndexing,
+            () => this.api.removeDocument(pathname)
+          )
+        )
+      )
+      await Promise.all(
+        indexes.map((document) =>
+          this.runBackground(
+            this.nextBackgroundTaskId('document-index'),
+            BACKGROUND_PRIORITY.backgroundIndexing,
+            () => this.api.indexDocument(document.pathname, document.markdown)
+          )
+        )
       )
       if (refreshBacklinks) await this.refreshBacklinks()
     } catch {
@@ -304,13 +365,18 @@ export class DocumentIntelligenceCoordinator {
     try {
       await Promise.all(
         snapshots.map(async({ document, reason }) => {
-          await this.api.createSnapshot({
-            filePath: document.pathname,
-            content: document.markdown,
-            reason,
-            ...(document.encoding ? { encoding: document.encoding } : {}),
-            ...(document.lineEnding ? { lineEnding: document.lineEnding } : {})
-          })
+          await this.runBackground(
+            this.nextBackgroundTaskId('snapshot-create'),
+            BACKGROUND_PRIORITY.backlinkMetadataStatistics,
+            () =>
+              this.api.createSnapshot({
+                filePath: document.pathname,
+                content: document.markdown,
+                reason,
+                ...(document.encoding ? { encoding: document.encoding } : {}),
+                ...(document.lineEnding ? { lineEnding: document.lineEnding } : {})
+              })
+          )
           this.lastSnapshotContent.set(document.pathname, document.markdown)
         })
       )
@@ -326,8 +392,16 @@ export class DocumentIntelligenceCoordinator {
 
     try {
       const [backlinks, history] = await Promise.all([
-        this.api.getBacklinks(pathname),
-        this.api.listSnapshots(pathname)
+        this.runBackground(
+          this.nextBackgroundTaskId('backlinks-load'),
+          BACKGROUND_PRIORITY.backlinkMetadataStatistics,
+          () => this.api.getBacklinks(pathname)
+        ),
+        this.runBackground(
+          this.nextBackgroundTaskId('history-load'),
+          BACKGROUND_PRIORITY.backlinkMetadataStatistics,
+          () => this.api.listSnapshots(pathname)
+        )
       ])
       if (version !== this.selectionVersion || this.disposed) return
       this.patchState({ backlinks, history, loading: false, error: null })
@@ -343,7 +417,11 @@ export class DocumentIntelligenceCoordinator {
     const version = this.selectionVersion
     if (!pathname || this.disposed) return
     try {
-      const backlinks = await this.api.getBacklinks(pathname)
+      const backlinks = await this.runBackground(
+        this.nextBackgroundTaskId('backlinks-refresh'),
+        BACKGROUND_PRIORITY.backlinkMetadataStatistics,
+        () => this.api.getBacklinks(pathname)
+      )
       if (version === this.selectionVersion && !this.disposed) this.patchState({ backlinks })
     } catch {
       if (version === this.selectionVersion) this.patchState({ error: 'sync' })
@@ -355,7 +433,11 @@ export class DocumentIntelligenceCoordinator {
     const version = this.selectionVersion
     if (!pathname || this.disposed) return
     try {
-      const history = await this.api.listSnapshots(pathname)
+      const history = await this.runBackground(
+        this.nextBackgroundTaskId('history-refresh'),
+        BACKGROUND_PRIORITY.backlinkMetadataStatistics,
+        () => this.api.listSnapshots(pathname)
+      )
       if (version === this.selectionVersion && !this.disposed) this.patchState({ history })
     } catch {
       if (version === this.selectionVersion) this.patchState({ error: 'sync' })
