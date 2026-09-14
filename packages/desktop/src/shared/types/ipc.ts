@@ -181,6 +181,7 @@ export interface IpcSendChannels {
     defaultPath: string
   ]
   'mt::response-print': []
+  'mt::rg::ack': [searchId: string, batchId: number]
   'mt::rg::cancel': [searchId: string]
   'mt::save-and-close-tabs': [tabs: unknown[]]
   'mt::save-tabs': [tabs: unknown[]]

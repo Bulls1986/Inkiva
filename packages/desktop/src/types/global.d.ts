@@ -152,6 +152,7 @@ declare global {
   interface RipgrepAPI {
     start(req: unknown): Promise<{ searchId: string }>
     cancel(searchId: string): void
+    ack(searchId: string, batchId: number): void
     onMatch(handler: (payload: unknown) => void): () => void
     onProgress(handler: (payload: unknown) => void): () => void
     onDone(handler: (payload: unknown) => void): () => void

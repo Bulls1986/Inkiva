@@ -308,6 +308,7 @@ type RipgrepHandler = (payload: unknown) => void
 const ripgrepAPI = {
   start: (req: unknown) => invoke('mt::rg::start', req),
   cancel: (searchId: string) => send('mt::rg::cancel', searchId),
+  ack: (searchId: string, batchId: number) => send('mt::rg::ack', searchId, batchId),
   onMatch: (handler: RipgrepHandler) => {
     const sub = (_e: IpcRendererEvent, payload: unknown) => handler(payload)
     ipcRenderer.on('mt::rg::match', sub)

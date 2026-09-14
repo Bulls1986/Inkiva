@@ -54,9 +54,13 @@ test.describe('Ripgrep IPC streaming', () => {
       return new Promise<RgMatch[]>((resolve, reject) => {
         const searchId = 'rg-test-' + Math.random().toString(36).slice(2, 8)
         const captured: RgMatch[] = []
+        const ackBatch = (batchId: number): void => window.ripgrep.ack(searchId, batchId)
         const offMatch = window.ripgrep.onMatch((raw) => {
-          const p = raw as { searchId?: string; payload?: RgMatch }
-          if (p?.searchId === searchId && p.payload) captured.push(p.payload)
+          const p = raw as { searchId?: string; batchId?: number; payload?: RgMatch }
+          if (p?.searchId === searchId && p.payload && typeof p.batchId === 'number') {
+            captured.push(p.payload)
+            ackBatch(p.batchId)
+          }
         })
         const cleanup = () => offMatch()
         const offDone = window.ripgrep.onDone((raw) => {
@@ -107,13 +111,17 @@ test.describe('Ripgrep IPC streaming', () => {
       return new Promise<string[]>((resolve, reject) => {
         const searchId = 'fs-test-' + Math.random().toString(36).slice(2, 8)
         const seen: string[] = []
+        const ackBatch = (batchId: number): void => window.ripgrep.ack(searchId, batchId)
         const offMatch = window.ripgrep.onMatch((raw) => {
-          const p = raw as { searchId?: string; payload?: unknown }
+          const p = raw as { searchId?: string; batchId?: number; payload?: unknown }
           if (p?.searchId !== searchId) return
           if (typeof p.payload === 'string') {
             seen.push(p.payload)
           } else if (Array.isArray(p.payload)) {
             seen.push(...p.payload.filter((item): item is string => typeof item === 'string'))
+          }
+          if (typeof p.batchId === 'number') {
+            ackBatch(p.batchId)
           }
         })
         const offDone = window.ripgrep.onDone((raw) => {
