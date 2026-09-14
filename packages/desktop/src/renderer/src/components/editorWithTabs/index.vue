@@ -11,6 +11,7 @@
       <div
         class="primary-editor-pane"
         data-testid="primary-editor-pane"
+        :data-tab-lifecycle="currentFile ? tabLifecycle[currentFile.id] ?? 'active' : 'none'"
       >
         <editor
           :markdown="markdown"
@@ -62,7 +63,7 @@ defineProps<{
 
 const editorStore = useEditorStore()
 const layoutStore = useLayoutStore()
-const { currentFile, tabs } = storeToRefs(editorStore)
+const { currentFile, tabs, tabLifecycle } = storeToRefs(editorStore)
 const { splitEditor, splitTabId } = storeToRefs(layoutStore)
 
 const splitActive = computed(() => splitEditor.value && !!currentFile.value)

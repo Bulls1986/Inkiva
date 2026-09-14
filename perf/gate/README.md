@@ -29,3 +29,10 @@ Phase 02 startup and restore rules:
 - The first document becomes interactive only after the Muya editor is mounted and the renderer has crossed two animation-frame paint boundaries, then emits `mt::document-editable`.
 - Deferred startup work and safe-restore startup readiness are released only after `document-editable`.
 - A 10-second missing-milestone timeout is observable and fails the startup gate; it never releases deferred work early.
+
+Phase 03 tab lifecycle rules:
+
+- The renderer resource policy exposes one `active` tab, at most two `warm` tabs, and marks all remaining tabs `cold`.
+- Active is the only tab allowed to own the full Muya editor surface.
+- Warm tabs may retain lightweight navigation/preview state; cold tabs retain document model state only.
+- The lifecycle policy is deterministic, bounded, and exported as `data-tab-lifecycle` for E2E gate assertions.
