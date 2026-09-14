@@ -245,6 +245,9 @@ describe('renderer document intelligence coordinator', () => {
 
     const staleRestore = coordinator.restoreSnapshot('snapshot-1')
     await flushScheduler()
+    // The scheduler releases the slice before the rejected API promise settles.
+    // Drain the remaining fake-timer/microtask turn before asserting state.
+    await vi.runAllTimersAsync()
     await expect(staleRestore).resolves.toBeNull()
     expect(api.restoreSnapshot).toHaveBeenCalledWith({
       filePath: '/docs/note.md',
