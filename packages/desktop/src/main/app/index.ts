@@ -22,6 +22,7 @@ import { onInternalChannel } from '../utils/internalIpc'
 import { WindowType } from '../windows/base'
 import EditorWindow from '../windows/editor'
 import SettingWindow from '../windows/setting'
+import type { BufferStoreState } from '../editorBufferStore/restore'
 import { setLanguage, t } from '../i18n'
 import { saveUnsavedFilesForUpdate } from '../menu/actions/file'
 import { ShutdownCoordinator } from '../update/ShutdownCoordinator'
@@ -32,6 +33,9 @@ import { UpdateManager } from '../update/UpdateManager'
 import { WindowsUpdateProvider } from '../update/WindowsUpdateProvider'
 import { ElectronUpdateCheckStore } from '../update/store'
 import type { UpdateStatus } from '../update/types'
+import OpenRequestCoordinator, { type OpenRequest } from '../session/openRequestCoordinator'
+import { canonicalPathKey } from '../session/pathCanonicalizer'
+import { createBlankRestorePlan, type RestorePlan } from '../session/restorePlan'
 import { getNativeThemeSource, isDarkApplicationTheme } from './nativeTheme'
 import { StartupPhaseCoordinator } from './startup'
 import { mainPerformance } from '../performance/runtime'
@@ -75,14 +79,15 @@ const UPDATE_NOTIFICATION_TIME = {
 class App {
   private _accessor: Accessor
   private _args: CliArgs
-  private _openFilesCache: PathInfo[]
-  private _openFilesTimer: ReturnType<typeof setTimeout> | null
+  private _openRequestCoordinator: OpenRequestCoordinator
   private _windowManager: WindowManager
   private _themeListenerRegistered: boolean
   private _updateManager: UpdateManager
   private _updatePreflight: RendererUpdatePreflight
   private readonly _updatePlatform: NodeJS.Platform
   private _backgroundUpdateCheckScheduled: boolean
+  private _startupStarted: boolean
+  private _startupCompleted: boolean
   private _startupCoordinator: StartupPhaseCoordinator
 
   /**
@@ -92,11 +97,14 @@ class App {
   constructor(accessor: Accessor, args: Partial<CliArgs>) {
     this._accessor = accessor
     this._args = (args as CliArgs) || ({ _: [] } as CliArgs)
-    this._openFilesCache = []
-    this._openFilesTimer = null
     this._windowManager = this._accessor.windowManager
+    this._openRequestCoordinator = new OpenRequestCoordinator({
+      dispatch: (request) => this._dispatchOpenRequest(request)
+    })
     this._updatePreflight = new RendererUpdatePreflight()
     this._backgroundUpdateCheckScheduled = false
+    this._startupStarted = false
+    this._startupCompleted = false
     this._startupCoordinator = new StartupPhaseCoordinator()
     this._accessor.shutdownCoordinator = new ShutdownCoordinator({
       getEditorWindows: () =>
@@ -158,35 +166,17 @@ class App {
     }
 
     app.on('second-instance', (_event, argv, workingDirectory) => {
-      const { _openFilesCache, _windowManager } = this
       const args = parseArgs(argv.slice(1)) as CliArgs
 
-      const buf: PathInfo[] = []
-      for (const pathname of args._) {
-        // Ignore all unknown flags
-        if (pathname.startsWith('--')) {
-          continue
-        }
-
-        const info = normalizeMarkdownPath(path.resolve(workingDirectory, pathname))
-        if (info) {
-          buf.push(info as PathInfo)
-        }
-      }
-
-      if (args['--new-window']) {
-        this._openPathList(buf, true)
-        return
-      }
-
-      _openFilesCache.push(...buf)
-      if (_openFilesCache.length) {
-        this._openFilesToOpen()
-      } else {
-        const activeWindow = _windowManager.getActiveWindow()
-        if (activeWindow) {
-          activeWindow.bringToFront()
-        }
+      const paths = this._collectOpenPaths(args._, workingDirectory, true)
+      if (paths.length) {
+        this._openRequestCoordinator.enqueue({
+          source: 'second-instance',
+          newWindow: !!args['--new-window'],
+          paths
+        })
+      } else if (this._startupCompleted) {
+        this._windowManager.getActiveWindow()?.bringToFront()
       }
     })
 
@@ -210,7 +200,11 @@ class App {
       // On OS X it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
       if (this._windowManager.windowCount === 0) {
-        this.ready()
+        if (!this._startupStarted || !this._startupCompleted) {
+          this.ready()
+        } else {
+          this._createEditorWindow()
+        }
       }
     })
 
@@ -261,11 +255,14 @@ class App {
   }
 
   ready = (): void => {
+    if (this._startupStarted) return
+    this._startupStarted = true
     mainPerformance.mark('electron_ready', {
       phase: 'startup'
     })
+    this._openRequestCoordinator.beginRestore()
 
-    const { _args: args, _openFilesCache } = this
+    const { _args: args } = this
     const { preferences, editorBufferStore } = this._accessor
 
     // Initialize language settings
@@ -279,43 +276,38 @@ class App {
       setLanguage(language)
     }
 
-    if (args._.length) {
-      // When Electron is launched in development/Playwright mode, the app
-      // entry directory is present in process.argv as a positional argument.
-      // It is the executable entry, not a document or folder requested by the
-      // user; treating it as an opened folder disables startup recovery.
-      const applicationPath = path.resolve(app.getAppPath())
-      for (const pathname of args._) {
-        // Ignore all unknown flags
-        if (pathname.startsWith('--')) {
-          continue
-        }
-        if (path.resolve(pathname) === applicationPath) {
-          continue
-        }
-
-        const info = normalizeMarkdownPath(pathname)
-        if (info) {
-          _openFilesCache.push(info as PathInfo)
-        }
-      }
+    const initialPaths = this._collectOpenPaths(args._, process.cwd(), true)
+    if (initialPaths.length) {
+      this._openRequestCoordinator.enqueue({
+        source: 'argv',
+        newWindow: !!args['--new-window'],
+        paths: initialPaths
+      })
     }
 
     // We should NOT restore the previous buffer or open a folder if the user just wants to double click to open a file
     let isRestorePathway = false
-    if (_openFilesCache.length === 0) {
+    if (!this._openRequestCoordinator.hasPendingPaths()) {
       if (startUpAction === 'restoreAll') {
         // Restore based off the previous buffer
         isRestorePathway = true
       } else if (startUpAction === 'folder' && defaultDirectoryToOpen) {
         const info = normalizeMarkdownPath(defaultDirectoryToOpen)
         if (info) {
-          _openFilesCache.unshift(info as PathInfo)
+          this._openRequestCoordinator.enqueue({
+            source: 'startup-preference',
+            newWindow: false,
+            paths: [info as PathInfo]
+          })
         }
       } else if (startUpAction === 'openLastFolder' && lastOpenedFolder) {
         const info = normalizeMarkdownPath(lastOpenedFolder)
         if (info) {
-          _openFilesCache.unshift(info as PathInfo)
+          this._openRequestCoordinator.enqueue({
+            source: 'startup-preference',
+            newWindow: false,
+            paths: [info as PathInfo]
+          })
         }
       }
     }
@@ -439,41 +431,61 @@ class App {
       ])
     }
 
-    const createWindow = (): void => {
-      if (isRestorePathway) {
-        // A previous version could leave one recovery file per editor window.
-        // Restore all of them into one window; the editor buffer store merges
-        // tabs and removes duplicate document paths during the restore.
-        const bufferStores = editorBufferStore.getAll()
-        const bufferStoreList = Object.values(bufferStores) as Array<{
-          id: string
-          filePath: string | null
-        }>
-        const restorableBufferStores = bufferStoreList.filter(
-          (bufferStoreInfo): bufferStoreInfo is { id: string; filePath: string } =>
-            typeof bufferStoreInfo.filePath === 'string'
-        )
-        if (restorableBufferStores.length === 0) {
-          this._createEditorWindow()
-          return
-        }
+    const createWindow = async(): Promise<void> => {
+      try {
+        if (isRestorePathway) {
+          // Create an empty, visible shell before touching recovery files. The
+          // shell has no content yet, so the completed plan remains the only
+          // source allowed to create restore tabs.
+          const restoreEditor = this._createEditorWindow(null, [], [], {}, null, true)
+          // Wait until the renderer shell has loaded (and the BrowserWindow has
+          // been made visible) before touching recovery files. The restore
+          // coordinator remains blocked, but recovery I/O cannot delay the
+          // first shell frame.
+          await restoreEditor.waitUntilReady()
 
-        this._createEditorWindow(
-          null,
-          [],
-          [],
-          {},
-          {
-            ...restorableBufferStores[0],
-            restoreBufferStores: restorableBufferStores
+          let restorePlan: RestorePlan
+          try {
+            restorePlan = await editorBufferStore.buildRestorePlan()
+            for (const skippedSource of restorePlan.skippedSources) {
+              log.warn(
+                `Skipping editor recovery source ${skippedSource.filePath}: ${skippedSource.message}`
+              )
+            }
+            if (restorePlan.kind === 'restore' && restorePlan.primarySource && restorePlan.state) {
+              await editorBufferStore.consolidateBufferStoreFiles(
+                restorePlan.primarySource.filePath,
+                restorePlan.sources.map(({ filePath }) => filePath),
+                restorePlan.state
+              )
+            }
+          } catch (error) {
+            // Recovery is a best-effort feature. A scan, migration or merge
+            // error must leave the already-visible shell usable.
+            log.error('Failed to build startup restore plan:', error)
+            restorePlan = createBlankRestorePlan()
           }
-        )
-      } else if (_openFilesCache.length) {
-        // We should wipe the buffer store if not it will keep creating new windows whenever we open files via double click in the file manager
-        editorBufferStore.clearBufferStoresWithAllSaved()
-        this._openFilesToOpen()
-      } else {
-        this._createEditorWindow()
+
+          // Keep argv/open-file requests queued until this plan has finished
+          // loading its files into the shell. This prevents a queued request
+          // from being overwritten by the eventual `load-state` message.
+          await restoreEditor.applyRestorePlan(restorePlan)
+        } else if (this._openRequestCoordinator.hasPendingPaths()) {
+          // An explicit startup/open-file request takes precedence over
+          // recovery. Remove only fully-saved stale recovery files so a later
+          // launch cannot unexpectedly restore the old session again.
+          editorBufferStore.clearBufferStoresWithAllSaved()
+        } else {
+          this._createEditorWindow()
+        }
+      } catch (error) {
+        // Recovery is a best-effort feature. A scan, migration or merge error
+        // must never prevent a normal blank editor from starting.
+        log.error('Failed to build startup restore plan:', error)
+        if (this._windowManager.windowCount === 0) this._createEditorWindow()
+      } finally {
+        this._openRequestCoordinator.completeRestore()
+        this._startupCompleted = true
       }
     }
 
@@ -482,7 +494,7 @@ class App {
     // created. Waiting for a Linux nativeTheme event only delays the first
     // shell and can still fall back to a timer when the event never arrives.
     // Theme changes continue to be handled by the listener registered above.
-    createWindow()
+    void createWindow()
 
     // this.shortcutCapture = new ShortcutCapture()
     // if (process.env.NODE_ENV === 'development') {
@@ -509,24 +521,49 @@ class App {
 
   openFile = (event: Electron.Event, pathname: string): void => {
     event.preventDefault()
-    const info = normalizeMarkdownPath(pathname)
-    if (info) {
-      this._openFilesCache.push(info as PathInfo)
-
-      if (app.isReady()) {
-        // It might come more files
-        if (this._openFilesTimer) {
-          clearTimeout(this._openFilesTimer)
-        }
-        this._openFilesTimer = setTimeout(() => {
-          this._openFilesTimer = null
-          this._openFilesToOpen()
-        }, 100)
-      }
+    const paths = this._collectOpenPaths([pathname], process.cwd())
+    if (paths.length) {
+      this._openRequestCoordinator.enqueue({
+        source: 'open-file',
+        newWindow: false,
+        paths
+      })
+    } else if (this._startupCompleted) {
+      this._windowManager.getActiveWindow()?.bringToFront()
     }
   }
 
   // --- private --------------------------------
+
+  private _collectOpenPaths(
+    pathnames: readonly string[],
+    workingDirectory: string,
+    ignoreApplicationPath: boolean = false
+  ): PathInfo[] {
+    const applicationPathKey = ignoreApplicationPath
+      ? canonicalPathKey(path.resolve(app.getAppPath()))
+      : null
+    const result: PathInfo[] = []
+
+    for (const pathname of pathnames) {
+      if (!pathname || pathname.startsWith('--')) continue
+
+      const resolvedPath = path.resolve(workingDirectory, pathname)
+      if (applicationPathKey && canonicalPathKey(resolvedPath) === applicationPathKey) continue
+
+      const info = normalizeMarkdownPath(resolvedPath)
+      if (info) result.push(info as PathInfo)
+    }
+
+    return result
+  }
+
+  private _dispatchOpenRequest(request: OpenRequest): void {
+    this._openPathList(
+      request.paths.map(({ isDir, path: pathname }) => ({ isDir, path: pathname })),
+      request.newWindow
+    )
+  }
 
   /**
    * Creates a new editor window.
@@ -540,7 +577,9 @@ class App {
       id: string
       filePath: string | null
       restoreBufferStores?: Array<{ id: string; filePath: string }>
-    } | null = null
+      restoredState?: BufferStoreState
+    } | null = null,
+    deferInitialContent: boolean = false
   ): EditorWindow {
     const editor = new EditorWindow(this._accessor)
     editor.on('window-shell-visible', () => {
@@ -552,7 +591,14 @@ class App {
     if (rootDirectory) {
       this._accessor.preferences.setItems({ lastOpenedFolder: rootDirectory })
     }
-    editor.createWindow(rootDirectory, fileList, markdownList, options, bufferStoreInfo)
+    editor.createWindow(
+      rootDirectory,
+      fileList,
+      markdownList,
+      options,
+      bufferStoreInfo,
+      deferInitialContent
+    )
     this._windowManager.add(editor)
     if (this._windowManager.windowCount === 1) {
       this._accessor.menu.setActiveWindow(editor.id!)
@@ -572,10 +618,6 @@ class App {
     }
   }
 
-  private _openFilesToOpen(): void {
-    this._openPathList(this._openFilesCache, false)
-  }
-
   /**
    * Open the path list in the best window(s).
    *
@@ -587,34 +629,48 @@ class App {
     const { _windowManager } = this
     const openFilesInNewWindow = this._accessor.preferences.getItem<boolean>('openFilesInNewWindow')
 
-    const fileSet = new Set<string>()
-    const directorySet = new Set<string>()
-    for (const { isDir, path } of pathsToOpen) {
+    const fileSet = new Map<string, string>()
+    const directorySet = new Map<string, string>()
+    for (const { isDir, path: pathname } of pathsToOpen) {
+      const key = canonicalPathKey(pathname)
+      if (!key) continue
       if (isDir) {
-        directorySet.add(path)
+        if (!directorySet.has(key)) directorySet.set(key, pathname)
       } else {
-        fileSet.add(path)
+        if (!fileSet.has(key)) fileSet.set(key, pathname)
       }
     }
 
-    // Filter out directories that are already opened.
-    for (const window of _windowManager.windows.values()) {
-      if (window.type === WindowType.EDITOR) {
-        const { openedRootDirectory } = window as EditorWindow
-        if (openedRootDirectory && directorySet.has(openedRootDirectory)) {
-          window.bringToFront()
-          directorySet.delete(openedRootDirectory)
-        }
+    // Existing directories and files are activated instead of creating a
+    // second window/tab, including when the request came from --new-window.
+    for (const [key, pathname] of directorySet) {
+      const editor = _windowManager.findEditorWindowWithRoot(pathname)
+      if (editor) {
+        editor.bringToFront()
+        directorySet.delete(key)
       }
+    }
+    for (const [key, pathname] of fileSet) {
+      const editor = _windowManager.findEditorWindowWithPath(pathname)
+      if (editor) {
+        editor.openTab(pathname, {}, true)
+        editor.bringToFront()
+        fileSet.delete(key)
+      }
+    }
+
+    if (fileSet.size === 0 && directorySet.size === 0) {
+      pathsToOpen.length = 0
+      return
     }
 
     const directoriesToOpen: { rootDirectory: string | null; fileList: string[] }[] = Array.from(
-      directorySet
+      directorySet.values()
     ).map((dir) => ({
       rootDirectory: dir,
       fileList: []
     }))
-    const filesToOpen = Array.from(fileSet)
+    const filesToOpen = Array.from(fileSet.values())
 
     // Discard all directories except first one and add files.
     if (openFilesInSameWindow) {

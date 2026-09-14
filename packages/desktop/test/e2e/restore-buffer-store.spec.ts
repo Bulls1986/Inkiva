@@ -86,3 +86,81 @@ test('restores multiple recovery files into one deduplicated editor window', asy
     await closeElectron(launched.app)
   }
 })
+
+test('skips a corrupt recovery file and still opens a usable blank editor', async() => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-corrupt-restore-e2e-'))
+  const editorStatesDir = path.join(userDataDir, 'editorStates')
+  fs.mkdirSync(editorStatesDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(userDataDir, 'preferences.json'),
+    JSON.stringify({ startUpAction: 'restoreAll' }),
+    'utf8'
+  )
+  fs.writeFileSync(
+    path.join(editorStatesDir, 'broken_editor_buffer_store.json'),
+    '{"tabs": [',
+    'utf8'
+  )
+
+  const launched = await launchElectron([], {
+    userDataDir,
+    suppressErrorDialog: true
+  })
+
+  try {
+    await waitForEditor(launched.page)
+    await waitForMenuReady(launched.app)
+    await expect
+      .poll(() =>
+        launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)
+      )
+      .toBe(1)
+    await expect.poll(() => launched.page.locator('.tabs-container > li').count()).toBe(1)
+    await expectNoRendererErrors(launched.app)
+  } finally {
+    await closeElectron(launched.app)
+  }
+})
+
+test('does not create a second window when the same path is opened repeatedly', async() => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-duplicate-open-e2e-'))
+  const documentsDir = path.join(userDataDir, 'documents')
+  fs.mkdirSync(documentsDir, { recursive: true })
+  const documentPath = path.join(documentsDir, 'duplicate.md')
+  fs.writeFileSync(documentPath, '# Duplicate\n', 'utf8')
+  fs.writeFileSync(
+    path.join(userDataDir, 'preferences.json'),
+    JSON.stringify({ startUpAction: 'blank', openFilesInNewWindow: true }),
+    'utf8'
+  )
+
+  const launched = await launchElectron([documentPath], {
+    userDataDir,
+    suppressErrorDialog: true
+  })
+
+  try {
+    await waitForEditor(launched.page)
+    await waitForMenuReady(launched.app)
+
+    await launched.app.evaluate(({ app }, pathname) => {
+      app.emit(
+        'second-instance',
+        { preventDefault: () => {} },
+        [process.execPath, pathname, pathname],
+        process.cwd()
+      )
+    }, documentPath)
+
+    await expect.poll(() => launched.page.locator('.tabs-container > li').count()).toBe(1)
+    await expect
+      .poll(() =>
+        launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)
+      )
+      .toBe(1)
+    await expect.poll(() => launched.page.locator('.tabs-container > li').count()).toBe(1)
+    await expectNoRendererErrors(launched.app)
+  } finally {
+    await closeElectron(launched.app)
+  }
+})

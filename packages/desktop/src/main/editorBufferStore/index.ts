@@ -7,10 +7,10 @@ import { TypedEmitter } from '@shared/types/typedEmitter'
 import type BaseWindow from '../windows/base'
 import {
   createEmptyBufferStoreState,
-  mergeBufferStoreContents,
   normalizeBufferStoreState,
   type BufferStoreState
 } from './restore'
+import buildRestorePlan, { type RecoverySource, type RestorePlan } from '../session/restorePlan'
 
 interface EditorBufferStorePaths {
   editorBufferStorePath: string
@@ -189,6 +189,23 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
     return results
   }
 
+  async findEditorBufferStoresAsync(dir: string): Promise<Record<string, BufferStoreEntry>> {
+    const results: Record<string, BufferStoreEntry> = {}
+    try {
+      const entries = await fsPromises.readdir(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (!entry.isFile() || !entry.name.endsWith('_editor_buffer_store.json')) continue
+        const id = entry.name.replace('_editor_buffer_store.json', '')
+        results[id] = { id, filePath: path.join(dir, entry.name) }
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return results
+      throw error
+    }
+
+    return results
+  }
+
   getBufferStoreInfo(restoreBufferId: string): BufferStoreEntry {
     if (!this.bufferStores) {
       // Do not scan the whole recovery directory on the normal new-window path.
@@ -220,6 +237,33 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
     return this._parseBufferStore(content)
   }
 
+  /**
+   * Read a recovery file without applying the current schema validator. The
+   * RestorePlan owns migration and validation so legacy wrappers can be
+   * handled consistently before any restore tabs are created.
+   */
+  async readRawBufferStoreFileAsync(filePath: string): Promise<unknown> {
+    const content = await fsPromises.readFile(filePath, 'utf8')
+    if (!content.trim()) throw new Error('Buffer store file is empty.')
+    return JSON.parse(content) as unknown
+  }
+
+  async buildRestorePlan(): Promise<RestorePlan> {
+    const bufferStores = await this.findEditorBufferStoresAsync(this.editorBufferStorePath)
+    this.bufferStores = bufferStores
+    const sources: RecoverySource[] = Object.values(bufferStores)
+      .filter(
+        (entry): entry is BufferStoreEntry =>
+          typeof entry.id === 'string' &&
+          entry.id.length > 0 &&
+          typeof entry.filePath === 'string' &&
+          entry.filePath.length > 0
+      )
+      .map(({ id, filePath }) => ({ id, filePath }))
+
+    return buildRestorePlan(sources, (source) => this.readRawBufferStoreFileAsync(source.filePath))
+  }
+
   private _parseBufferStore(content: string): BufferStoreState {
     if (!content.trim()) {
       throw new Error('Buffer store file is empty.')
@@ -229,10 +273,10 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
   }
 
   /**
-   * Read all recovery files that were left by previous editor windows. A
-   * single invalid file should not prevent valid documents from being
-   * restored after an upgrade; the first listed file remains the destination
-   * so the BrowserWindow's existing restore id stays stable.
+   * Read all recovery files that were left by previous editor windows through
+   * the same migration/validation/deduplication pipeline used by startup.
+   * A single invalid file should not prevent valid documents from being
+   * restored after an upgrade.
    */
   async readAndMergeBufferStoreFilesAsync(
     bufferStoreInfos: Array<{ id: string; filePath: string }>
@@ -241,19 +285,17 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
       throw new Error('No editor buffer stores were provided.')
     }
 
-    const states: BufferStoreState[] = []
-    for (const bufferStoreInfo of bufferStoreInfos) {
-      try {
-        states.push(await this.readBufferStoreFileAsync(bufferStoreInfo.filePath))
-      } catch (error) {
-        console.error(
-          `Failed to read editor buffer store ${bufferStoreInfo.filePath} during restore`,
-          error
-        )
-      }
+    const restorePlan = await buildRestorePlan(
+      bufferStoreInfos,
+      (source) => this.readRawBufferStoreFileAsync(source.filePath)
+    )
+    for (const skippedSource of restorePlan.skippedSources) {
+      console.error(
+        `Failed to restore editor buffer store ${skippedSource.filePath}: ${skippedSource.message}`
+      )
     }
 
-    if (states.length === 0) {
+    if (restorePlan.kind !== 'restore' || !restorePlan.state || !restorePlan.primarySource) {
       return {
         state: createEmptyBufferStoreState(),
         primaryFilePath: bufferStoreInfos[0].filePath,
@@ -262,9 +304,9 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
     }
 
     return {
-      state: mergeBufferStoreContents(states),
-      primaryFilePath: bufferStoreInfos[0].filePath,
-      sourceFilePaths: [...new Set(bufferStoreInfos.map(({ filePath }) => filePath))]
+      state: restorePlan.state,
+      primaryFilePath: restorePlan.primarySource.filePath,
+      sourceFilePaths: restorePlan.sources.map(({ filePath }) => filePath)
     }
   }
 
@@ -290,17 +332,17 @@ class EditorBufferStore extends TypedEmitter<EditorBufferStoreEvents> {
     for (const filePath of sourceFilePaths) {
       if (filePath === primaryFilePath) continue
       try {
-        fs.unlinkSync(filePath)
+        await fsPromises.unlink(filePath)
       } catch (error) {
         // The file may have disappeared between the directory scan and the
         // migration. Keep startup successful in either case.
-        if (fs.existsSync(filePath)) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
           console.error(`Failed to remove stale editor buffer store ${filePath}`, error)
         }
       }
     }
 
-    this.bufferStores = this.findEditorBufferStores(this.editorBufferStorePath)
+    this.bufferStores = await this.findEditorBufferStoresAsync(this.editorBufferStorePath)
   }
 
   async writeBufferStoreFile(filePath: string, newState: unknown): Promise<void> {
