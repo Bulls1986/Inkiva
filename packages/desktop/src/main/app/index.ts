@@ -499,7 +499,13 @@ class App {
           // Explicit startup/open-file request takes precedence over recovery.
           // Create the shell before clearing stale recovery files so cleanup
           // cannot delay first paint.
-          const editor = this._createEditorWindow()
+          const startupRequest = this._openRequestCoordinator.getFirstPendingRequest()
+          const startupDirectory =
+            startupRequest?.paths.find(({ isDir }) => isDir)?.path ?? null
+          const startupFiles = (startupRequest?.paths ?? [])
+            .filter(({ isDir }) => !isDir)
+            .map(({ path: pathname }) => pathname)
+          const editor = this._createEditorWindow(startupDirectory, startupFiles)
           this._startupOpenTarget = editor
           editor.once('window-shell-visible', () => {
             editorBufferStore.clearBufferStoresWithAllSaved()

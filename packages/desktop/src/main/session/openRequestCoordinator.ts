@@ -53,6 +53,15 @@ export class OpenRequestCoordinator {
     return this._pendingKeys.size
   }
 
+  getFirstPendingRequest(): OpenRequest | undefined {
+    const request = this._pending[0]
+    if (!request) return undefined
+    return {
+      ...request,
+      paths: [...request.paths]
+    }
+  }
+
   hasPendingPaths(): boolean {
     return this._pendingKeys.size > 0
   }
