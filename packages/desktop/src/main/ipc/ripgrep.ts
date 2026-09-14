@@ -3,6 +3,7 @@ import path from 'path'
 import { ipcMain, type WebContents } from 'electron'
 import log from 'electron-log'
 import { rgPath as bundledRgPath } from '@vscode/ripgrep'
+import { BatchGate, type Batch } from './ripgrepBackpressure'
 
 const resolveRgPath = (): string => {
   if (process.env.INKIVA_RIPGREP_PATH) return process.env.INKIVA_RIPGREP_PATH
@@ -12,21 +13,32 @@ const resolveRgPath = (): string => {
 interface ActiveSearch {
   sender: WebContents
   cancel: () => void
+  ack: (batchId: number) => boolean
 }
 
 const activeSearches = new Map<string, ActiveSearch>()
 const TEXT_MATCH_BATCH_SIZE = 128
 const FILE_PATH_BATCH_SIZE = 64
+const MAX_IN_FLIGHT_BATCHES = 2
+const MAX_QUEUED_BATCHES = 2
+
+const removeActiveSearch = (searchId: string, cancel: () => void): void => {
+  const entry = activeSearches.get(searchId)
+  if (entry?.cancel === cancel) activeSearches.delete(searchId)
+}
 
 const sendIfAlive = (
   sender: WebContents | null | undefined,
   channel: string,
   ...args: unknown[]
-): void => {
+): boolean => {
   try {
-    if (sender && !sender.isDestroyed()) sender.send(channel, ...args)
+    if (!sender || sender.isDestroyed()) return false
+    sender.send(channel, ...args)
+    return true
   } catch {
     /* sender destroyed mid-send */
+    return false
   }
 }
 
@@ -36,7 +48,7 @@ const cleanupAtSenderDestroy = (sender: WebContents | null | undefined): void =>
     for (const [id, entry] of activeSearches.entries()) {
       if (entry.sender === sender) {
         entry.cancel()
-        activeSearches.delete(id)
+        removeActiveSearch(id, entry.cancel)
       }
     }
   }
@@ -174,6 +186,16 @@ interface SearchOptions {
   exclusions?: string[]
 }
 
+interface PausableSource {
+  pause: () => unknown
+  resume: () => unknown
+}
+
+type PendingTextMessage =
+  | { type: 'begin'; filePath: string }
+  | { type: 'match'; data: RgMatchData; nextSubmatchIndex: number; trailingContextLines: unknown[] }
+  | { type: 'end' }
+
 const startTextSearch = (
   sender: WebContents,
   searchId: string,
@@ -183,29 +205,47 @@ const startTextSearch = (
 ): void => {
   const rgPath = resolveRgPath()
   const children: ChildProcess[] = []
+  const sources = new Set<PausableSource>()
+  const drainers = new Set<() => void>()
   let cancelled = false
   let pendingPaths = 0
   let pendingDirs = directories.length
   let finished = false
+  let cancel = (): void => {}
 
-  const finishIfDone = (err?: unknown): void => {
-    if (finished) return
-    if (pendingDirs === 0 || err) {
-      finished = true
-      activeSearches.delete(searchId)
-      if (err) {
-        sendIfAlive(sender, 'mt::rg::error', {
-          searchId,
-          error: err instanceof Error ? err.message : String(err)
-        })
-      } else {
-        sendIfAlive(sender, 'mt::rg::done', { searchId })
-      }
-    }
+  const pauseSources = (): void => {
+    for (const source of sources) source.pause()
   }
 
-  const cancel = (): void => {
+  const resumeSources = (): void => {
+    if (cancelled || finished || gate.isFull) return
+    for (const drain of drainers) drain()
+    if (cancelled || finished || gate.isFull) {
+      if (gate.isFull) pauseSources()
+      return
+    }
+    for (const source of sources) source.resume()
+    maybeFinish()
+  }
+
+  const sendProgress = (num: number): boolean => {
+    const sent = sendIfAlive(sender, 'mt::rg::progress', { searchId, num })
+    if (!sent) cancel()
+    return sent
+  }
+
+  const maybeFinish = (): void => {
+    if (finished || cancelled || pendingDirs !== 0 || !gate.isEmpty) return
+    finished = true
+    removeActiveSearch(searchId, cancel)
+    gate.close()
+    sendIfAlive(sender, 'mt::rg::done', { searchId })
+  }
+
+  const fail = (err: unknown): void => {
+    if (finished || cancelled) return
     cancelled = true
+    gate.close()
     for (const child of children) {
       try {
         child.kill()
@@ -213,13 +253,49 @@ const startTextSearch = (
         /* already dead */
       }
     }
-    if (!finished) {
-      finished = true
-      activeSearches.delete(searchId)
-      sendIfAlive(sender, 'mt::rg::cancelled', { searchId })
-    }
+    finished = true
+    removeActiveSearch(searchId, cancel)
+    sendIfAlive(sender, 'mt::rg::error', {
+      searchId,
+      error: err instanceof Error ? err.message : String(err)
+    })
   }
-  activeSearches.set(searchId, { sender, cancel })
+
+  cancel = (): void => {
+    if (finished || cancelled) {
+      gate.close()
+      return
+    }
+    cancelled = true
+    gate.close()
+    for (const child of children) {
+      try {
+        child.kill()
+      } catch {
+        /* already dead */
+      }
+    }
+    finished = true
+    removeActiveSearch(searchId, cancel)
+    sendIfAlive(sender, 'mt::rg::cancelled', { searchId })
+  }
+
+  const gate = new BatchGate<unknown>(
+    (batch: Batch<unknown>) =>
+      sendIfAlive(sender, 'mt::rg::match', {
+        searchId,
+        batchId: batch.batchId,
+        payload: batch.payload
+      }),
+    {
+      maxInFlight: MAX_IN_FLIGHT_BATCHES,
+      maxQueued: MAX_QUEUED_BATCHES,
+      onCapacity: resumeSources,
+      onSendFailure: cancel
+    }
+  )
+
+  activeSearches.set(searchId, { sender, cancel, ack: (batchId) => gate.ack(batchId) })
 
   for (const directoryPath of directories) {
     let regexpStr: string | null = null
@@ -252,96 +328,177 @@ const startTextSearch = (
     try {
       child = spawn(rgPath, args, { cwd: directoryPath, stdio: ['pipe', 'pipe', 'pipe'] })
     } catch (err) {
-      finishIfDone(err)
+      fail(err)
       return
     }
     children.push(child)
+    if (child.stdout) sources.add(child.stdout)
 
     let buffer = ''
     let bufferError = ''
     let pendingEvent: { filePath: string; matches: RgMatch[] } | null = null
     let pendingLeadingContext: unknown[] = []
-    let pendingTrailingContexts: Set<unknown[]> = new Set()
+    let pendingMessage: PendingTextMessage | null = null
+    let outputEnded = !child.stdout
+    let processClosed = false
+    let childFinished = false
+    let draining = false
 
-    const flushPendingEvent = (): void => {
-      if (cancelled || !pendingEvent || pendingEvent.matches.length === 0) return
-      sendIfAlive(sender, 'mt::rg::match', {
-        searchId,
-        payload: pendingEvent
-      })
-      pendingEvent = {
-        filePath: pendingEvent.filePath,
-        matches: []
-      }
+    const flushPendingEvent = (afterSend?: () => boolean | void): boolean => {
+      if (cancelled || !pendingEvent || pendingEvent.matches.length === 0) return true
+      const event = pendingEvent
+      const batchId = gate.enqueue(event, { afterSend })
+      if (batchId === null) return false
+      pendingEvent = { filePath: event.filePath, matches: [] }
+      return true
     }
 
-    const processLine = (line: string): void => {
-      if (!line) return
+    const drainPendingMessage = (): boolean => {
+      if (!pendingMessage) return true
+
+      if (pendingMessage.type === 'begin') {
+        if (!flushPendingEvent()) return false
+        pendingEvent = { filePath: pendingMessage.filePath, matches: [] }
+        pendingLeadingContext = []
+        pendingMessage = null
+        return true
+      }
+
+      if (pendingMessage.type === 'match') {
+        const { data } = pendingMessage
+        if (!pendingEvent) {
+          pendingEvent = { filePath: getText(data.path), matches: [] }
+        }
+        while (pendingMessage.nextSubmatchIndex < data.submatches.length) {
+          if (pendingEvent.matches.length >= TEXT_MATCH_BATCH_SIZE && !flushPendingEvent()) {
+            return false
+          }
+          const submatch = data.submatches[pendingMessage.nextSubmatchIndex]
+          if (!submatch) break
+          const { lineText, range } = processSubmatch(
+            submatch,
+            getText(data.lines),
+            data.line_number - 1
+          )
+          pendingEvent.matches.push({
+            matchText: getText(submatch.match),
+            lineText,
+            range,
+            leadingContextLines: [...pendingLeadingContext],
+            trailingContextLines: pendingMessage.trailingContextLines
+          })
+          pendingMessage.nextSubmatchIndex++
+        }
+        pendingMessage = null
+        return true
+      }
+
+      if (pendingEvent?.matches.length) {
+        const progressNumber = pendingPaths + 1
+        if (!flushPendingEvent(() => sendProgress(progressNumber))) return false
+      } else if (!sendProgress(pendingPaths + 1)) {
+        return false
+      }
+      pendingPaths++
+      pendingEvent = null
+      pendingMessage = null
+      return true
+    }
+
+    const parseLine = (line: string): PendingTextMessage | null => {
       try {
-        const message = JSON.parse(line)
+        const message = JSON.parse(line) as {
+          type?: string
+          data?: RgMatchData
+        }
         if (message.type === 'begin') {
           // A well-formed ripgrep stream ends a file before beginning the
           // next one. Flush defensively in case a truncated stream omits it.
-          flushPendingEvent()
-          pendingEvent = { filePath: getText(message.data.path), matches: [] }
-          pendingLeadingContext = []
-          pendingTrailingContexts = new Set()
+          return { type: 'begin', filePath: getText(message.data?.path as TextInput) }
         } else if (message.type === 'match') {
+          const data = message.data as RgMatchData
           const trailingContextLines: unknown[] = []
-          pendingTrailingContexts.add(trailingContextLines)
-          processUnicodeMatch(message.data)
-          for (const submatch of message.data.submatches) {
-            const { lineText, range } = processSubmatch(
-              submatch,
-              getText(message.data.lines),
-              message.data.line_number - 1
-            )
-            pendingEvent?.matches.push({
-              matchText: getText(submatch.match),
-              lineText,
-              range,
-              leadingContextLines: [...pendingLeadingContext],
-              trailingContextLines
-            })
-            if (pendingEvent && pendingEvent.matches.length >= TEXT_MATCH_BATCH_SIZE) {
-              flushPendingEvent()
-            }
-          }
+          processUnicodeMatch(data)
+          return { type: 'match', data, nextSubmatchIndex: 0, trailingContextLines }
         } else if (message.type === 'end') {
-          flushPendingEvent()
-          pendingPaths++
-          sendIfAlive(sender, 'mt::rg::progress', { searchId, num: pendingPaths })
-          pendingEvent = null
+          return { type: 'end' }
         }
       } catch (err) {
         log.warn('Failed to parse ripgrep output line:', line, err)
       }
+      return null
     }
+
+    const finishChildIfReady = (): void => {
+      if (childFinished || !outputEnded || !processClosed || cancelled || finished) return
+      if (pendingMessage && !drainPendingMessage()) return
+      if (pendingMessage) return
+      if (buffer.length > 0) return
+      if (pendingEvent?.matches.length && !flushPendingEvent()) return
+      pendingEvent = null
+      childFinished = true
+      pendingDirs--
+      maybeFinish()
+    }
+
+    const drain = (): void => {
+      if (draining || cancelled || finished) return
+      draining = true
+      try {
+        while (!gate.isFull) {
+          if (pendingMessage && !drainPendingMessage()) {
+            pauseSources()
+            return
+          }
+          if (pendingMessage) continue
+
+          const newlineIndex = buffer.indexOf('\n')
+          let line: string
+          if (newlineIndex < 0) {
+            if (!outputEnded || !buffer) break
+            line = buffer
+            buffer = ''
+          } else {
+            line = buffer.slice(0, newlineIndex)
+            buffer = buffer.slice(newlineIndex + 1)
+          }
+          if (!line) continue
+          pendingMessage = parseLine(line)
+        }
+        if (gate.isFull) pauseSources()
+        finishChildIfReady()
+        if (gate.isFull) pauseSources()
+      } finally {
+        draining = false
+      }
+    }
+
+    drainers.add(drain)
 
     child.on('close', (code) => {
       if (code !== null && code > 1 && bufferError) {
         log.warn('Ripgrep finished with errors (exit code ' + code + '):', bufferError)
       }
-      if (buffer && !cancelled) {
-        processLine(buffer)
-      }
-      pendingDirs--
-      finishIfDone()
+      processClosed = true
+      if (child.stdout?.readableEnded) outputEnded = true
+      drain()
     })
-    child.on('error', (err) => finishIfDone(err))
+    child.on('error', (err) => fail(err))
     child.stderr?.on('data', (chunk: Buffer | string) => {
       bufferError += chunk
+    })
+    child.stdout?.on('end', () => {
+      outputEnded = true
+      drain()
     })
     child.stdout?.on('data', (chunk: Buffer | string) => {
       if (cancelled) return
       buffer += chunk
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-      for (const line of lines) {
-        processLine(line)
-      }
+      drain()
     })
   }
+
+  if (directories.length === 0) maybeFinish()
 }
 
 const startFileSearch = (
@@ -352,29 +509,47 @@ const startFileSearch = (
 ): void => {
   const rgPath = resolveRgPath()
   const children: ChildProcess[] = []
+  const sources = new Set<PausableSource>()
+  const drainers = new Set<() => void>()
   let cancelled = false
   let pendingPaths = 0
   let pendingDirs = directories.length
   let finished = false
+  let cancel = (): void => {}
 
-  const finishIfDone = (err?: unknown): void => {
-    if (finished) return
-    if (pendingDirs === 0 || err) {
-      finished = true
-      activeSearches.delete(searchId)
-      if (err) {
-        sendIfAlive(sender, 'mt::rg::error', {
-          searchId,
-          error: err instanceof Error ? err.message : String(err)
-        })
-      } else {
-        sendIfAlive(sender, 'mt::rg::done', { searchId })
-      }
-    }
+  const pauseSources = (): void => {
+    for (const source of sources) source.pause()
   }
 
-  const cancel = (): void => {
+  const resumeSources = (): void => {
+    if (cancelled || finished || gate.isFull) return
+    for (const drain of drainers) drain()
+    if (cancelled || finished || gate.isFull) {
+      if (gate.isFull) pauseSources()
+      return
+    }
+    for (const source of sources) source.resume()
+    maybeFinish()
+  }
+
+  const sendProgress = (num: number): boolean => {
+    const sent = sendIfAlive(sender, 'mt::rg::progress', { searchId, num })
+    if (!sent) cancel()
+    return sent
+  }
+
+  const maybeFinish = (): void => {
+    if (finished || cancelled || pendingDirs !== 0 || !gate.isEmpty) return
+    finished = true
+    removeActiveSearch(searchId, cancel)
+    gate.close()
+    sendIfAlive(sender, 'mt::rg::done', { searchId })
+  }
+
+  const fail = (err: unknown): void => {
+    if (finished || cancelled) return
     cancelled = true
+    gate.close()
     for (const child of children) {
       try {
         child.kill()
@@ -382,13 +557,49 @@ const startFileSearch = (
         /* already dead */
       }
     }
-    if (!finished) {
-      finished = true
-      activeSearches.delete(searchId)
-      sendIfAlive(sender, 'mt::rg::cancelled', { searchId })
-    }
+    finished = true
+    removeActiveSearch(searchId, cancel)
+    sendIfAlive(sender, 'mt::rg::error', {
+      searchId,
+      error: err instanceof Error ? err.message : String(err)
+    })
   }
-  activeSearches.set(searchId, { sender, cancel })
+
+  cancel = (): void => {
+    if (finished || cancelled) {
+      gate.close()
+      return
+    }
+    cancelled = true
+    gate.close()
+    for (const child of children) {
+      try {
+        child.kill()
+      } catch {
+        /* already dead */
+      }
+    }
+    finished = true
+    removeActiveSearch(searchId, cancel)
+    sendIfAlive(sender, 'mt::rg::cancelled', { searchId })
+  }
+
+  const gate = new BatchGate<unknown>(
+    (batch: Batch<unknown>) =>
+      sendIfAlive(sender, 'mt::rg::match', {
+        searchId,
+        batchId: batch.batchId,
+        payload: batch.payload
+      }),
+    {
+      maxInFlight: MAX_IN_FLIGHT_BATCHES,
+      maxQueued: MAX_QUEUED_BATCHES,
+      onCapacity: resumeSources,
+      onSendFailure: cancel
+    }
+  )
+
+  activeSearches.set(searchId, { sender, cancel, ack: (batchId) => gate.ack(batchId) })
 
   for (const directoryPath of directories) {
     const args = ['--files']
@@ -403,51 +614,105 @@ const startFileSearch = (
     try {
       child = spawn(rgPath, args, { cwd: directoryPath, stdio: ['pipe', 'pipe', 'pipe'] })
     } catch (err) {
-      finishIfDone(err)
+      fail(err)
       return
     }
     children.push(child)
+    if (child.stdout) sources.add(child.stdout)
 
     let buffer = ''
     let bufferError = ''
     const pendingPathBatch: string[] = []
+    let outputEnded = !child.stdout
+    let processClosed = false
+    let childFinished = false
+    let draining = false
 
-    const flushPathBatch = (): void => {
-      if (cancelled || pendingPathBatch.length === 0) return
-      const batch = pendingPathBatch.splice(0, pendingPathBatch.length)
-      pendingPaths += batch.length
-      sendIfAlive(sender, 'mt::rg::progress', { searchId, num: pendingPaths })
-      sendIfAlive(sender, 'mt::rg::match', { searchId, payload: batch })
+    const flushPathBatch = (): boolean => {
+      if (cancelled || pendingPathBatch.length === 0) return true
+      const batch = [...pendingPathBatch]
+      const nextPathCount = pendingPaths + batch.length
+      const batchId = gate.enqueue(batch, {
+        beforeSend: () => sendProgress(nextPathCount)
+      })
+      if (batchId === null) return false
+      pendingPathBatch.splice(0, pendingPathBatch.length)
+      pendingPaths = nextPathCount
+      return true
     }
 
-    const processPathLine = (line: string): void => {
-      if (!line) return
+    const processPathLine = (line: string): boolean => {
+      if (!line) return true
       pendingPathBatch.push(line.endsWith('\r') ? line.slice(0, -1) : line)
-      if (pendingPathBatch.length >= FILE_PATH_BATCH_SIZE) flushPathBatch()
+      if (pendingPathBatch.length >= FILE_PATH_BATCH_SIZE) return flushPathBatch()
+      return true
     }
+
+    const finishChildIfReady = (): void => {
+      if (childFinished || !outputEnded || !processClosed || cancelled || finished) return
+      if (buffer.length > 0) return
+      if (!flushPathBatch()) return
+      if (pendingPathBatch.length > 0) return
+      childFinished = true
+      pendingDirs--
+      maybeFinish()
+    }
+
+    const drain = (): void => {
+      if (draining || cancelled || finished) return
+      draining = true
+      try {
+        while (!gate.isFull) {
+          const newlineIndex = buffer.indexOf('\n')
+          let line: string
+          if (newlineIndex < 0) {
+            if (!outputEnded || !buffer) break
+            line = buffer
+            buffer = ''
+          } else {
+            line = buffer.slice(0, newlineIndex)
+            buffer = buffer.slice(newlineIndex + 1)
+          }
+          if (!processPathLine(line)) {
+            pauseSources()
+            return
+          }
+        }
+        if (gate.isFull) pauseSources()
+        finishChildIfReady()
+        if (gate.isFull) pauseSources()
+      } finally {
+        draining = false
+      }
+    }
+
+    drainers.add(drain)
 
     child.on('close', (code) => {
       if (code !== null && code > 1) {
-        finishIfDone(new Error(bufferError))
+        fail(new Error(bufferError || `Ripgrep exited with code ${code}`))
         return
       }
-      if (buffer && !cancelled) processPathLine(buffer)
-      flushPathBatch()
-      pendingDirs--
-      finishIfDone()
+      processClosed = true
+      if (child.stdout?.readableEnded) outputEnded = true
+      drain()
     })
-    child.on('error', (err) => finishIfDone(err))
+    child.on('error', (err) => fail(err))
     child.stderr?.on('data', (chunk: Buffer | string) => {
       bufferError += chunk
+    })
+    child.stdout?.on('end', () => {
+      outputEnded = true
+      drain()
     })
     child.stdout?.on('data', (chunk: Buffer | string) => {
       if (cancelled) return
       buffer += chunk
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-      for (const line of lines) processPathLine(line)
+      drain()
     })
   }
+
+  if (directories.length === 0) maybeFinish()
 }
 
 interface RipgrepRequest {
@@ -461,13 +726,18 @@ interface RipgrepRequest {
 export const registerRipgrepHandlers = (): void => {
   ipcMain.handle('mt::rg::start', (event, req: RipgrepRequest) => {
     const { searchId, mode, directories, pattern, options } = req
+    activeSearches.get(searchId)?.cancel()
     cleanupAtSenderDestroy(event.sender)
     if (mode === 'files') startFileSearch(event.sender, searchId, directories, options || {})
     else startTextSearch(event.sender, searchId, directories, pattern, options || {})
-    return true
+    return { searchId }
   })
-  ipcMain.on('mt::rg::cancel', (_event, searchId: string) => {
+  ipcMain.on('mt::rg::cancel', (event, searchId: string) => {
     const entry = activeSearches.get(searchId)
-    if (entry) entry.cancel()
+    if (entry && entry.sender === event.sender) entry.cancel()
+  })
+  ipcMain.on('mt::rg::ack', (event, searchId: string, batchId: number) => {
+    const entry = activeSearches.get(searchId)
+    if (entry && entry.sender === event.sender) entry.ack(batchId)
   })
 }

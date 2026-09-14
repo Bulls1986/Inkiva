@@ -26,10 +26,14 @@ interface StartArgs {
 
 interface RipgrepPayloadEnvelope {
   searchId: string
+  batchId?: unknown
   payload?: unknown
   num?: unknown
   error?: string
 }
+
+const isBatchId = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 1
 
 let nextId = 1
 const genId = (): string => `rg-${Date.now()}-${nextId++}`
@@ -59,10 +63,26 @@ const startSearch = ({ mode, directories, pattern, options }: StartArgs): Cancel
     offMatch = window.ripgrep.onMatch((payload: unknown) => {
       const env = payload as RipgrepPayloadEnvelope | null
       if (!env || env.searchId !== searchId) return
+      if (!isBatchId(env.batchId)) {
+        // Keep compatibility with an older main process that does not attach
+        // batch IDs. Only the explicit protocol participates in ACK gating.
+        try {
+          didMatch(env.payload)
+        } catch (err) {
+          console.error(err)
+        }
+        return
+      }
       try {
         didMatch(env.payload)
       } catch (err) {
         console.error(err)
+      } finally {
+        try {
+          window.ripgrep.ack(searchId, env.batchId)
+        } catch (err) {
+          console.error(err)
+        }
       }
     })
     offProgress = window.ripgrep.onProgress((payload: unknown) => {
