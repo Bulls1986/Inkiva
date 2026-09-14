@@ -85,6 +85,10 @@ test.describe('Document workflow', () => {
       await waitForMenuReady(launched.app)
       const list = launched.page.locator('[data-testid="recent-documents-list"]')
       await expect(list).toBeVisible()
+      // Opening a project records its root folder automatically. Reset the
+      // persisted list so this test covers only the explicit file/folder
+      // actions below.
+      expect(await callRecentAction(launched.page, 'CLEAR', '')).toBe(true)
       expect(await callRecentAction(launched.page, 'RECORD_FILE', filePath)).toBe(true)
       expect(await callRecentAction(launched.page, 'RECORD_FOLDER', folderPath)).toBe(true)
 
