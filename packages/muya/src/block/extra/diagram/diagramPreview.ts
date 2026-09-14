@@ -6,6 +6,10 @@ import { fromEvent } from 'rxjs';
 import { CLASS_NAMES, PREVIEW_DOMPURIFY_CONFIG } from '../../../config';
 import { sanitize } from '../../../utils';
 import { getDiagramRenderCoordinator } from '../../../utils/diagram/coordinator';
+import {
+    createDiagramHeightHintCache,
+    diagramHeightHintKey,
+} from './diagramHeightHint';
 import logger from '../../../utils/logger';
 import Parent from '../../base/parent';
 
@@ -38,6 +42,41 @@ class DiagramPreview extends Parent {
     private _viewportObserveTimer: ReturnType<typeof setTimeout> | null = null;
     private _isViewportReady = false;
     private _renderAttempts = 0;
+    private _applyHeightHint() {
+        const node = this.domNode;
+        if (!node)
+            return;
+
+        const height = createDiagramHeightHintCache().get(diagramHeightHintKey(this._type, this._code));
+        if (height == null) {
+            node.style.removeProperty('min-height');
+            node.removeAttribute('data-diagram-height-hint');
+            return;
+        }
+
+        node.style.minHeight = `${height}px`;
+        node.setAttribute('data-diagram-height-hint', String(height));
+    }
+
+    private _rememberRenderedHeight() {
+        const node = this.domNode;
+        if (!node)
+            return;
+
+        const previousMinHeight = node.style.minHeight;
+        node.style.removeProperty('min-height');
+        const rectHeight = node.getBoundingClientRect().height;
+        const height = Math.max(rectHeight, node.offsetHeight);
+        if (height > 0) {
+            createDiagramHeightHintCache().set(diagramHeightHintKey(this._type, this._code), height);
+            node.removeAttribute('data-diagram-height-hint');
+            return;
+        }
+
+        if (previousMinHeight)
+            node.style.minHeight = previousMinHeight;
+    }
+
 
     static override blockName = 'diagram-preview';
 
@@ -63,6 +102,7 @@ class DiagramPreview extends Parent {
             contenteditable: 'false',
         };
         this.createDomNode();
+        this._applyHeightHint();
         this._attachDOMEvents();
         this._installViewportObserver();
         this.update();
@@ -253,6 +293,8 @@ class DiagramPreview extends Parent {
                 this._setPresentationMode('preview');
             else
                 this._setPresentationMode('source');
+
+            this._rememberRenderedHeight();
         }
         catch (error) {
             if (this._disposed || generation !== this._renderGeneration)
@@ -294,6 +336,7 @@ class DiagramPreview extends Parent {
     private _prepareRender(code: string): number {
         const generation = ++this._renderGeneration;
         this._code = code;
+        this._applyHeightHint();
 
         if (this._renderTimer !== null)
             clearTimeout(this._renderTimer);
@@ -369,6 +412,7 @@ class DiagramPreview extends Parent {
         if (this._disposed)
             return;
 
+        this._rememberRenderedHeight();
         this._disposed = true;
         this._renderGeneration++;
         if (this._renderTimer !== null)
