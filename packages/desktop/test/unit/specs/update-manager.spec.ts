@@ -23,6 +23,7 @@ class FakeProvider implements UpdateProvider {
   readonly autoDownload = false
   checkCalls = 0
   downloadCalls = 0
+  cancelCalls = 0
   installCalls = 0
   result: UpdateCheckResult = { candidates: [] }
   progress: number[] = []
@@ -38,6 +39,10 @@ class FakeProvider implements UpdateProvider {
     this.progress.push(35)
     onProgress(100)
     this.progress.push(100)
+  }
+
+  cancelDownload(): void {
+    this.cancelCalls += 1
   }
 
   quitAndInstall(): void {
@@ -105,12 +110,12 @@ describe('UpdateManager', () => {
     expect(provider.checkCalls).toBe(2)
   })
 
-  it('reports no formal release as up-to-date and records a successful check', async() => {
+  it('reports no formal release as no update and records a successful check', async() => {
     const { manager, provider, store } = createManager()
     provider.result = { candidates: [] }
 
     await expect(manager.checkForUpdate('manual')).resolves.toMatchObject({
-      state: 'up-to-date',
+      state: 'no-update',
       checkSource: 'manual',
       currentVersion: '1.0.0'
     })
@@ -125,7 +130,7 @@ describe('UpdateManager', () => {
     })
 
     await expect(manager.checkForUpdate('manual')).resolves.toMatchObject({
-      state: 'error',
+      state: 'error-recoverable',
       errorCode: 'NETWORK_ERROR',
       errorMessage: 'network unavailable'
     })
@@ -141,7 +146,7 @@ describe('UpdateManager', () => {
     })
 
     await expect(manager.checkForUpdate('manual')).resolves.toMatchObject({
-      state: 'up-to-date',
+      state: 'no-update',
       checkSource: 'manual',
       currentVersion: '1.0.0'
     })
@@ -163,7 +168,7 @@ describe('UpdateManager', () => {
 
     resolve!({ candidates: [] })
     await Promise.all([first, second])
-    expect(manager.status.state).toBe('up-to-date')
+    expect(manager.status.state).toBe('no-update')
   })
 
   it('reports a stable update without downloading during a manual check', async() => {
@@ -196,7 +201,7 @@ describe('UpdateManager', () => {
     expect(provider.downloadCalls).toBe(1)
     expect(provider.progress).toEqual([35, 100])
     expect(manager.status).toMatchObject({
-      state: 'ready-to-install',
+      state: 'ready',
       currentVersion: '1.0.0',
       latestVersion: '1.1.0',
       downloadProgress: 100,
@@ -212,7 +217,7 @@ describe('UpdateManager', () => {
 
     expect(status.state).toBe('available')
     await vi.waitFor(() => expect(provider.downloadCalls).toBe(1))
-    expect(manager.status.state).toBe('ready-to-install')
+    expect(manager.status.state).toBe('ready')
   })
 
   it('reports download failures separately from check failures', async() => {
@@ -224,7 +229,7 @@ describe('UpdateManager', () => {
 
     await manager.checkForUpdate('manual')
     await expect(manager.downloadUpdate()).resolves.toMatchObject({
-      state: 'error',
+      state: 'error-recoverable',
       errorCode: 'DOWNLOAD_ERROR',
       errorMessage: 'download unavailable'
     })
@@ -259,7 +264,7 @@ describe('UpdateManager', () => {
     expect(manager.status.state).toBe('installing')
   })
 
-  it('returns to ready-to-install when dirty-document approval is cancelled', async() => {
+  it('returns to ready when dirty-document approval is cancelled', async() => {
     const { manager, provider } = createManager({
       prepareRestart: vi.fn(async() => false)
     })
@@ -269,7 +274,7 @@ describe('UpdateManager', () => {
 
     await expect(manager.requestRestart()).resolves.toBe(false)
     expect(provider.installCalls).toBe(0)
-    expect(manager.status.state).toBe('ready-to-install')
+    expect(manager.status.state).toBe('ready')
   })
 
   it('publishes every state transition to the main-process observer', async() => {
@@ -286,7 +291,144 @@ describe('UpdateManager', () => {
       'checking',
       'available',
       'downloading',
-      'ready-to-install'
+      'ready'
     ])
+  })
+
+  it('retries a transient network or DNS failure on a later manual check', async() => {
+    const { manager, provider, store } = createManager()
+    const checkForUpdates = vi
+      .fn<() => Promise<UpdateCheckResult>>()
+      .mockRejectedValueOnce(Object.assign(new Error('getaddrinfo ENOTFOUND api.github.com'), {
+        code: 'ENOTFOUND'
+      }))
+      .mockResolvedValueOnce({ candidates: [] })
+    provider.checkForUpdates = checkForUpdates
+
+    await expect(manager.checkForUpdate('manual')).resolves.toMatchObject({
+      state: 'error-recoverable',
+      errorCode: 'NETWORK_ERROR'
+    })
+    expect(store.get()).toBeUndefined()
+
+    await expect(manager.checkForUpdate('manual')).resolves.toMatchObject({
+      state: 'no-update'
+    })
+    expect(checkForUpdates).toHaveBeenCalledTimes(2)
+    expect(store.get()).toBe(1_000_000)
+  })
+
+  it('keeps a downloaded release retryable after an interrupted download', async() => {
+    const { manager, provider } = createManager()
+    provider.result = { candidates: [candidate('v1.1.0')] }
+    const downloadUpdate = vi
+      .fn<(onProgress: (progress: number) => void) => Promise<void>>()
+      .mockRejectedValueOnce(Object.assign(new Error('connection reset'), {
+        code: 'ECONNRESET'
+      }))
+      .mockImplementationOnce(async(onProgress) => {
+        onProgress(100)
+      })
+    provider.downloadUpdate = downloadUpdate
+
+    await manager.checkForUpdate('manual')
+    await expect(manager.downloadUpdate()).resolves.toMatchObject({
+      state: 'error-recoverable',
+      errorCode: 'DOWNLOAD_ERROR',
+      latestVersion: '1.1.0'
+    })
+
+    await expect(manager.downloadUpdate()).resolves.toMatchObject({
+      state: 'ready',
+      latestVersion: '1.1.0',
+      downloadProgress: 100
+    })
+    expect(downloadUpdate).toHaveBeenCalledTimes(2)
+  })
+
+  it('surfaces checksum and signature failures as recoverable verification errors', async() => {
+    const { manager, provider } = createManager()
+    provider.result = { candidates: [candidate('v1.1.0')] }
+    provider.downloadUpdate = vi.fn(async() => {
+      throw Object.assign(new Error('sha512 checksum mismatch'), {
+        code: 'ERR_CHECKSUM_MISMATCH'
+      })
+    })
+
+    await manager.checkForUpdate('manual')
+    await expect(manager.downloadUpdate()).resolves.toMatchObject({
+      state: 'error-recoverable',
+      errorCode: 'VERIFICATION_ERROR',
+      latestVersion: '1.1.0'
+    })
+  })
+
+  it('deduplicates repeated download clicks while the provider is active', async() => {
+    const { manager, provider } = createManager()
+    provider.result = { candidates: [candidate('v1.1.0')] }
+    let resolveDownload: (() => void) | undefined
+    const downloadUpdate = vi.fn(
+      (_onProgress: (progress: number) => void) => new Promise<void>((resolve) => {
+        resolveDownload = resolve
+      })
+    )
+    provider.downloadUpdate = downloadUpdate
+
+    await manager.checkForUpdate('manual')
+    const first = manager.downloadUpdate()
+    const second = manager.downloadUpdate()
+    expect(downloadUpdate).toHaveBeenCalledTimes(1)
+    expect(manager.status.state).toBe('downloading')
+
+    expect(resolveDownload).toBeDefined()
+    resolveDownload?.()
+    await Promise.all([first, second])
+    expect(manager.status.state).toBe('ready')
+  })
+
+  it('cancels an active download without allowing its late completion to install', async() => {
+    const { manager, provider } = createManager()
+    provider.result = { candidates: [candidate('v1.1.0')] }
+    let resolveDownload: (() => void) | undefined
+    provider.downloadUpdate = vi.fn(
+      (_onProgress: (progress: number) => void) => new Promise<void>((resolve) => {
+        resolveDownload = resolve
+      })
+    )
+
+    await manager.checkForUpdate('manual')
+    const download = manager.downloadUpdate()
+    await expect(manager.cancelDownload()).resolves.toMatchObject({
+      state: 'error-recoverable',
+      errorCode: 'DOWNLOAD_CANCELLED'
+    })
+    expect(provider.cancelCalls).toBe(1)
+
+    expect(resolveDownload).toBeDefined()
+    resolveDownload?.()
+    await download
+    expect(manager.status.state).toBe('error-recoverable')
+    expect(provider.installCalls).toBe(0)
+  })
+
+  it('makes installer failures recoverable and allows a later restart attempt', async() => {
+    const { manager, provider } = createManager()
+    provider.result = { candidates: [candidate('v1.1.0')] }
+    await manager.checkForUpdate('manual')
+    await manager.downloadUpdate()
+
+    provider.quitAndInstall = vi.fn(() => {
+      throw new Error('installer unavailable')
+    })
+    await expect(manager.requestRestart()).resolves.toBe(false)
+    expect(manager.status).toMatchObject({
+      state: 'error-recoverable',
+      errorCode: 'INSTALL_ERROR',
+      latestVersion: '1.1.0'
+    })
+
+    provider.quitAndInstall = vi.fn()
+    await expect(manager.requestRestart()).resolves.toBe(true)
+    expect(manager.status.state).toBe('installing')
   })
 })

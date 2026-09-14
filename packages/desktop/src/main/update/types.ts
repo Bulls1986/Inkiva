@@ -2,19 +2,31 @@ export type UpdateState =
   | 'disabled'
   | 'idle'
   | 'checking'
-  | 'up-to-date'
+  | 'no-update'
   | 'available'
   | 'downloading'
-  | 'ready-to-install'
-  | 'preparing-restart'
+  | 'ready'
   | 'installing'
-  | 'error'
+  | 'error-recoverable'
+
+export const UPDATE_STATE = {
+  IDLE: 'idle',
+  CHECKING: 'checking',
+  NO_UPDATE: 'no-update',
+  AVAILABLE: 'available',
+  DOWNLOADING: 'downloading',
+  READY: 'ready',
+  INSTALLING: 'installing',
+  ERROR_RECOVERABLE: 'error-recoverable'
+} as const
 
 export type UpdateCheckSource = 'background' | 'manual'
 
 export type UpdateErrorCode =
   | 'NETWORK_ERROR'
   | 'DOWNLOAD_ERROR'
+  | 'DOWNLOAD_CANCELLED'
+  | 'VERIFICATION_ERROR'
   | 'INSTALL_ERROR'
   | 'INVALID_RELEASE'
 
@@ -41,6 +53,7 @@ export interface UpdateProvider {
   readonly autoDownload: boolean
   checkForUpdates(): Promise<UpdateCheckResult>
   downloadUpdate?(onProgress: (progress: number) => void): Promise<void>
+  cancelDownload?(): Promise<void> | void
   quitAndInstall(): void
   openRelease?(url: string): Promise<void> | void
 }

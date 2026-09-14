@@ -17,15 +17,76 @@ interface ElectronAutoUpdaterLike {
     updateInfo?: { version?: string }
     downloadPromise?: Promise<unknown>
   } | null>
-  downloadUpdate(): Promise<unknown>
+  downloadUpdate(cancellationToken?: unknown): Promise<unknown>
+  cancelDownload?(): Promise<void> | void
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void
+}
+
+interface CancellationTokenLike {
+  readonly cancelled: boolean
+  onCancel(handler: () => void): void
+  createPromise<R>(
+    callback: (
+      resolve: (value: R | PromiseLike<R>) => void,
+      reject: (error: Error) => void,
+      onCancel: (handler: () => void) => void
+    ) => void
+  ): Promise<R>
+}
+
+class DownloadCancellationToken implements CancellationTokenLike {
+  private _cancelled = false
+  private readonly _handlers = new Set<() => void>()
+
+  get cancelled(): boolean {
+    return this._cancelled
+  }
+
+  onCancel(handler: () => void): void {
+    if (this._cancelled) {
+      handler()
+      return
+    }
+    this._handlers.add(handler)
+  }
+
+  cancel(): void {
+    if (this._cancelled) return
+    this._cancelled = true
+    for (const handler of [...this._handlers]) handler()
+    this._handlers.clear()
+  }
+
+  createPromise<R>(
+    callback: (
+      resolve: (value: R | PromiseLike<R>) => void,
+      reject: (error: Error) => void,
+      onCancel: (handler: () => void) => void
+    ) => void
+  ): Promise<R> {
+    if (this._cancelled) return Promise.reject(new Error('cancelled'))
+
+    let cancellationHandler: (() => void) | undefined
+    return new Promise<R>((resolve, reject) => {
+      cancellationHandler = () => reject(new Error('cancelled'))
+      this.onCancel(cancellationHandler)
+      callback(resolve, reject, (handler) => this.onCancel(handler))
+    }).finally(() => {
+      if (cancellationHandler) this._handlers.delete(cancellationHandler)
+    })
+  }
+
+  dispose(): void {
+    this._handlers.clear()
+  }
 }
 
 export class WindowsUpdateProvider implements UpdateProvider {
   readonly autoDownload = false
   private readonly _updater: ElectronAutoUpdaterLike
   private _downloadPromise: Promise<unknown> | undefined
-  private _progressListener: ((progress: number) => void) | undefined
+  private _downloadToken: DownloadCancellationToken | undefined
+  private readonly _progressListeners = new Set<(progress: number) => void>()
 
   constructor(
     updater: ElectronAutoUpdaterLike = autoUpdater as unknown as ElectronAutoUpdaterLike
@@ -37,7 +98,7 @@ export class WindowsUpdateProvider implements UpdateProvider {
     this._updater.autoInstallOnAppQuit = false
     this._updater.disableDifferentialDownload = false
     this._updater.on('download-progress', ({ percent }) => {
-      this._progressListener?.(percent)
+      for (const listener of this._progressListeners) listener(percent)
     })
   }
 
@@ -68,13 +129,43 @@ export class WindowsUpdateProvider implements UpdateProvider {
   }
 
   async downloadUpdate(onProgress: (progress: number) => void): Promise<void> {
-    this._progressListener = onProgress
-    try {
-      await (this._downloadPromise ?? this._updater.downloadUpdate())
-    } finally {
-      this._progressListener = undefined
-      this._downloadPromise = undefined
+    this._progressListeners.add(onProgress)
+    let promise = this._downloadPromise
+    if (!promise) {
+      const token = new DownloadCancellationToken()
+      this._downloadToken = token
+      try {
+        promise = Promise.resolve(this._updater.downloadUpdate(token))
+        this._downloadPromise = promise
+      } catch (error) {
+        this._progressListeners.delete(onProgress)
+        token.dispose()
+        this._downloadToken = undefined
+        throw error
+      }
     }
+
+    if (!promise) {
+      this._progressListeners.delete(onProgress)
+      return
+    }
+
+    try {
+      await promise
+    } finally {
+      this._progressListeners.delete(onProgress)
+      if (this._downloadPromise === promise) {
+        this._downloadPromise = undefined
+        this._downloadToken?.dispose()
+        this._downloadToken = undefined
+        this._progressListeners.clear()
+      }
+    }
+  }
+
+  async cancelDownload(): Promise<void> {
+    this._downloadToken?.cancel()
+    await this._updater.cancelDownload?.()
   }
 
   quitAndInstall(): void {
