@@ -10,6 +10,7 @@ import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import pathe from 'pathe'
 import { getInitialAppearanceFromSearch } from 'common/theme'
+import { BUFFERED_RENDERER_CHANNELS } from './startupChannels'
 
 import {
   WINDOW_INITIAL_SHELL_READY_CHANNEL,
@@ -80,11 +81,7 @@ type BufferedRendererListener = (event: IpcRendererEvent, ...args: unknown[]) =>
 // Electron can finish the document load while a slow renderer is still
 // evaluating its application bundle. Keep startup-sensitive messages until the
 // Vue listeners are registered instead of losing them in that gap.
-const bufferedRendererChannels = [
-  'mt::bootstrap-editor',
-  'mt::load-state',
-  'mt::ask-for-close'
-] as const
+const bufferedRendererChannels = BUFFERED_RENDERER_CHANNELS
 const bufferedRendererEvents = new Map<string, BufferedRendererEvent[]>()
 const bufferedRendererListeners = new Map<string, BufferedRendererListener>()
 
