@@ -22,9 +22,9 @@ describe('inline reference definition cache', () => {
     it('does not deep-scan the whole AST for repeated paragraph renders', () => {
         const paragraphs = Array.from(
             { length: 200 },
-            (_, index) => \`Paragraph \${index}\`,
-        ).join('\\n\\n');
-        const muya = bootMuya(\`[ref]: https://example.com/old\\n\\n\${paragraphs}\`);
+            (_, index) => `Paragraph ${index}`,
+        ).join('\n\n');
+        const muya = bootMuya(`[ref]: https://example.com/old\n\n${paragraphs}`);
         const body = muya.editor.scrollPage!.lastContentInDescendant()!;
         const getState = vi.spyOn(muya.editor.jsonState, 'getState');
 
@@ -35,7 +35,7 @@ describe('inline reference definition cache', () => {
     });
 
     it('refreshes cached definitions only when a definition changes', () => {
-        const muya = bootMuya('[ref]: https://example.com/old\\n\\nSee [reference][ref]\\n');
+        const muya = bootMuya('[ref]: https://example.com/old\n\nSee [reference][ref]\n');
         const definition = muya.editor.scrollPage!.firstContentInDescendant()!;
         const getState = vi.spyOn(muya.editor.jsonState, 'getState');
 
@@ -47,7 +47,7 @@ describe('inline reference definition cache', () => {
     });
 
     it('invalidates cached definitions when a definition block is removed', () => {
-        const muya = bootMuya('[ref]: https://example.com/old\\n\\nSee [reference][ref]\\n');
+        const muya = bootMuya('[ref]: https://example.com/old\n\nSee [reference][ref]\n');
         const definition = muya.editor.scrollPage!.firstChild!;
         definition.remove();
 
@@ -61,7 +61,7 @@ describe('inline reference definition cache', () => {
         const muya = bootMuya('Plain text');
         const getState = vi.spyOn(muya.editor.jsonState, 'getState');
 
-        muya.setContent('[a][r]\\n\\n[r]: https://example.com/replaced\\n');
+        muya.setContent('[a][r]\n\n[r]: https://example.com/replaced\n');
 
         expect(getState).not.toHaveBeenCalled();
         expect(muya.domNode.querySelector('a.mu-reference-link')?.getAttribute('href'))
