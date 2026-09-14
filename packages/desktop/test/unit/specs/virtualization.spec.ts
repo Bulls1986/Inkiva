@@ -1,10 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {
-  calculateVirtualWindow
-} from './virtualization.js'
-import { flattenTocRows } from './tocVirtualization.js'
-import { flattenTreeRows } from './treeVirtualization.js'
+import { calculateVirtualWindow } from '@/util/virtualization'
+import { flattenTocRows } from '@/util/tocVirtualization'
+import { flattenTreeRows } from '@/util/treeVirtualization'
 
 const folder = (pathname: string, children: ReturnType<typeof folder>['folders'] = []) => ({
   id: pathname,
