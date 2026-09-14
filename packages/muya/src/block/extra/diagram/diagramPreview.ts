@@ -1,15 +1,17 @@
 import type { Subscription } from 'rxjs';
 import type { Muya } from '../../../muya';
 import type { IDiagramMeta, IDiagramState, TState } from '../../../state/types';
+import type { IDiagramRenderCoordinatorHandle } from '../../../utils/diagram/coordinator';
 import { fromEvent } from 'rxjs';
 import { CLASS_NAMES, PREVIEW_DOMPURIFY_CONFIG } from '../../../config';
 import { sanitize } from '../../../utils';
-import { renderDiagram } from '../../../utils/diagram/renderer';
+import { getDiagramRenderCoordinator } from '../../../utils/diagram/coordinator';
 import logger from '../../../utils/logger';
 import Parent from '../../base/parent';
 
 const debug = logger('diagramPreview:');
 export const DIAGRAM_RENDER_DEBOUNCE_MS = 200;
+let nextDiagramPreviewId = 0;
 
 type DiagramPresentationMode = 'source' | 'preview' | 'error';
 
@@ -20,6 +22,7 @@ const DIAGRAM_PRESENTATION_CLASSES = {
 } as const;
 
 class DiagramPreview extends Parent {
+    private readonly _renderBlockId = `diagram-preview-${++nextDiagramPreviewId}`;
     private _code: string;
     private _type: IDiagramMeta['type'];
     private _presentationMode: DiagramPresentationMode = 'source';
@@ -29,7 +32,7 @@ class DiagramPreview extends Parent {
     private _hasRenderedResult = false;
     private _lastValidatedCode: string | null = null;
     private _disposed = false;
-    private _disposeDiagram: (() => void) | null = null;
+    private _activeRenderHandle: IDiagramRenderCoordinatorHandle | null = null;
     private _clickSubscription: Subscription | null = null;
     static override blockName = 'diagram-preview';
 
@@ -173,33 +176,34 @@ class DiagramPreview extends Parent {
         const { mermaidTheme, vegaTheme, plantumlServer, sequenceTheme } = this.muya.options;
         const { _type: type } = this;
 
+        let handle: IDiagramRenderCoordinatorHandle | null = null;
         try {
-            const result = await renderDiagram({
+            handle = getDiagramRenderCoordinator(this.muya).schedule({
+                blockId: this._renderBlockId,
+                generation,
                 target: this.domNode!,
-                code,
-                type,
-                mermaidTheme,
-                vegaTheme,
-                plantumlServer,
-                sequenceTheme,
+                options: {
+                    code,
+                    type,
+                    mermaidTheme,
+                    vegaTheme,
+                    plantumlServer,
+                    sequenceTheme,
+                },
                 isCurrent: () => !this._disposed && generation === this._renderGeneration,
             });
+            this._activeRenderHandle = handle;
 
-            if (this._disposed || generation !== this._renderGeneration) {
-                result.dispose();
+            const outcome = await handle.promise;
+            if (this._disposed || generation !== this._renderGeneration)
+                return;
+            if (outcome.status === 'cancelled')
+                return;
+            if (outcome.status === 'error') {
+                this._showRenderError(outcome.error, code, type);
                 return;
             }
 
-            if (type === 'mermaid') {
-                const { svg, bindFunctions } = result;
-                this.domNode!.innerHTML = svg ?? '';
-                bindFunctions?.(this.domNode!);
-            }
-            else {
-                result.commit?.();
-            }
-
-            this._disposeDiagram = result.dispose;
             this._hasRenderedResult = true;
             this._lastValidatedCode = code;
             this.domNode!.removeAttribute('data-diagram-error');
@@ -215,27 +219,37 @@ class DiagramPreview extends Parent {
             if (this._disposed || generation !== this._renderGeneration)
                 return;
 
-            const detail
-                = error instanceof Error ? error.message : String(error);
-            debug.error(`render ${type} diagram failed: ${detail}`);
-            // Syntax errors are an editing state in Typora: keep the source
-            // visible and put the diagnostic next to it. Do not leave the
-            // previous SVG below the source, which makes the document appear
-            // to contain two versions of the same diagram.
-            this._hasRenderedResult = false;
-            this._lastValidatedCode = code;
-            this._disposeDiagram?.();
-            this._disposeDiagram = null;
-            this.domNode!.setAttribute('data-diagram-error', detail);
-            this.domNode!.innerHTML = `<div class="mu-diagram-error">&lt; ${i18n.t(
-                'Invalid Diagram Code',
-            )} &gt;<div class="mu-diagram-error-detail">${sanitize(
-                detail,
-                PREVIEW_DOMPURIFY_CONFIG,
-                true,
-            )}</div></div>`;
-            this._setPresentationMode('error');
+            this._showRenderError(error, code, type);
         }
+        finally {
+            if (this._activeRenderHandle === handle)
+                this._activeRenderHandle = null;
+        }
+    }
+
+    private _showRenderError(
+        error: unknown,
+        code: string,
+        type: IDiagramMeta['type'],
+    ) {
+        const { i18n } = this.muya;
+        const detail = error instanceof Error ? error.message : String(error);
+        debug.error(`render ${type} diagram failed: ${detail}`);
+        // Syntax errors are an editing state in Typora: keep the source
+        // visible and put the diagnostic next to it. Do not leave the
+        // previous SVG below the source, which makes the document appear
+        // to contain two versions of the same diagram.
+        this._hasRenderedResult = false;
+        this._lastValidatedCode = code;
+        this.domNode!.setAttribute('data-diagram-error', detail);
+        this.domNode!.innerHTML = `<div class="mu-diagram-error">&lt; ${i18n.t(
+            'Invalid Diagram Code',
+        )} &gt;<div class="mu-diagram-error-detail">${sanitize(
+            detail,
+            PREVIEW_DOMPURIFY_CONFIG,
+            true,
+        )}</div></div>`;
+        this._setPresentationMode('error');
     }
 
     private _prepareRender(code: string): number {
@@ -245,8 +259,8 @@ class DiagramPreview extends Parent {
         if (this._renderTimer !== null)
             clearTimeout(this._renderTimer);
         this._renderTimer = null;
-        this._disposeDiagram?.();
-        this._disposeDiagram = null;
+        this._activeRenderHandle?.cancel();
+        this._activeRenderHandle = null;
         this._cancelOlderRenderWaiters(generation);
 
         return generation;
@@ -313,8 +327,9 @@ class DiagramPreview extends Parent {
         if (this._renderTimer !== null)
             clearTimeout(this._renderTimer);
         this._renderTimer = null;
-        this._disposeDiagram?.();
-        this._disposeDiagram = null;
+        this._activeRenderHandle?.dispose();
+        this._activeRenderHandle = null;
+        getDiagramRenderCoordinator(this.muya).dispose(this._renderBlockId);
         this._clickSubscription?.unsubscribe();
         this._clickSubscription = null;
 
