@@ -65,8 +65,8 @@ const deferred = <T>(): Deferred<T> => {
 }
 
 const flushScheduler = async(): Promise<void> => {
-  for (let attempt = 0; attempt < 6; attempt += 1) {
-    await vi.advanceTimersByTimeAsync(0)
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await vi.advanceTimersByTimeAsync(1)
   }
 }
 
