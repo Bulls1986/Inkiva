@@ -1,4 +1,10 @@
 import type { PerformanceSampleUnit } from '@shared/types/performance'
+import {
+  EventLoopLagTracker,
+  LayoutPerformanceTracker,
+  MemoryGrowthTracker,
+  ScrollFpsTracker
+} from './runtimeSignals'
 import type {
   RendererPerformanceContext,
   RendererPerformanceObserverCallback,
@@ -31,6 +37,8 @@ export interface RuntimePerformanceMonitorOptions {
   setInterval?: (callback: () => void, delayMs: number) => ReturnType<typeof setInterval>
   clearInterval?: (timer: ReturnType<typeof setInterval>) => void
   memorySampleIntervalMs?: number
+  eventLoopSampleIntervalMs?: number
+  memoryWindowSize?: number
 }
 
 const INPUT_EVENT_NAMES = new Set([
@@ -93,12 +101,25 @@ export class RuntimePerformanceMonitor {
   private readonly setInterval: (callback: () => void, delayMs: number) => ReturnType<typeof setInterval>
   private readonly clearInterval: (timer: ReturnType<typeof setInterval>) => void
   private readonly memorySampleIntervalMs: number
+  private readonly eventLoopSampleIntervalMs: number
+  private readonly setTimer: (
+    callback: () => void,
+    delayMs: number
+  ) => ReturnType<typeof setTimeout>
+  private readonly clearTimer: (timer: ReturnType<typeof setTimeout>) => void
+  private readonly eventLoopLagTracker: EventLoopLagTracker
+  private readonly memoryGrowthTracker: MemoryGrowthTracker
+  private readonly scrollFpsTracker = new ScrollFpsTracker()
+  private readonly layoutTracker = new LayoutPerformanceTracker()
   private readonly observers: RendererPerformanceObserverLike[] = []
   private started = false
   private disposed = false
   private frameHandle: number | null = null
   private lastFrameTimestamp: number | undefined
   private memoryTimer: ReturnType<typeof setInterval> | null = null
+  private eventLoopTimer: ReturnType<typeof setTimeout> | null = null
+  private scrollFrameHandle: number | null = null
+  private scrollActive = false
 
   constructor(options: RuntimePerformanceMonitorOptions) {
     this.recorder = options.recorder
@@ -111,7 +132,15 @@ export class RuntimePerformanceMonitor {
     this.cancelAnimationFrame = options.cancelAnimationFrame ?? getDefaultCancelAnimationFrame()
     this.setInterval = options.setInterval ?? ((callback, delayMs) => setInterval(callback, delayMs))
     this.clearInterval = options.clearInterval ?? (timer => clearInterval(timer))
+    this.setTimer = options.setTimeout ?? ((callback, delayMs) => setTimeout(callback, delayMs))
+    this.clearTimer = options.clearTimeout ?? (timer => clearTimeout(timer))
     this.memorySampleIntervalMs = Math.max(250, Math.floor(options.memorySampleIntervalMs ?? 1_000))
+    this.eventLoopSampleIntervalMs = Math.max(
+      1,
+      Math.floor(options.eventLoopSampleIntervalMs ?? 16)
+    )
+    this.eventLoopLagTracker = new EventLoopLagTracker(this.eventLoopSampleIntervalMs)
+    this.memoryGrowthTracker = new MemoryGrowthTracker({ windowSize: options.memoryWindowSize })
   }
 
   start(): void {
@@ -120,6 +149,7 @@ export class RuntimePerformanceMonitor {
     this.installInputObserver()
     this.installGcObserver()
     this.startFrameSampling()
+    this.startEventLoopSampling()
     this.memoryTimer = this.setInterval(() => this.sampleMemory(), this.memorySampleIntervalMs)
   }
 
@@ -134,6 +164,18 @@ export class RuntimePerformanceMonitor {
       this.clearInterval(this.memoryTimer)
       this.memoryTimer = null
     }
+    if (this.eventLoopTimer !== null) {
+      this.clearTimer(this.eventLoopTimer)
+      this.eventLoopTimer = null
+    }
+    if (this.scrollFrameHandle !== null) {
+      this.cancelAnimationFrame?.(this.scrollFrameHandle)
+      this.scrollFrameHandle = null
+    }
+    this.scrollActive = false
+    this.eventLoopLagTracker.reset()
+    this.scrollFpsTracker.reset()
+    this.layoutTracker.reset()
     for (const observer of this.observers) {
       try {
         observer.disconnect()
@@ -142,6 +184,70 @@ export class RuntimePerformanceMonitor {
       }
     }
     this.observers.length = 0
+  }
+
+  markDomWrite(): void {
+    if (!this.started || this.disposed) return
+    this.layoutTracker.markDomWrite()
+  }
+
+  markLayoutRead(): void {
+    if (!this.started || this.disposed) return
+    this.layoutTracker.markLayoutRead()
+  }
+
+  beginScroll(): void {
+    if (!this.started || this.disposed || this.scrollActive) return
+    const now = this.performance?.now()
+    if (now === undefined || !Number.isFinite(now)) return
+
+    this.scrollActive = true
+    this.scrollFpsTracker.begin(now)
+    this.scheduleScrollFrame()
+  }
+
+  endScroll(): void {
+    if (!this.scrollActive) return
+    this.scrollActive = false
+    if (this.scrollFrameHandle !== null) {
+      this.cancelAnimationFrame?.(this.scrollFrameHandle)
+      this.scrollFrameHandle = null
+    }
+
+    const now = this.performance?.now()
+    const fps = now === undefined ? undefined : this.scrollFpsTracker.end(now)
+    if (fps !== undefined) {
+      this.record('core.scroll.fps', 'count', fps, { phase: 'editor' })
+    }
+  }
+
+  private startEventLoopSampling(): void {
+    const sample = (): void => {
+      this.eventLoopTimer = null
+      if (this.disposed) return
+
+      const now = this.performance?.now()
+      if (now !== undefined) {
+        const lag = this.eventLoopLagTracker.observe(now)
+        if (lag !== undefined) {
+          this.record('core.main.block', 'ms', lag, { phase: 'editor' })
+        }
+      }
+      this.eventLoopTimer = this.setTimer(sample, this.eventLoopSampleIntervalMs)
+    }
+
+    this.eventLoopTimer = this.setTimer(sample, this.eventLoopSampleIntervalMs)
+  }
+
+  private scheduleScrollFrame(): void {
+    if (!this.requestAnimationFrame || this.scrollFrameHandle !== null) return
+
+    this.scrollFrameHandle = this.requestAnimationFrame((timestamp) => {
+      this.scrollFrameHandle = null
+      if (this.disposed || !this.scrollActive) return
+      this.scrollFpsTracker.frame(timestamp)
+      this.scheduleScrollFrame()
+    })
   }
 
   private installInputObserver(): void {
@@ -232,6 +338,12 @@ export class RuntimePerformanceMonitor {
         this.record('core.frame.duration', 'ms', duration, { phase: 'editor' })
         this.record('core.frame.over16_7', 'ratio', duration > 16.7 ? 1 : 0, { phase: 'editor' })
         this.record('core.frame.over33', 'ratio', duration > 33 ? 1 : 0, { phase: 'editor' })
+        this.record(
+          'core.forcedReflow',
+          'count',
+          this.layoutTracker.consumeForcedReflows(),
+          { phase: 'editor' }
+        )
         this.record('core.interactive.longTask', 'count', 0, { phase: 'editor' })
         this.record('core.gc.over50', 'count', 0, { phase: 'memory' })
       }
@@ -250,6 +362,18 @@ export class RuntimePerformanceMonitor {
     }
     if (isFiniteNonNegative(memory.totalJSHeapSize)) {
       this.record('memory.renderer.totalHeap', 'bytes', memory.totalJSHeapSize, { phase: 'memory' })
+    }
+
+    if (isFiniteNonNegative(memory.usedJSHeapSize)) {
+      const growth = this.memoryGrowthTracker.observe(memory.usedJSHeapSize)
+      if (growth.ready && growth.growthRatio !== undefined) {
+        this.record('memory.heapGrowth50', 'ratio', Math.max(0, growth.growthRatio), {
+          phase: 'memory'
+        })
+        this.record('memory.heapLinearGrowth', 'count', growth.linearGrowth ? 1 : 0, {
+          phase: 'memory'
+        })
+      }
     }
   }
 

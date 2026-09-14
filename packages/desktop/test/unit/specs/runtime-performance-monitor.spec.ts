@@ -31,6 +31,7 @@ const createRecorder = (enabled = true) => ({
 const createSchedulers = () => {
   const frameCallbacks: Array<(timestamp: number) => void> = []
   const intervalCallbacks: Array<() => void> = []
+  const timeoutCallbacks: Array<() => void> = []
   const requestAnimationFrame = vi.fn((callback: (timestamp: number) => void) => {
     frameCallbacks.push(callback)
     return frameCallbacks.length
@@ -78,7 +79,8 @@ describe('RuntimePerformanceMonitor', () => {
     const recorder = createRecorder()
     const monitor = new RuntimePerformanceMonitor({
       recorder,
-      performanceObserver: TestPerformanceObserver
+      performanceObserver: TestPerformanceObserver,
+      ...createSchedulers()
     })
 
     monitor.start()
@@ -115,6 +117,7 @@ describe('RuntimePerformanceMonitor', () => {
       1,
       expect.objectContaining({ phase: 'memory' })
     )
+    monitor.dispose()
   })
 
   it('samples frame timing and renderer heap without creating work while disabled', () => {
@@ -170,6 +173,76 @@ describe('RuntimePerformanceMonitor', () => {
     expect(schedulers.cancelAnimationFrame).toHaveBeenCalled()
     expect(schedulers.clearInterval).toHaveBeenCalled()
     expect(TestPerformanceObserver.instances).toHaveLength(2)
-    expect(TestPerformanceObserver.instances.every(observer => observer.disconnect)).toBe(true)
+    expect(
+      TestPerformanceObserver.instances.every(observer => observer.disconnect.mock.calls.length === 1)
+    ).toBe(true)
   })
+  it('records event-loop lag, rolling heap growth, and forced reflow signals', () => {
+    const recorder = createRecorder()
+    const schedulers = createSchedulers()
+    let now = 0
+    let usedHeap = 100
+    const performance = {
+      now: vi.fn(() => now),
+      timeOrigin: 1_700_000_000_000,
+      memory: {
+        get usedJSHeapSize() {
+          return usedHeap
+        },
+        totalJSHeapSize: 200
+      }
+    }
+    const monitor = new RuntimePerformanceMonitor({
+      recorder,
+      performance,
+      performanceObserver: null,
+      ...schedulers,
+      eventLoopSampleIntervalMs: 10,
+      memorySampleIntervalMs: 250
+    })
+
+    monitor.start()
+    now = 100
+    schedulers.timeoutCallbacks[0]?.()
+    now = 135
+    schedulers.timeoutCallbacks[1]?.()
+    expect(recorder.recordSample).toHaveBeenCalledWith(
+      'core.main.block',
+      'ms',
+      25,
+      expect.objectContaining({ phase: 'editor' })
+    )
+
+    monitor.markDomWrite()
+    monitor.markLayoutRead()
+    schedulers.frameCallbacks[0]?.(0)
+    schedulers.frameCallbacks[1]?.(16)
+    expect(recorder.recordSample).toHaveBeenCalledWith(
+      'core.forcedReflow',
+      'count',
+      1,
+      expect.objectContaining({ phase: 'editor' })
+    )
+
+    for (let index = 0; index < 50; index += 1) {
+      usedHeap = 100 + index
+      schedulers.intervalCallbacks[0]?.()
+    }
+
+    expect(recorder.recordSample).toHaveBeenCalledWith(
+      'memory.heapGrowth50',
+      'ratio',
+      0.49,
+      expect.objectContaining({ phase: 'memory' })
+    )
+    expect(recorder.recordSample).toHaveBeenCalledWith(
+      'memory.heapLinearGrowth',
+      'count',
+      1,
+      expect.objectContaining({ phase: 'memory' })
+    )
+    monitor.dispose()
+  })
+
+
 })
