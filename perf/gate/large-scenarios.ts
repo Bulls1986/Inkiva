@@ -43,7 +43,7 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
   {
     id: 'p1-documents',
     level: 'P1',
-    fixtures: ['50k-markdown', '100k-markdown', '1m-markdown'],
+    fixtures: ['50k-markdown', '100k-markdown', '500k-markdown', '1m-markdown'],
     metrics: [
       'document.50k.firstScreen',
       'document.50k.editable',

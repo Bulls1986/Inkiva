@@ -29,6 +29,7 @@ test('large-gate manifest declares the real fixture matrix', () => {
   assert.deepEqual(getLargeGateScenario('P1').fixtures, [
     '50k-markdown',
     '100k-markdown',
+    '500k-markdown',
     '1m-markdown',
     '10k-workspace',
     '8x50k-tabs'
