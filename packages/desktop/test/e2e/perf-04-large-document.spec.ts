@@ -153,6 +153,18 @@ const runFixture = async(fixture: LargeDocumentFixture): Promise<FixtureMetric> 
     app = launched.app
     const { page } = launched
     await waitForEditor(page, 120000)
+    const degraded = await page.locator('[data-editor-mode="bounded-source"]').count() > 0
+    if (fixture.kind === 'large') {
+      expect(degraded).toBe(true)
+      await page.waitForSelector('.editor-component .CodeMirror', {
+        state: 'attached',
+        timeout: 30000
+      })
+      const renderedLines = await page.locator('.editor-component .CodeMirror-code > div').count()
+      expect(renderedLines).toBeLessThanOrEqual(100)
+    } else {
+      expect(degraded).toBe(false)
+    }
     await waitForMenuReady(launched.app)
     const openMs = performance.now() - openStart
     await installLongTaskProbe(page)
@@ -220,12 +232,15 @@ const runFixture = async(fixture: LargeDocumentFixture): Promise<FixtureMetric> 
             const codeMirror = document.querySelector('.editor-component .CodeMirror') as
               | (Element & {
                 CodeMirror?: {
-                  getSearchCursor(query: string): { findNext(): boolean }
+                  getSearchCursor?: (query: string) => { findNext(): boolean }
+                  getValue(): string
                 }
               })
               | null
-            const cursor = codeMirror?.CodeMirror?.getSearchCursor('Paragraph')
-            return cursor?.findNext() === true
+            const instance = codeMirror?.CodeMirror
+            if (!instance) return false
+            if (instance.getSearchCursor) return instance.getSearchCursor('Paragraph').findNext()
+            return instance.getValue().includes('Paragraph')
           })
           if (!found) throw new Error('bounded source search did not find Paragraph')
           return
