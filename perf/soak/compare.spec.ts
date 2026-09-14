@@ -80,7 +80,6 @@ test('fails closed when the baseline is unavailable', () => {
   ])
 })
 
-
 test('fails closed when no metrics can be compared', () => {
   const current = report(100, 'desktop.current')
   const baseline = report(100, 'desktop.baseline')

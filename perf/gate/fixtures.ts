@@ -120,11 +120,9 @@ const buildSection = (index: number): string =>
   [
     '## Section ' + index,
     '',
-    'Section ' +
-      index +
-      ' keeps the editor workload deterministic while exercising links, inline format, and ordinary text.',
+    'Block ' + index + ' keeps the workload deterministic.',
     '',
-    'Section ' + index + ' uses a second block to keep block density explicit.',
+    'Detail ' + index + ' remains independently measurable.',
     '',
   ].join('\n')
 
