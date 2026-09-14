@@ -93,3 +93,74 @@ test('fails closed when the input path does not yield metrics', () => {
     assert.throws(() => collectSoakReport('desktop', directory), /no performance metrics/)
   })
 })
+
+test('collects raw metric_sample events and preserves ratio units', () => {
+  withInputDirectory((directory) => {
+    const events = [
+      ...Array.from({ length: 20 }, (_, index) => ({
+        name: 'metric_sample',
+        process: 'renderer',
+        metadata: {
+          metric: 'core.input.latency',
+          unit: 'ms',
+          value: index + 1
+        }
+      })),
+      ...Array.from({ length: 20 }, () => ({
+        name: 'metric_sample',
+        process: 'renderer',
+        metadata: {
+          metric: 'core.frame.over16_7',
+          unit: 'ratio',
+          value: 0
+        }
+      }))
+    ]
+    writeFileSync(
+      join(directory, 'runtime.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        traces: [{ events }]
+      })
+    )
+
+    const report = collectSoakReport('desktop', directory)
+
+    assert.deepEqual(report.metrics, [
+      { name: 'core.frame.over16_7', unit: 'ratio', value: 0 },
+      { name: 'core.input.latency', unit: 'ms', value: 10.5 }
+    ])
+  })
+})
+
+test('rejects malformed metric_sample events instead of ignoring unsupported capture', () => {
+  withInputDirectory((directory) => {
+    writeFileSync(
+      join(directory, 'runtime.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        traces: [
+          {
+            events: [
+              {
+                name: 'metric_sample',
+                process: 'renderer',
+                metadata: {
+                  metric: 'core.input.latency',
+                  unit: 'seconds',
+                  value: 1
+                }
+              }
+            ]
+          }
+        ]
+      })
+    )
+
+    assert.throws(
+      () => collectSoakReport('desktop', directory),
+      /metric_sample unit is invalid/
+    )
+  })
+})
+
