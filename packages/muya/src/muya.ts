@@ -8,6 +8,7 @@ import type { IHistorySelection, IPublicCursorInput } from './selection/types';
 import type { ITocItem } from './state/getTOC';
 import type { IBulletListState, IOrderListState, ITableState, ITaskListState, TState } from './state/types';
 import type { IMuyaOptions, Nullable } from './types';
+import type { Search as SearchModule } from './search';
 import Format from './block/base/format';
 import { canTurnInto, insertBlockBelowByLabel, insertFrontMatterAtStart, replaceBlockByLabel } from './block/blockTransforms';
 import { ScrollPage } from './block/scrollPage';
@@ -256,6 +257,14 @@ export class Muya {
      */
     search(value: string, opts = {}) {
         return this.editor.searchModule.search(value, opts);
+    }
+
+    searchAsync(
+        value: string,
+        opts = {},
+        onUpdate?: (search: SearchModule) => void,
+    ) {
+        return this.editor.searchModule.searchAsync(value, opts, onUpdate);
     }
 
     /**

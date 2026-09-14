@@ -1226,13 +1226,28 @@ const toSearchMatches = (result: unknown) => {
   }
 }
 
+let searchRequestGeneration = 0
+
 const handleSearch = (payload: unknown) => {
   const { value, opt } = payload as { value: string; opt: unknown }
-  editorStore.SEARCH(toSearchMatches(editor.value.search(value, opt)))
-  scrollToHighlight()
+  const requestGeneration = ++searchRequestGeneration
+  let revealedFirstMatch = false
+
+  void editor.value.searchAsync(value, opt, (result) => {
+    if (requestGeneration !== searchRequestGeneration) return
+    editorStore.SEARCH(toSearchMatches(result))
+    if (!revealedFirstMatch && result.matches.length > 0) {
+      revealedFirstMatch = true
+      scrollToHighlight()
+    }
+  }).catch(() => {
+    if (requestGeneration !== searchRequestGeneration) return
+    editorStore.SEARCH({ index: -1, matches: [], value })
+  })
 }
 
 const handReplace = (payload: unknown) => {
+  searchRequestGeneration += 1
   const { value, opt } = payload as { value: string; opt: unknown }
   editorStore.SEARCH(toSearchMatches(editor.value.replace(value, opt)))
 }
