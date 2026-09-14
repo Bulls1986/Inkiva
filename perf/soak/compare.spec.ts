@@ -52,7 +52,7 @@ test('rejects malformed reports instead of silently comparing them', () => {
 test('blocks only when regression is strictly greater than ten percent', () => {
   const atBoundary = compareSoakReports(report(110), report(100), thresholds)
   assert.equal(atBoundary.status, 'compared')
-  assert.equal(atBoundary.warnings.length, 0)
+  assert.equal(atBoundary.failures.length, 0)
 
   const overBoundary = compareSoakReports(report(110.01), report(100), thresholds)
   assert.equal(atBoundary.passed, true)
