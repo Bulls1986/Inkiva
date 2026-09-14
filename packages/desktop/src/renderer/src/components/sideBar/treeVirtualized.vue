@@ -268,7 +268,7 @@ const focusCreateInput = (): void => {
 }
 
 const create = (): void => {
-  void projectStore.CREATE_FILE_DIRECTORY(createName.value)
+  projectStore.CREATE_FILE_DIRECTORY(createName.value)
 }
 
 onMounted(() => {

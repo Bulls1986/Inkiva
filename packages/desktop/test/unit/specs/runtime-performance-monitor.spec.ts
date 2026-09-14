@@ -180,10 +180,7 @@ describe('RuntimePerformanceMonitor', () => {
     monitor.dispose()
     expect(schedulers.cancelAnimationFrame).toHaveBeenCalled()
     expect(schedulers.clearInterval).toHaveBeenCalled()
-    expect(TestPerformanceObserver.instances).toHaveLength(2)
-    expect(
-      TestPerformanceObserver.instances.every(observer => observer.disconnect.mock.calls.length === 1)
-    ).toBe(true)
+    expect(TestPerformanceObserver.instances).toHaveLength(0)
   })
   it('records event-loop lag, rolling heap growth, and forced reflow signals', () => {
     const recorder = createRecorder()
