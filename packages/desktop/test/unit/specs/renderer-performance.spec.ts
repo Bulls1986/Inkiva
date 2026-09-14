@@ -377,5 +377,4 @@ describe('RendererPerformanceRecorder', () => {
       'document_editable'
     ])
   })
-
 })
