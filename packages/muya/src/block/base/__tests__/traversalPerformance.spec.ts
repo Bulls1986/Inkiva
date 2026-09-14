@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import Parent from '../parent';
 
-interface IIFakeNode {
+interface IFakeNode {
     isParent: () => boolean;
-    children?: { forEach: (callback: (child: FakeNode, index: number) => void) => void };
+    children?: { forEach: (callback: (child: IFakeNode, index: number) => void) => void };
 }
 
 function createFlatTree(count: number): Parent {
     const children = Array.from({ length: count }, () => ({
         isParent: () => false,
-    })) as FakeNode[];
-    const root: FakeNode = {
+    })) as IFakeNode[];
+    const root: IFakeNode = {
         isParent: () => true,
         children: {
             forEach: callback => children.forEach(callback),
