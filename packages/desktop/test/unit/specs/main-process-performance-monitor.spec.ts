@@ -17,7 +17,7 @@ describe('MainProcessPerformanceMonitor', () => {
       recorder: createRecorder(false),
       source: {
         getAppMetrics: () => [],
-        getProcessMemoryInfo: async () => ({})
+        getProcessMemoryInfo: async() => ({})
       },
       setInterval
     })
@@ -27,7 +27,7 @@ describe('MainProcessPerformanceMonitor', () => {
     expect(setInterval).not.toHaveBeenCalled()
   })
 
-  it('converts renderer CPU and process memory into bounded gate samples', async () => {
+  it('converts renderer CPU and process memory into bounded gate samples', async() => {
     const intervalCallbacks: Array<() => void> = []
     const setInterval = vi.fn((callback: () => void) => {
       intervalCallbacks.push(callback)
@@ -42,7 +42,7 @@ describe('MainProcessPerformanceMonitor', () => {
           { type: 'Renderer', cpu: { percentCPUUsage: 1.5 } },
           { type: 'Tab', cpu: { percentCPUUsage: 0.4 } }
         ],
-        getProcessMemoryInfo: async () => ({
+        getProcessMemoryInfo: async() => ({
           privateBytes: 10,
           workingSetSize: 12
         })

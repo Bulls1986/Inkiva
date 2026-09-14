@@ -7,8 +7,10 @@ import type {
   RendererPerformanceRecorder
 } from './renderer'
 
-export interface RuntimePerformanceRecorder
-  extends Pick<RendererPerformanceRecorder, 'enabled' | 'recordSample'> {}
+export type RuntimePerformanceRecorder = Pick<
+  RendererPerformanceRecorder,
+  'enabled' | 'recordSample'
+>
 
 export interface RuntimePerformanceMemory {
   usedJSHeapSize?: number

@@ -1,4 +1,4 @@
-import { PerformanceSampleCollector } from './runner.js'
+import type { PerformanceSampleCollector } from './runner.js'
 
 export interface PerformanceReportMetricEvent {
   name?: unknown

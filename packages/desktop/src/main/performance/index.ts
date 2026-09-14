@@ -117,6 +117,7 @@ class MainPerformanceCoordinatorImpl implements MainPerformanceCoordinator {
     if (event) this.reportStore.recordEvent(event)
     return event
   }
+
   recordRendererEvent(event: unknown): boolean {
     if (!this.enabled || this.rendererEventCount >= this.maxRendererEvents) return false
 

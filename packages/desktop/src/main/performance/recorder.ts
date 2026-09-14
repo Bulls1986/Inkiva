@@ -161,6 +161,7 @@ export class MainPerformanceRecorder {
     this.events.push(event)
     return cloneEvent(event)
   }
+
   measure(
     name: PerformanceEventName,
     options: MainPerformanceMeasureOptions

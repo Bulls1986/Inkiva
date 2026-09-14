@@ -224,6 +224,7 @@ export class RendererPerformanceRecorder {
     )
     return this.deliver(event)
   }
+
   measure(
     name: PerformanceEventName,
     options: RendererPerformanceMeasureOptions
