@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { calculateHeapDelta } from './memory.js'
+import { calculateHeapDelta, MEMORY_FOOTPRINT_SAMPLE_COUNT } from './memory.js'
+
+test('memory footprint scenarios keep the raw-sample contract', () => {
+  assert.equal(MEMORY_FOOTPRINT_SAMPLE_COUNT, 20)
+})
 
 test('heap footprint delta is measured from the idle baseline without negative noise', () => {
   assert.equal(calculateHeapDelta(100, 125), 25)
