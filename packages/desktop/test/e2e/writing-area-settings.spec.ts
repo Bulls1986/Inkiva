@@ -22,7 +22,10 @@ test.describe('writing-area personalization', () => {
       expect(result).not.toBeNull()
       expect(result?.paragraphText).toContain('First paragraph.')
       expect(result?.sameParagraph).toBe(true)
-      expect(result?.spacing).toBe('19.2px')
+      // The reference editor uses an 18px body size, so 1.2em resolves to
+      // 21.6px. Keep the assertion tied to the configured type scale rather
+      // than the previous 16px default.
+      expect(result?.spacing).toBe('21.6px')
     } finally {
       await app.close()
     }
