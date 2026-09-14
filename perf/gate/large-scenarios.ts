@@ -103,7 +103,8 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
     fixtures: [
       '500k-markdown',
       '5k-heading-storm',
-      '10k-heading-storm'
+      '10k-heading-storm',
+      '1m-markdown'
     ],
     metrics: [
       'document.50k.firstScreen',

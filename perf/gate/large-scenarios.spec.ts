@@ -34,9 +34,9 @@ test('large-gate manifest declares the real fixture matrix', () => {
     '500k-markdown',
     '5k-heading-storm',
     '10k-heading-storm',
+    '1m-markdown',
     '50k-workspace',
     '8x50k-tabs',
-    '1m-markdown',
     'diagram-image-document',
     '50k-workspace-combination'
   ])
