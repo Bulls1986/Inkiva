@@ -44,6 +44,14 @@ jobs:
       - name: Build app
         run: pnpm build
 
+      - name: Refresh visual snapshot for diagnostics
+        run: |
+          pnpm --filter inkiva exec playwright test test/e2e/visual-regression.spec.ts --config=test/e2e/playwright.config.ts --update-snapshots
+          echo 'INKIVA_EMPTY_SNAPSHOT_BASE64_BEGIN'
+          base64 -w0 packages/desktop/test/e2e/visual-regression.spec.ts-snapshots/empty-state-linux.png
+          echo
+          echo 'INKIVA_EMPTY_SNAPSHOT_BASE64_END'
+
       - name: Run E2E Tests
         run: xvfb-run --auto-servernum pnpm test:e2e
 
@@ -52,7 +60,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: desktop-e2e-results
-          path: packages/desktop/test-results
+          path: |
+            packages/desktop/test-results
+            packages/desktop/test/e2e/visual-regression.spec.ts-snapshots
           if-no-files-found: ignore
 
       - name: Upload performance reports
