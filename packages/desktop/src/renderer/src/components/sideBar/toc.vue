@@ -63,7 +63,10 @@
         </span>
       </template>
     </el-tree>
-    <div v-else class="toc-empty">
+    <div
+      v-else
+      class="toc-empty"
+    >
       {{ searchQuery ? t('sideBar.toc.noMatches') : t('sideBar.toc.empty') }}
     </div>
   </div>
@@ -198,7 +201,7 @@ const handleClick = (data: { slug?: unknown }): void => {
   color: var(--text-primary);
   font-weight: 600;
   font-size: var(--font-ui-lg);
-  margin: 37px 0 10px 0;
+  margin: 16px 0 10px;
   padding-left: 25px;
 }
 

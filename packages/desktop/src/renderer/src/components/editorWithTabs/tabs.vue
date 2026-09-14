@@ -1,5 +1,8 @@
 <template>
-  <div class="editor-tabs">
+  <div
+    class="editor-tabs"
+    data-testid="document-tabs"
+  >
     <div
       ref="tabContainer"
       class="scrollable-tabs"
@@ -335,17 +338,21 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   flex-direction: row;
-  height: 32px;
+  width: 100%;
+  min-width: 0;
+  height: var(--documentTabsHeight);
   user-select: none;
   box-shadow: none;
   overflow: hidden;
+  background: var(--surface-chrome);
   &:hover > .new-file {
     opacity: 1 !important;
   }
 }
 .scrollable-tabs {
-  flex: 0 1 auto;
-  height: 32px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--documentTabsHeight);
   overflow: hidden;
 }
 .tabs-container {
@@ -353,7 +360,7 @@ onBeforeUnmount(() => {
   list-style: none;
   margin: 0;
   padding: 0;
-  height: 32px;
+  height: var(--documentTabsHeight);
   position: relative;
   display: flex;
   flex-direction: row;
@@ -367,9 +374,9 @@ onBeforeUnmount(() => {
     position: relative;
     padding: 0 8px;
     color: var(--text-secondary);
-    font-size: 12px;
-    line-height: 32px;
-    height: 32px;
+    font-size: var(--font-size-secondary);
+    line-height: var(--documentTabsHeight);
+    height: var(--documentTabsHeight);
     max-width: 280px;
     display: flex;
     align-items: center;
@@ -440,9 +447,9 @@ onBeforeUnmount(() => {
 }
 .editor-tabs > .new-file {
   appearance: none;
-  flex: 0 0 32px;
-  width: 32px;
-  height: 32px;
+  flex: 0 0 var(--documentTabsHeight);
+  width: var(--documentTabsHeight);
+  height: var(--documentTabsHeight);
   border: 0;
   border-right: none;
   background: transparent;

@@ -1,6 +1,5 @@
 <template>
   <div class="editor-with-tabs">
-    <tabs v-show="showTabBar" />
     <div class="container">
       <editor
         :markdown="markdown"
@@ -21,7 +20,6 @@
 
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
-import Tabs from './tabs.vue'
 import Editor from './editor.vue'
 import TabNotifications from './notifications.vue'
 
@@ -34,7 +32,6 @@ defineProps<{
   cursor: unknown
   muyaIndexCursor?: unknown
   sourceCode: boolean
-  showTabBar: boolean
   textDirection: string
   platform: string
 }>()
@@ -57,6 +54,7 @@ defineProps<{
   & > .container {
     flex: 1;
     min-width: 0;
+    min-height: 0;
     overflow: hidden;
   }
 }

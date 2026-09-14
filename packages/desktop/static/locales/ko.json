@@ -664,6 +664,7 @@
       "lightModeTheme": "라이트 모드 테마",
       "darkModeTheme": "다크 모드 테마",
       "customCss": "사용자 정의 CSS",
+      "customCssNotes": "아래 CSS 변수 또는 선택자를 편집하세요. 입력란을 벗어나면 변경 사항이 적용됩니다.",
       "importCustomThemes": "사용자 정의 테마 가져오기",
       "importTheme": "테마 가져오기",
       "openFolder": "폴더 열기",

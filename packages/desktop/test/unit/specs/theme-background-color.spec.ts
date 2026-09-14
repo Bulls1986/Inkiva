@@ -11,7 +11,7 @@ describe('theme launch background colour (#3957)', () => {
 
   it('maps Inkiva Dark and Paper to their editor backgrounds', () => {
     expect(getThemeBackgroundColor('dark')).toBe('#1b1d21')
-    expect(getThemeBackgroundColor('paper')).toBe('#fffdf8')
+    expect(getThemeBackgroundColor('paper')).toBe('#f8f8f6')
   })
 
   it('uses white for Inkiva Light and unknown themes', () => {

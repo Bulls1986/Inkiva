@@ -2450,7 +2450,7 @@ onBeforeUnmount(() => {
 }
 
 .editor-component .mu-container {
-  padding-top: 20px;
+  padding-top: var(--editorContentTopPadding, 40px);
   padding-bottom: 100vh;
 }
 

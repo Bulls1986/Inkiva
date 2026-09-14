@@ -139,10 +139,10 @@ describe('Inkiva application design-system contract', () => {
     expect(dark).toContain('--border-default: #363A42;')
     expect(dark).toContain('--color-accent: #0B63E5;')
 
-    expect(paper).toContain('--surface-editor: #FFFDF8;')
-    expect(paper).toContain('--surface-chrome: #F7F4EC;')
-    expect(paper).toContain('--surface-hover: #F0ECE3;')
-    expect(paper).toContain('--text-primary: #2E2B27;')
+    expect(paper).toContain('--surface-editor: #F8F8F6;')
+    expect(paper).toContain('--surface-chrome: #F1F2F0;')
+    expect(paper).toContain('--surface-hover: #E9EBE8;')
+    expect(paper).toContain('--text-primary: #303236;')
   })
 
   it('defines the shared motion scale and reduced-motion fallback', () => {

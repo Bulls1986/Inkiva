@@ -48,7 +48,7 @@ export const getInitialAppearanceFromSearch = (search: string): ApplicationAppea
 // the application chrome or reintroducing retired appearance IDs.
 const themeBackgroundColors: ReadonlyMap<string, string> = new Map([
   ['dark', '#1b1d21'],
-  ['paper', '#fffdf8']
+  ['paper', '#f8f8f6']
 ])
 
 const LIGHT_FALLBACK_BACKGROUND = '#ffffff'

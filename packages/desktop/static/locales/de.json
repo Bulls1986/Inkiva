@@ -664,6 +664,7 @@
       "lightModeTheme": "Helles Modus-Design",
       "darkModeTheme": "Dunkles Modus-Design",
       "customCss": "Benutzerdefiniertes CSS",
+      "customCssNotes": "Bearbeite unten CSS-Variablen oder Selektoren; Änderungen werden beim Verlassen des Feldes angewendet.",
       "importCustomThemes": "Benutzerdefinierte Designs importieren",
       "importTheme": "Design importieren",
       "openFolder": "Ordner öffnen",

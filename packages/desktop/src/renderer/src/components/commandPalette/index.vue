@@ -553,7 +553,7 @@ input.search {
 }
 
 input.search:focus-visible {
-  box-shadow: var(--focus-ring);
+  outline: none;
 }
 
 .launcher-status {

@@ -161,7 +161,7 @@ export const usePreferencesStore = defineStore('preferences', {
     language: 'zh-CN',
     shortcutStyle: 'typora',
 
-    editorFontFamily: 'Open Sans',
+    editorFontFamily: 'system-ui',
     fontSize: 16,
     lineHeight: 1.7,
     paragraphSpacing: 0.75,
@@ -170,7 +170,7 @@ export const usePreferencesStore = defineStore('preferences', {
     codeBlockLineNumbers: false,
     trimUnnecessaryCodeBlockEmptyLines: true,
     wrapCodeBlocks: false,
-    editorLineWidth: '80%',
+    editorLineWidth: '780px',
 
     autoPairBracket: true,
     autoPairMarkdownSyntax: true,
@@ -205,7 +205,7 @@ export const usePreferencesStore = defineStore('preferences', {
     plantumlServer: 'https://www.plantuml.com/plantuml',
 
     theme: 'light',
-    followSystemTheme: true,
+    followSystemTheme: false,
     lightModeTheme: 'light',
     darkModeTheme: 'dark',
     customCss: '',
@@ -239,7 +239,7 @@ export const usePreferencesStore = defineStore('preferences', {
     imageFolderPath: '',
     webImages: [],
     cloudImages: [],
-    currentUploader: 'picgo',
+    currentUploader: 'picgoApp',
     cliScript: '',
     picgoAppPath: ''
   }),
@@ -254,11 +254,17 @@ export const usePreferencesStore = defineStore('preferences', {
 
       Object.keys(preference).forEach((key) => {
         const incoming = (preference as Record<string, unknown>)[key]
+        const normalizedIncoming =
+          key === 'editorFontFamily' && incoming === 'Open Sans'
+            ? 'system-ui'
+            : key === 'editorLineWidth' && incoming === '80%'
+              ? '780px'
+              : incoming
         if (
-          typeof incoming !== 'undefined' &&
+          typeof normalizedIncoming !== 'undefined' &&
           typeof (this as unknown as Record<string, unknown>)[key] !== 'undefined'
         ) {
-          ;(this as unknown as Record<string, unknown>)[key] = incoming
+          ;(this as unknown as Record<string, unknown>)[key] = normalizedIncoming
         }
       })
 

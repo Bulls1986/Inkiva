@@ -33,36 +33,24 @@
       :on-change="(value) => onSelectChange('followSystemTheme', value)"
     />
 
-    <compound v-if="followSystemTheme">
-      <template #head>
-        <h6 class="title">
-          {{ t('preferences.theme.modeThemes') }}
-        </h6>
-      </template>
-      <template #children>
-        <cur-select
-          :description="t('preferences.theme.lightModeTheme')"
-          :value="lightModeTheme"
-          :options="themeOptions"
-          :on-change="(value) => onSelectChange('lightModeTheme', value)"
-        />
-
-        <cur-select
-          :description="t('preferences.theme.darkModeTheme')"
-          :value="darkModeTheme"
-          :options="themeOptions"
-          :on-change="(value) => onSelectChange('darkModeTheme', value)"
-        />
-      </template>
-    </compound>
-
     <div class="custom-css">
-      <div class="description">
+      <label
+        class="description"
+        for="custom-css-input"
+      >
         {{ t('preferences.theme.customCss') }}
+      </label>
+      <div class="custom-css-notes">
+        {{ t('preferences.theme.customCssNotes') }}
       </div>
       <textarea
+        id="custom-css-input"
         class="custom-css-input"
-        rows="10"
+        rows="14"
+        spellcheck="false"
+        autocomplete="off"
+        aria-label="Custom CSS"
+        placeholder=":root {\n  --color-accent: #0B63E5;\n}"
         :value="customCss"
         @change="
           (event: Event) =>
@@ -102,10 +90,7 @@ import themeMd from './theme.md?raw'
 import { themes as configThemes } from './config'
 import markdownToHtml from '@/util/markdownToHtml'
 import Bool from '../common/bool/index.vue'
-import CurSelect from '../common/select/index.vue'
 import Separator from '../common/separator/index.vue'
-import Compound from '../common/compound/index.vue'
-import type { PrefSelectOption } from '../common/types'
 
 interface ThemePreview {
   name: string
@@ -117,17 +102,7 @@ const themes = ref<ThemePreview[]>([])
 const { t } = useI18n()
 const preferenceStore = usePreferencesStore()
 
-const { followSystemTheme, lightModeTheme, darkModeTheme, theme, customCss } =
-  storeToRefs(preferenceStore)
-
-// Generate dropdown options from configThemes
-const themeOptions: PrefSelectOption<string>[] = configThemes.map((theme) => ({
-  label: theme.name
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' '),
-  value: theme.name
-}))
+const { followSystemTheme, theme, customCss } = storeToRefs(preferenceStore)
 
 onMounted(async () => {
   const newThemes: ThemePreview[] = []
@@ -209,8 +184,8 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
 }
 
 .official-themes .theme.paper {
-  color: #6e665b;
-  background: #fffdf8;
+  color: #666a70;
+  background: #f8f8f6;
 }
 
 .official-themes .theme.paper a {
@@ -277,18 +252,27 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
 }
 
 .custom-css .description {
+  display: block;
   margin-bottom: var(--space-2);
+}
+
+.custom-css .custom-css-notes {
+  margin: 0 0 var(--space-2);
+  color: var(--text-tertiary);
+  font-size: var(--font-ui-sm);
+  line-height: 1.5;
 }
 
 .custom-css .custom-css-input {
   box-sizing: border-box;
   width: 100%;
-  padding: var(--space-2) 10px;
+  min-height: 220px;
+  padding: 10px 12px;
   resize: vertical;
   color: var(--text-primary);
   background: var(--surface-editor);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-family: 'DejaVu Sans Mono', 'Source Code Pro', 'Droid Sans Mono', Consolas, monospace;
   font-size: var(--font-ui-sm);
   line-height: 1.5;
@@ -299,11 +283,12 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
 
 .custom-css .custom-css-input:focus {
   border-color: var(--border-focus);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--border-focus) inset;
 }
 
 .custom-css .custom-css-input:focus-visible {
   outline: none;
-  box-shadow: var(--focus-ring);
 }
 
 .import-themes {

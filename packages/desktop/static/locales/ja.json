@@ -664,6 +664,7 @@
       "lightModeTheme": "ライトモードのテーマ",
       "darkModeTheme": "ダークモードのテーマ",
       "customCss": "カスタムCSS",
+      "customCssNotes": "下の CSS 変数またはセレクターを編集してください。フィールドから移動すると変更が適用されます。",
       "importCustomThemes": "カスタムテーマをインポート",
       "importTheme": "テーマをインポート",
       "openFolder": "フォルダを開く",

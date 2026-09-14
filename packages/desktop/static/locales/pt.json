@@ -664,6 +664,7 @@
       "lightModeTheme": "Tema do modo claro",
       "darkModeTheme": "Tema do modo escuro",
       "customCss": "CSS Personalizado",
+      "customCssNotes": "Edite as variáveis ou seletores CSS abaixo; as alterações são aplicadas ao sair do campo.",
       "importCustomThemes": "Importar temas personalizados",
       "importTheme": "Importar Tema",
       "openFolder": "Abrir Pasta",

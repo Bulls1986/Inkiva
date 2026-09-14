@@ -20,7 +20,8 @@ describe('private build first-run defaults', () => {
       shortcutStyle: 'typora',
       lineHeight: 1.7,
       paragraphSpacing: 0.75,
-      editorLineWidth: '80%',
+      editorFontFamily: 'system-ui',
+      editorLineWidth: '780px',
       sideBarVisibility: true,
       tabBarVisibility: true
     })) {

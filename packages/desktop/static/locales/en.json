@@ -665,6 +665,7 @@
       "lightModeTheme": "Light mode theme",
       "darkModeTheme": "Dark mode theme",
       "customCss": "Custom CSS",
+      "customCssNotes": "Edit CSS variables or selectors below; changes apply when the field loses focus.",
       "importCustomThemes": "Import custom themes",
       "importTheme": "Import Theme",
       "openFolder": "Open Folder",

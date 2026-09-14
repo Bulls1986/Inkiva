@@ -80,7 +80,7 @@
 }
 
 .mu-container h1 {
-    font-size: 1.875em;
+    font-size: 2em;
 }
 
 .mu-container h2 {
@@ -726,27 +726,49 @@ li.mu-task-list-item > span.mu-task-list-checkbox:focus-visible {
 /* Cross-cell drag selection (port of marktext's `.ag-cell-selected`): the
    rectangle of cells the user dragged across is tinted via the per-cell
    `::before` overlay so it reads as one contiguous selection. Every cell
-   (header included) renders as a `td`, and the overlay already paints the cell
-   border, so a translucent accent fill is enough. */
+   (header included) renders as a `td`. */
 .mu-table-inner tr td.mu-table-cell-selected::before {
     z-index: 0;
 
     background: var(--interaction-selection);
 }
 
-.mu-table-inner tr td.mu-table-cell-border-top::before {
+/* The selection perimeter is a separate layer. The normal grid overlay is
+   intentionally one pixel larger than its cell so collapsed-looking table
+   lines do not gap. When the selection edge used that same overlay, the next
+   row/column could paint over its bottom/right border. Keeping the perimeter
+   above neighbouring cell overlays makes all four edges visible. */
+.mu-table-inner tr td.mu-table-cell-selected::after {
+    position: absolute;
+    z-index: 2;
+
+    box-sizing: border-box;
+
+    width: calc(100% + 1px);
+    height: calc(100% + 1px);
+
+    border: 1px solid transparent;
+
+    content: '';
+
+    pointer-events: none;
+
+    inset: 0;
+}
+
+.mu-table-inner tr td.mu-table-cell-border-top::after {
     border-top-color: var(--theme-color);
 }
 
-.mu-table-inner tr td.mu-table-cell-border-right::before {
+.mu-table-inner tr td.mu-table-cell-border-right::after {
     border-right-color: var(--theme-color);
 }
 
-.mu-table-inner tr td.mu-table-cell-border-bottom::before {
+.mu-table-inner tr td.mu-table-cell-border-bottom::after {
     border-bottom-color: var(--theme-color);
 }
 
-.mu-table-inner tr td.mu-table-cell-border-left::before {
+.mu-table-inner tr td.mu-table-cell-border-left::after {
     border-left-color: var(--theme-color);
 }
 

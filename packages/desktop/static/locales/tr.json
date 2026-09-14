@@ -664,6 +664,7 @@
       "lightModeTheme": "Açık mod teması",
       "darkModeTheme": "Koyu mod teması",
       "customCss": "Özel CSS",
+      "customCssNotes": "Aşağıdaki CSS değişkenlerini veya seçicilerini düzenleyin; değişiklikler alandan çıkınca uygulanır.",
       "importCustomThemes": "Özel temaları içe aktar",
       "importTheme": "Temayı İçe Aktar",
       "openFolder": "Klasör Aç",
