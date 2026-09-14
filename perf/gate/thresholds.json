@@ -219,6 +219,78 @@
           "statistic": "p95",
           "operator": "lt",
           "limit": 16
+        },
+        {
+          "id": "gc-over-50-stall-count",
+          "metric": "core.gc.over50",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "forced-reflow-count",
+          "metric": "core.forcedReflow",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "memory-heap-growth-50-max",
+          "metric": "memory.heapGrowth50",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.15
+        },
+        {
+          "id": "memory-heap-linear-growth-count",
+          "metric": "memory.heapLinearGrowth",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-crash-count",
+          "metric": "stability.crash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-renderer-crash-count",
+          "metric": "stability.rendererCrash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-oom-count",
+          "metric": "stability.oom",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-cpu-runaway-count",
+          "metric": "stability.cpuRunaway",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-renderer-hang-count",
+          "metric": "stability.rendererHang",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
         }
       ]
     },
@@ -691,6 +763,78 @@
         {
           "id": "undo-full-dom-rebuild-count",
           "metric": "undo.fullDomRebuild",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "gc-over-50-stall-count",
+          "metric": "core.gc.over50",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "forced-reflow-count",
+          "metric": "core.forcedReflow",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "memory-heap-growth-50-max",
+          "metric": "memory.heapGrowth50",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.15
+        },
+        {
+          "id": "memory-heap-linear-growth-count",
+          "metric": "memory.heapLinearGrowth",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-crash-count",
+          "metric": "stability.crash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-renderer-crash-count",
+          "metric": "stability.rendererCrash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-oom-count",
+          "metric": "stability.oom",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-cpu-runaway-count",
+          "metric": "stability.cpuRunaway",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-renderer-hang-count",
+          "metric": "stability.rendererHang",
           "unit": "count",
           "statistic": "max",
           "operator": "eq",
@@ -1395,6 +1539,78 @@
           "statistic": "max",
           "operator": "eq",
           "limit": 0
+        },
+        {
+          "id": "gc-over-50-stall-count",
+          "metric": "core.gc.over50",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "forced-reflow-count",
+          "metric": "core.forcedReflow",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "memory-heap-growth-50-max",
+          "metric": "memory.heapGrowth50",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.15
+        },
+        {
+          "id": "memory-heap-linear-growth-count",
+          "metric": "memory.heapLinearGrowth",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-crash-count",
+          "metric": "stability.crash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-renderer-crash-count",
+          "metric": "stability.rendererCrash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-oom-count",
+          "metric": "stability.oom",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-cpu-runaway-count",
+          "metric": "stability.cpuRunaway",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-renderer-hang-count",
+          "metric": "stability.rendererHang",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
         }
       ],
       "degradation": {
@@ -1920,6 +2136,78 @@
         {
           "id": "combo-renderer-hang-count",
           "metric": "combo.rendererHang",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "gc-over-50-stall-count",
+          "metric": "core.gc.over50",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "forced-reflow-count",
+          "metric": "core.forcedReflow",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "memory-heap-growth-50-max",
+          "metric": "memory.heapGrowth50",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.15
+        },
+        {
+          "id": "memory-heap-linear-growth-count",
+          "metric": "memory.heapLinearGrowth",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-crash-count",
+          "metric": "stability.crash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-renderer-crash-count",
+          "metric": "stability.rendererCrash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-oom-count",
+          "metric": "stability.oom",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-cpu-runaway-count",
+          "metric": "stability.cpuRunaway",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "stability-renderer-hang-count",
+          "metric": "stability.rendererHang",
           "unit": "count",
           "statistic": "max",
           "operator": "eq",

@@ -43,3 +43,12 @@ Phase 04 background isolation rules:
 - Watcher disposal cancels pending batched work and sender failures cannot cascade into the editor.
 - Background work uses the P0-P8 priority catalog; P6-P8 tasks pause while interaction is pending and never outrank P0-P2.
 - Search/index/backlink/maintenance work must remain cancellable and yield between slices.
+
+
+Phase 06 runtime observability rules:
+
+- Capture is opt-in and has zero setup/timer/observer overhead when disabled.
+- Renderer capture records Event Timing input latency, frame intervals, GC stalls, and heap samples; a GC stall over 50 ms produces a hard failure sample.
+- Main-process capture records renderer/tab CPU ratios and Electron process memory in bytes.
+- The trace-to-gate adapter accepts only validated `metric_sample` events and preserves raw values; malformed samples fail closed.
+- Forced reflow, memory growth, crash, OOM, renderer hang, CPU runaway, and linear-growth gates are explicit zero-tolerance metrics.
