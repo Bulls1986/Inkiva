@@ -27,6 +27,7 @@ const EVENT_NAME = {
 }
 
 type WatchType = 'dir' | 'file'
+export const shouldLoadWatcherFileContent = (type: WatchType): boolean => type === 'file'
 type WatcherEventEmitter = (channel: WatcherBatchChannel, payload: unknown, key: string) => void
 
 interface IgnoreEntry {
@@ -81,17 +82,21 @@ const add = async(
 
   if (!isMarkdown) return
 
-  try {
-    file.data = await loadMarkdownFile(
-      pathname,
-      endOfLine,
-      autoGuessEncoding,
-      trimTrailingNewline,
-      autoNormalizeLineEndings
-    )
-  } catch (err) {
-    if (!isActive()) return
-    if (type === 'file') {
+  // A directory watcher only builds the file tree. Reading every Markdown
+  // body during a 50K/100K workspace scan turns discovery into a full content
+  // load and competes with the editor. The individual file watcher is the
+  // only path that needs content for external file replacement/new-file flow.
+  if (shouldLoadWatcherFileContent(type)) {
+    try {
+      file.data = await loadMarkdownFile(
+        pathname,
+        endOfLine,
+        autoGuessEncoding,
+        trimTrailingNewline,
+        autoNormalizeLineEndings
+      )
+    } catch (err) {
+      if (!isActive()) return
       win.webContents.send('mt::show-notification', {
         title: 'Watcher I/O error',
         type: 'error',
