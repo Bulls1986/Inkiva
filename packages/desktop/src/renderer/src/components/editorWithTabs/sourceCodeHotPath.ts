@@ -3,7 +3,7 @@ import {
   type EditorSnapshotSchedulerOptions
 } from './editorHotPath'
 
-export interface SourceSnapshotSchedulerOptions extends EditorSnapshotSchedulerOptions {}
+export type SourceSnapshotSchedulerOptions = EditorSnapshotSchedulerOptions
 
 /**
  * Source mode has a full CodeMirror document, but reading it on every keypress
