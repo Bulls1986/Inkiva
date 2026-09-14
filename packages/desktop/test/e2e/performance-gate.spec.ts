@@ -523,7 +523,7 @@ test.describe('@perf-gate P0 Milk Gate', () => {
             'document.regular.outlineFirst',
             'document.regular.save',
             'document.regular.undo',
-            'document.regular.redo'
+            'document.regular.redo',
             'memory.heapLinearGrowth200'
           ])
       )
