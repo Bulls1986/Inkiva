@@ -127,10 +127,12 @@ class Code extends Parent {
         };
 
         const clickObservable = fromEvent(this.domNode.firstElementChild!, 'click');
-        clickObservable.subscribe(clickHandler);
+        const clickSubscription = clickObservable.subscribe(clickHandler);
+        this.registerDisposable(() => clickSubscription.unsubscribe());
 
         const mousedownObservable = fromEvent(this.domNode.firstElementChild!, 'mousedown');
-        mousedownObservable.subscribe(mousedownHandler);
+        const mousedownSubscription = mousedownObservable.subscribe(mousedownHandler);
+        this.registerDisposable(() => mousedownSubscription.unsubscribe());
     }
 }
 

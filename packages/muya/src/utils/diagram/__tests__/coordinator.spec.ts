@@ -339,6 +339,34 @@ describe('diagram render coordinator', () => {
         coordinator.dispose();
     });
 
+    it('drops queue, cache, and in-flight indexes when the owner is disposed', async () => {
+        let resolveRender!: (value: IDiagramRenderResult) => void;
+        const render = vi.fn(() => new Promise<IDiagramRenderResult>((resolve) => {
+            resolveRender = resolve;
+        }));
+        const coordinator = new DiagramRenderCoordinator({ render });
+        const renderTarget = target();
+        const handle = coordinator.schedule({
+            blockId: 'owner-disposed',
+            generation: 1,
+            target: renderTarget,
+            options: options(),
+        });
+
+        await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1));
+        coordinator.dispose();
+
+        expect(coordinator.disposed).toBe(true);
+        expect(coordinator.queuedCount).toBe(0);
+        expect(coordinator.cacheSize).toBe(0);
+        expect(coordinator.inFlightCount).toBe(0);
+        await expect(handle.promise).resolves.toMatchObject({ status: 'cancelled' });
+
+        resolveRender(result('<svg data-rendered="late-owner-dispose"></svg>'));
+        await vi.waitFor(() => expect(coordinator.activeCount).toBe(0));
+        expect(renderTarget.innerHTML).toBe('');
+    });
+
     it('converts an engine rejection into a renderable error outcome', async () => {
         const render = vi.fn(async () => {
             throw new Error('mermaid engine failed');

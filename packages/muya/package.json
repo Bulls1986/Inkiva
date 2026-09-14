@@ -50,6 +50,7 @@
         "check-circular": "madge --circular src/index.ts",
         "build": "tsc && vite build",
         "test": "vitest run",
+        "test:lifecycle": "vitest run src/__tests__/muyaLifecycle.spec.ts src/utils/diagram/__tests__/coordinator.spec.ts",
         "test:watch": "vitest",
         "test:spec": "vitest run --config vitest.spec.config.ts",
         "test:spec:commonmark": "vitest run --config vitest.spec.config.ts test/spec/commonmark.spec.ts",

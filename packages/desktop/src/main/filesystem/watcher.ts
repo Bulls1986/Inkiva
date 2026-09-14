@@ -46,9 +46,12 @@ const add = async(
   endOfLine: LineEnding,
   autoGuessEncoding: boolean,
   trimTrailingNewline: number,
-  autoNormalizeLineEndings: boolean
+  autoNormalizeLineEndings: boolean,
+  isActive: () => boolean
 ): Promise<void> => {
+  if (!isActive()) return
   const stats = await fsPromises.stat(pathname)
+  if (!isActive()) return
   const isMarkdown = hasMarkdownExtension(pathname)
   const file: {
     pathname: string
@@ -80,6 +83,7 @@ const add = async(
       autoNormalizeLineEndings
     )
   } catch (err) {
+    if (!isActive()) return
     if (type === 'file') {
       win.webContents.send('mt::show-notification', {
         title: 'Watcher I/O error',
@@ -90,6 +94,7 @@ const add = async(
     }
   }
 
+  if (!isActive()) return
   win.webContents.send(EVENT_NAME[type], { type: 'add', change: file })
 }
 
@@ -104,11 +109,14 @@ const change = async(
   endOfLine: LineEnding,
   autoGuessEncoding: boolean,
   trimTrailingNewline: number,
-  autoNormalizeLineEndings: boolean
+  autoNormalizeLineEndings: boolean,
+  isActive: () => boolean
 ): Promise<void> => {
+  if (!isActive()) return
   if (type === 'dir') {
     try {
       const stats = await fsPromises.stat(pathname)
+      if (!isActive()) return
       win.webContents.send('mt::update-object-tree', {
         type: 'change',
         change: { pathname, mtimeMs: stats.mtimeMs }
@@ -132,11 +140,13 @@ const change = async(
       ),
       fsPromises.stat(pathname)
     ])
+    if (!isActive()) return
     win.webContents.send('mt::update-file', {
       type: 'change',
       change: { pathname, data, mtimeMs: stats.mtimeMs }
     })
   } catch (err) {
+    if (!isActive()) return
     win.webContents.send('mt::show-notification', {
       title: 'Watcher I/O error',
       type: 'error',
@@ -173,12 +183,42 @@ const unlinkDir = (win: BrowserWindow, pathname: string, type: WatchType): void 
 class Watcher {
   private _preferences: Preference
   private _ignoreChangeEvents: IgnoreEntry[]
+  private _ignoreChangeCleanupTimer: NodeJS.Timeout | null
   watchers: Record<string, WatcherEntry>
 
   constructor(preferences: Preference) {
     this._preferences = preferences
     this._ignoreChangeEvents = []
+    this._ignoreChangeCleanupTimer = null
     this.watchers = {}
+  }
+
+  private _pruneExpiredIgnoreEvents(now = Date.now()): void {
+    const gracePeriod = WATCHER_STABILITY_POLL_INTERVAL * 2
+    this._ignoreChangeEvents = this._ignoreChangeEvents.filter((entry) => {
+      return now < entry.start.getTime() + entry.duration + gracePeriod
+    })
+  }
+
+  private _scheduleIgnoreChangeCleanup(): void {
+    if (this._ignoreChangeCleanupTimer) {
+      clearTimeout(this._ignoreChangeCleanupTimer)
+      this._ignoreChangeCleanupTimer = null
+    }
+    if (!this._ignoreChangeEvents.length) {
+      return
+    }
+
+    const gracePeriod = WATCHER_STABILITY_POLL_INTERVAL * 2
+    const nextExpiry = Math.min(...this._ignoreChangeEvents.map((entry) => {
+      return entry.start.getTime() + entry.duration + gracePeriod
+    }))
+    const delay = Math.max(0, nextExpiry - Date.now())
+    this._ignoreChangeCleanupTimer = setTimeout(() => {
+      this._ignoreChangeCleanupTimer = null
+      this._pruneExpiredIgnoreEvents()
+      this._scheduleIgnoreChangeCleanup()
+    }, delay)
   }
 
   watch(win: BrowserWindow, watchPath: string, type: WatchType = 'dir'): () => void {
@@ -228,6 +268,7 @@ class Watcher {
     watcher
       .on('add', async(pathname: string) => {
         if (await this._shouldIgnoreEvent(win.id, pathname, type, usePolling)) return
+        if (disposed) return
         const eol = this._preferences.getPreferredEol() as LineEnding
         const {
           autoGuessEncoding = true,
@@ -241,11 +282,13 @@ class Watcher {
           eol,
           autoGuessEncoding,
           trimTrailingNewline,
-          autoNormalizeLineEndings
+          autoNormalizeLineEndings,
+          () => !disposed
         )
       })
       .on('change', async(pathname: string) => {
         if (await this._shouldIgnoreEvent(win.id, pathname, type, usePolling)) return
+        if (disposed) return
         const eol = this._preferences.getPreferredEol() as LineEnding
         const {
           autoGuessEncoding = true,
@@ -259,12 +302,19 @@ class Watcher {
           eol,
           autoGuessEncoding,
           trimTrailingNewline,
-          autoNormalizeLineEndings
+          autoNormalizeLineEndings,
+          () => !disposed
         )
       })
-      .on('unlink', (pathname: string) => unlink(win, pathname, type))
-      .on('addDir', (pathname: string) => addDir(win, pathname, type))
-      .on('unlinkDir', (pathname: string) => unlinkDir(win, pathname, type))
+      .on('unlink', (pathname: string) => {
+        if (!disposed) unlink(win, pathname, type)
+      })
+      .on('addDir', (pathname: string) => {
+        if (!disposed) addDir(win, pathname, type)
+      })
+      .on('unlinkDir', (pathname: string) => {
+        if (!disposed) unlinkDir(win, pathname, type)
+      })
       .on('raw', (event: string, subpath: string, details: unknown) => {
         if (globalThis.INKIVA_DEBUG_VERBOSE >= 3) {
           console.log('watcher: ', event, subpath, details)
@@ -276,7 +326,9 @@ class Watcher {
             renameTimer = null
             if (disposed) return
             if (await exists(watchPath)) {
+              if (disposed) return
               await watcher.unwatch(watchPath)
+              if (disposed) return
               watcher.add(watchPath)
             }
           }, 150)
@@ -285,7 +337,7 @@ class Watcher {
       .on('error', (error: unknown) => {
         const code = (error as NodeJS.ErrnoException)?.code
         if (code === 'ENOSPC') {
-          if (!enospcReached) {
+          if (!disposed && !enospcReached) {
             enospcReached = true
             log.warn('inotify limit reached: Too many file descriptors are opened.')
             win.webContents.send('mt::show-notification', {
@@ -301,6 +353,7 @@ class Watcher {
       })
 
     const closeFn = (): void => {
+      if (disposed) return
       disposed = true
       delete this.watchers[id]
       if (renameTimer) {
@@ -335,6 +388,10 @@ class Watcher {
     Object.keys(this.watchers).forEach((id) => this.watchers[id].close())
     this.watchers = {}
     this._ignoreChangeEvents = []
+    if (this._ignoreChangeCleanupTimer) {
+      clearTimeout(this._ignoreChangeCleanupTimer)
+      this._ignoreChangeCleanupTimer = null
+    }
   }
 
   ignoreChangedEvent(
@@ -360,6 +417,7 @@ class Watcher {
       start: new Date(),
       expectedContent
     })
+    this._scheduleIgnoreChangeCleanup()
   }
 
   private _getMarkdownLoadOptions(): {
@@ -391,6 +449,8 @@ class Watcher {
   ): Promise<boolean> {
     if (type !== 'file') return false
 
+    const currentTime = new Date()
+    this._pruneExpiredIgnoreEvents(currentTime.getTime())
     for (let i = 0; i < this._ignoreChangeEvents.length; ++i) {
       const entry = this._ignoreChangeEvents[i]
       if (entry.windowId !== winId || entry.pathname !== pathname) continue
@@ -412,26 +472,37 @@ class Watcher {
             autoNormalizeLineEndings
           )
           const normalizeLineEndings = (text: string): string => text.replace(/\r\n?/g, '\n')
-          return normalizeLineEndings(data.markdown) === normalizeLineEndings(entry.expectedContent)
+          const matches =
+            normalizeLineEndings(data.markdown) === normalizeLineEndings(entry.expectedContent)
+          this._scheduleIgnoreChangeCleanup()
+          return matches
         } catch (error) {
           // A disappeared or unreadable file is not evidence of a self-write.
           // Let the normal watcher path report the I/O problem or unlink.
           log.debug('Failed to compare expected self-write content:', error)
+          this._scheduleIgnoreChangeCleanup()
           return false
         }
       }
 
-      if (new Date().getTime() - entry.start.getTime() < entry.duration) return true
+      if (currentTime.getTime() - entry.start.getTime() < entry.duration) {
+        this._scheduleIgnoreChangeCleanup()
+        return true
+      }
 
       if (!usePolling) {
         try {
           const fileInfo = await fsPromises.stat(pathname)
-          if (fileInfo.mtime.getTime() - entry.start.getTime() < entry.duration) return true
+          if (fileInfo.mtime.getTime() - entry.start.getTime() < entry.duration) {
+            this._scheduleIgnoreChangeCleanup()
+            return true
+          }
         } catch (error) {
           console.error('Failed to "stat" file to determine modification time:', error)
         }
       }
     }
+    this._scheduleIgnoreChangeCleanup()
     return false
   }
 }

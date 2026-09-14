@@ -318,7 +318,7 @@ class DiagramPreview extends Parent {
     }
 
     /** Release timers, subscriptions, and renderer resources on block removal. */
-    dispose() {
+    override dispose() {
         if (this._disposed)
             return;
 
@@ -336,13 +336,7 @@ class DiagramPreview extends Parent {
         for (const resolve of this._renderWaiters.values())
             resolve();
         this._renderWaiters.clear();
-    }
-
-    override remove(source = 'user') {
-        this.dispose();
-        super.remove(source);
-
-        return this;
+        super.dispose();
     }
 }
 

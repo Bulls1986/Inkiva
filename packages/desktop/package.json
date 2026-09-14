@@ -38,6 +38,7 @@
     "perf:inspect-brk": "cross-env PERF_TESTING=true INKIVA_PERF_CAPTURE=true electron-vite preview -- --inspect-brk=5858",
     "test": "vitest run",
     "test:unit": "vitest run test/unit",
+    "test:lifecycle": "vitest run test/unit/specs/image-path-autocomplete.spec.ts test/unit/specs/watcher-lifecycle.spec.ts",
     "test:e2e": "playwright test test/e2e --config=test/e2e/playwright.config.ts",
     "test:e2e:perf": "cross-env INKIVA_RUN_PERF=true playwright test test/e2e --config=test/e2e/playwright.config.ts --grep @perf",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",

@@ -51,6 +51,8 @@ class JSONState {
     // document (#2938).
     private _rafId: number | null = null;
 
+    private _disposed = false;
+
     private _state: TState[] = [];
 
     constructor(private _muya: Muya, stateOrMarkdown: TState[] | string) {
@@ -67,6 +69,9 @@ class JSONState {
     }
 
     setContent(content: TState[] | string) {
+        if (this._disposed)
+            return;
+
         // A pending deferred-op batch belongs to the OUTGOING document. Applying
         // it to the new content would corrupt it (or throw and leave the flush
         // guard stuck, freezing all future edits). Drop the batch and cancel its
@@ -175,6 +180,9 @@ class JSONState {
     }
 
     insertOperation(path: Path, state: TState) {
+        if (this._disposed)
+            return;
+
         const operation = json1.insertOp(path, asDoc(state))!;
 
         this._operationCache.push(operation);
@@ -183,6 +191,9 @@ class JSONState {
     }
 
     removeOperation(path: Path) {
+        if (this._disposed)
+            return;
+
         const operation = json1.removeOp(path)!;
 
         this._operationCache.push(operation);
@@ -191,6 +202,9 @@ class JSONState {
     }
 
     editOperation(path: Path, diff: TDiff[]) {
+        if (this._disposed)
+            return;
+
         const operation = json1.editOp(path, 'text-unicode', diff)!;
 
         this._operationCache.push(operation);
@@ -199,6 +213,9 @@ class JSONState {
     }
 
     replaceOperation(path: Path, oldValue: Doc, newValue: Doc) {
+        if (this._disposed)
+            return;
+
         const operation = json1.replaceOp(path, oldValue, newValue)!;
 
         this._operationCache.push(operation);
@@ -207,6 +224,9 @@ class JSONState {
     }
 
     dispatch(op: JSONOp, source = 'user' /* user, api */) {
+        if (this._disposed)
+            return;
+
         // ot-json1 apply returns a new tree. Keep this immutable reference for
         // the cheap mutation classification and only deep-clone it if a legacy
         // listener actually reads `prevDoc`.
@@ -262,7 +282,7 @@ class JSONState {
     }
 
     private _emitStateChange() {
-        if (this._rafId !== null)
+        if (this._disposed || this._rafId !== null)
             return;
 
         this._rafId = requestAnimationFrame(() => {
@@ -281,6 +301,18 @@ class JSONState {
         cancelAnimationFrame(this._rafId);
         this._rafId = null;
         this._flushOperationCache();
+    }
+
+    /** Drop deferred work when the owning editor is destroyed. */
+    dispose() {
+        if (this._disposed)
+            return;
+
+        this._disposed = true;
+        if (this._rafId !== null)
+            cancelAnimationFrame(this._rafId);
+        this._rafId = null;
+        this._operationCache = [];
     }
 
     private _flushOperationCache() {

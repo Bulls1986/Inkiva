@@ -30,6 +30,7 @@
     "perf:inspect-brk": "pnpm --filter inkiva perf:inspect-brk",
     "test": "pnpm --filter inkiva test",
     "test:unit": "pnpm --filter inkiva test:unit",
+    "test:lifecycle": "pnpm --filter @muyajs/core test:lifecycle && pnpm --filter inkiva test:lifecycle",
     "test:e2e": "pnpm --filter inkiva test:e2e",
     "test:e2e:perf": "pnpm --filter inkiva test:e2e:perf",
     "test:perf:soak": "node --import tsx --test perf/soak/*.spec.ts",

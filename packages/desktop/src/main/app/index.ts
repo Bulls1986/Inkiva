@@ -17,7 +17,7 @@ import { normalizeShortcutStyle } from '../keyboard/shortcutStyles'
 import { selectTheme } from '../menu/actions/theme'
 import { dockMenu } from '../menu/templates'
 import registerSpellcheckerListeners from '../spellchecker'
-import { watchers } from '../utils/imagePathAutoComplement'
+import { closeImagePathWatchers } from '../utils/imagePathAutoComplement'
 import { onInternalChannel } from '../utils/internalIpc'
 import { WindowType } from '../windows/base'
 import EditorWindow from '../windows/editor'
@@ -185,10 +185,7 @@ class App {
     app.on('ready', this.ready)
 
     app.on('window-all-closed', () => {
-      // Close all the image path watcher
-      for (const watcher of watchers.values()) {
-        watcher.close()
-      }
+      closeImagePathWatchers()
       this._windowManager.closeWatcher()
       if (!isOsx) {
         app.quit()

@@ -106,13 +106,18 @@ class HeadingCopyLink extends TreeNode {
     }
 
     private _detachDOMEvents() {
-        for (const id of this._eventIds)
+        const eventIds = this._eventIds.splice(0);
+        for (const id of eventIds)
             this.muya.eventCenter.detachDOMEvent(id);
     }
 
-    override remove(_source: string) {
-        super.remove();
+    override dispose(): void {
         this._detachDOMEvents();
+        super.dispose();
+    }
+
+    override remove(source = 'user') {
+        super.remove(source);
 
         return this;
     }

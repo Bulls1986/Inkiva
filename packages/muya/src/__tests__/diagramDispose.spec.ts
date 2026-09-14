@@ -1,13 +1,14 @@
 // @vitest-environment happy-dom
 
+import type Parent from '../block/base/parent';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Muya } from '../muya';
 import { getDiagramRenderCoordinator } from '../utils/diagram/coordinator';
 
 const renderDiagramMock = vi.fn();
 vi.mock('../utils/diagram/renderer', () => ({
-    disposeDiagram: vi.fn(),
-    normalizeDiagramSource: (source: string) => source,
+    disposeDiagram: (target: HTMLElement) => target.replaceChildren(),
+    normalizeDiagramSource: (source: string) => source.replace(/\r\n?/g, '\n'),
     renderDiagram: (...args: unknown[]) => renderDiagramMock(...args),
 }));
 
@@ -28,6 +29,30 @@ afterEach(() => {
 });
 
 describe('muya diagram disposal', () => {
+    it('keeps a diagram preview alive across a block move and disposes it once on removal', () => {
+        const host = bootedHosts[0];
+        const muya = new Muya(host, {
+            markdown: '```mermaid\ngraph TD\n  A --> B\n```\n\nparagraph\n',
+        } as ConstructorParameters<typeof Muya>[1]);
+        muya.init();
+
+        const scrollPage = muya.editor.scrollPage!;
+        const diagramBlock = scrollPage.firstChild!;
+        const preview = (diagramBlock as Parent).attachments.head!;
+        const dispose = vi.spyOn(preview, 'dispose');
+
+        diagramBlock.insertInto(scrollPage, null);
+
+        expect(dispose).not.toHaveBeenCalled();
+        expect(diagramBlock.parent).toBe(scrollPage);
+
+        diagramBlock.remove('api');
+        expect(dispose).toHaveBeenCalledTimes(1);
+
+        muya.destroy();
+        expect(dispose).toHaveBeenCalledTimes(1);
+    });
+
     it('cancels a diagram preview timer when the editor is destroyed', async () => {
         const host = bootedHosts[0];
         const muya = new Muya(host, {
@@ -93,7 +118,6 @@ describe('muya diagram disposal', () => {
         expect(preview.querySelector('[data-late-document-render="true"]')).toBeNull();
         muya.destroy();
     });
-
     it('closes the owner coordinator when Muya is destroyed', async () => {
         const host = bootedHosts[0];
         const muya = new Muya(host, {

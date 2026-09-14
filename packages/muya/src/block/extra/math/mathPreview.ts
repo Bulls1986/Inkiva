@@ -47,7 +47,8 @@ class MathPreview extends Parent {
 
     private _attachDOMEvents() {
         const clickObservable = fromEvent(this.domNode!, 'click');
-        clickObservable.subscribe(this.clickHandler.bind(this));
+        const clickSubscription = clickObservable.subscribe(this.clickHandler.bind(this));
+        this.registerDisposable(() => clickSubscription.unsubscribe());
     }
 
     clickHandler(event: Event) {

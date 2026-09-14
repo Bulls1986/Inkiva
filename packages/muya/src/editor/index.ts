@@ -1,7 +1,7 @@
 import type { JSONOp, JSONOpComponent, JSONOpList } from 'ot-json1';
+import type { Subscription } from 'rxjs';
 import type Content from '../block/base/content';
 import type Format from '../block/base/format';
-import type TreeNode from '../block/base/treeNode';
 import type { Muya } from '../muya';
 import type { IHistorySelection } from '../selection/types';
 import type { TState } from '../state/types';
@@ -246,6 +246,7 @@ export class Editor {
     scrollPage: Nullable<ScrollPage> = null;
 
     private _activeContentBlock: Nullable<Content> = null;
+    private _eventSubscription: Subscription | null = null;
 
     constructor(private _muya: Muya) {
         const state = _muya.options.json || _muya.options.markdown || '';
@@ -345,7 +346,8 @@ export class Editor {
             }
         };
 
-        merge(
+        this._eventSubscription?.unsubscribe();
+        this._eventSubscription = merge(
             fromEvent(domNode, 'click'),
             fromEvent(domNode, 'input'),
             fromEvent(domNode, 'keydown'),
@@ -353,6 +355,15 @@ export class Editor {
             fromEvent(domNode, 'compositionend'),
             fromEvent(domNode, 'compositionstart'),
         ).subscribe(eventHandler);
+    }
+
+    destroy() {
+        this._eventSubscription?.unsubscribe();
+        this._eventSubscription = null;
+        this.scrollPage?.dispose();
+        this.scrollPage = null;
+        this._activeContentBlock = null;
+        this.jsonState.dispose();
     }
 
     focus() {
@@ -504,30 +515,5 @@ export class Editor {
 
         if (autoFocus)
             this.focus();
-    }
-
-    /**
-     * Release resources owned by live blocks before Muya detaches the DOM.
-     * Attachments are not part of the JSON child tree, so walk them explicitly
-     * as well; asynchronous diagram previews live in that attachment list.
-     */
-    destroy() {
-        const scrollPage = this.scrollPage;
-        if (!scrollPage)
-            return;
-
-        const disposeNode = (node: TreeNode) => {
-            if (node.isParent()) {
-                node.attachments.forEach(attachment => disposeNode(attachment));
-                node.children.forEach(child => disposeNode(child));
-            }
-
-            const disposable = node as TreeNode & { dispose?: () => void };
-            disposable.dispose?.();
-        };
-
-        disposeNode(scrollPage);
-        this.scrollPage = null;
-        this._activeContentBlock = null;
     }
 }

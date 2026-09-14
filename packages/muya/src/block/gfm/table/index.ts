@@ -106,7 +106,8 @@ class Table extends Parent {
         };
 
         const mousedownObservable = fromEvent(domNode!, 'mousedown');
-        mousedownObservable.subscribe(mousedownHandler);
+        const mousedownSubscription = mousedownObservable.subscribe(mousedownHandler);
+        this.registerDisposable(() => mousedownSubscription.unsubscribe());
     }
 
     queryBlock(path: TBlockPath) {

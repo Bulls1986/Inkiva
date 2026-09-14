@@ -25,6 +25,9 @@ class TreeNode implements ILinkedNode {
 
     datasets: IDatasets = {};
 
+    private _disposables: Array<() => void> = [];
+    private _resourcesDisposed = false;
+
     static blockName = 'tree.node';
 
     protected get static(): IConstructor<TreeNode> {
@@ -73,6 +76,26 @@ class TreeNode implements ILinkedNode {
     }
 
     constructor(public muya: Muya) {}
+
+    /** Register a node-owned resource for both local removal and editor teardown. */
+    protected registerDisposable(dispose: () => void): void {
+        if (this._resourcesDisposed) {
+            dispose();
+            return;
+        }
+
+        this._disposables.push(dispose);
+    }
+
+    /** Release resources owned directly by this node. */
+    dispose(): void {
+        if (this._resourcesDisposed)
+            return;
+
+        this._resourcesDisposed = true;
+        const disposables = this._disposables.splice(0);
+        disposables.forEach(dispose => dispose());
+    }
 
     /**
      * check this is a Content block?
@@ -248,7 +271,7 @@ class TreeNode implements ILinkedNode {
             return;
 
         if (this.parent)
-            this.parent.removeChild(this);
+            this.parent.removeChild(this, 'move');
 
         // `parent.insertBefore` takes a Parent (the tree's internal linked
         // list operates on Parent), but TreeNode.insertInto is also called
@@ -260,7 +283,10 @@ class TreeNode implements ILinkedNode {
     /**
      * Remove the current block in the block tree.
      */
-    remove(_source = 'user') {
+    remove(source = 'user') {
+        if (source !== 'move')
+            this.dispose();
+
         if (!this.parent)
             return;
 
