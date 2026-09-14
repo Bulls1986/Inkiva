@@ -1,3 +1,7 @@
+export const MEMORY_LEAK_SHORT_WINDOW_SIZE = 50 as const
+export const MEMORY_LEAK_LONG_WINDOW_SIZE = 200 as const
+export const MEMORY_LEAK_SAMPLE_COUNT = 20 as const
+
 export interface MemoryLeakSeriesOptions {
   shortWindowSize?: number
   longWindowSize?: number
@@ -57,8 +61,8 @@ export const evaluateMemoryLeakSeries = (
   samples: readonly number[],
   options: MemoryLeakSeriesOptions = {}
 ): MemoryLeakSeriesEvaluation => {
-  const shortWindowSize = Math.floor(options.shortWindowSize ?? 50)
-  const longWindowSize = Math.floor(options.longWindowSize ?? 200)
+  const shortWindowSize = Math.floor(options.shortWindowSize ?? MEMORY_LEAK_SHORT_WINDOW_SIZE)
+  const longWindowSize = Math.floor(options.longWindowSize ?? MEMORY_LEAK_LONG_WINDOW_SIZE)
   const linearGrowthRatio = options.linearGrowthRatio ?? 0.02
   const linearGrowthRSquared = options.linearGrowthRSquared ?? 0.8
 

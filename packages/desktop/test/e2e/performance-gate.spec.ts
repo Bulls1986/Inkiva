@@ -6,6 +6,7 @@ import path from 'node:path'
 import { performance as hostPerformance } from 'node:perf_hooks'
 import { createMarkdownFixture } from '../../../../perf/gate/fixtures'
 import { mergePerformanceTraceReports } from '../../../../perf/gate/trace-input'
+import { collectMemoryLeakCycleSamples } from './performanceMemory'
 import {
   closeElectron,
   expectNoRendererErrors,
@@ -449,6 +450,20 @@ const runMemorySample = async(
   try {
     launched = await openCaptured(filePath, capture, 'P0')
     await waitForEditor(launched.page, 120000)
+    const cyclePath = path.join(path.dirname(filePath), 'memory-cycle.md')
+    fs.writeFileSync(
+      cyclePath,
+      fs.readFileSync(filePath, 'utf8'),
+      'utf8'
+    )
+    await collectMemoryLeakCycleSamples({
+      app: launched.app,
+      page: launched.page,
+      firstPath: filePath,
+      cyclePath,
+      recordSample: (metric, unit, value) =>
+        recordSample(launched!.page, metric, unit, value, 'memory')
+    })
     await pageWait(launched.page, 18_000)
     await expectNoRendererErrors(launched.app)
   } finally {
@@ -509,6 +524,7 @@ test.describe('@perf-gate P0 Milk Gate', () => {
             'document.regular.save',
             'document.regular.undo',
             'document.regular.redo'
+            'memory.heapLinearGrowth200'
           ])
       )
     } finally {

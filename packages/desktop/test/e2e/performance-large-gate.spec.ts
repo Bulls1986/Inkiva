@@ -29,6 +29,7 @@ import {
   type EditorMilestoneTimestamps
 } from '../../../../perf/gate/editorMilestones'
 import { mergePerformanceTraceReports } from '../../../../perf/gate/trace-input'
+import { collectMemoryLeakCycleSamples } from './performanceMemory'
 import {
   closeElectron,
   getRendererErrors,
@@ -1220,6 +1221,41 @@ const collectCombinationSamples = async(
   }
 }
 
+const collectMemoryLeakSamples = async(
+  level: LargeGateLevel,
+  capture: CaptureDirectory
+): Promise<void> => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-memory-leak-'))
+  const firstPath = path.join(root, 'memory-first.md')
+  const cyclePath = path.join(root, 'memory-cycle.md')
+  const markdown = createMarkdownFixture('regular').markdown
+  fs.writeFileSync(firstPath, markdown, 'utf8')
+  fs.writeFileSync(cyclePath, markdown, 'utf8')
+  let app: ElectronApplication | undefined
+
+  try {
+    const launched = await launchCaptured([firstPath], capture, 180000)
+    app = launched.app
+    const { page } = launched
+    await waitForEditor(page, 180000)
+    await collectMemoryLeakCycleSamples({
+      app,
+      page,
+      firstPath,
+      cyclePath,
+      recordSample: (metric, unit, value) =>
+        recordSample(page, metric, unit, value, 'memory')
+    })
+    await getRendererErrors(app)
+  } finally {
+    if (app) {
+      await closeElectron(app)
+      appendCapture(capture.directory, level)
+    }
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 const collectLevel = async(level: LargeGateLevel, capture: CaptureDirectory): Promise<void> => {
   clearCaptureFiles(capture.directory, level)
 
@@ -1229,6 +1265,7 @@ const collectLevel = async(level: LargeGateLevel, capture: CaptureDirectory): Pr
     await collectDocumentTier(level, '1m', capture)
     await collectTreeSamples(level, 10000, 1000, capture)
     await collectTabSamples(level, capture)
+    await collectMemoryLeakSamples(level, capture)
     assertRawCoverage(capture.directory, level)
     return
   }
@@ -1241,6 +1278,7 @@ const collectLevel = async(level: LargeGateLevel, capture: CaptureDirectory): Pr
     await collectTabSamples(level, capture, '100k')
     await collectDiagramImageSamples(level, capture)
     await collectCombinationSamples(level, capture, 100000, '100k')
+    await collectMemoryLeakSamples(level, capture)
     assertRawCoverage(capture.directory, level)
     return
   }
@@ -1254,6 +1292,7 @@ const collectLevel = async(level: LargeGateLevel, capture: CaptureDirectory): Pr
   await collectTabSamples(level, capture)
   await collectDiagramImageSamples(level, capture)
   await collectCombinationSamples(level, capture)
+  await collectMemoryLeakSamples(level, capture)
   assertRawCoverage(capture.directory, level)
 }
 
