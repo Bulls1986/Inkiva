@@ -162,3 +162,30 @@ test('rejects malformed metric_sample events instead of ignoring unsupported cap
     )
   })
 })
+
+test('aggregates count signals by their maximum so one crash cannot hide in a median', () => {
+  withInputDirectory((directory) => {
+    writeFileSync(
+      join(directory, 'runtime.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        traces: [{
+          events: [
+            { name: 'metric_sample', process: 'main', metadata: {
+              metric: 'stability.crash', unit: 'count', value: 0
+            } },
+            { name: 'metric_sample', process: 'main', metadata: {
+              metric: 'stability.crash', unit: 'count', value: 1
+            } }
+          ]
+        }]
+      })
+    )
+
+    const report = collectSoakReport('desktop', directory)
+
+    assert.deepEqual(report.metrics, [
+      { name: 'stability.crash', unit: 'count', value: 1 }
+    ])
+  })
+})
