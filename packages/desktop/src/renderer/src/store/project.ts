@@ -12,6 +12,7 @@ import { useEditorStore } from './editor'
 import { useRecentDocumentsStore } from './recentDocuments'
 import { debouncedSendBufferedState } from './bufferedState'
 import { ProjectTreeEventBatcher } from '../util/projectTreeEventBatch'
+import { isInlineFileData } from '../util/projectTreeEvents'
 import type { TreeNode } from '../components/sideBar/types'
 import type { FileChangeDetail } from '@shared/types/files'
 
@@ -187,8 +188,15 @@ export const useProjectStore = defineStore('project', () => {
         const { pathname, data, isMarkdown } = change
         addFile(projectTree.value!, change as Parameters<typeof addFile>[1], String(preferencesStore.fileSortBy), String(preferencesStore.fileSortOrder))
         if (isMarkdown && newFileNameCache.value && pathname === newFileNameCache.value) {
-          const fileState = getFileStateFromData(data as Record<string, unknown>)
-          editorStore.UPDATE_CURRENT_FILE(fileState)
+          if (isInlineFileData(data)) {
+            const fileState = getFileStateFromData(data)
+            editorStore.UPDATE_CURRENT_FILE(fileState)
+          } else {
+            // Directory scans deliberately carry metadata only. Ask the main
+            // open-file path to load the just-created body instead of making
+            // a 50K workspace scan read every Markdown file.
+            window.electron.ipcRenderer.send('mt::open-file', pathname, {})
+          }
           newFileNameCache.value = ''
         }
         break
