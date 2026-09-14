@@ -7,11 +7,11 @@ import { CLASS_NAMES, PREVIEW_DOMPURIFY_CONFIG } from '../../../config';
 import { sanitize } from '../../../utils';
 import { getDiagramRenderCoordinator } from '../../../utils/diagram/coordinator';
 import logger from '../../../utils/logger';
+import Parent from '../../base/parent';
 import {
     getDiagramHeightHint,
     rememberDiagramHeight,
 } from './diagramHeightHint';
-import Parent from '../../base/parent';
 
 const debug = logger('diagramPreview:');
 export const DIAGRAM_RENDER_DEBOUNCE_MS = 200;

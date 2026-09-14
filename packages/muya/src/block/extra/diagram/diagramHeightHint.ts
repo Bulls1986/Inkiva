@@ -30,7 +30,7 @@ export function createDiagramHeightHintCache(limit = 128): IDiagramHeightHintCac
 const diagramHeightHints = createDiagramHeightHintCache();
 
 export function diagramHeightHintKey(type: string, code: string): string {
-    return type + '\u0000' + code;
+    return `${type}\u0000${code}`;
 }
 
 export function getDiagramHeightHint(type: string, code: string): number | undefined {

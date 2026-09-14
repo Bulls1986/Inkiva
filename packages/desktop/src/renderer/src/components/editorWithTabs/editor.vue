@@ -1233,7 +1233,7 @@ const handleSearch = (payload: unknown) => {
   const requestGeneration = ++searchRequestGeneration
   let revealedFirstMatch = false
 
-  editor.value.searchAsync(value, opt, (result) => {
+  editor.value.searchAsync(value, opt, (result: ReturnType<typeof toSearchMatches>) => {
     if (requestGeneration !== searchRequestGeneration) return
     editorStore.SEARCH(toSearchMatches(result))
     if (!revealedFirstMatch && result.matches.length > 0) {
