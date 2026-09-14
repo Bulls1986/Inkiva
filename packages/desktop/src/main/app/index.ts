@@ -34,6 +34,7 @@ import { WindowsUpdateProvider } from '../update/WindowsUpdateProvider'
 import { ElectronUpdateCheckStore } from '../update/store'
 import type { UpdateStatus } from '../update/types'
 import OpenRequestCoordinator, { type OpenRequest } from '../session/openRequestCoordinator'
+import { routeStartupOpenRequest } from '../session/startupOpenTarget'
 import { canonicalPathKey } from '../session/pathCanonicalizer'
 import { createBlankRestorePlan, type RestorePlan } from '../session/restorePlan'
 import { SafeRestoreGuard } from '../session/safeRestoreGuard'
@@ -86,6 +87,7 @@ class App {
   private _accessor: Accessor
   private _args: CliArgs
   private _openRequestCoordinator: OpenRequestCoordinator
+  private _startupOpenTarget: EditorWindow | null
   private _windowManager: WindowManager
   private _themeListenerRegistered: boolean
   private _updateManager: UpdateManager
@@ -109,6 +111,7 @@ class App {
     this._openRequestCoordinator = new OpenRequestCoordinator({
       dispatch: (request) => this._dispatchOpenRequest(request)
     })
+    this._startupOpenTarget = null
     this._updatePreflight = new RendererUpdatePreflight()
     this._backgroundUpdateCheckScheduled = false
     this._startupStarted = false
@@ -497,6 +500,7 @@ class App {
           // Create the shell before clearing stale recovery files so cleanup
           // cannot delay first paint.
           const editor = this._createEditorWindow()
+          this._startupOpenTarget = editor
           editor.once('window-shell-visible', () => {
             editorBufferStore.clearBufferStoresWithAllSaved()
           })
@@ -584,6 +588,13 @@ class App {
   }
 
   private _dispatchOpenRequest(request: OpenRequest): void {
+    const startupTarget = this._startupOpenTarget
+    if (startupTarget) {
+      this._startupOpenTarget = null
+      routeStartupOpenRequest(startupTarget, request)
+      return
+    }
+
     this._openPathList(
       request.paths.map(({ isDir, path: pathname }) => ({ isDir, path: pathname })),
       request.newWindow
