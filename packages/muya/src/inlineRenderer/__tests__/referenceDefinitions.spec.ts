@@ -9,21 +9,22 @@ afterEach(() => {
         hosts.pop()?.remove();
 });
 
-const bootMuya = (markdown: string): Muya => {
+function bootMuya(markdown: string): Muya {
     const host = document.createElement('div');
     document.body.appendChild(host);
     const muya = new Muya(host, { markdown } as ConstructorParameters<typeof Muya>[1]);
     muya.init();
     hosts.push(muya.domNode);
     return muya;
-};
+}
 
 describe('inline reference definition cache', () => {
     it('does not deep-scan the whole AST for repeated paragraph renders', () => {
-        const muya = bootMuya(
-            '[ref]: https://example.com/old\\n\\n'
-            + Array.from({ length: 200 }, (_, index) => 'Paragraph ' + index).join('\\n\\n'),
-        );
+        const paragraphs = Array.from(
+            { length: 200 },
+            (_, index) => `Paragraph ${index}`,
+        ).join('\\n\\n');
+        const muya = bootMuya(`[ref]: https://example.com/old\\n\\n${paragraphs}`);
         const body = muya.editor.scrollPage!.lastContentInDescendant()!;
         const getState = vi.spyOn(muya.editor.jsonState, 'getState');
 
