@@ -112,7 +112,7 @@ import { useProjectStore } from '@/store/project'
 import { useEditorStore } from '@/store/editor'
 import { calculateVirtualWindow } from '@/util/virtualization'
 import {
-  flattenTreeRows,
+  createTreeRowModel,
   type VirtualTreeRow
 } from '@/util/treeVirtualization'
 import { ArrowRight } from '@element-plus/icons-vue'
@@ -156,38 +156,75 @@ const isFolderCollapsed = (folder: TreeFolderNode): boolean =>
   collapsedPaths.value.has(folder.pathname) ||
   (folder.isCollapsed === true && !expandedPaths.value.has(folder.pathname))
 
-const rows = computed<DisplayRow[]>(() => {
-  const result: DisplayRow[] = []
-  const createPath = (createCache.value as { dirname?: string }).dirname
-  for (const row of flattenTreeRows(props.projectTree, collapsedPaths.value, expandedPaths.value)) {
-    result.push(row)
-    if (
-      row.kind === 'folder' &&
-      row.node.pathname === createPath &&
-      !isFolderCollapsed(row.node)
-    ) {
-      result.push({
-        kind: 'create',
-        key: 'create:' + row.node.pathname,
-        depth: row.depth + 1,
-        pathname: row.node.pathname
-      })
-    }
-  }
-  return result
+const treeModel = computed(() =>
+  createTreeRowModel(props.projectTree, collapsedPaths.value, expandedPaths.value)
+)
+const createPath = computed<string | undefined>(() => {
+  const cache = createCache.value as { dirname?: string }
+  return cache.dirname
 })
-
+const createRowIndex = computed<number | undefined>(() => {
+  const pathname = createPath.value
+  if (!pathname) return undefined
+  const index = treeModel.value.findRowIndex(pathname)
+  if (index === undefined) return undefined
+  const row = treeModel.value.getRows(index, index + 1)[0]
+  return row?.kind === 'folder' && !isFolderCollapsed(row.node) ? index + 1 : undefined
+})
+const createRowDepth = computed(() => {
+  const index = createRowIndex.value
+  if (index === undefined) return 0
+  const row = treeModel.value.getRows(index - 1, index)[0]
+  return row?.kind === 'folder' ? row.depth + 1 : 0
+})
+const totalRows = computed(() =>
+  treeModel.value.totalRows + (createRowIndex.value === undefined ? 0 : 1)
+)
 const windowState = computed(() =>
   calculateVirtualWindow(
-    rows.value.length,
+    totalRows.value,
     ROW_HEIGHT,
     scrollTop.value,
     viewportHeight.value
   )
 )
-const visibleRows = computed(() =>
-  rows.value.slice(windowState.value.startIndex, windowState.value.endIndex)
-)
+const visibleRows = computed<DisplayRow[]>(() => {
+  const currentWindow = windowState.value
+  const insertion = createRowIndex.value
+  const baseStart =
+    insertion !== undefined && insertion < currentWindow.startIndex
+      ? currentWindow.startIndex - 1
+      : currentWindow.startIndex
+  const baseEnd =
+    insertion !== undefined && insertion < currentWindow.endIndex
+      ? currentWindow.endIndex - 1
+      : currentWindow.endIndex
+  const baseRows = treeModel.value.getRows(baseStart, baseEnd)
+  const result: DisplayRow[] = []
+  let baseOffset = 0
+
+  for (
+    let displayIndex = currentWindow.startIndex;
+    displayIndex < currentWindow.endIndex;
+    displayIndex += 1
+  ) {
+    if (displayIndex === insertion) {
+      result.push({
+        kind: 'create',
+        key: 'create:' + (createPath.value ?? ''),
+        depth: createRowDepth.value,
+        pathname: createPath.value ?? ''
+      })
+      continue
+    }
+
+    const row = baseRows[baseOffset]
+    if (row) result.push(row)
+    baseOffset += 1
+  }
+
+  return result
+})
 
 const updateViewportHeight = (): void => {
   const height = viewport.value?.clientHeight ?? 0
@@ -259,11 +296,11 @@ const rename = (): void => {
 const focusCreateInput = (): void => {
   const dirname = (createCache.value as { dirname?: string }).dirname
   if (!dirname) return
-  const folder = rows.value.find(
-    (row): row is VirtualTreeRow & { kind: 'folder' } =>
-      row.kind === 'folder' && row.node.pathname === dirname
-  )
-  if (folder && isFolderCollapsed(folder.node)) toggleFolder(folder.node)
+  const folderIndex = treeModel.value.findRowIndex(dirname)
+  const folder = folderIndex === undefined
+    ? undefined
+    : treeModel.value.getRows(folderIndex, folderIndex + 1)[0]
+  if (folder?.kind === 'folder' && isFolderCollapsed(folder.node)) toggleFolder(folder.node)
   nextTick(() => createInput.value?.focus())
 }
 

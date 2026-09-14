@@ -88,7 +88,7 @@ import { useEditorStore } from '@/store/editor'
 import { usePreferencesStore } from '@/store/preferences'
 import { deriveKeyedToc, type KeyedTocNode } from '@/util/tocKeys'
 import { filterTocTree, getExpandableTocKeys } from '@/util/tocOutline'
-import { flattenTocRows } from '@/util/tocVirtualization'
+import { countTocRows } from '@/util/tocVirtualization'
 import TocVirtualized from './tocVirtualized.vue'
 import bus from '../../bus'
 import { storeToRefs } from 'pinia'
@@ -161,7 +161,7 @@ const expandedKeys = computed<string[]>(() => {
 })
 
 const shouldVirtualize = computed(() =>
-  flattenTocRows(filteredToc.value, new Set(expandedKeys.value)).length > 300
+  countTocRows(filteredToc.value, new Set(expandedKeys.value)) > 300
 )
 
 watch(

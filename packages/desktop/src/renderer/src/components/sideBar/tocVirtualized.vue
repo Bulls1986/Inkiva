@@ -56,7 +56,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, onBeforeUnmount } from 'vue'
 import { calculateVirtualWindow } from '@/util/virtualization'
-import { flattenTocRows, type VirtualTocRow } from '@/util/tocVirtualization'
+import { createTocRowModel, type VirtualTocRow } from '@/util/tocVirtualization'
 import type { KeyedTocNode } from '@/util/tocKeys'
 import { ArrowRight } from '@element-plus/icons-vue'
 
@@ -80,17 +80,17 @@ const scrollTop = ref(0)
 const viewportHeight = ref(DEFAULT_VIEWPORT_HEIGHT)
 
 const expanded = computed(() => new Set(props.expandedKeys))
-const rows = computed<VirtualTocRow[]>(() => flattenTocRows(props.nodes, expanded.value))
+const rowModel = computed(() => createTocRowModel(props.nodes, expanded.value))
 const windowState = computed(() =>
   calculateVirtualWindow(
-    rows.value.length,
+    rowModel.value.totalRows,
     ROW_HEIGHT,
     scrollTop.value,
     viewportHeight.value
   )
 )
-const visibleRows = computed(() =>
-  rows.value.slice(windowState.value.startIndex, windowState.value.endIndex)
+const visibleRows = computed<VirtualTocRow[]>(() =>
+  rowModel.value.getRows(windowState.value.startIndex, windowState.value.endIndex)
 )
 
 const isExpanded = (key: string): boolean => expanded.value.has(key)
