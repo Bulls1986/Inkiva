@@ -3,6 +3,7 @@ import type Parent from './block/base/parent';
 import type { TBlockPath } from './block/types';
 import type { Listener } from './event/types';
 import type { ILocale } from './i18n/types';
+import type { Search as SearchModule } from './search';
 import type { IIndexCursor } from './selection/offsetCursor';
 import type { Search as SearchModule } from './search';
 import type { IHistorySelection, IPublicCursorInput } from './selection/types';
