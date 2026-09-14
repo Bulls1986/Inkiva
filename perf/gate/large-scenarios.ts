@@ -1,4 +1,4 @@
-export type LargeGateLevel = 'P1' | 'P2'
+export type LargeGateLevel = 'P1' | 'P2' | 'P3'
 
 export interface LargeGateScenario {
   id: string
@@ -198,6 +198,74 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
       'combo.crash',
       'combo.rendererHang'
     ]
+  {
+    id: 'p3-documents-headings',
+    level: 'P3',
+    fixtures: ['1m-markdown', '5k-heading-storm', '10k-heading-storm'],
+    metrics: [
+      'document.1m.firstScreen',
+      'document.1m.editable',
+      'document.1m.outlineFirst',
+      'document.1m.outlineFull',
+      'document.1m.headingJump',
+      'document.1m.input',
+      'document.1m.rendererHang',
+      'heading.5k.outlineFirst',
+      'heading.5k.index',
+      'heading.5k.click',
+      'heading.5k.search',
+      'heading.5k.collapse',
+      'heading.5k.scrollFps',
+      'heading.5k.domRatio',
+      'heading.10k.crash',
+      'heading.10k.oom',
+      'heading.10k.rendererHang',
+      'heading.10k.mainBlock'
+    ]
+  },
+  {
+    id: 'p3-tree-tabs-background',
+    level: 'P3',
+    fixtures: ['100k-workspace', '8x100k-tabs'],
+    metrics: [
+      'tree.100k.shell',
+      'tree.100k.editorInput',
+      'tree.100k.tabSwitch',
+      'tree.100k.freeze',
+      'tree.100k.rendererHang',
+      'tree.100k.domRatio',
+      'tabs.8.openFirst',
+      'tabs.8.open2to4',
+      'tabs.8.open5to8',
+      'tabs.8.warmSwitch',
+      'tabs.8.coldSwitch',
+      'tabs.8.switch',
+      'core.ui.action',
+      'tabs.8.freeze',
+      'tabs.8.input',
+      'background.taskSlice',
+      'background.editorDegradation'
+    ]
+  },
+  {
+    id: 'p3-diagrams-combination',
+    level: 'P3',
+    fixtures: ['diagram-image-document', '100k-workspace-combination'],
+    metrics: [
+      'diagram.placeholder',
+      'diagram.firstScreenSyncRender',
+      'diagram.errorRetry',
+      'image.editorReadyBeforeLoad',
+      'image.offscreenRequest',
+      'image.offscreenDecode',
+      'combo.input',
+      'combo.hotTab',
+      'combo.scrollFps',
+      'combo.freeze',
+      'combo.crash',
+      'combo.rendererHang'
+    ]
+  }
   }
 ]
 

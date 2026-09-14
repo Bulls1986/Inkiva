@@ -452,8 +452,12 @@ const writeWorkspace = (
   }
 }
 
-const writeTabSet = (root: string, count = 8): string[] => {
-  const fixture = createMarkdownFixture('50k')
+const writeTabSet = (
+  root: string,
+  count = 8,
+  tier: MarkdownDocumentTier = '50k'
+): string[] => {
+  const fixture = createMarkdownFixture(tier)
   const paths: string[] = []
   for (let index = 0; index < count; index += 1) {
     const filePath = path.join(root, 'tab-' + String(index) + '.md')
@@ -536,20 +540,26 @@ const collectDocumentTier = async(
           timeout: 180000
         })
       })
-      if (tier === '50k' || tier === '100k' || tier === '500k') {
+      if (tier === '50k' || tier === '100k' || tier === '500k' || (level === 'P3' && tier === '1m')) {
         await recordSample(page, 'document.' + tier + '.outlineFirst', 'ms', outlineDuration, 'document-open')
       }
       if (tier === '50k') {
         await recordSample(page, 'document.50k.lightIndex', 'ms', outlineDuration, 'document-open')
       }
-      if (tier === '500k') {
+      if (tier === '500k' || (level === 'P3' && tier === '1m')) {
         const fullOutlineDuration = await measurePageAction(page, async() => {
           await page.locator('[data-testid="toc-expand-all"]').click()
           await expect(page.locator('.side-bar-toc [data-testid="toc-node-label"]').first()).toBeVisible({
             timeout: 180000
           })
         })
-        await recordSample(page, 'document.500k.outlineFull', 'ms', fullOutlineDuration, 'document-open')
+        await recordSample(
+          page,
+          'document.' + tier + '.outlineFull',
+          'ms',
+          fullOutlineDuration,
+          'document-open'
+        )
       }
 
       const headingDuration = await measurePageAction(page, async() => {
@@ -739,7 +749,10 @@ const collectTreeSamples = async(
         await expect(page.locator('.tree-virtual-viewport .virtual-tree-row').first()).toBeVisible({
           timeout: 180000
         })
-        await recordSample(page, 'tree.' + targetNodes / 1000 + 'k.firstScreen', 'ms', hostPerformance.now() - started)
+        const firstScreenMetric = targetNodes === 100000
+          ? 'tree.100k.shell'
+          : 'tree.' + targetNodes / 1000 + 'k.firstScreen'
+        await recordSample(page, firstScreenMetric, 'ms', hostPerformance.now() - started)
       } finally {
         if (app) {
           await closeElectron(app)
@@ -806,8 +819,28 @@ const collectTreeSamples = async(
       if (targetNodes === 10000) {
         await recordSample(page, 'tree.10k.domRatio', 'ratio', visibleRows / viewportRows)
       }
+      if (targetNodes === 100000) {
+        await recordSample(page, 'tree.100k.domRatio', 'ratio', visibleRows / viewportRows)
+        await sendIpcToRenderer(app!, 'mt::new-untitled-tab', true, '100k workspace tab\n')
+        await expect(page.locator('.tabs-container > li')).toHaveCount(2, { timeout: 180000 })
+        for (let index = 0; index < SAMPLE_COUNT; index += 1) {
+          const tabSwitchDuration = await measurePageAction(page, async() => {
+            await sendIpcToRenderer(app!, 'mt::switch-tab-by-index', index % 2)
+          })
+          await recordSample(page, 'tree.100k.tabSwitch', 'ms', tabSwitchDuration)
+          await recordSample(page, 'tree.100k.freeze', 'count', tabSwitchDuration > 100 ? 1 : 0)
+          await recordSample(
+            page,
+            'tree.100k.rendererHang',
+            'count',
+            page.isClosed() || (await readMaxEventLoopLag(page)) > 100 ? 1 : 0
+          )
+          const editorInput = await measureInput(page, 'tree.100k.editorInput', index + 7000)
+          await recordSample(page, 'core.input.latency', 'ms', editorInput)
+        }
+      }
 
-      if (targetNodes === 50000) {
+      if (targetNodes === 50000 || targetNodes === 100000) {
         for (let index = 0; index < SAMPLE_COUNT; index += 1) {
           const baseline = await measureInput(page, undefined, index + 2000)
           fs.writeFileSync(
@@ -817,7 +850,9 @@ const collectTreeSamples = async(
           )
           const stressed = await measureInput(page, undefined, index + 3000)
           const degradation = Math.max(0, (stressed - baseline) / Math.max(0.1, baseline))
-          await recordSample(page, 'tree.50k.inputDegradation', 'ratio', degradation)
+          if (targetNodes === 50000) {
+            await recordSample(page, 'tree.50k.inputDegradation', 'ratio', degradation)
+          }
           await recordSample(page, 'background.editorDegradation', 'ratio', degradation)
         }
       }
@@ -849,11 +884,12 @@ const collectTreeSamples = async(
 
 const collectTabSamples = async(
   level: LargeGateLevel,
-  capture: CaptureDirectory
+  capture: CaptureDirectory,
+  tabTier: MarkdownDocumentTier = '50k'
 ): Promise<void> => {
   for (let iteration = 0; iteration < SAMPLE_COUNT; iteration += 1) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-tabs-open-'))
-    const paths = writeTabSet(root)
+    const paths = writeTabSet(root, 8, tabTier)
     let app: ElectronApplication | undefined
     try {
       const started = hostPerformance.now()
@@ -882,7 +918,7 @@ const collectTabSamples = async(
   }
 
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-tabs-interaction-'))
-  const paths = writeTabSet(root)
+  const paths = writeTabSet(root, 8, tabTier)
   let app: ElectronApplication | undefined
   try {
     const launched = await launchCaptured([root, paths[0] as string], capture, 180000)
@@ -1042,10 +1078,12 @@ const collectDiagramImageSamples = async(
 
 const collectCombinationSamples = async(
   level: LargeGateLevel,
-  capture: CaptureDirectory
+  capture: CaptureDirectory,
+  targetNodes: WorkspaceNodeCount = 50000,
+  tabTier: MarkdownDocumentTier = '50k'
 ): Promise<void> => {
-  const workspace = writeWorkspace(50000, 5000)
-  const tabPaths = writeTabSet(workspace.root)
+  const workspace = writeWorkspace(targetNodes, 5000)
+  const tabPaths = writeTabSet(workspace.root, 8, tabTier)
   const comboFile = path.join(workspace.root, 'combination-2k-headings.md')
   fs.writeFileSync(comboFile, createHeadingStormFixture(2000).markdown, 'utf8')
   let app: ElectronApplication | undefined
@@ -1057,12 +1095,14 @@ const collectCombinationSamples = async(
     await waitForWorkspaceReady(page)
     await waitForEditor(page, 240000)
     for (const filePath of tabPaths) await activateFile(app!, page, filePath)
+    await activateFile(app!, page, comboFile)
     for (let index = 0; index < SAMPLE_COUNT; index += 1) {
       const hotTabDuration = await measurePageAction(page, async() => {
         await page.locator('.tabs-container > li').nth(index % 8).click()
       })
       await recordSample(page, 'combo.hotTab', 'ms', hotTabDuration)
       await recordSample(page, 'combo.freeze', 'count', hotTabDuration > 100 ? 1 : 0)
+      await activateFile(app!, page, comboFile)
       const inputDuration = await measureInput(page, undefined, index + 6000)
       await recordSample(page, 'combo.input', 'ms', inputDuration)
       await recordSample(page, 'core.input.latency', 'ms', inputDuration)
@@ -1094,6 +1134,18 @@ const collectLevel = async(level: LargeGateLevel, capture: CaptureDirectory): Pr
     return
   }
 
+  if (level === 'P3') {
+    await collectDocumentTier(level, '1m', capture)
+    await collectHeadingTier(level, 5000, capture)
+    await collectHeadingTier(level, 10000, capture)
+    await collectTreeSamples(level, 100000, 5000, capture)
+    await collectTabSamples(level, capture, '100k')
+    await collectDiagramImageSamples(level, capture)
+    await collectCombinationSamples(level, capture, 100000, '100k')
+    assertRawCoverage(capture.directory, level)
+    return
+  }
+
   await collectDocumentTier(level, '50k', capture)
   await collectDocumentTier(level, '500k', capture)
   await collectDocumentTier(level, '1m', capture)
@@ -1106,12 +1158,12 @@ const collectLevel = async(level: LargeGateLevel, capture: CaptureDirectory): Pr
   assertRawCoverage(capture.directory, level)
 }
 
-test.describe('@perf-gate-large P1/P2 real scenario matrix', () => {
+test.describe('@perf-gate-large P1/P2/P3 real scenario matrix', () => {
   test.skip(!runLargeGate, 'Run with INKIVA_RUN_PERF_LARGE_GATE=true')
   test.describe.configure({ mode: 'serial' })
   test.setTimeout(3_600_000)
 
-  for (const level of ['P1', 'P2'] as const) {
+  for (const level of ['P1', 'P2', 'P3'] as const) {
     test(level + ' collects real large-scenario raw samples', async() => {
       test.skip(!enabledLevels.includes(level), 'level is not selected')
       const capture = createCaptureDirectory()

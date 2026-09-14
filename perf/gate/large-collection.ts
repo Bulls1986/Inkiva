@@ -15,13 +15,13 @@ export const parseLargeGateLevels = (value: string | undefined): LargeGateLevel[
   const levels = new Set<LargeGateLevel>()
   for (const token of value.split(',')) {
     const level = token.trim()
-    if (level !== 'P1' && level !== 'P2') {
-      throw new Error('large gate level is unknown: ' + level + '; expected P1 or P2')
+    if (level !== 'P1' && level !== 'P2' && level !== 'P3') {
+      throw new Error('large gate level is unknown: ' + level + '; expected P1, P2, or P3')
     }
     levels.add(level)
   }
 
-  return (['P1', 'P2'] as const).filter((level) => levels.has(level))
+  return (['P1', 'P2', 'P3'] as const).filter((level) => levels.has(level))
 }
 
 export const getLargeGateCollectionContract = (
