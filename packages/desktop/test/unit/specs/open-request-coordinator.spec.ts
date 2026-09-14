@@ -70,5 +70,4 @@ describe('OpenRequestCoordinator', () => {
     expect(coordinator.getFirstPendingRequest()).toEqual(pending)
     expect(dispatched).toHaveLength(0)
   })
-
 })
