@@ -195,8 +195,7 @@ export class BackgroundTaskScheduler {
       void result.catch((error) => {
         try {
           this.onError(error, task)
-        }
-        catch {
+        } catch {
           // Diagnostics must never affect scheduling.
         }
       })
