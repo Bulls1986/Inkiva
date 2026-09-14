@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test } from '../fixtures/muya';
 import { editor } from '../helpers/selectors';
 
@@ -54,6 +56,29 @@ test.describe('stability / perf smoke @perf', () => {
 
             return { ms: t1 - t0, n: N };
         });
+
+        const reportDirectory = process.env.PERF_RESULTS_DIR?.trim();
+        if (reportDirectory) {
+            fs.mkdirSync(reportDirectory, { recursive: true });
+            fs.writeFileSync(
+                path.join(reportDirectory, 'muya-perf.json'),
+                `${JSON.stringify({
+                    schemaVersion: 1,
+                    suite: 'muya',
+                    generatedAt: new Date().toISOString(),
+                    environment: {
+                        node: process.version,
+                        platform: process.platform,
+                    },
+                    metrics: [{
+                        name: 'muya.perf.set-content.10000',
+                        unit: 'ms',
+                        value: result.ms,
+                    }],
+                }, null, 2)}\n`,
+                'utf8',
+            );
+        }
 
         const budget = process.env.CI ? 90_000 : 60_000;
         expect(result.ms, `setContent(${result.n} paragraphs) took ${result.ms.toFixed(0)}ms (budget ${budget}ms)`)

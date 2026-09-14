@@ -43,6 +43,17 @@ const runPerformanceLane = process.env.INKIVA_RUN_PERF === 'true'
 const typingMarker = 'INKIVA_UNIQUE_PERF_EDIT_MARKER'
 const pasteMarker = 'INKIVA_UNIQUE_PERF_PASTE_MARKER'
 
+const writePerformanceReport = (report: object): void => {
+  const reportDirectory = process.env.INKIVA_PERF_REPORT_DIR?.trim()
+  if (!reportDirectory) return
+  fs.mkdirSync(reportDirectory, { recursive: true })
+  fs.writeFileSync(
+    path.join(reportDirectory, 'perf-04-large-document.json'),
+    `${JSON.stringify(report, null, 2)}\n`,
+    'utf8'
+  )
+}
+
 const tempDirectory = (): string => fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-perf-04-'))
 
 const writeFixture = (directory: string, fixture: LargeDocumentFixture): string => {
@@ -243,18 +254,17 @@ test.describe('@perf PERF-04 large-document performance', () => {
     const metrics: FixtureMetric[] = []
     for (const fixture of fixtures) metrics.push(await runFixture(fixture))
 
+    const report = {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      platform: process.platform,
+      node: process.version,
+      metrics
+    }
+    writePerformanceReport(report)
+
     await test.info().attach('perf-04-large-document.json', {
-      body: JSON.stringify(
-        {
-          schemaVersion: 1,
-          generatedAt: new Date().toISOString(),
-          platform: process.platform,
-          node: process.version,
-          metrics
-        },
-        null,
-        2
-      ),
+      body: JSON.stringify(report, null, 2),
       contentType: 'application/json'
     })
 

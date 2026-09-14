@@ -42,8 +42,8 @@ jobs:
         run: pnpm -C packages/muya/e2e exec playwright install --with-deps ${{ matrix.project }}
 
       - name: Run Playwright (${{ matrix.project }})
-        # The @perf lane runs separately because shared CI timing is not a
-        # reliable PR correctness gate.
+        # The @perf lane runs in perf-soak.yml because shared CI timing is not
+        # a reliable PR correctness gate and needs a persistent baseline.
         run: pnpm -C packages/muya/e2e exec playwright test --project=${{ matrix.project }} --grep-invert "@perf"
 
       - name: Upload report on failure
@@ -51,27 +51,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: muya-e2e-report-${{ matrix.project }}
-          path: packages/muya/e2e/playwright-report/
-          retention-days: 7
-
-  perf:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-
-      - name: Install Playwright browser (chromium)
-        run: pnpm -C packages/muya/e2e exec playwright install --with-deps chromium
-
-      - name: Run performance E2E lane
-        run: pnpm -C packages/muya/e2e exec playwright test --project=chromium --grep "@perf"
-
-      - name: Upload report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: muya-e2e-perf-report
           path: packages/muya/e2e/playwright-report/
           retention-days: 7
