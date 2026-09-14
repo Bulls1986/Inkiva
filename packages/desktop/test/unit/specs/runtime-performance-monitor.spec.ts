@@ -42,14 +42,22 @@ const createSchedulers = () => {
     return intervalCallbacks.length as unknown as ReturnType<typeof globalThis.setInterval>
   })
   const clearInterval = vi.fn()
+  const setTimeout = vi.fn((callback: () => void, _delay: number) => {
+    timeoutCallbacks.push(callback)
+    return timeoutCallbacks.length as unknown as ReturnType<typeof globalThis.setTimeout>
+  })
+  const clearTimeout = vi.fn()
 
   return {
     frameCallbacks,
     intervalCallbacks,
+    timeoutCallbacks,
     requestAnimationFrame,
     cancelAnimationFrame,
     setInterval,
-    clearInterval
+    clearInterval,
+    setTimeout,
+    clearTimeout
   }
 }
 
