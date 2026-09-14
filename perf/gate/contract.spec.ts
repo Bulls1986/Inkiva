@@ -6,6 +6,8 @@ import {
   calculateStatistics,
   evaluatePerformanceGate,
   parsePerformanceGateConfig,
+  REFERENCE_ENVIRONMENT,
+  validateReferenceEnvironment,
   type DegradationConfig,
   type GateDefinition,
   type GateLevel,
@@ -82,6 +84,12 @@ test('statistics use deterministic interpolated percentiles', () => {
   assert.equal(statistics.p99, 19.81)
   assert.equal(statistics.max, 20)
   assert.equal(statistics.count, 20)
+})
+
+test('the reference environment contract is explicit and rejects a developer machine', () => {
+  assert.doesNotThrow(() => validateReferenceEnvironment(REFERENCE_ENVIRONMENT))
+  assert.throws(() => validateReferenceEnvironment({ ...REFERENCE_ENVIRONMENT, os: 'macOS' }))
+  assert.throws(() => validateReferenceEnvironment({ ...REFERENCE_ENVIRONMENT, network: 'online' }))
 })
 
 test('canonical thresholds validate and cover every release level', async() => {

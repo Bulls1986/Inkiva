@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test } from 'node:test'
-import { evaluatePerformanceGateInput } from './evaluate.js'
+import {
+  createPerformanceGateReportFromTrace,
+  evaluatePerformanceGateInput,
+  runPerformanceGateCli
+} from './evaluate.js'
 
 const environment = {
   os: 'Windows 11 64-bit',
@@ -34,6 +41,27 @@ const config = {
   }
 }
 
+const metadata = {
+  productVersion: '0.3.0',
+  suite: 'desktop',
+  level: 'P0' as const,
+  environment
+}
+
+const trace = (samples: number[]) => ({
+  schemaVersion: 1,
+  traces: [{
+    events: samples.map((value) => ({
+      name: 'metric_sample',
+      metadata: {
+        metric: 'core.input.latency',
+        unit: 'ms',
+        value
+      }
+    }))
+  }]
+})
+
 const report = (samples: number[]) => ({
   schemaVersion: 1,
   productVersion: '0.3.0',
@@ -63,6 +91,69 @@ test('fails closed when a required metric is absent', () => {
 
   assert.equal(result.passed, false)
   assert.equal(result.failures[0]?.code, 'metric-missing')
+})
+
+test('converts raw metric samples into a canonical report without aggregating them', () => {
+  const canonical = createPerformanceGateReportFromTrace(
+    trace(Array.from({ length: 20 }, () => 4)),
+    metadata
+  )
+
+  assert.equal(canonical.level, 'P0')
+  assert.deepEqual(canonical.metrics['core.input.latency'], {
+    unit: 'ms',
+    samples: Array.from({ length: 20 }, () => 4)
+  })
+})
+
+test('CLI writes and evaluates a canonical report from a raw trace', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'inkiva-gate-cli-'))
+  try {
+    const inputPath = join(directory, 'trace.json')
+    const metadataPath = join(directory, 'metadata.json')
+    const thresholdsPath = join(directory, 'thresholds.json')
+    const reportPath = join(directory, 'report.json')
+    const evaluationPath = join(directory, 'evaluation.json')
+    writeFileSync(inputPath, JSON.stringify(trace(Array.from({ length: 20 }, () => 4))))
+    writeFileSync(metadataPath, JSON.stringify(metadata))
+    writeFileSync(thresholdsPath, JSON.stringify(config))
+
+    const result = runPerformanceGateCli([
+      '--input', inputPath,
+      '--metadata', metadataPath,
+      '--thresholds', thresholdsPath,
+      '--report-output', reportPath,
+      '--output', evaluationPath
+    ])
+
+    assert.equal(result.passed, true)
+    const writtenReport = JSON.parse(readFileSync(reportPath, 'utf8')) as typeof report
+    assert.equal(writtenReport.metrics['core.input.latency']?.samples.length, 20)
+    assert.equal(JSON.parse(readFileSync(evaluationPath, 'utf8')).passed, true)
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('raw trace CLI input fails closed without explicit metadata', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'inkiva-gate-cli-metadata-'))
+  try {
+    const inputPath = join(directory, 'trace.json')
+    const thresholdsPath = join(directory, 'thresholds.json')
+    writeFileSync(inputPath, JSON.stringify(trace(Array.from({ length: 20 }, () => 4))))
+    writeFileSync(thresholdsPath, JSON.stringify(config))
+
+    assert.throws(
+      () => runPerformanceGateCli([
+        '--input', inputPath,
+        '--thresholds', thresholdsPath,
+        '--output', join(directory, 'evaluation.json')
+      ]),
+      /metadata/
+    )
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
 })
 
 test('fails closed when the gate configuration is invalid', () => {
