@@ -26,7 +26,7 @@ export interface ThresholdConfig {
   schemaVersion: typeof SOAK_SCHEMA_VERSION
   comparison: 'relative'
   maxRelativeRegression: number
-  regressionPolicy: 'warning-only'
+  regressionPolicy: 'blocking'
   absoluteGates: []
 }
 
@@ -52,7 +52,8 @@ export interface PerformanceComparison {
   threshold: number
   comparedMetrics: ComparedMetric[]
   skippedMetrics: SkippedMetric[]
-  warnings: ComparedMetric[]
+  failures: ComparedMetric[]
+  passed: boolean
 }
 
 const allowedReportKeys = new Set([
@@ -185,8 +186,8 @@ export const validateThresholdConfig = (value: unknown): ThresholdConfig => {
   if (!isFiniteNonNegativeNumber(value.maxRelativeRegression) || value.maxRelativeRegression >= 1) {
     throw new Error('threshold config maxRelativeRegression must be between 0 and 1')
   }
-  if (value.regressionPolicy !== 'warning-only') {
-    throw new Error('threshold config regressionPolicy must be warning-only')
+  if (value.regressionPolicy !== 'blocking') {
+    throw new Error('threshold config regressionPolicy must be blocking')
   }
   if (!Array.isArray(value.absoluteGates) || value.absoluteGates.length !== 0) {
     throw new Error('threshold config absoluteGates must remain empty')
@@ -196,7 +197,7 @@ export const validateThresholdConfig = (value: unknown): ThresholdConfig => {
     schemaVersion: SOAK_SCHEMA_VERSION,
     comparison: 'relative',
     maxRelativeRegression: value.maxRelativeRegression,
-    regressionPolicy: 'warning-only',
+    regressionPolicy: 'blocking',
     absoluteGates: []
   }
 }
@@ -219,7 +220,8 @@ export const compareSoakReports = (
       threshold: thresholds.maxRelativeRegression,
       comparedMetrics: [],
       skippedMetrics: current.metrics.map(({ name }) => ({ name, reason: 'baseline-missing' })),
-      warnings: []
+      failures: [],
+      passed: false
     }
   }
 
@@ -257,20 +259,22 @@ export const compareSoakReports = (
   }
 
   comparedMetrics.sort((left, right) => left.name.localeCompare(right.name))
-  const warnings = comparedMetrics.filter(
+  const failures = comparedMetrics.filter(
     (metric) => metric.relativeChange > thresholds.maxRelativeRegression
   )
+  const status = comparedMetrics.length > 0 ? 'compared' : 'no-comparable-metrics'
 
   return {
     schemaVersion: SOAK_SCHEMA_VERSION,
     suite: current.suite,
     generatedAt,
-    status: comparedMetrics.length > 0 ? 'compared' : 'no-comparable-metrics',
+    status,
     ...(baseline.commit === undefined ? {} : { baselineCommit: baseline.commit }),
     threshold: thresholds.maxRelativeRegression,
     comparedMetrics,
     skippedMetrics,
-    warnings
+    failures,
+    passed: status === 'compared' && failures.length === 0 && skippedMetrics.length === 0
   }
 }
 
@@ -318,21 +322,25 @@ const appendSummary = (comparison: PerformanceComparison): void => {
 
   const suiteLabel = comparison.suite === 'desktop' ? 'Desktop' : 'Muya'
   const lines = [
-    `## ${suiteLabel} performance soak`,
-    `- Baseline: ${comparison.status === 'baseline-unavailable' ? 'unavailable' : 'available'}`,
-    `- Compared metrics: ${comparison.comparedMetrics.length}`,
-    `- Warning threshold: ${(comparison.threshold * 100).toFixed(0)}% relative regression`
+    '## ' + suiteLabel + ' performance soak',
+    '- Baseline: ' + (comparison.status === 'baseline-unavailable' ? 'unavailable' : 'available'),
+    '- Passed: ' + (comparison.passed ? 'yes' : 'no'),
+    '- Compared metrics: ' + comparison.comparedMetrics.length,
+    '- Blocking threshold: ' + (comparison.threshold * 100).toFixed(0) + '% relative regression',
+    '- Blocking regressions: ' + comparison.failures.length,
+    '- Skipped metrics: ' + comparison.skippedMetrics.length
   ]
-  if (comparison.warnings.length === 0) lines.push('- Warnings: none')
-  else {
-    lines.push(`- Warnings: ${comparison.warnings.length}`)
-    for (const warning of comparison.warnings) {
-      lines.push(
-        `  - \`${warning.name}\`: ${warning.baselineValue.toFixed(2)} → ${warning.currentValue.toFixed(2)} ${warning.unit} (+${(warning.relativeChange * 100).toFixed(1)}%)`
-      )
-    }
+  for (const failure of comparison.failures) {
+    lines.push(
+      '  - "' + failure.name + '": ' + failure.baselineValue.toFixed(2) + ' → ' +
+        failure.currentValue.toFixed(2) + ' ' + failure.unit + ' (+' +
+        (failure.relativeChange * 100).toFixed(1) + '%)'
+    )
   }
-  appendFileSync(summaryPath, `${lines.join('\n')}\n`)
+  for (const skipped of comparison.skippedMetrics) {
+    lines.push('  - "' + skipped.name + '": skipped because ' + skipped.reason)
+  }
+  appendFileSync(summaryPath, lines.join('\n') + '\n')
 }
 
 export const runComparisonCli = (args: string[]): PerformanceComparison => {
@@ -347,13 +355,22 @@ export const runComparisonCli = (args: string[]): PerformanceComparison => {
 
   mkdirSync(dirname(options.outputPath), { recursive: true })
   writeFileSync(options.outputPath, `${JSON.stringify(comparison, null, 2)}\n`, 'utf8')
-  for (const warning of comparison.warnings) {
-    console.log(
-      `::warning title=Performance regression::${comparison.suite} ${warning.name} increased ${(
-        warning.relativeChange * 100
-      ).toFixed(
-        1
-      )}% (${warning.baselineValue.toFixed(2)} → ${warning.currentValue.toFixed(2)} ${warning.unit})`
+  for (const failure of comparison.failures) {
+    console.error(
+      '::error title=Performance regression::' + comparison.suite + ' ' + failure.name +
+      ' increased ' + (failure.relativeChange * 100).toFixed(1) + '% (' +
+      failure.baselineValue.toFixed(2) + ' → ' + failure.currentValue.toFixed(2) + ' ' + failure.unit + ')'
+    )
+  }
+  for (const skipped of comparison.skippedMetrics) {
+    console.error(
+      '::error title=Performance comparison incomplete::' + comparison.suite + ' ' +
+      skipped.name + ' was skipped (' + skipped.reason + ')'
+    )
+  }
+  if (!comparison.passed) {
+    console.error(
+      '::error title=Performance comparison failed::' + comparison.suite + ' status=' + comparison.status
     )
   }
   appendSummary(comparison)
@@ -365,7 +382,8 @@ const isMainModule =
 
 if (isMainModule) {
   try {
-    runComparisonCli(process.argv.slice(2))
+    const comparison = runComparisonCli(process.argv.slice(2))
+    if (!comparison.passed) process.exitCode = 1
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))
     process.exitCode = 1
