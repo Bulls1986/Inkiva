@@ -145,6 +145,7 @@ import {
   rendererPerformanceMonitor
 } from '@/services/performance/runtime'
 import { createInputParseProbe } from '@/services/performance/inputParse'
+import { scheduleEditorPerformanceMilestones } from './editorPerformanceMilestones'
 
 // Importing the engine entrypoint auto-injects its editor CSS (the muya.ts
 // module imports its stylesheets at load time). Inkiva owns the application
@@ -297,6 +298,7 @@ let printer: Printer | null = null
 let spellchecker: any = null
 let switchLanguageCommand: SpellcheckerLanguageCommand | null = null
 let imageViewer: SimpleImageViewer | null = null
+let editorPerformanceGeneration = 0
 // The engine has no `scroll` event; we listen on the scroll container directly.
 let scrollHandler: ((e: Event) => void) | null = null
 let scrollPerformanceEndTimer: ReturnType<typeof setTimeout> | null = null
@@ -1765,6 +1767,7 @@ const editorPerformanceOperationId = (documentId?: string): string =>
   documentId ? `document-${documentId}` : 'document-initial'
 
 const beginEditorPerformanceOperation = (documentId?: string): void => {
+  editorPerformanceGeneration += 1
   const element = editorRef.value
   if (element) {
     element.dataset.editorOpenStartAt = String(performance.now())
@@ -1806,9 +1809,16 @@ const markEditorInteractive = (documentId?: string): void => {
   })
 }
 
-const scheduleEditorEditable = (documentId?: string, notifyMainProcess = false): void => {
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
+const scheduleEditorMilestones = (documentId?: string, notifyMainProcess = false): void => {
+  const generation = editorPerformanceGeneration
+  scheduleEditorPerformanceMilestones({
+    requestFrame: (callback) => {
+      window.requestAnimationFrame(callback)
+    },
+    isCurrent: () => generation === editorPerformanceGeneration,
+    markFirstScreen: () => markEditorFirstScreen(documentId),
+    markInteractive: () => markEditorInteractive(documentId),
+    markEditable: () => {
       const element = editorRef.value
       if (element) {
         element.dataset.editorEditableAt = String(performance.now())
@@ -1819,10 +1829,10 @@ const scheduleEditorEditable = (documentId?: string, notifyMainProcess = false):
         operationId: editorPerformanceOperationId(documentId),
         documentId
       })
-      if (notifyMainProcess) {
-        window.electron.ipcRenderer.send('mt::document-editable')
-      }
-    })
+    },
+    notifyMainProcess: notifyMainProcess
+      ? () => window.electron.ipcRenderer.send('mt::document-editable')
+      : undefined
   })
 }
 
@@ -1851,7 +1861,6 @@ const setMarkdownToEditor = (payload: unknown) => {
       recordEditorSetContent('markdown')
       editor.value.setContent(newMarkdown ?? '')
       editorLayoutReconciler?.reset()
-      markEditorFirstScreen(id)
     }
     // The freshly loaded content is this tab's clean baseline (id 0). Re-seed
     // the monotonic save-tracking allocator so undoing an edit back to this
@@ -1876,8 +1885,7 @@ const setMarkdownToEditor = (payload: unknown) => {
     refreshEditorToc()
     // A freshly created/opened tab should be ready to type into.
     focusFreshEditor()
-    markEditorInteractive(id)
-    scheduleEditorEditable(id)
+    scheduleEditorMilestones(id)
   }
 }
 
@@ -2020,7 +2028,6 @@ const handleFileChange = (payload: unknown) => {
       }
     }
     editorLayoutReconciler?.reset()
-    markEditorFirstScreen(id)
   } else if (newCursor) {
     applyCursor(editor.value, newCursor)
   }
@@ -2036,8 +2043,7 @@ const handleFileChange = (payload: unknown) => {
   }
 
   if (typeof newMarkdown === 'string') {
-    markEditorInteractive(id)
-    scheduleEditorEditable(id)
+    scheduleEditorMilestones(id)
   }
 }
 
@@ -2216,7 +2222,6 @@ onMounted(() => {
     documentId: performanceDocumentId
   })
   editor.value = muya
-  markEditorFirstScreen(performanceDocumentId)
   // The first document's content is set via constructor options, so no
   // `file-loaded` / `setMarkdownToEditor` runs for it — seed its TOC here.
   refreshEditorToc()
@@ -2439,15 +2444,15 @@ onMounted(() => {
   document.addEventListener('keyup', keyup)
 
   setEditorWidth(editorLineWidth.value)
-  markEditorInteractive(performanceDocumentId)
-
   // The main process uses this milestone—not the earlier bootstrap handshake—
-  // to release deferred startup work and safe-restore state. Two animation
-  // frames ensure the first editable surface has reached a paint boundary.
-  scheduleEditorEditable(performanceDocumentId, true)
+  // to release deferred startup work and safe-restore state. The scheduler
+  // crosses a paint boundary before first-screen, then publishes interactive
+  // and editable in order.
+  scheduleEditorMilestones(performanceDocumentId, true)
 })
 
 onBeforeUnmount(() => {
+  editorPerformanceGeneration += 1
   flushActiveEditor()
   editorSnapshotScheduler.dispose()
 
