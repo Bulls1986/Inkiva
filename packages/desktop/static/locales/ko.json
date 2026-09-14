@@ -169,8 +169,13 @@
     "tabs": {
       "close": "닫기",
       "closeOthers": "다른 탭 닫기",
+      "closeRight": "오른쪽 탭 닫기",
       "closeSavedTabs": "저장된 탭 닫기",
       "closeAllTabs": "모든 탭 닫기",
+      "reopenClosed": "닫은 탭 다시 열기",
+      "pin": "고정",
+      "unpin": "고정 해제",
+      "pinned": "고정됨",
       "rename": "이름 바꾸기",
       "copyPath": "경로 복사",
       "showInFolder": "폴더에서 보기"
@@ -324,7 +329,14 @@
     "welcomeDescription": "새 문서를 만들거나 기존 파일을 여세요.",
     "actions": "문서 작업",
     "openFile": "파일 열기",
-    "quickOpen": "{shortcut}를 눌러 파일 빠르게 열기"
+    "quickOpen": "{shortcut}를 눌러 파일 빠르게 열기",
+    "documents": "최근 문서",
+    "empty": "최근 문서가 없습니다.",
+    "open": "열기",
+    "pin": "고정",
+    "unpin": "고정 해제",
+    "remove": "제거",
+    "clear": "지우기"
   },
   "import": {
     "title": "가져오기 또는 열기",

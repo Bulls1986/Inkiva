@@ -169,8 +169,13 @@
     "tabs": {
       "close": "關閉",
       "closeOthers": "關閉其他",
+      "closeRight": "關閉右側標籤頁",
       "closeSavedTabs": "關閉已儲存的標籤頁",
       "closeAllTabs": "關閉所有標籤頁",
+      "reopenClosed": "重新開啟已關閉的標籤頁",
+      "pin": "置頂",
+      "unpin": "取消置頂",
+      "pinned": "已置頂",
       "rename": "重新命名",
       "copyPath": "複製路徑",
       "showInFolder": "在資料夾中顯示"
@@ -324,7 +329,14 @@
     "welcomeDescription": "建立新文件或開啟現有檔案。",
     "actions": "文件操作",
     "openFile": "開啟檔案",
-    "quickOpen": "按 {shortcut} 快速開啟檔案"
+    "quickOpen": "按 {shortcut} 快速開啟檔案",
+    "documents": "最近文件",
+    "empty": "目前沒有最近文件。",
+    "open": "開啟",
+    "pin": "置頂",
+    "unpin": "取消置頂",
+    "remove": "移除",
+    "clear": "清除"
   },
   "import": {
     "title": "匯入或開啟",

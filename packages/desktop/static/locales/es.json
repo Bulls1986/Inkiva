@@ -169,8 +169,13 @@
     "tabs": {
       "close": "Cerrar",
       "closeOthers": "Cerrar otros",
+      "closeRight": "Cerrar a la derecha",
       "closeSavedTabs": "Cerrar pestañas guardadas",
       "closeAllTabs": "Cerrar todas las pestañas",
+      "reopenClosed": "Reabrir pestaña cerrada",
+      "pin": "Fijar",
+      "unpin": "Desfijar",
+      "pinned": "Fijada",
       "rename": "Renombrar",
       "copyPath": "Copiar ruta",
       "showInFolder": "Mostrar en carpeta"
@@ -324,7 +329,14 @@
     "welcomeDescription": "Crea un documento nuevo o abre un archivo existente.",
     "actions": "Acciones del documento",
     "openFile": "Abrir archivo",
-    "quickOpen": "Pulsa {shortcut} para abrir rápidamente un archivo"
+    "quickOpen": "Pulsa {shortcut} para abrir rápidamente un archivo",
+    "documents": "Documentos recientes",
+    "empty": "No hay documentos recientes.",
+    "open": "Abrir",
+    "pin": "Fijar",
+    "unpin": "Desfijar",
+    "remove": "Eliminar",
+    "clear": "Limpiar"
   },
   "import": {
     "title": "Importar o Abrir",

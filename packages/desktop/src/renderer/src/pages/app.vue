@@ -79,6 +79,7 @@ import { usePreferencesStore } from '@/store/preferences'
 import { useEditorStore } from '@/store/editor'
 import { useCommandCenterStore } from '@/store/commandCenter'
 import { useProjectStore } from '@/store/project'
+import { useRecentDocumentsStore } from '@/store/recentDocuments'
 import { useNotificationStore } from '@/store/notification'
 import { rendererPerformance } from '@/services/performance/runtime'
 
@@ -95,6 +96,7 @@ const editorStore = useEditorStore()
 const preferencesStore = usePreferencesStore()
 const layoutStore = useLayoutStore()
 const projectStore = useProjectStore()
+const recentDocumentsStore = useRecentDocumentsStore()
 const listenForMainStore = useListenForMainStore()
 const commandCenterStore = useCommandCenterStore()
 const notificationStore = useNotificationStore()
@@ -150,6 +152,7 @@ const handleDragOver = (e: DragEvent): void => {
 
 onMounted(async () => {
   rendererPerformance.mark('editor_shell_mounted', { phase: 'startup' })
+  recentDocumentsStore.HYDRATE().catch(() => undefined)
 
   if (window.inkiva?.initialState) {
     preferencesStore.SET_USER_PREFERENCE(window.inkiva.initialState)

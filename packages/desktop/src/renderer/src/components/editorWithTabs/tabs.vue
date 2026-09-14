@@ -17,8 +17,9 @@
           v-for="file of tabs"
           :key="file.id"
           :title="file.pathname"
-          :class="{ active: currentFile?.id === file.id, unsaved: !file.isSaved }"
+          :class="{ active: currentFile?.id === file.id, unsaved: !file.isSaved, pinned: pinnedTabIds.includes(file.id) }"
           :data-id="file.id"
+          :data-pinned="pinnedTabIds.includes(file.id)"
           role="tab"
           :aria-selected="currentFile?.id === file.id"
           :tabindex="currentFile?.id === file.id ? 0 : -1"
@@ -27,7 +28,16 @@
           @click.middle="closeTab(file.id)"
           @contextmenu.prevent="handleContextMenu($event, file)"
         >
-          <span>{{ file.filename }}</span>
+          <span
+            v-if="pinnedTabIds.includes(file.id)"
+            class="pinned-indicator"
+            :aria-label="t('contextMenu.tabs.pinned')"
+          >
+            <el-icon :size="12">
+              <Paperclip />
+            </el-icon>
+          </span>
+          <span class="tab-filename">{{ file.filename }}</span>
           <span class="unsaved-dot" />
           <button
             type="button"
@@ -62,7 +72,7 @@ import { useLayoutStore } from '@/store/layout'
 import { storeToRefs } from 'pinia'
 import autoScroll from 'dom-autoscroller'
 import dragula from 'dragula'
-import { Plus, Close } from '@element-plus/icons-vue'
+import { Plus, Close, Paperclip } from '@element-plus/icons-vue'
 import { showContextMenu } from '../../contextMenu/tabs'
 import { useI18n } from 'vue-i18n'
 import bus from '../../bus'
@@ -72,7 +82,7 @@ const editorStore = useEditorStore()
 const layoutStore = useLayoutStore()
 const { t } = useI18n()
 
-const { currentFile, tabs } = storeToRefs(editorStore)
+const { currentFile, tabs, pinnedTabIds, closedTabs } = storeToRefs(editorStore)
 
 interface AutoScroller {
   readonly down: boolean
@@ -182,6 +192,24 @@ const closeOthers = (tabId: unknown) => {
   }
 }
 
+const closeRight = (tabId: unknown) => {
+  const tab = tabs.value.find((f) => f.id === tabId)
+  if (tab) {
+    editorStore.CLOSE_RIGHT_TABS(tab)
+  }
+}
+
+const togglePin = (tabId: unknown) => {
+  const tab = tabs.value.find((f) => f.id === tabId)
+  if (tab) {
+    editorStore.TOGGLE_TAB_PIN(tab)
+  }
+}
+
+const reopenClosed = () => {
+  editorStore.REOPEN_CLOSED_TAB()
+}
+
 const closeSaved = () => {
   editorStore.CLOSE_SAVED_TABS()
 }
@@ -217,7 +245,12 @@ const showInFolder = (tabId: unknown) => {
 
 const handleContextMenu = (event: MouseEvent, tab: IFileState) => {
   if (tab.id) {
-    showContextMenu(event, tab)
+    showContextMenu(event, {
+      id: tab.id,
+      pathname: tab.pathname,
+      pinned: pinnedTabIds.value.includes(tab.id),
+      canReopenClosed: closedTabs.value.length > 0
+    })
   }
 }
 
@@ -231,6 +264,9 @@ watch(
 onMounted(() => {
   bus.on('TABS::close-this', closeTab)
   bus.on('TABS::close-others', closeOthers)
+  bus.on('TABS::close-right', closeRight)
+  bus.on('TABS::toggle-pin', togglePin)
+  bus.on('TABS::reopen-closed', reopenClosed)
   bus.on('TABS::close-saved', closeSaved)
   bus.on('TABS::close-all', closeAll)
   bus.on('TABS::rename', rename)
@@ -296,6 +332,9 @@ onBeforeUnmount(() => {
   // Remove event listeners
   bus.off('TABS::close-this', closeTab)
   bus.off('TABS::close-others', closeOthers)
+  bus.off('TABS::close-right', closeRight)
+  bus.off('TABS::toggle-pin', togglePin)
+  bus.off('TABS::reopen-closed', reopenClosed)
   bus.off('TABS::close-saved', closeSaved)
   bus.off('TABS::close-all', closeAll)
   bus.off('TABS::rename', rename)
@@ -406,6 +445,16 @@ onBeforeUnmount(() => {
       text-overflow: ellipsis;
       white-space: nowrap;
       margin-right: 3px;
+    }
+    & > .pinned-indicator {
+      display: inline-flex;
+      align-items: center;
+      flex: 0 0 auto;
+      margin-right: 3px;
+      color: var(--icon-secondary);
+    }
+    & > .tab-filename {
+      min-width: 0;
     }
     & > .unsaved-dot {
       display: none;

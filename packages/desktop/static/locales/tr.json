@@ -169,8 +169,13 @@
     "tabs": {
       "close": "Kapat",
       "closeOthers": "Diğerlerini kapat",
+      "closeRight": "Sağdakileri kapat",
       "closeSavedTabs": "Kaydedilmiş sekmeleri kapat",
       "closeAllTabs": "Tüm sekmeleri kapat",
+      "reopenClosed": "Kapatılan sekmeyi yeniden aç",
+      "pin": "Sabitle",
+      "unpin": "Sabitlemeyi kaldır",
+      "pinned": "Sabitlendi",
       "rename": "Yeniden Adlandır",
       "copyPath": "Yolu kopyala",
       "showInFolder": "Klasörde göster"
@@ -324,7 +329,14 @@
     "welcomeDescription": "Yeni bir belge oluşturun veya mevcut bir dosyayı açın.",
     "actions": "Belge işlemleri",
     "openFile": "Dosya aç",
-    "quickOpen": "Bir dosyayı hızlıca açmak için {shortcut} tuşuna basın"
+    "quickOpen": "Bir dosyayı hızlıca açmak için {shortcut} tuşuna basın",
+    "documents": "Son kullanılan belgeler",
+    "empty": "Son kullanılan belge yok.",
+    "open": "Aç",
+    "pin": "Sabitle",
+    "unpin": "Sabitlemeyi kaldır",
+    "remove": "Kaldır",
+    "clear": "Temizle"
   },
   "import": {
     "title": "İçe Aktar veya Aç",

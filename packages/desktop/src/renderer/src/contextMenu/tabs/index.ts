@@ -2,6 +2,9 @@ import {
   SEPARATOR,
   getCloseThis,
   getCloseOthers,
+  getCloseRight,
+  getTogglePin,
+  getReopenClosed,
   getCloseSaved,
   getCloseAll,
   getRENAME,
@@ -34,12 +37,17 @@ interface ContextMenuClickEvent {
 interface TabLike {
   id: string
   pathname?: string | null
+  pinned?: boolean
+  canReopenClosed?: boolean
 }
 
 export const showContextMenu = (event: ContextMenuClickEvent, tab: TabLike): void => {
   const { pathname } = tab
   const closeThis = getCloseThis()
   const closeOthers = getCloseOthers()
+  const closeRight = getCloseRight()
+  const togglePin = getTogglePin(!!tab.pinned)
+  const reopenClosed = getReopenClosed(!!tab.canReopenClosed)
   const closeSaved = getCloseSaved()
   const closeAll = getCloseAll()
   const rename = getRENAME()
@@ -53,8 +61,11 @@ export const showContextMenu = (event: ContextMenuClickEvent, tab: TabLike): voi
   const items = [
     closeThis,
     closeOthers,
+    closeRight,
+    togglePin,
     closeSaved,
     closeAll,
+    reopenClosed,
     SEPARATOR,
     rename,
     copyPath,

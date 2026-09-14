@@ -170,8 +170,13 @@
     "tabs": {
       "close": "Close",
       "closeOthers": "Close others",
+      "closeRight": "Close to the right",
       "closeSavedTabs": "Close saved tabs",
       "closeAllTabs": "Close all tabs",
+      "reopenClosed": "Reopen closed tab",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "pinned": "Pinned",
       "rename": "Rename",
       "copyPath": "Copy path",
       "showInFolder": "Show in folder"
@@ -325,7 +330,14 @@
     "welcomeDescription": "Create a new document or open an existing file.",
     "actions": "Document actions",
     "openFile": "Open file",
-    "quickOpen": "Press {shortcut} to quickly open a file"
+    "quickOpen": "Press {shortcut} to quickly open a file",
+    "documents": "Recent Documents",
+    "empty": "No recent documents.",
+    "open": "Open",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "remove": "Remove",
+    "clear": "Clear"
   },
   "import": {
     "title": "Import or Open",
