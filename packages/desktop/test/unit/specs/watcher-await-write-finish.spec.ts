@@ -37,7 +37,8 @@ vi.mock('ced', () => ({ default: () => 'UTF-8' }))
 
 import Watcher, {
   WATCHER_STABILITY_THRESHOLD,
-  WATCHER_STABILITY_POLL_INTERVAL
+  WATCHER_STABILITY_POLL_INTERVAL,
+  shouldLoadWatcherFileContent
 } from 'main_renderer/filesystem/watcher'
 
 function optionsForLastWatch(): Record<string, unknown> {
@@ -46,6 +47,11 @@ function optionsForLastWatch(): Record<string, unknown> {
 }
 
 describe('watcher awaitWriteFinish (#3955)', () => {
+  it('keeps directory scans metadata-only and reserves content reads for file watches', () => {
+    expect(shouldLoadWatcherFileContent('dir')).toBe(false)
+    expect(shouldLoadWatcherFileContent('file')).toBe(true)
+  })
+
   let watcher: Watcher
   const win = { id: 1, webContents: { send: vi.fn() } }
   const directories: string[] = []
