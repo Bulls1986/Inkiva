@@ -9,7 +9,7 @@ import {
   getLargeGateScenario
 } from './large-scenarios.js'
 
-const levels = ['P1', 'P2'] as const
+const levels = ['P1', 'P2', 'P3'] as const
 
 test('large-gate manifest declares the real fixture matrix', () => {
   assert.deepEqual(
@@ -20,7 +20,10 @@ test('large-gate manifest declares the real fixture matrix', () => {
       'p2-documents-headings',
       'p2-tree-tabs-background',
       'p2-diagrams-images',
-      'p2-combination'
+      'p2-combination',
+      'p3-documents-headings',
+      'p3-tree-tabs-background',
+      'p3-diagrams-combination'
     ]
   )
   assert.deepEqual(getLargeGateScenario('P1').fixtures, [
@@ -40,9 +43,18 @@ test('large-gate manifest declares the real fixture matrix', () => {
     'diagram-image-document',
     '50k-workspace-combination'
   ])
+  assert.deepEqual(getLargeGateScenario('P3').fixtures, [
+    '1m-markdown',
+    '5k-heading-storm',
+    '10k-heading-storm',
+    '100k-workspace',
+    '8x100k-tabs',
+    'diagram-image-document',
+    '100k-workspace-combination'
+  ])
 })
 
-test('large-gate manifest covers every non-runtime P1/P2 threshold metric', async() => {
+test('large-gate manifest covers every non-runtime P1/P2/P3 threshold metric', async() => {
   const thresholds = JSON.parse(
     await readFile(new URL('./thresholds.json', import.meta.url), 'utf8')
   ) as unknown
