@@ -10,7 +10,8 @@ const isCi = process.env.CI === 'true'
 const createReportDirectory = (): { directory: string; cleanup: () => void } => {
   if (isCi) {
     const directory = path.resolve(__dirname, '../../test-results/perf-results')
-    fs.rmSync(directory, { recursive: true, force: true })
+    fs.mkdirSync(directory, { recursive: true })
+    fs.rmSync(path.join(directory, 'startup.json'), { force: true })
     return {
       directory,
       cleanup: () => {}
@@ -24,7 +25,7 @@ const createReportDirectory = (): { directory: string; cleanup: () => void } => 
   }
 }
 
-test('writes a correlated startup report when performance capture is enabled', async() => {
+test('@perf writes a correlated startup report when performance capture is enabled', async() => {
   const { directory, cleanup } = createReportDirectory()
   let launched: Awaited<ReturnType<typeof launchElectron>> | undefined
 
