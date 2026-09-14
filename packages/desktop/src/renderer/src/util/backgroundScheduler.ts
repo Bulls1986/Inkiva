@@ -178,21 +178,21 @@ export class BackgroundTaskScheduler {
     this.tasks.delete(task.id)
     this.running = true
     const startedAt = this.readNow()
-    let result: void | Promise<void>
-    let failed = false
-    try {
-      // Measure only the synchronous invocation. Awaited I/O is not renderer
-      // main-thread work; a task that needs more work must enqueue another
-      // bounded slice after it yields.
-      result = task.run()
-    } catch (error) {
-      failed = true
-      this.onError(error, task)
-    }
+    // Measure only the synchronous invocation. Awaited I/O is not renderer
+    // main-thread work; a task that needs more work must enqueue another
+    // bounded slice after it yields.
+    const result = (() => {
+      try {
+        return task.run()
+      } catch (error) {
+        this.onError(error, task)
+        return undefined
+      }
+    })()
     this.reportSlice(task, startedAt)
 
     try {
-      if (!failed && result && typeof result.then === 'function') {
+      if (result && typeof result.then === 'function') {
         await result
       }
     } catch (error) {
