@@ -348,7 +348,6 @@ describe('RendererPerformanceRecorder', () => {
       name: 'metric_sample',
       process: 'renderer',
       phase: 'editor',
-      durationMs: undefined,
       metadata: {
         metric: 'core.input.latency',
         unit: 'ms',
