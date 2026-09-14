@@ -156,6 +156,23 @@ const runFixture = async(fixture: LargeDocumentFixture): Promise<FixtureMetric> 
     const degraded = await page.locator('[data-editor-mode="bounded-source"]').count() > 0
     if (fixture.kind === 'large') {
       expect(degraded).toBe(true)
+      await expect
+        .poll(
+          () =>
+            page.evaluate(() => {
+              const element = document.querySelector('.degraded-editor-component')
+              if (!element) return false
+              const values = [
+                element.getAttribute('data-editor-open-start-at'),
+                element.getAttribute('data-editor-first-screen-at'),
+                element.getAttribute('data-editor-interactive-at'),
+                element.getAttribute('data-editor-editable-at')
+              ].map(Number)
+              return values.every(Number.isFinite) && values[1]! >= values[0]! && values[3]! > values[1]!
+            }),
+          { timeout: 30000 }
+        )
+        .toBe(true)
       await page.waitForSelector('.editor-component .CodeMirror', {
         state: 'attached',
         timeout: 30000
