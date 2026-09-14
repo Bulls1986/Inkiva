@@ -57,7 +57,8 @@ test('@perf writes a correlated startup report when performance capture is enabl
         'electron_ready',
         'browser_window_created',
         'renderer_bootstrap_start',
-        'app_shell_mounted'
+        'app_shell_mounted',
+        'document_editable'
       ])
     )
     expect(events.every((event) => typeof event.timestampEpochMs === 'number')).toBe(true)

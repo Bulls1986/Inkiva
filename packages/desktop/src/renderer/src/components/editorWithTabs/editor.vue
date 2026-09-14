@@ -2321,6 +2321,20 @@ onMounted(() => {
     operationId: performanceOperationId,
     documentId: performanceDocumentId
   })
+
+  // The main process uses this milestone—not the earlier bootstrap handshake—
+  // to release deferred startup work and safe-restore state. Two animation
+  // frames ensure the first editable surface has reached a paint boundary.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      rendererPerformance.mark('document_editable', {
+        phase: 'startup',
+        operationId: performanceOperationId,
+        documentId: performanceDocumentId
+      })
+      window.electron.ipcRenderer.send('mt::document-editable')
+    })
+  })
 })
 
 onBeforeUnmount(() => {

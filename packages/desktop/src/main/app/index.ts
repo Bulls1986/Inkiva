@@ -113,7 +113,12 @@ class App {
     this._backgroundUpdateCheckScheduled = false
     this._startupStarted = false
     this._startupCompleted = false
-    this._startupCoordinator = new StartupPhaseCoordinator()
+    this._startupCoordinator = new StartupPhaseCoordinator({
+      documentEditableTimeoutMs: 10000,
+      onDocumentEditableTimeout: () => {
+        log.error('First document did not become editable within the startup budget')
+      }
+    })
     this._safeRestoreGuard = new SafeRestoreGuard(
       createSafeRestoreStore(this._accessor.paths.userDataPath)
     )
@@ -488,10 +493,13 @@ class App {
           // from being overwritten by the eventual `load-state` message.
           await restoreEditor.applyRestorePlan(restorePlan)
         } else if (this._openRequestCoordinator.hasPendingPaths()) {
-          // An explicit startup/open-file request takes precedence over
-          // recovery. Remove only fully-saved stale recovery files so a later
-          // launch cannot unexpectedly restore the old session again.
-          editorBufferStore.clearBufferStoresWithAllSaved()
+          // Explicit startup/open-file request takes precedence over recovery.
+          // Create the shell before clearing stale recovery files so cleanup
+          // cannot delay first paint.
+          const editor = this._createEditorWindow()
+          editor.once('window-shell-visible', () => {
+            editorBufferStore.clearBufferStoresWithAllSaved()
+          })
         } else {
           this._createEditorWindow()
         }
@@ -604,8 +612,11 @@ class App {
     editor.on('window-shell-visible', () => {
       this._startupCoordinator.markShellVisible()
     })
+    editor.once('window-renderer-ready', () => {
+      this._startupCoordinator.markRendererReady()
+    })
     editor.once('window-interactive', () => {
-      this._startupCoordinator.markEditorInteractive()
+      this._startupCoordinator.markDocumentEditable()
       markSafeRestoreStartupReady(this._safeRestoreGuard, safeRestoreAttemptSessionId)
     })
     if (rootDirectory) {

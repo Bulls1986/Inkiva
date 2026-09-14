@@ -38,6 +38,7 @@ export type WindowLifecycleValue = (typeof WindowLifecycle)[keyof typeof WindowL
 export interface BaseWindowEvents {
   'window-ready': []
   'window-shell-visible': []
+  'window-renderer-ready': []
   'window-interactive': []
   'window-focus': []
   'window-blur': []

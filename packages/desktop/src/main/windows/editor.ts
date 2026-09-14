@@ -146,17 +146,18 @@ class EditorWindow extends BaseWindow {
     let rendererInitialized = false
     let editorInteractive = false
 
-    // A renderer that has not completed the bootstrap handshake cannot have
-    // unsaved editor state. Allow the native close to continue in that phase;
-    // otherwise app.quit() can be held indefinitely by the close-confirmation
-    // IPC round trip while Vue is still mounting.
+    // The bootstrap handshake only means the renderer can receive state. The
+    // editor is interactive only after the first Muya document has mounted,
+    // painted, and reported the document-editable milestone.
     const onRendererIpcMessage = (event: IpcMainEvent, channel: string): void => {
-      if (event.sender === rendererWebContents && channel === 'mt::window-initialized') {
+      if (event.sender !== rendererWebContents) return
+
+      if (channel === 'mt::window-initialized') {
         rendererInitialized = true
-        if (!editorInteractive) {
-          editorInteractive = true
-          this.emit('window-interactive')
-        }
+        this.emit('window-renderer-ready')
+      } else if (channel === 'mt::document-editable' && !editorInteractive) {
+        editorInteractive = true
+        this.emit('window-interactive')
       }
     }
     rendererWebContents.on('ipc-message', onRendererIpcMessage)

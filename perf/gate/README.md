@@ -22,3 +22,10 @@ Phase 01 fixtures and runner rules:
 - Workspace fixtures cover exactly 1,000, 10,000, 50,000, and 100,000 nodes.
 - Tree fixture helpers expose a hard viewport multiplier and cap of 300 rendered rows; application virtualization will be gated against this contract in a later phase.
 - The sample collector retains raw samples, rejects invalid/unit-changing data, requires 20 samples per metric, and writes reports through the Phase 00 contract.
+
+Phase 02 startup and restore rules:
+
+- `mt::window-initialized` is only the renderer-ready handshake; it is not an editor-interactive signal.
+- The first document becomes interactive only after the Muya editor is mounted and the renderer has crossed two animation-frame paint boundaries, then emits `mt::document-editable`.
+- Deferred startup work and safe-restore startup readiness are released only after `document-editable`.
+- A 10-second missing-milestone timeout is observable and fails the startup gate; it never releases deferred work early.
