@@ -22,6 +22,7 @@
         />
         <div
           v-else
+          ref="degradedEditorRef"
           class="editor-component degraded-editor-component"
           data-editor-mode="bounded-source"
         >
@@ -57,8 +58,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { shouldUseDegradedLargeDocumentMode } from '@/util/largeDocumentMode'
+import { rendererPerformance } from '@/services/performance/runtime'
+import bus from '../../bus'
+import { scheduleDegradedEditorPerformanceMilestones } from './degradedEditorPerformance'
 import Editor from './editor.vue'
 import TabNotifications from './notifications.vue'
 import SplitDocumentPane from './splitDocumentPane.vue'
@@ -87,6 +91,89 @@ const { currentFile, tabs, tabLifecycle } = storeToRefs(editorStore)
 const { splitEditor, splitTabId } = storeToRefs(layoutStore)
 
 const isExtremeDocument = computed(() => shouldUseDegradedLargeDocumentMode(props.markdown))
+const degradedEditorRef = ref<HTMLElement | null>(null)
+let degradedPerformanceGeneration = 0
+
+const degradedOperationId = (documentId?: string): string =>
+  documentId ? `document-${documentId}` : 'document-initial'
+
+const markDegradedFirstScreen = (documentId?: string): void => {
+  const element = degradedEditorRef.value
+  if (element) element.dataset.editorFirstScreenAt = String(performance.now())
+  rendererPerformance.mark('document_first_screen', {
+    phase: 'document-open',
+    operationId: degradedOperationId(documentId),
+    documentId
+  })
+}
+
+const markDegradedInteractive = (documentId?: string): void => {
+  const element = degradedEditorRef.value
+  if (element) element.dataset.editorInteractiveAt = String(performance.now())
+  rendererPerformance.mark('first_editor_interactive', {
+    phase: 'editor',
+    operationId: degradedOperationId(documentId),
+    documentId
+  })
+}
+
+const markDegradedEditable = (documentId?: string): void => {
+  const element = degradedEditorRef.value
+  if (element) element.dataset.editorEditableAt = String(performance.now())
+  rendererPerformance.mark('document_editable', {
+    phase: 'startup',
+    operationId: degradedOperationId(documentId),
+    documentId
+  })
+}
+
+const beginDegradedEditorPerformance = (): void => {
+  const generation = ++degradedPerformanceGeneration
+  const element = degradedEditorRef.value
+  if (!element) return
+  const documentId = currentFile.value?.id ?? undefined
+  element.dataset.editorOpenStartAt = String(performance.now())
+  delete element.dataset.editorFirstScreenAt
+  delete element.dataset.editorInteractiveAt
+  delete element.dataset.editorEditableAt
+  rendererPerformance.mark('document_open_start', {
+    phase: 'document-open',
+    operationId: degradedOperationId(documentId),
+    documentId
+  })
+  scheduleDegradedEditorPerformanceMilestones({
+    requestFrame: (callback) => window.requestAnimationFrame(callback),
+    isCurrent: () => generation === degradedPerformanceGeneration && isExtremeDocument.value,
+    hasEditorSurface: () => !!degradedEditorRef.value?.querySelector('.CodeMirror'),
+    markFirstScreen: () => markDegradedFirstScreen(documentId),
+    markInteractive: () => markDegradedInteractive(documentId),
+    markEditable: () => markDegradedEditable(documentId),
+    notifyMainProcess: () => window.electron.ipcRenderer.send('mt::document-editable')
+  })
+}
+
+watch(
+  [isExtremeDocument, () => currentFile.value?.id],
+  ([isDegraded]) => {
+    if (isDegraded) beginDegradedEditorPerformance()
+    else degradedPerformanceGeneration += 1
+  },
+  { immediate: true, flush: 'post' }
+)
+
+const handleFileLoaded = (): void => {
+  if (isExtremeDocument.value) beginDegradedEditorPerformance()
+}
+
+onMounted(() => {
+  bus.on('file-loaded', handleFileLoaded)
+  if (isExtremeDocument.value) beginDegradedEditorPerformance()
+})
+
+onBeforeUnmount(() => {
+  degradedPerformanceGeneration += 1
+  bus.off('file-loaded', handleFileLoaded)
+})
 
 const splitActive = computed(() => splitEditor.value && !!currentFile.value)
 const secondaryFile = computed<IFileState | null>(() => {
