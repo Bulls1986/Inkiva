@@ -54,4 +54,21 @@ describe('OpenRequestCoordinator', () => {
     expect(coordinator.getPhase()).toBe('ready')
     expect(dispatched).toEqual([request('second-instance', ['/tmp/one.md', '/tmp/two.md'], true)])
   })
+  it('exposes the first queued request for startup shell seeding', () => {
+    const dispatched: OpenRequest[] = []
+    const coordinator = new OpenRequestCoordinator({
+      dispatch: (next) => dispatched.push(next)
+    })
+    const pending: OpenRequest = {
+      source: 'argv',
+      newWindow: false,
+      paths: [{ isDir: true, path: '/workspace' }]
+    }
+
+    coordinator.enqueue(pending)
+
+    expect(coordinator.getFirstPendingRequest()).toEqual(pending)
+    expect(dispatched).toHaveLength(0)
+  })
+
 })
