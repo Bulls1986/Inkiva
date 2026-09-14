@@ -33,6 +33,7 @@ import { WindowsUpdateProvider } from '../update/WindowsUpdateProvider'
 import { ElectronUpdateCheckStore } from '../update/store'
 import type { UpdateStatus } from '../update/types'
 import { getNativeThemeSource, isDarkApplicationTheme } from './nativeTheme'
+import { mainPerformance } from '../performance/runtime'
 import type Accessor from './accessor'
 import type WindowManager from './windowManager'
 
@@ -121,9 +122,10 @@ class App {
       }
     })
     const e2eUpdatePlatform = process.env.INKIVA_E2E_UPDATE_PLATFORM
-    const updatePlatform = e2eUpdatePlatform === 'win32' || e2eUpdatePlatform === 'darwin'
-      ? e2eUpdatePlatform
-      : process.platform
+    const updatePlatform =
+      e2eUpdatePlatform === 'win32' || e2eUpdatePlatform === 'darwin'
+        ? e2eUpdatePlatform
+        : process.platform
     this._updatePlatform = updatePlatform
     this._updateManager = new UpdateManager({
       platform: updatePlatform,
@@ -256,6 +258,10 @@ class App {
   }
 
   ready = (): void => {
+    mainPerformance.mark('electron_ready', {
+      phase: 'startup'
+    })
+
     const { _args: args, _openFilesCache } = this
     const { preferences, editorBufferStore } = this._accessor
 
@@ -444,10 +450,16 @@ class App {
           return
         }
 
-        this._createEditorWindow(null, [], [], {}, {
-          ...restorableBufferStores[0],
-          restoreBufferStores: restorableBufferStores
-        })
+        this._createEditorWindow(
+          null,
+          [],
+          [],
+          {},
+          {
+            ...restorableBufferStores[0],
+            restoreBufferStores: restorableBufferStores
+          }
+        )
       } else if (_openFilesCache.length) {
         // We should wipe the buffer store if not it will keep creating new windows whenever we open files via double click in the file manager
         editorBufferStore.clearBufferStoresWithAllSaved()
@@ -742,7 +754,11 @@ class App {
     this._broadcastKeybindings(editorWindows)
   }
 
-  private _createUpdateProvider(): E2EUpdateProvider | MacReleaseChecker | WindowsUpdateProvider | undefined {
+  private _createUpdateProvider():
+    | E2EUpdateProvider
+    | MacReleaseChecker
+    | WindowsUpdateProvider
+    | undefined {
     const scenario = process.env.INKIVA_E2E_UPDATE_SCENARIO
     if (isE2EUpdateScenario(scenario)) return new E2EUpdateProvider(scenario)
     if (isWindows) return new WindowsUpdateProvider()

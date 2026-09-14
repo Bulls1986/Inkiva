@@ -1,5 +1,6 @@
 import log from 'electron-log/renderer'
 import RendererPaths from './node/paths'
+import { rendererPerformance } from './services/performance/runtime'
 
 let exceptionLogger: (s: unknown) => void = (s) => console.error(s)
 
@@ -124,6 +125,10 @@ const bootstrapRenderer = (): void => {
   window.addEventListener('unhandledrejection', handleRendererError)
 
   const { debug, initialState, userDataPath, windowId, type } = parseUrlArgs()
+  rendererPerformance.mark('initial_state_received', {
+    phase: 'startup',
+    metadata: { hasTheme: !!initialState.theme }
+  })
   // RendererPaths throws when userDataPath is missing; preserve that runtime check.
   const paths = new RendererPaths(userDataPath as string)
   const inkiva = {
@@ -139,6 +144,11 @@ const bootstrapRenderer = (): void => {
   // `global` is not available in a sandboxed renderer — attach to window.
   // RendererPaths has no string index signature, so widen through `unknown`.
   window.inkiva = inkiva as unknown as Window['inkiva']
+
+  rendererPerformance.mark('theme_applied', {
+    phase: 'startup',
+    metadata: { appearance: initialState.theme ?? 'default' }
+  })
 
   configureLogger()
 }

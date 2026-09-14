@@ -34,6 +34,8 @@ import type { BufferedState as BufferedStateType } from './bufferedState'
 import type { MenuTemplate, MenuPopupPosition } from './menu'
 import type { ShortcutStyle } from './preferences'
 import type { UpdateStatus } from '../../main/update/types'
+import { type PERFORMANCE_EVENT_CHANNEL } from './performance'
+import type { PerformanceEvent, PerformanceBootInfo } from './performance'
 
 export const WINDOW_INITIAL_SHELL_READY_CHANNEL = 'mt::window-initial-shell-ready'
 
@@ -104,6 +106,7 @@ export interface IpcInvokeChannels {
 
 export interface IpcSendChannels {
   [WINDOW_INITIAL_SHELL_READY_CHANNEL]: []
+  [PERFORMANCE_EVENT_CHANNEL]: [event: PerformanceEvent]
   'app-create-editor-window': [config?: unknown]
   'app-create-settings-window': []
   'app-open-directory-by-id': [windowId: number, dirPath: string]
@@ -334,6 +337,7 @@ export interface BootInfo {
     ripgrepBinary: string
   }
   MARKDOWN_INCLUSIONS: string[]
+  performance: PerformanceBootInfo
 }
 
 // =================================================================
