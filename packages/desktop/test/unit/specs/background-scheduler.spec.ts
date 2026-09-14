@@ -17,17 +17,17 @@ describe('background priority scheduler', () => {
     scheduler.enqueue({
       id: 'index',
       priority: BACKGROUND_PRIORITY.backgroundIndexing,
-      run: () => order.push('index')
+      run: () => { order.push('index') }
     })
     scheduler.enqueue({
       id: 'input',
       priority: BACKGROUND_PRIORITY.keyboard,
-      run: () => order.push('input')
+      run: () => { order.push('input') }
     })
     scheduler.enqueue({
       id: 'tab',
       priority: BACKGROUND_PRIORITY.tabNavigation,
-      run: () => order.push('tab')
+      run: () => { order.push('tab') }
     })
 
     await vi.runAllTimersAsync()
@@ -44,12 +44,12 @@ describe('background priority scheduler', () => {
     scheduler.enqueue({
       id: 'index',
       priority: BACKGROUND_PRIORITY.backgroundIndexing,
-      run: () => order.push('index')
+      run: () => { order.push('index') }
     })
     scheduler.enqueue({
       id: 'maintenance',
       priority: BACKGROUND_PRIORITY.maintenanceCleanup,
-      run: () => order.push('maintenance')
+      run: () => { order.push('maintenance') }
     })
 
     await vi.runAllTimersAsync()
@@ -69,17 +69,17 @@ describe('background priority scheduler', () => {
     scheduler.enqueue({
       id: 'index',
       priority: BACKGROUND_PRIORITY.backgroundIndexing,
-      run: () => order.push('old')
+      run: () => { order.push('old') }
     })
     scheduler.enqueue({
       id: 'index',
       priority: BACKGROUND_PRIORITY.backgroundIndexing,
-      run: () => order.push('new')
+      run: () => { order.push('new') }
     })
     const cancel = scheduler.enqueue({
       id: 'maintenance',
       priority: BACKGROUND_PRIORITY.maintenanceCleanup,
-      run: () => order.push('cancelled')
+      run: () => { order.push('cancelled') }
     })
     cancel()
 
