@@ -359,7 +359,7 @@ onBeforeUnmount(() => {
   min-width: min-content;
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 0 0 16px;
   height: var(--documentTabsHeight);
   position: relative;
   display: flex;

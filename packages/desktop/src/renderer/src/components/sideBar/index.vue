@@ -74,7 +74,7 @@ import Toc from './toc.vue'
 import { storeToRefs } from 'pinia'
 import type { TabDescriptor } from './types'
 
-const DEFAULT_SIDE_BAR_WIDTH = 270
+const DEFAULT_SIDE_BAR_WIDTH = 288
 const MIN_SIDE_BAR_WIDTH = 220
 const NARROW_WINDOW_BREAKPOINT = 1000
 const NARROW_SIDE_BAR_WIDTH = 240

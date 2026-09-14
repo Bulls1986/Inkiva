@@ -162,7 +162,7 @@ export const usePreferencesStore = defineStore('preferences', {
     shortcutStyle: 'typora',
 
     editorFontFamily: 'system-ui',
-    fontSize: 16,
+    fontSize: 18,
     lineHeight: 1.7,
     paragraphSpacing: 0.75,
     codeFontSize: 14,

@@ -32,10 +32,10 @@
 
   /* Markdown document layer — kept separate from application chrome so the
      editor can evolve without allowing a document theme to recolor the UI. */
-  /* The 100px horizontal editor padding leaves an 780px writing measure in
+  /* The 100px horizontal editor padding leaves an 824px writing measure in
      the reference layout. Keep the outer column fixed and centered so the
      document does not stretch with a large window. */
-  --markdown-content-width: 880px;
+  --markdown-content-width: 924px;
   --editorContentTopPadding: 40px;
   --markdown-text-primary: var(--text-primary);
   --markdown-text-secondary: var(--text-secondary);
@@ -67,7 +67,7 @@
   --font-ui-sm: 12px;
   --font-ui-md: 13px;
   --font-ui-lg: 14px;
-  --font-body: 16px;
+  --font-body: 18px;
   --line-height-body: 1.7;
 
   /* Application UI type scale: system UI fonts keep Chinese text native to the

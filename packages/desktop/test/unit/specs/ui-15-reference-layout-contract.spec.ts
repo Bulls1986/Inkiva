@@ -28,17 +28,34 @@ describe('Inkiva reference visual layout contract', () => {
     const staticPreferences = readFileSync(resolve(desktop, 'static/preference.json'), 'utf8')
     const schema = readFileSync(resolve(desktop, 'src/main/preferences/schema.json'), 'utf8')
 
-    expect(tokens).toContain('--markdown-content-width: 880px;')
+    expect(tokens).toContain('--markdown-content-width: 924px;')
+    expect(tokens).toContain('--font-body: 18px;')
     expect(tokens).toContain('--editorContentTopPadding: 40px;')
     expect(tokens).toContain('--surface-editor: #F8F8F6;')
     expect(tokens).toContain('--surface-chrome: #F1F2F0;')
     expect(tokens).not.toContain('--surface-editor: #FFFDF8;')
     expect(readRenderer('../index.html')).toContain('background: #f8f8f6;')
     expect(preferences).toContain("editorFontFamily: 'system-ui'")
+    expect(preferences).toContain('fontSize: 18')
     expect(preferences).toContain("editorLineWidth: '780px'")
     expect(staticPreferences).toContain('"editorFontFamily": "system-ui"')
+    expect(staticPreferences).toContain('"fontSize": 18')
     expect(staticPreferences).toContain('"editorLineWidth": "780px"')
+    expect(schema).toContain('"default": 18')
     expect(schema).toContain('"default": "780px"')
+  })
+
+  it('keeps the shell geometry and document type scale aligned with the preview', () => {
+    const tabs = readRenderer('components/editorWithTabs/tabs.vue')
+    const layout = readRenderer('store/layout.ts')
+    const sidebar = readRenderer('components/sideBar/index.vue')
+    const markdown = readFileSync(resolve(here, '../../../../muya/src/assets/styles/blockSyntax.css'), 'utf8')
+
+    expect(tabs).toContain('padding: 0 0 0 16px;')
+    expect(layout).toContain('DEFAULT_SIDE_BAR_WIDTH = 288')
+    expect(sidebar).toContain('DEFAULT_SIDE_BAR_WIDTH = 288')
+    expect(markdown).toContain('font-weight: var(--font-weight-normal, 400);')
+    expect(markdown).toContain('font-size: 2em;')
   })
 
   it('keeps application controls on one border and one focus-ring contract', () => {

@@ -18,6 +18,7 @@ describe('private build first-run defaults', () => {
       autoSave: true,
       language: 'zh-CN',
       shortcutStyle: 'typora',
+      fontSize: 18,
       lineHeight: 1.7,
       paragraphSpacing: 0.75,
       editorFontFamily: 'system-ui',

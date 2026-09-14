@@ -87,7 +87,7 @@
     "type": "number",
     "maximum": 32,
     "minimum": 12,
-    "default": 16
+    "default": 18
   },
   "lineHeight": {
     "description": "Editor--Line Height",
