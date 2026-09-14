@@ -46,7 +46,7 @@ jobs:
 
       - name: Refresh visual snapshot for diagnostics
         run: |
-          pnpm --filter inkiva exec playwright test test/e2e/visual-regression.spec.ts --config=test/e2e/playwright.config.ts --update-snapshots
+          xvfb-run --auto-servernum pnpm --filter inkiva exec playwright test test/e2e/visual-regression.spec.ts --config=test/e2e/playwright.config.ts --update-snapshots
           echo 'INKIVA_EMPTY_SNAPSHOT_BASE64_BEGIN'
           base64 -w0 packages/desktop/test/e2e/visual-regression.spec.ts-snapshots/empty-state-linux.png
           echo
