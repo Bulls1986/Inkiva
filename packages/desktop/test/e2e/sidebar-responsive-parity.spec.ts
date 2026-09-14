@@ -107,13 +107,13 @@ test.describe('Typora sidebar responsive parity', () => {
     if (app) await app.close()
   })
 
-  test('uses the Typora 270px default width on a regular window', async() => {
+  test('uses the 288px reference default width on a regular window', async() => {
     await setWindowSize(app, 1200)
     await waitForViewport(page, 1200)
     await showSidebarPanel(app, page, 'files')
 
-    await expect.poll(() => sidebarWidth(page)).toBe(270)
-    await expect.poll(() => editorMiddleLeft(page)).toBe(270)
+    await expect.poll(() => sidebarWidth(page)).toBe(288)
+    await expect.poll(() => editorMiddleLeft(page)).toBe(288)
   })
 
   test('caps the rendered sidebar at 240px at or below 1000px without changing the saved preference', async() => {

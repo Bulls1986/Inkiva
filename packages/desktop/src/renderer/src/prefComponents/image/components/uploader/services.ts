@@ -16,19 +16,19 @@ export const isValidService = (name: string): boolean => {
 }
 
 const getServices = (): Record<UploaderServiceId, UploaderService> => ({
-  picgo: {
-    name: t('preferences.image.uploader.services.picgo'),
-    isGdprCompliant: false,
-    privacyUrl: '',
-    tosUrl: 'https://github.com/PicGo/PicGo-Core',
-    agreedToLegalNotices: true
-  },
-
   picgoApp: {
     name: 'PicGo (App)',
     isGdprCompliant: false,
     privacyUrl: '',
     tosUrl: 'https://github.com/Molunerfinn/PicGo',
+    agreedToLegalNotices: true
+  },
+
+  picgo: {
+    name: t('preferences.image.uploader.services.picgo'),
+    isGdprCompliant: false,
+    privacyUrl: '',
+    tosUrl: 'https://github.com/PicGo/PicGo-Core',
     agreedToLegalNotices: true
   },
 

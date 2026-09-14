@@ -664,6 +664,7 @@
       "lightModeTheme": "淺色模式主題",
       "darkModeTheme": "深色模式主題",
       "customCss": "自訂 CSS",
+      "customCssNotes": "編輯下方的 CSS 變數或選擇器；輸入框離開焦點後套用變更。",
       "importCustomThemes": "匯入自訂主題",
       "importTheme": "匯入主題",
       "openFolder": "開啟資料夾",

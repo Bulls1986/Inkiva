@@ -47,7 +47,7 @@ test.describe('#2421 sidebar state survives icon toggle', () => {
   test('collapsing then re-expanding preserves a widened sidebar width', async() => {
     await setRegularWindowWidth(app, page)
     await showSidebarPanel(app, page, 'files')
-    // Widen well past the 270px default so a width loss on collapse is
+    // Widen well past the 288px default so a width loss on collapse is
     // observable independently of the responsive 240px narrow-window cap.
     const dragBar = page.locator('.side-bar .drag-bar')
     const box = await dragBar.boundingBox()

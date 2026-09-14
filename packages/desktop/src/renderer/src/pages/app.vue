@@ -1,36 +1,55 @@
 <template>
   <div class="editor-container">
-    <side-bar v-if="init" />
+    <title-bar
+      :project="projectTree"
+      :pathname="pathname"
+      :filename="filename"
+      :active="windowActive"
+      :word-count="wordCount"
+      :platform="platform"
+      :is-saved="isSaved"
+    />
 
-    <div class="editor-middle">
-      <title-bar
-        :project="projectTree"
-        :pathname="pathname"
-        :filename="filename"
-        :active="windowActive"
-        :word-count="wordCount"
-        :platform="platform"
-        :is-saved="isSaved"
-      />
-
-      <div v-if="!init" class="editor-placeholder" />
-      <recent v-if="!hasCurrentFile && init" />
-      <editor-with-tabs
-        v-if="hasCurrentFile && init"
-        :markdown="markdown"
-        :cursor="cursor"
-        :muya-index-cursor="muyaIndexCursor"
-        :source-code="sourceCode"
-        :show-tab-bar="showTabBar"
-        :text-direction="textDirection"
-        :platform="platform"
-      />
-      <command-palette />
-      <about-dialog />
-      <export-setting-dialog />
-      <rename />
-      <import-modal />
+    <!--
+      Tabs are application chrome, not editor content. Keeping this row beside
+      the workspace makes it span the sidebar and the writing surface, which is
+      the stable shell shown in the reference design.
+    -->
+    <div
+      v-if="hasCurrentFile && init"
+      v-show="showTabBar"
+      class="document-tabs-row"
+      data-testid="document-tabs-row"
+    >
+      <tabs />
     </div>
+
+    <div class="editor-workspace">
+      <side-bar v-if="init" />
+
+      <div class="editor-middle">
+        <div
+          v-if="!init"
+          class="editor-placeholder"
+        />
+        <recent v-if="!hasCurrentFile && init" />
+        <editor-with-tabs
+          v-if="hasCurrentFile && init"
+          :markdown="markdown"
+          :cursor="cursor"
+          :muya-index-cursor="muyaIndexCursor"
+          :source-code="sourceCode"
+          :text-direction="textDirection"
+          :platform="platform"
+        />
+      </div>
+    </div>
+
+    <command-palette />
+    <about-dialog />
+    <export-setting-dialog />
+    <rename />
+    <import-modal />
   </div>
 </template>
 
@@ -49,6 +68,7 @@ import { storeToRefs } from 'pinia'
 import { addStyles, addThemeStyle, addCustomStyle, type AddStylesOptions } from '@/util/theme'
 import Recent from '@/components/recent/index.vue'
 import EditorWithTabs from '@/components/editorWithTabs/index.vue'
+import Tabs from '@/components/editorWithTabs/tabs.vue'
 import TitleBar from '@/components/titleBar/index.vue'
 import SideBar from '@/components/sideBar/index.vue'
 import bus from '@/bus'
@@ -206,7 +226,7 @@ onBeforeUnmount(() => {
 .editor-placeholder,
 .editor-container {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   position: absolute;
   width: 100vw;
   height: 100vh;
@@ -215,17 +235,6 @@ onBeforeUnmount(() => {
   right: 0;
   bottom: 0;
 }
-.editor-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--titleBarHeight);
-  background: var(--editorBgColor);
-  pointer-events: none;
-  z-index: 1;
-}
 .editor-container .hide {
   z-index: -1;
   opacity: 0;
@@ -233,14 +242,39 @@ onBeforeUnmount(() => {
   left: -10000px;
 }
 .editor-placeholder {
+  flex: 1;
   background: var(--editorBgColor);
+}
+.document-tabs-row {
+  display: flex;
+  flex: 0 0 var(--documentTabsHeight);
+  width: 100%;
+  height: var(--documentTabsHeight);
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--surface-chrome);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.document-tabs-row > :deep(.editor-tabs) {
+  flex: 1 1 auto;
+  width: 100%;
+}
+
+.editor-workspace {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
 }
 .editor-middle {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-width: 0;
-  min-height: 100vh;
+  min-height: 0;
   position: relative;
   & > .editor {
     flex: 1;

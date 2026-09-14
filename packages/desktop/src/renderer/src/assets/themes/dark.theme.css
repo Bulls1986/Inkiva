@@ -1,6 +1,6 @@
 :root {
   --titleBarHeight: 32px;
-  --editorAreaWidth: var(--markdown-content-width, 780px);
+  --editorAreaWidth: var(--markdown-content-width, 924px);
 
   /* Dark appearance aliases resolve to the shared semantic token system. */
   --themeColor: var(--color-accent, #0B63E5);

@@ -32,7 +32,11 @@
 
   /* Markdown document layer — kept separate from application chrome so the
      editor can evolve without allowing a document theme to recolor the UI. */
-  --markdown-content-width: 780px;
+  /* The 100px horizontal editor padding leaves an 824px writing measure in
+     the reference layout. Keep the outer column fixed and centered so the
+     document does not stretch with a large window. */
+  --markdown-content-width: 924px;
+  --editorContentTopPadding: 40px;
   --markdown-text-primary: var(--text-primary);
   --markdown-text-secondary: var(--text-secondary);
   --markdown-text-muted: var(--text-tertiary);
@@ -63,7 +67,7 @@
   --font-ui-sm: 12px;
   --font-ui-md: 13px;
   --font-ui-lg: 14px;
-  --font-body: 16px;
+  --font-body: 18px;
   --line-height-body: 1.7;
 
   /* Application UI type scale: system UI fonts keep Chinese text native to the
@@ -95,6 +99,7 @@
   --control-height-sm: 28px;
   --control-height-md: 32px;
   --control-height-lg: 36px;
+  --documentTabsHeight: 34px;
 
   /* Motion and elevation */
   --motion-fast: 120ms;
@@ -102,7 +107,7 @@
   --motion-slow: 240ms;
   --motion-loading: 900ms;
   --elevation-none: none;
-  --elevation-floating: 0 8px 28px rgb(15 23 42 / 14%);
+  --elevation-floating: 0 8px 24px rgb(15 23 42 / 12%);
   --focus-ring: 0 0 0 2px rgb(11 99 229 / 22%);
   --z-chrome: 10;
   --z-floating: 100;
@@ -142,7 +147,7 @@
   --icon-primary: #d7dce4;
   --icon-secondary: #8d98a6;
   --icon-disabled: #5d6672;
-  --elevation-floating: 0 8px 28px rgb(0 0 0 / 36%);
+  --elevation-floating: 0 8px 24px rgb(0 0 0 / 32%);
   --focus-ring: 0 0 0 2px rgb(91 156 255 / 32%);
 }
 
@@ -151,26 +156,28 @@
   --color-info-soft: rgb(57 120 184 / 9%);
   --color-warning-soft: rgb(183 121 31 / 9%);
   --color-danger-soft: rgb(214 69 69 / 9%);
-  --text-primary: #2E2B27;
-  --text-secondary: #6E665B;
-  --text-tertiary: #918678;
-  --text-disabled: #B8AEA0;
+  /* Paper stays soft and low-contrast without the yellow cast that caused
+     eye strain in the previous palette. */
+  --text-primary: #303236;
+  --text-secondary: #666A70;
+  --text-tertiary: #8A9096;
+  --text-disabled: #B1B5B9;
 
-  --surface-editor: #FFFDF8;
-  --surface-chrome: #F7F4EC;
-  --surface-hover: #F0ECE3;
+  --surface-editor: #F8F8F6;
+  --surface-chrome: #F1F2F0;
+  --surface-hover: #E9EBE8;
   --surface-selected: rgb(11 99 229 / 9%);
-  --surface-elevated: #FFFDF8;
+  --surface-elevated: #FBFBF9;
 
   --markdown-accent-soft: rgb(11 99 229 / 4%);
   --markdown-accent-muted: rgb(11 99 229 / 50%);
   --markdown-selection: rgb(11 99 229 / 12%);
 
-  --border-subtle: #E9E2D6;
-  --border-default: #DCD2C3;
-  --icon-primary: #4D463E;
-  --icon-secondary: #82786B;
-  --icon-disabled: #B8AEA0;
+  --border-subtle: #DFE1DE;
+  --border-default: #D3D6D2;
+  --icon-primary: #4C5156;
+  --icon-secondary: #7A8187;
+  --icon-disabled: #B1B5B9;
 }
 
 @media (prefers-reduced-motion: reduce) {

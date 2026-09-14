@@ -22,7 +22,7 @@ describe('Inkiva UI-02 chrome contract', () => {
   it('removes tab elevation and the decorative active blue line', () => {
     const css = read('editorWithTabs/tabs.vue')
 
-    expect(css).toContain('height: 32px;')
+    expect(css).toContain('height: var(--documentTabsHeight);')
     expect(css).toContain('transition: background-color var(--motion-fast)')
     expect(css).toContain('color: var(--text-secondary);')
     expect(css).toContain('background: var(--surface-selected);')

@@ -440,17 +440,18 @@ onBeforeUnmount(() => {
 }
 .search-wrapper {
   display: flex;
-  margin: 37px 8px 10px 8px;
-  padding: 0 6px;
-  border-radius: 4px;
-  height: 28px;
+  margin: 16px 12px 12px;
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+  height: var(--control-height-md);
   border: 1px solid var(--border-default);
   background: var(--surface-editor);
   box-sizing: border-box;
   align-items: center;
-  transition: border-color var(--motion-fast), background-color var(--motion-fast);
+  transition: border-color var(--motion-fast), background-color var(--motion-fast), box-shadow var(--motion-fast);
   &:focus-within {
     border-color: var(--border-focus);
+    box-shadow: 0 0 0 1px var(--border-focus) inset;
   }
   & > input {
     color: var(--text-primary);
@@ -461,11 +462,8 @@ onBeforeUnmount(() => {
     outline: none;
     padding: 0;
     font-size: 13px;
-    width: 50%;
-    &:focus-visible {
-      outline: 2px solid var(--color-accent-focus);
-      outline-offset: 2px;
-    }
+    width: auto;
+    outline: none;
   }
   & > .controls {
     display: flex;
@@ -474,8 +472,8 @@ onBeforeUnmount(() => {
     & > button {
       appearance: none;
       cursor: pointer;
-      width: 18px;
-      height: 18px;
+      width: var(--hit-target-sm);
+      height: var(--hit-target-sm);
       margin-left: 0;
       margin-right: 0;
       padding: 0;

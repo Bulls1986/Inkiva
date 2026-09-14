@@ -80,14 +80,14 @@
     "description": "Editor--editor font family",
     "type": "string",
     "pattern": "^[^\\s]+((-|\\s)*[^\\s])*$",
-    "default": "Open Sans"
+    "default": "system-ui"
   },
   "fontSize": {
     "description": "Editor--Font size in pixels",
     "type": "number",
     "maximum": 32,
     "minimum": 12,
-    "default": 16
+    "default": 18
   },
   "lineHeight": {
     "description": "Editor--Line Height",
@@ -112,7 +112,7 @@
     "description": "Editor--Defines the maximum editor area width. An empty string or suffixes of ch (characters), px (pixels) or % (percentage) are allowed.",
     "type": "string",
     "pattern": "^(?:$|[0-9]+(?:ch|px|%)$)",
-    "default": "80%"
+    "default": "780px"
   },
   "codeFontSize": {
     "description": "Editor--Font size in code Block, the range is 12 ~ 18",

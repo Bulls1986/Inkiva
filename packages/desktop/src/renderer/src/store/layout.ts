@@ -12,7 +12,7 @@ interface LayoutPartial {
 }
 
 export const DEFAULT_RIGHT_COLUMN = 'toc'
-export const DEFAULT_SIDE_BAR_WIDTH = 270
+export const DEFAULT_SIDE_BAR_WIDTH = 288
 export const MIN_SIDE_BAR_WIDTH = 220
 
 interface SetLayoutOptions {

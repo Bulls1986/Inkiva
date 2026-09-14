@@ -17,8 +17,8 @@
   "language": "zh-CN",
   "shortcutStyle": "typora",
 
-  "editorFontFamily": "Open Sans",
-  "fontSize": 16,
+  "editorFontFamily": "system-ui",
+  "fontSize": 18,
   "lineHeight": 1.7,
   "paragraphSpacing": 0.75,
   "codeFontSize": 14,
@@ -26,7 +26,7 @@
   "codeBlockLineNumbers": false,
   "trimUnnecessaryCodeBlockEmptyLines": true,
   "wrapCodeBlocks": false,
-  "editorLineWidth": "80%",
+  "editorLineWidth": "780px",
 
   "autoPairBracket": true,
   "autoPairMarkdownSyntax": true,
@@ -60,7 +60,7 @@
   "plantumlServer": "https://www.plantuml.com/plantuml",
 
   "theme": "light",
-  "followSystemTheme": true,
+  "followSystemTheme": false,
   "lightModeTheme": "light",
   "darkModeTheme": "dark",
   "customCss": "",

@@ -74,7 +74,7 @@ import Toc from './toc.vue'
 import { storeToRefs } from 'pinia'
 import type { TabDescriptor } from './types'
 
-const DEFAULT_SIDE_BAR_WIDTH = 270
+const DEFAULT_SIDE_BAR_WIDTH = 288
 const MIN_SIDE_BAR_WIDTH = 220
 const NARROW_WINDOW_BREAKPOINT = 1000
 const NARROW_SIDE_BAR_WIDTH = 240
@@ -195,8 +195,8 @@ const handleLeftBottomClick = (name: string): void => {
   display: flex;
   flex-shrink: 0;
   flex-grow: 0;
-  width: 270px;
-  height: 100vh;
+  width: 288px;
+  height: 100%;
   min-width: 220px;
   box-sizing: border-box;
   position: relative;
@@ -214,7 +214,7 @@ const handleLeftBottomClick = (name: string): void => {
  */
 .side-bar--overlay {
   position: fixed;
-  top: 0;
+  top: calc(var(--titleBarHeight) + var(--documentTabsHeight));
   left: 0;
   bottom: 0;
   z-index: 1;
@@ -230,7 +230,7 @@ const handleLeftBottomClick = (name: string): void => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding-top: 28px;
+  padding-top: 0;
   box-sizing: border-box;
 }
 

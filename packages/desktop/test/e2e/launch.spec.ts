@@ -110,7 +110,7 @@ test.describe('Check Launch Inkiva', () => {
           loading: true,
           editorMounted: 0,
           windowVisible: true,
-          background: 'rgb(255, 253, 248)'
+          background: 'rgb(248, 248, 246)'
         })
     } finally {
       await closeElectron(started.app)
@@ -154,7 +154,7 @@ test.describe('Check Launch Inkiva', () => {
         .toBe(true)
       await expect
         .poll(() => defaults.page.locator('#editor-width').textContent())
-        .toContain('80%')
+        .toContain('780px')
     } finally {
       await defaults.app.close()
     }

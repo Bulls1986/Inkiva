@@ -75,7 +75,7 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
       screenshotFolderPath: path.join(this.userDataPath, 'screenshot'),
       webImages: [],
       cloudImages: [],
-      currentUploader: 'picgo',
+      currentUploader: 'picgoApp',
       picgoAppPath: getDefaultPicgoAppPath()
     }
 
@@ -85,8 +85,11 @@ class DataCenter extends TypedEmitter<DataCenterEvents> {
     } else {
       // Migrate legacy uploader values that no longer exist.
       const stored = store.get('currentUploader') as string | undefined
-      if (stored === 'none' || stored === 'github') {
-        store.set('currentUploader', 'picgo')
+      if (stored === 'none' || stored === 'github' || stored === 'picgo') {
+        // PicGo App is the supported desktop-first path. Migrate the old
+        // PicGo Core default, while preserving an explicitly selected CLI
+        // script or any future uploader value.
+        store.set('currentUploader', 'picgoApp')
       }
 
       // Keep existing data-center files compatible with the PicGo App

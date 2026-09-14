@@ -665,6 +665,7 @@
       "lightModeTheme": "浅色模式主题",
       "darkModeTheme": "深色模式主题",
       "customCss": "自定义 CSS",
+      "customCssNotes": "编辑下方的 CSS 变量或选择器；输入框失去焦点后应用更改。",
       "importCustomThemes": "导入自定义主题",
       "importTheme": "导入主题",
       "openFolder": "打开文件夹",

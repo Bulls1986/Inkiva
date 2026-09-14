@@ -368,7 +368,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .title-bar-editor-bg {
   height: var(--titleBarHeight);
-  background: var(--editorBgColor);
+  background: var(--surface-chrome);
   position: relative;
   left: 0;
   top: 0;

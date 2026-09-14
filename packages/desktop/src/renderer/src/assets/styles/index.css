@@ -1,7 +1,8 @@
 /* Common CSS used by all three application appearances. */
 :root {
   --titleBarHeight: 32px;
-  --editorAreaWidth: var(--markdown-content-width, 780px);
+  --documentTabsHeight: 34px;
+  --editorAreaWidth: var(--markdown-content-width, 924px);
 
   /* Legacy component bridge: components consume semantic tokens through these
      names while the editor engine completes its kebab-case migration. */
@@ -127,12 +128,19 @@
 }
 
 /* Keyboard users get a visible ring; pointer focus stays quiet. */
-:where(button, [role='button'], [role='tab'], [role='option'], a[href], input, select, textarea, [tabindex]):focus-visible {
+:where(button, [role='button'], [role='tab'], [role='option'], a[href], [tabindex]):focus-visible {
   outline: 2px solid var(--color-accent-focus);
   outline-offset: 1px;
 }
 
-:where(button, [role='button'], [role='tab'], [role='option'], a[href], input, select, textarea, [tabindex]):focus:not(:focus-visible) {
+:where(button, [role='button'], [role='tab'], [role='option'], a[href], [tabindex]):focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Inputs own their focus state through the shared control wrapper. Applying a
+   second browser outline here was the source of the doubled, clipped borders
+   in search fields, preference inputs, and composite controls. */
+:where(input, select, textarea):focus-visible {
   outline: none;
 }
 
@@ -238,15 +246,11 @@ body {
 }
 
 input.el-input__inner {
-  background: var(--surface-editor);
-  border: 1px solid var(--border-default);
+  background: transparent;
+  border: 0;
   color: var(--text-primary);
-  border-radius: var(--radius-md);
-}
-
-.el-input.is-focus .el-input__wrapper,
-.el-input__wrapper.is-focus {
-  box-shadow: 0 0 0 1px var(--border-focus) inset;
+  border-radius: 0;
+  outline: none;
 }
 
 .el-input-number.is-controls-right span.el-input-number__decrease,
@@ -450,6 +454,8 @@ button.button-primary:not(.custom):focus-visible,
 .el-input__wrapper,
 .el-select__wrapper,
 .el-textarea__inner {
+  min-height: var(--control-height-md);
+  box-sizing: border-box;
   color: var(--text-primary);
   background: var(--surface-editor);
   border-radius: var(--radius-md);
@@ -465,6 +471,7 @@ button.button-primary:not(.custom):focus-visible,
 }
 
 .el-input__wrapper.is-focus,
+.el-input__wrapper.is-focused,
 .el-select__wrapper.is-focused,
 .el-textarea__inner:focus {
   box-shadow: 0 0 0 1px var(--border-focus) inset;
