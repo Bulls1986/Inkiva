@@ -11,6 +11,7 @@ import { useLayoutStore } from './layout'
 import { useEditorStore } from './editor'
 import { useRecentDocumentsStore } from './recentDocuments'
 import { debouncedSendBufferedState } from './bufferedState'
+import { ProjectTreeEventBatcher } from '../util/projectTreeEventBatch'
 import type { TreeNode } from '../components/sideBar/types'
 import type { FileChangeDetail } from '@shared/types/files'
 
@@ -87,6 +88,20 @@ export const useProjectStore = defineStore('project', () => {
   const pendingTreeEvents = ref<PendingEvent[]>([])
 
   const preferencesStore = usePreferencesStore()
+  const projectTreeEventBatcher = new ProjectTreeEventBatcher<PendingEvent>({
+    process: (event) => {
+      if (!projectTree.value) {
+        pendingTreeEvents.value.push(event)
+        return
+      }
+      _processTreeEvent(event.type, event.change)
+    },
+    onError: (error) => {
+      if (window.electron?.process?.env?.NODE_ENV === 'development') {
+        console.error('Failed to process a filesystem tree event:', error)
+      }
+    }
+  })
 
   watch(
     [() => preferencesStore.fileSortBy, () => preferencesStore.fileSortOrder],
@@ -119,11 +134,11 @@ export const useProjectStore = defineStore('project', () => {
     layoutStore.SET_LAYOUT(layout, { scheduleBufferUpdate })
     layoutStore.DISPATCH_LAYOUT_MENU_ITEMS()
 
-    // Process pending events that arrived before projectTree was initialized.
-    for (const event of pendingTreeEvents.value) {
-      _processTreeEvent(event.type, event.change)
-    }
+    // Replay events that arrived before projectTree was initialized through
+    // the same bounded path as live watcher events.
+    const pendingEvents = pendingTreeEvents.value
     pendingTreeEvents.value = []
+    for (const event of pendingEvents) projectTreeEventBatcher.enqueue(event)
 
     if (scheduleBufferUpdate) {
       debouncedSendBufferedState()
@@ -142,6 +157,7 @@ export const useProjectStore = defineStore('project', () => {
       if (projectTree.value?.pathname === rootDirectory) return
       OPEN_PROJECT(rootDirectory, { scheduleBufferUpdate: false })
     } else {
+      projectTreeEventBatcher.clear()
       projectTree.value = null
       pendingTreeEvents.value = []
     }
@@ -160,7 +176,7 @@ export const useProjectStore = defineStore('project', () => {
         pendingTreeEvents.value.push({ type, change })
         return
       }
-      _processTreeEvent(type, change)
+      projectTreeEventBatcher.enqueue({ type, change })
     })
   }
 
