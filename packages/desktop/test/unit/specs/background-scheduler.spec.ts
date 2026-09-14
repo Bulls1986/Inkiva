@@ -87,4 +87,26 @@ describe('background priority scheduler', () => {
     expect(order).toEqual(['new'])
     expect(scheduler.pendingCount).toBe(0)
   })
+
+  it('measures every task as a real main-thread slice', async() => {
+    vi.useFakeTimers()
+    let now = 100
+    const slices: Array<{ id: string; durationMs: number }> = []
+    const scheduler = new BackgroundTaskScheduler({
+      now: () => now,
+      onSlice: (task, durationMs) => {
+        slices.push({ id: task.id, durationMs })
+      }
+    })
+
+    scheduler.enqueue({
+      id: 'index',
+      priority: BACKGROUND_PRIORITY.backgroundIndexing,
+      run: () => { now += 4.5 }
+    })
+
+    await vi.runAllTimersAsync()
+
+    expect(slices).toEqual([{ id: 'index', durationMs: 4.5 }])
+  })
 })
