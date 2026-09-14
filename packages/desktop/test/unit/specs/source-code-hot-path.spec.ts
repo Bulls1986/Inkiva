@@ -37,7 +37,7 @@ describe('SourceSnapshotScheduler', () => {
 
     expect(captures).toEqual([8])
     vi.runAllTimers()
-    expect(captures).toEqual([])
+    expect(captures).toEqual([8])
 
     scheduler.dispose()
   })

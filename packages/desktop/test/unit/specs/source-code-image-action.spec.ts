@@ -55,7 +55,8 @@ const loadComponent = (deps: Record<string, unknown>) => {
     'module',
     `const { _defineComponent, ref, watch, onMounted, onBeforeUnmount, nextTick,
       useEditorStore, usePreferencesStore, storeToRefs, codeMirror,
-      setCursorAtFirstLine, setTextDirection, getWordCount, adjustCursor, bus } = __deps
+      setCursorAtFirstLine, setTextDirection, getWordCount, adjustCursor, bus,
+      SourceSnapshotScheduler } = __deps
     ${js}
     return module.exports`
   ) as (deps: Record<string, unknown>, exports: object, module: object) => SetupModule
@@ -80,6 +81,20 @@ const makeDeps = (over: Record<string, unknown> = {}) => ({
   getWordCount: () => 0,
   adjustCursor: (c: unknown) => c,
   bus: { on: () => {}, off: () => {}, emit: () => {} },
+  SourceSnapshotScheduler: class {
+    request (): void {
+      return
+    }
+    flush (): void {
+      return
+    }
+    cancel (): void {
+      return
+    }
+    dispose (): void {
+      return
+    }
+  },
   ...over
 })
 
