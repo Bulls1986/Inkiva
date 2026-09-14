@@ -24,8 +24,8 @@ const featurePatterns: Record<(typeof REQUIRED_MARKDOWN_FEATURES)[number], RegEx
   table: /^\|.+\|$/m,
   'code-block': new RegExp(fence + 'ts'),
   quote: /^>\s+/m,
-  link: /\[[^\]]+\]\([^\)]+\)/,
-  image: /!\[[^\]]*\]\([^\)]+\)/,
+  link: /\[[^\]]+\]\([^)]+)/,
+  image: /!\[[^\]]*\]\([^)]+)/,
   diagram: new RegExp(fence + 'mermaid'),
   'inline-format': /\*\*.+\*\*|\*[^*]+\*/,
 }
