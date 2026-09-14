@@ -7,6 +7,17 @@ const hosts: HTMLElement[] = [];
 afterEach(() => {
     while (hosts.length)
         hosts.pop()?.remove();
+    it('invalidates cached definitions when replacing the document', () => {
+        const muya = bootMuya('Plain text');
+        const getState = vi.spyOn(muya.editor.jsonState, 'getState');
+
+        muya.setContent('[a][r]\\n\\n[r]: https://example.com/replaced\\n');
+
+        expect(getState).not.toHaveBeenCalled();
+        expect(muya.domNode.querySelector('a.mu-reference-link')?.getAttribute('href'))
+            .toBe('https://example.com/replaced');
+    });
+
 });
 
 function bootMuya(markdown: string): Muya {
@@ -42,7 +53,7 @@ describe('inline reference definition cache', () => {
         definition.text = '[ref]: https://example.com/new';
         definition.update();
 
-        expect(getState).toHaveBeenCalledTimes(1);
+        expect(getState).not.toHaveBeenCalled();
         expect(muya.editor.inlineRenderer.labels.get('ref')?.href).toBe('https://example.com/new');
     });
 
