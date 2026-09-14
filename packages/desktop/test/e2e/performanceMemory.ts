@@ -1,6 +1,5 @@
 import type { CDPSession, ElectronApplication, Page } from 'playwright'
 import {
-  calculateHeapDelta,
   evaluateMemoryLeakSeries,
   MEMORY_LEAK_LONG_WINDOW_SIZE,
   MEMORY_LEAK_SAMPLE_COUNT,
