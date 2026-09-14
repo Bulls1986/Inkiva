@@ -86,6 +86,8 @@ const layoutStore = useLayoutStore()
 const { currentFile, tabs, tabLifecycle } = storeToRefs(editorStore)
 const { splitEditor, splitTabId } = storeToRefs(layoutStore)
 
+const isExtremeDocument = computed(() => shouldUseDegradedLargeDocumentMode(props.markdown))
+
 const splitActive = computed(() => splitEditor.value && !!currentFile.value)
 const secondaryFile = computed<IFileState | null>(() => {
   if (!splitActive.value) return null
