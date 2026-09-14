@@ -335,13 +335,27 @@ const runColdRegularSample = async(
     )
 
     await placeCaretInEditor(page)
-    const inputDuration = await measurePageAction(page, async() => {
-      await page.keyboard.insertText('gate-input-' + iteration)
+    const beforeInputCount = await page.evaluate(() => {
+      const state = (globalThis as typeof globalThis & { __inkiva_gate_probe__?: GateProbe })
+        .__inkiva_gate_probe__
+      return state?.inputDurations.length ?? 0
     })
-    await recordSample(page, 'document.regular.input', 'ms', inputDuration)
+    await page.keyboard.insertText('gate-input-' + iteration)
+    await page.waitForFunction(
+      (count) => {
+        const state = (globalThis as typeof globalThis & { __inkiva_gate_probe__?: GateProbe })
+          .__inkiva_gate_probe__
+        return (state?.inputDurations.length ?? 0) > count
+      },
+      beforeInputCount,
+      { timeout: 5000 }
+    )
     const observedInput = await readLatestInputDuration(page)
-    if (observedInput !== undefined) {
-      await recordSample(page, 'core.input.latency', 'ms', observedInput)
+    if (observedInput === undefined) {
+      throw new Error('Event Timing did not produce a real P0 input sample')
+    }
+    await recordSample(page, 'document.regular.input', 'ms', observedInput)
+    await recordSample(page, 'core.input.latency', 'ms', observedInput)
     }
 
     const searchDuration = await measurePageAction(page, async() => {

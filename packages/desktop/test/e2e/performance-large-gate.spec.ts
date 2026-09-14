@@ -31,7 +31,6 @@ import {
   sendIpcToRenderer,
   showSidebarPanel,
   waitForEditor,
-  waitForMenuReady,
   waitForWorkspaceReady
 } from './helpers'
 
@@ -756,7 +755,8 @@ const collectTreeSamples = async(
       await installGateProbe(page)
       await waitForWorkspaceReady(page)
       await showSidebarPanel(app, page, 'files')
-      const folder = page.locator('[data-path="' + workspace.hotDirectory.replace(/"/g, '\\\"') + '"] .folder-name')
+      const hotDirectoryName = path.basename(workspace.hotDirectory)
+      const folder = page.locator('[data-path*="' + hotDirectoryName + '"] .folder-name')
       await expect(folder).toBeVisible({ timeout: 180000 })
       const expandDuration = await measurePageAction(page, async() => {
         await folder.click()
@@ -818,7 +818,6 @@ const collectTreeSamples = async(
           const degradation = Math.max(0, (stressed - baseline) / Math.max(0.1, baseline))
           await recordSample(page, 'tree.50k.inputDegradation', 'ratio', degradation)
           await recordSample(page, 'background.editorDegradation', 'ratio', degradation)
-          await recordSample(page, 'background.taskSlice', 'ms', Math.max(0, stressed - baseline))
         }
       }
 
@@ -922,6 +921,7 @@ const collectTabSamples = async(
         await page.locator('.tabs-container > li').nth((index + 1) % 8).click()
       })
       await recordSample(page, 'tabs.8.switch', 'ms', switchDuration)
+       await recordSample(page, 'core.ui.action', 'ms', switchDuration)
       await recordSample(page, 'tabs.8.freeze', 'count', switchDuration > 100 ? 1 : 0)
       const inputDuration = await measureInput(page, 'tabs.8.input', index + 5000)
       await recordSample(page, 'core.input.latency', 'ms', inputDuration)

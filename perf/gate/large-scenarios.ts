@@ -17,7 +17,7 @@ export interface LargeGateLevelPlan {
 // must own every other threshold metric so a missing real action cannot be
 // hidden behind a background sample.
 export const RUNTIME_COLLECTED_METRICS = [
-  'core.ui.action',
+  // UI actions are scenario-owned: only an actual user action may satisfy this gate.
   'core.input.latency',
   'core.frame.duration',
   'core.frame.over16_7',
