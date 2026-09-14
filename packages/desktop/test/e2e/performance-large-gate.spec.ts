@@ -19,6 +19,7 @@ import {
   parseLargeGateLevels
 } from '../../../../perf/gate/large-collection'
 import {
+  getLargeGateScenario,
   RUNTIME_COLLECTED_METRICS,
   type LargeGateLevel
 } from '../../../../perf/gate/large-scenarios'
@@ -309,7 +310,7 @@ const measureSaveEditorLock = async(
   const beforeCount = await readInputCount(page)
   let inputWorked = true
   try {
-    const savePromise = sendIpcToRenderer(app, 'mt::editor-ask-file-save')
+    const savePromise = sendIpcToRenderer(app!, 'mt::editor-ask-file-save')
     const inputPromise = page.keyboard.insertText('save-lock-' + iteration)
     await Promise.all([savePromise, inputPromise])
     await page.waitForFunction(
@@ -367,7 +368,7 @@ const activateFile = async(
   filePath: string
 ): Promise<number> => {
   const started = hostPerformance.now()
-  await sendIpcToRenderer(app, 'mt::open-file', filePath, {})
+  await sendIpcToRenderer(app!, 'mt::open-file', filePath, {})
   await expect.poll(() => readCurrentPath(page), { timeout: 180000 }).toBe(filePath)
   await waitForPaint(page)
   return Math.max(0, hostPerformance.now() - started)
@@ -523,14 +524,14 @@ const collectDocumentTier = async(
     for (let index = 0; index < paths.length; index += 1) {
       const filePath = paths[index] as string
       if (index > 0) {
-        const openDuration = await activateFile(app, page, filePath)
+        const openDuration = await activateFile(app!, page, filePath)
         await recordSample(page, 'document.' + tier + '.firstScreen', 'ms', openDuration, 'document-open')
         await recordSample(page, 'document.' + tier + '.editable', 'ms', openDuration, 'document-open')
       }
 
-      await showSidebarPanel(app, page, 'files')
+      await showSidebarPanel(app!, page, 'files')
       const outlineDuration = await measurePageAction(page, async() => {
-        await showSidebarPanel(app, page, 'toc')
+        await showSidebarPanel(app!, page, 'toc')
         await expect(page.locator('.side-bar-toc [data-testid="toc-node-label"]').first()).toBeVisible({
           timeout: 180000
         })
@@ -577,7 +578,7 @@ const collectDocumentTier = async(
           await recordSample(page, 'core.input.latency', 'ms', inputDuration)
         }
         const searchDuration = await measurePageAction(page, async() => {
-          await sendIpcToRenderer(app, 'mt::editor-edit-action', 'find')
+          await sendIpcToRenderer(app!, 'mt::editor-edit-action', 'find')
           const input = page.locator('.search-bar .search input')
           await expect(input).toBeVisible({ timeout: 10000 })
           await input.fill('Section')
@@ -591,7 +592,7 @@ const collectDocumentTier = async(
 
         const saveToken = 'large-gate-input-' + String(index)
         const saveDuration = await measurePageAction(page, async() => {
-          await sendIpcToRenderer(app, 'mt::editor-ask-file-save')
+          await sendIpcToRenderer(app!, 'mt::editor-ask-file-save')
           await expect.poll(
             () => (fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : ''),
             { timeout: 180000 }
@@ -600,11 +601,11 @@ const collectDocumentTier = async(
         await recordSample(page, 'save.' + tier, 'ms', saveDuration, 'autosave')
 
         const normalUndoDuration = await measurePageAction(page, async() => {
-          await sendIpcToRenderer(app, 'mt::editor-edit-action', 'undo')
+          await sendIpcToRenderer(app!, 'mt::editor-edit-action', 'undo')
         })
         await recordSample(page, 'undo.normal', 'ms', normalUndoDuration)
         const normalRedoDuration = await measurePageAction(page, async() => {
-          await sendIpcToRenderer(app, 'mt::editor-edit-action', 'redo')
+          await sendIpcToRenderer(app!, 'mt::editor-edit-action', 'redo')
         })
         await recordSample(page, 'redo.normal', 'ms', normalRedoDuration)
 
@@ -612,7 +613,7 @@ const collectDocumentTier = async(
         await page.keyboard.insertText('large-operation-' + 'x'.repeat(512))
         await waitForPaint(page)
         const largeUndoDuration = await measurePageAction(page, async() => {
-          await sendIpcToRenderer(app, 'mt::editor-edit-action', 'undo')
+          await sendIpcToRenderer(app!, 'mt::editor-edit-action', 'undo')
         })
         await recordSample(page, 'undo.large', 'ms', largeUndoDuration)
 
@@ -622,16 +623,16 @@ const collectDocumentTier = async(
           return !!root
         })
         if (!sameEditorRoot) throw new Error('editor root was unavailable for undo identity gate')
-        await sendIpcToRenderer(app, 'mt::editor-edit-action', 'undo')
+        await sendIpcToRenderer(app!, 'mt::editor-edit-action', 'undo')
         await waitForPaint(page)
         const rootWasReused = await page.evaluate(() => {
           const state = globalThis as typeof globalThis & { __inkiva_undo_root__?: Element }
           return state.__inkiva_undo_root__ === document.querySelector('.editor-component')?.firstElementChild
         })
         await recordSample(page, 'undo.fullDomRebuild', 'count', rootWasReused ? 0 : 1)
-        await sendIpcToRenderer(app, 'mt::editor-edit-action', 'redo')
+        await sendIpcToRenderer(app!, 'mt::editor-edit-action', 'redo')
 
-        const saveWhileEditing = await measureSaveEditorLock(page, app, index + 1000)
+        const saveWhileEditing = await measureSaveEditorLock(page, app!, index + 1000)
         await recordSample(page, 'save.editorLock', 'count', saveWhileEditing, 'autosave')
       }
     }
@@ -661,9 +662,9 @@ const collectHeadingTier = async(
 
     for (let index = 0; index < paths.length; index += 1) {
       const filePath = paths[index] as string
-      if (index > 0) await activateFile(app, page, filePath)
+      if (index > 0) await activateFile(app!, page, filePath)
       const outlineDuration = await measurePageAction(page, async() => {
-        await showSidebarPanel(app, page, 'toc')
+        await showSidebarPanel(app!, page, 'toc')
         await expect(page.locator('.side-bar-toc [data-testid="toc-node-label"]').first()).toBeVisible({
           timeout: 240000
         })
@@ -734,7 +735,7 @@ const collectTreeSamples = async(
         app = launched.app
         const { page } = launched
         await waitForWorkspaceReady(page)
-        await showSidebarPanel(app, page, 'files')
+        await showSidebarPanel(app!, page, 'files')
         await expect(page.locator('.tree-virtual-viewport .virtual-tree-row').first()).toBeVisible({
           timeout: 180000
         })
@@ -754,7 +755,7 @@ const collectTreeSamples = async(
       const { page } = launched
       await installGateProbe(page)
       await waitForWorkspaceReady(page)
-      await showSidebarPanel(app, page, 'files')
+      await showSidebarPanel(app!, page, 'files')
       const hotDirectoryName = path.basename(workspace.hotDirectory)
       const folder = page.locator('[data-path*="' + hotDirectoryName + '"] .folder-name')
       await expect(folder).toBeVisible({ timeout: 180000 })
@@ -777,7 +778,7 @@ const collectTreeSamples = async(
       }
 
       const treeSearchDuration = await measurePageAction(page, async() => {
-        await sendIpcToRenderer(app, 'mt::show-command-palette')
+        await sendIpcToRenderer(app!, 'mt::show-command-palette')
         const input = page.locator('input.search').first()
         await expect(input).toBeVisible({ timeout: 10000 })
         await input.fill('hot-0000')
@@ -822,7 +823,7 @@ const collectTreeSamples = async(
       }
 
       const folderSearchInput = page.locator('.side-bar-search input.search-input')
-      await showSidebarPanel(app, page, 'search')
+      await showSidebarPanel(app!, page, 'search')
       for (let index = 0; index < SAMPLE_COUNT; index += 1) {
         const searchDuration = await measurePageAction(page, async() => {
           await folderSearchInput.fill('workspace-target')
@@ -862,7 +863,7 @@ const collectTabSamples = async(
       await waitForEditor(page, 180000)
       await recordSample(page, 'tabs.8.openFirst', 'ms', hostPerformance.now() - started, 'document-open')
       for (let index = 1; index < paths.length; index += 1) {
-        const duration = await activateFile(app, page, paths[index] as string)
+        const duration = await activateFile(app!, page, paths[index] as string)
         await recordSample(
           page,
           index <= 3 ? 'tabs.8.open2to4' : 'tabs.8.open5to8',
@@ -890,7 +891,7 @@ const collectTabSamples = async(
     await installGateProbe(page)
     await waitForEditor(page, 180000)
     for (let index = 1; index < paths.length; index += 1) {
-      await activateFile(app, page, paths[index] as string)
+      await activateFile(app!, page, paths[index] as string)
     }
     await expect(page.locator('.tabs-container > li')).toHaveCount(8)
     const lifecycle = await page.locator('.tabs-container > li').evaluateAll((tabs) =>
@@ -1055,7 +1056,7 @@ const collectCombinationSamples = async(
     await installGateProbe(page)
     await waitForWorkspaceReady(page)
     await waitForEditor(page, 240000)
-    for (const filePath of tabPaths) await activateFile(app, page, filePath)
+    for (const filePath of tabPaths) await activateFile(app!, page, filePath)
     for (let index = 0; index < SAMPLE_COUNT; index += 1) {
       const hotTabDuration = await measurePageAction(page, async() => {
         await page.locator('.tabs-container > li').nth(index % 8).click()
