@@ -23,8 +23,8 @@ describe('inline reference definition cache', () => {
         const paragraphs = Array.from(
             { length: 200 },
             (_, index) => `Paragraph ${index}`,
-        ).join('\\n\\n');
-        const muya = bootMuya(`[ref]: https://example.com/old\\n\\n${paragraphs}`);
+        ).join('\n\n');
+        const muya = bootMuya(`[ref]: https://example.com/old\n\n${paragraphs}`);
         const body = muya.editor.scrollPage!.lastContentInDescendant()!;
         const getState = vi.spyOn(muya.editor.jsonState, 'getState');
 
@@ -35,7 +35,7 @@ describe('inline reference definition cache', () => {
     });
 
     it('refreshes cached definitions only when a definition changes', () => {
-        const muya = bootMuya('[ref]: https://example.com/old\\n\\nSee [reference][ref]\\n');
+        const muya = bootMuya('[ref]: https://example.com/old\n\nSee [reference][ref]\n');
         const definition = muya.editor.scrollPage!.firstContentInDescendant()!;
         const getState = vi.spyOn(muya.editor.jsonState, 'getState');
 
@@ -47,7 +47,7 @@ describe('inline reference definition cache', () => {
     });
 
     it('invalidates cached definitions when a definition block is removed', () => {
-        const muya = bootMuya('[ref]: https://example.com/old\\n\\nSee [reference][ref]\\n');
+        const muya = bootMuya('[ref]: https://example.com/old\n\nSee [reference][ref]\n');
         const definition = muya.editor.scrollPage!.firstChild!;
         definition.remove();
 
