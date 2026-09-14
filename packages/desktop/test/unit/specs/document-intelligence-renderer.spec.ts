@@ -4,6 +4,7 @@ import type {
   LocalHistorySnapshot,
   MarkdownBacklink
 } from '@shared/types/documentIntelligence'
+import { BackgroundTaskScheduler, BACKGROUND_PRIORITY } from '@/util/backgroundScheduler'
 import {
   DocumentIntelligenceCoordinator,
   type DocumentIntelligenceApi,
@@ -109,6 +110,55 @@ describe('renderer document intelligence coordinator', () => {
     await vi.advanceTimersByTimeAsync(100)
     expect(api.removeDocument).toHaveBeenCalledWith('/docs/note.md')
     expect(api.indexDocument).toHaveBeenLastCalledWith('/docs/renamed.md', 'three')
+
+    coordinator.dispose()
+  })
+
+  it('routes indexing and metadata through the priority scheduler', async() => {
+    const api = createApi()
+    const slices: Array<{ id: string; priority: number }> = []
+    const scheduler = new BackgroundTaskScheduler({
+      onSlice: (task) => slices.push({ id: task.id, priority: task.priority })
+    })
+    const coordinator = new DocumentIntelligenceCoordinator({
+      api,
+      scheduler,
+      indexDelayMs: 10
+    })
+
+    coordinator.updateDocuments([document('one')], 'doc-1')
+    await vi.advanceTimersByTimeAsync(10)
+
+    expect(api.indexDocument).toHaveBeenCalledWith('/docs/note.md', 'one')
+    expect(api.getBacklinks).toHaveBeenCalledWith('/docs/note.md')
+    expect(api.listSnapshots).toHaveBeenCalledWith('/docs/note.md')
+    expect(slices.map(({ priority }) => priority)).toEqual(
+      expect.arrayContaining([
+        BACKGROUND_PRIORITY.backgroundIndexing,
+        BACKGROUND_PRIORITY.backlinkMetadataStatistics
+      ])
+    )
+
+    coordinator.dispose()
+  })
+
+  it('holds P6 work while the editor interaction window is pending', async() => {
+    const api = createApi()
+    const scheduler = new BackgroundTaskScheduler()
+    const coordinator = new DocumentIntelligenceCoordinator({
+      api,
+      scheduler,
+      indexDelayMs: 10
+    })
+
+    coordinator.setInteractivePending(true)
+    coordinator.updateDocuments([document('one')], null)
+    await vi.advanceTimersByTimeAsync(10)
+    expect(api.indexDocument).not.toHaveBeenCalled()
+
+    coordinator.setInteractivePending(false)
+    await vi.runAllTimersAsync()
+    expect(api.indexDocument).toHaveBeenCalledWith('/docs/note.md', 'one')
 
     coordinator.dispose()
   })
