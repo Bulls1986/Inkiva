@@ -24,6 +24,7 @@ describe('performance trace contract', () => {
         'muya_init_start',
         'muya_init_end',
         'first_editor_interactive',
+        'document_editable',
         'long_task'
       ])
     )
