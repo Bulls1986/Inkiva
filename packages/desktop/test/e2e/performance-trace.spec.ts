@@ -30,7 +30,7 @@ test('@perf writes a correlated startup report when performance capture is enabl
   let launched: Awaited<ReturnType<typeof launchElectron>> | undefined
   const fixtureDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-perf-trace-'))
   const fixturePath = path.join(fixtureDirectory, 'startup.md')
-  fs.writeFileSync(fixturePath, '# Startup trace\\n\\nA document-backed shell.\\n', 'utf8')
+  fs.writeFileSync(fixturePath, ['# Startup trace', '', 'A document-backed shell.', ''].join('\n'), 'utf8')
 
   try {
     launched = await launchElectron([fixturePath], {
