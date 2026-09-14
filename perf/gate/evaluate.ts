@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -9,7 +9,6 @@ import {
   type GateLevel,
   type GateFailure,
   type PerformanceGateConfig,
-  type PerformanceGateEnvironment,
   type PerformanceGateEvaluation,
   type PerformanceGateReport
 } from './contract.js'
@@ -135,6 +134,7 @@ export const runPerformanceGateCli = (args: string[]): PerformanceGateEvaluation
     readJson(options.thresholdsPath),
     options.baselinePath === undefined ? undefined : readJson(options.baselinePath)
   )
+  mkdirSync(dirname(options.outputPath), { recursive: true })
   writeFileSync(options.outputPath, JSON.stringify(result, null, 2) + '\\n', 'utf8')
   for (const item of result.failures) {
     console.error(

@@ -82,7 +82,6 @@ test('accepts a Muya canonical report and preserves the schema contract', () => 
   })
 })
 
-
 test('fails closed when the input path does not yield metrics', () => {
   withInputDirectory((directory) => {
     assert.throws(
