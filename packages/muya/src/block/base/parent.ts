@@ -20,6 +20,7 @@ class Parent extends TreeNode {
     override next: Nullable<Parent> = null;
 
     private _active: boolean = false;
+    private _childrenDisposed = false;
 
     get active() {
         return this._active;
@@ -60,6 +61,16 @@ class Parent extends TreeNode {
     // You should never call get path on Parent.
         debug.error('You should never call get path on Parent.');
         return [];
+    }
+
+    override dispose(): void {
+        if (this._childrenDisposed)
+            return;
+
+        this._childrenDisposed = true;
+        this.attachments.forEach(node => node.dispose());
+        this.children.forEach(node => node.dispose());
+        super.dispose();
     }
 
     private _getJsonPath() {
@@ -213,7 +224,9 @@ class Parent extends TreeNode {
     }
 
     override remove(source = 'user') {
-        if (source === 'user') {
+        // A move is still a user-visible tree mutation; it only suppresses
+        // resource disposal while the existing node is detached temporarily.
+        if (source === 'user' || source === 'move') {
             // dispatch json1 operation
             const path = this._getJsonPath();
             this.jsonState.removeOperation(path);
@@ -237,10 +250,8 @@ class Parent extends TreeNode {
             );
         }
 
-        if (node.isParent())
+        if (node.isParent() || node.isContent())
             node.remove(source);
-        else if (node.isContent())
-            node.remove();
 
         return node;
     }

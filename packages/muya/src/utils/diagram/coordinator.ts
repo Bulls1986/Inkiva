@@ -380,6 +380,14 @@ export class DiagramRenderCoordinator {
         return this._cache.size;
     }
 
+    get inFlightCount() {
+        return this._inFlight.size;
+    }
+
+    get disposed() {
+        return this._disposed;
+    }
+
     /**
      * Schedule a render. Scheduling a newer request for the same block
      * immediately cancels its predecessor, including a job already running.
@@ -451,6 +459,7 @@ export class DiagramRenderCoordinator {
         this._latestByBlock.clear();
         this._queue.length = 0;
         this._cache.clear();
+        this._inFlight.clear();
     }
 
     private _pump() {
@@ -671,4 +680,14 @@ export function getDiagramRenderCoordinator(owner: object): DiagramRenderCoordin
     }
 
     return coordinator;
+}
+
+/** Dispose and unregister the coordinator owned by a Muya instance. */
+export function disposeDiagramRenderCoordinator(owner: object): void {
+    const coordinator = coordinators.get(owner);
+    if (!coordinator)
+        return;
+
+    coordinator.dispose();
+    coordinators.delete(owner);
 }

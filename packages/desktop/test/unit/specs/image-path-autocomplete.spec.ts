@@ -3,7 +3,11 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { searchFilesAndDir, watchers } from 'main_renderer/utils/imagePathAutoComplement'
+import {
+  closeImagePathWatchers,
+  searchFilesAndDir,
+  watchers
+} from 'main_renderer/utils/imagePathAutoComplement'
 
 // `searchFilesAndDir` is a main-process helper backed by real Node `fs`:
 // it reads a directory, keeps only sub-directories + image files, fuzzy
@@ -27,10 +31,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  for (const [dir, watcher] of watchers) {
-    watcher.close()
-    watchers.delete(dir)
-  }
+  closeImagePathWatchers()
   for (const dir of tmpDirs) {
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -96,6 +97,24 @@ describe('searchFilesAndDir', () => {
 
     expect(cached.map((e) => e.file).sort()).toEqual(['a.png', 'b.jpg', 'images'])
     expect(cached.some((e) => e.file === 'c.gif')).toBe(false)
+  })
+
+  it('closes and drops watcher/cache state so a later lookup starts fresh', async() => {
+    const dir = seedDir()
+    tmpDirs.push(dir)
+
+    await searchFilesAndDir(dir, '')
+    expect(watchers.has(dir)).toBe(true)
+
+    closeImagePathWatchers()
+    closeImagePathWatchers()
+    expect(watchers.size).toBe(0)
+
+    fs.writeFileSync(path.join(dir, 'c.gif'), '')
+    const refreshed = await searchFilesAndDir(dir, '')
+
+    expect(refreshed.some((e) => e.file === 'c.gif')).toBe(true)
+    expect(watchers.has(dir)).toBe(true)
   })
 
   it('rejects when the directory cannot be read', async() => {

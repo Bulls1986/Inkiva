@@ -230,6 +230,12 @@ class CodeBlockContent extends Content {
         this._lineNumberResizeObserver.observe(codeEl);
     }
 
+    override dispose(): void {
+        this._lineNumberResizeObserver?.disconnect();
+        this._lineNumberResizeObserver = null;
+        super.dispose();
+    }
+
     override inputHandler(event: Event): void {
         if (this.isComposed)
             return;

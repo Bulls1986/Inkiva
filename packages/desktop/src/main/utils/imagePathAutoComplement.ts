@@ -77,6 +77,7 @@ const watchDirectory = (directory: string): void => {
       log.error('imagePathAutoComplement::watchDirectory:', err)
       watcher.close()
       watchers.delete(directory)
+      IMAGE_PATH.delete(directory)
     })
     watchers.set(directory, watcher)
   } catch (err) {
@@ -86,6 +87,15 @@ const watchDirectory = (directory: string): void => {
     // main process with an "Unexpected error" dialog (#3779).
     log.error('imagePathAutoComplement::watchDirectory:', err)
   }
+}
+
+/** Close all directory watchers and drop their cached entries. */
+export const closeImagePathWatchers = (): void => {
+  for (const [directory, watcher] of watchers) {
+    watcher.close()
+    watchers.delete(directory)
+  }
+  IMAGE_PATH.clear()
 }
 
 export const searchFilesAndDir = (directory: string, key: string): Promise<DirOrImageEntry[]> => {

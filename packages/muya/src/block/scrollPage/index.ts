@@ -18,6 +18,7 @@ interface IBlurFocus {
 
 export class ScrollPage extends Parent {
     private _blurFocus: IBlurFocus = { blur: null, focus: null };
+    private _activeStatusFrames = new Set<number>();
 
     static override blockName = 'scrollpage';
 
@@ -137,12 +138,27 @@ export class ScrollPage extends Parent {
 
     handleBlurFromContent(block: Content) {
         this._blurFocus.blur = block;
-        requestAnimationFrame(this._updateActiveStatus);
+        this._scheduleActiveStatusUpdate();
     }
 
     handleFocusFromContent(block: Content) {
         this._blurFocus.focus = block;
-        requestAnimationFrame(this._updateActiveStatus);
+        this._scheduleActiveStatusUpdate();
+    }
+
+    private _scheduleActiveStatusUpdate() {
+        const frameId = requestAnimationFrame(() => {
+            this._activeStatusFrames.delete(frameId);
+            this._updateActiveStatus();
+        });
+        this._activeStatusFrames.add(frameId);
+    }
+
+    override dispose(): void {
+        this._activeStatusFrames.forEach(frameId => cancelAnimationFrame(frameId));
+        this._activeStatusFrames.clear();
+        this._blurFocus = { blur: null, focus: null };
+        super.dispose();
     }
 
     private _updateActiveStatus = () => {

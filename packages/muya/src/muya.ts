@@ -31,7 +31,7 @@ import {
 import { isAnyListState, isAtxHeadingState, isCodeBlockState } from './state/types';
 import { Ui } from './ui/ui';
 import { deepClone } from './utils';
-import { getDiagramRenderCoordinator } from './utils/diagram/coordinator';
+import { disposeDiagramRenderCoordinator } from './utils/diagram/coordinator';
 import { encodeImageSrc } from './utils/image';
 import './assets/styles/blockSyntax.css';
 import './assets/styles/index.css';
@@ -146,6 +146,7 @@ export class Muya {
     public i18n: I18n;
 
     private _uiPlugins: Record<string, unknown> = {};
+    private _destroyed = false;
 
     constructor(element: HTMLElement, options?: Partial<IMuyaOptions>) {
         this.options = Object.assign({}, MUYA_DEFAULT_OPTIONS, options ?? {});
@@ -168,6 +169,9 @@ export class Muya {
     }
 
     init() {
+        if (this._destroyed)
+            return;
+
         this.editor.init();
 
         // UI plugins
@@ -1642,8 +1646,12 @@ export class Muya {
     }
 
     destroy() {
+        if (this._destroyed)
+            return;
+
+        this._destroyed = true;
         this.editor.destroy();
-        getDiagramRenderCoordinator(this).dispose();
+        disposeDiagramRenderCoordinator(this);
         this.eventCenter.detachAllDomEvents();
         this.eventCenter.unsubscribeAll();
         // this.domNode[BLOCK_DOM_PROPERTY] = null;
@@ -1662,6 +1670,7 @@ export class Muya {
             if (typeof destroy === 'function')
                 (destroy as () => void).call(plugin);
         }
+        this._uiPlugins = {};
     }
 }
 

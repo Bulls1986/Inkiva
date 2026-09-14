@@ -114,15 +114,9 @@ class DiagramBlock extends Parent {
     }
 
     override remove(source = 'user') {
-        // The preview is an attachment rather than a child in the block tree,
-        // so it would otherwise keep its debounce timer and renderer view
-        // alive after the figure is removed from the document.
-        this.attachments.forEach((attachment) => {
-            if (attachment.blockName !== 'diagram-preview')
-                return;
-
-            (attachment as Parent & { dispose?: () => void }).dispose?.();
-        });
+        // Parent.dispose() recursively releases attachment previews. Keep the
+        // remove path source-aware so insertInto(...), which uses 'move', does
+        // not permanently dispose a diagram that is only being reparented.
         super.remove(source);
 
         return this;
