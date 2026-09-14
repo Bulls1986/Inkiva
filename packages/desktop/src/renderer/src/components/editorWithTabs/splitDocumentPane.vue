@@ -6,7 +6,10 @@
     aria-label="Secondary document pane"
   >
     <header class="split-document-header">
-      <span class="split-document-title" :title="file.pathname || file.filename">{{
+      <span
+        class="split-document-title"
+        :title="file.pathname || file.filename"
+      >{{
         file.filename
       }}</span>
       <button
@@ -18,8 +21,17 @@
         Use as editor
       </button>
     </header>
-    <div v-if="html" class="split-document-content markdown-body" v-html="html" />
-    <p v-else class="split-document-loading">Loading…</p>
+    <div
+      v-if="html"
+      class="split-document-content markdown-body"
+      v-html="html"
+    />
+    <p
+      v-else
+      class="split-document-loading"
+    >
+      Loading…
+    </p>
   </section>
 </template>
 

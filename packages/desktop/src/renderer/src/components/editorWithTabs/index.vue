@@ -1,7 +1,17 @@
 <template>
-  <div class="editor-with-tabs" :class="{ 'is-split': splitActive }" data-testid="editor-with-tabs">
-    <div class="container" data-testid="editor-split-container">
-      <div class="primary-editor-pane" data-testid="primary-editor-pane">
+  <div
+    class="editor-with-tabs"
+    :class="{ 'is-split': splitActive }"
+    data-testid="editor-with-tabs"
+  >
+    <div
+      class="container"
+      data-testid="editor-split-container"
+    >
+      <div
+        class="primary-editor-pane"
+        data-testid="primary-editor-pane"
+      >
         <editor
           :markdown="markdown"
           :cursor="cursor"
