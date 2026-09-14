@@ -38,7 +38,7 @@ describe('search.searchAsync()', () => {
 
         expect(search.matches).toHaveLength(1200);
         expect(search.index).toBe(0);
-        expect(updates.some((count) => count > 0)).toBe(true);
+        expect(updates.some(count => count > 0)).toBe(true);
         expect(updates.at(-1)).toBe(1200);
     });
 });
