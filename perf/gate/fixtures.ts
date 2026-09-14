@@ -124,6 +124,8 @@ const buildSection = (index: number): string =>
       index +
       ' keeps the editor workload deterministic while exercising links, inline format, and ordinary text.',
     '',
+    'Section ' + index + ' uses a second block to keep block density explicit.',
+    '',
   ].join('\n')
 
 export const createMarkdownFixture = (tier: MarkdownDocumentTier): MarkdownFixture => {
