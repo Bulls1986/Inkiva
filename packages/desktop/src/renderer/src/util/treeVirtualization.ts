@@ -64,12 +64,12 @@ const countVisibleTreeRows = (
   return count
 }
 
-function* iterateTreeRows(
+function * iterateTreeRows(
   root: TreeNode,
   collapsedPaths: ReadonlySet<string>,
   expandedPaths: ReadonlySet<string>
 ): Generator<VirtualTreeRow> {
-  const visitFolder = function*(
+  const visitFolder = function * (
     folder: TreeFolderNode,
     depth: number
   ): Generator<VirtualTreeRow> {
@@ -81,7 +81,7 @@ function* iterateTreeRows(
     }
     if (isFolderCollapsed(folder, collapsedPaths, expandedPaths)) return
 
-    for (const child of folder.folders) yield* visitFolder(child, depth + 1)
+    for (const child of folder.folders) yield * visitFolder(child, depth + 1)
     for (const file of folder.files) {
       yield {
         kind: 'file',
@@ -92,7 +92,7 @@ function* iterateTreeRows(
     }
   }
 
-  for (const folder of root.folders) yield* visitFolder(folder, 0)
+  for (const folder of root.folders) yield * visitFolder(folder, 0)
   for (const file of root.files) {
     yield {
       kind: 'file',
@@ -141,10 +141,11 @@ export const createTreeRowModel = (
     findRowIndex: (pathname) => {
       if (!pathname) return undefined
       let index = 0
-      while (!exhausted && index < totalRows) {
+      while (index < totalRows) {
         materializeUntil(index + 1)
         const row = materializedRows[index]
-        if (row?.node.pathname === pathname) return index
+        if (!row) return undefined
+        if (row.node.pathname === pathname) return index
         index += 1
       }
       return undefined

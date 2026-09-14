@@ -43,11 +43,11 @@ const countVisibleTocRows = (
   return count
 }
 
-function* iterateTocRows(
+function * iterateTocRows(
   nodes: readonly KeyedTocNode[],
   expandedKeys: ReadonlySet<string>
 ): Generator<VirtualTocRow> {
-  const visit = function*(
+  const visit = function * (
     items: readonly KeyedTocNode[],
     depth: number
   ): Generator<VirtualTocRow> {
@@ -60,12 +60,12 @@ function* iterateTocRows(
         hasChildren: node.children.length > 0
       }
       if (node.children.length > 0 && expandedKeys.has(node.key)) {
-        yield* visit(node.children, depth + 1)
+        yield * visit(node.children, depth + 1)
       }
     }
   }
 
-  yield* visit(nodes, 0)
+  yield * visit(nodes, 0)
 }
 
 export const countTocRows = (
