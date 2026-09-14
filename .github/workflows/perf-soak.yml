@@ -1,4 +1,5 @@
 name: Performance Soak
+# regressionPolicy: blocking — compare.ts is fail-closed for every lane.
 
 on:
   pull_request:
