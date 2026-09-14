@@ -221,6 +221,10 @@ export class DocumentIntelligenceCoordinator {
       return null
     }
 
+    // A restore supersedes any in-flight metadata load for the same selection.
+    // Without a new version, that older response can clear restore-stale/restore-unsaved
+    // diagnostics after this operation has already reported them.
+    this.selectionVersion += 1
     const version = this.selectionVersion
     const expectedContent = current.markdown
     this.patchState({ restoringSnapshotId: id, error: null })
