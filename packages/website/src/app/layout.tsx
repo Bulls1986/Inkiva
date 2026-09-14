@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 const SITE_URL = 'https://www.inkiva.net'
 const TITLE = 'Inkiva · 墨映 — WYSIWYG Markdown editor'
 const DESCRIPTION =
-  'A free, open-source WYSIWYG Markdown editor for macOS, Windows and Linux. Write naturally and see the rendered document take shape in place.'
+  'A free, open-source WYSIWYG Markdown editor for Windows x64 and macOS Intel or Apple silicon. Write naturally and see the rendered document take shape in place.'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     'Electron',
     'macOS',
     'Windows',
-    'Linux'
+    'Apple silicon'
   ],
   authors: [{ name: 'Ran Luo', url: 'https://github.com/Jocs' }],
   creator: 'Ran Luo',
@@ -59,7 +59,6 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     images: [{ url: '/favicon.png', width: 512, height: 512, alt: 'Inkiva logo' }]
   }
-
 }
 
 export const viewport: Viewport = {
@@ -73,7 +72,7 @@ const jsonLd = {
   '@type': 'SoftwareApplication',
   name: 'Inkiva',
   applicationCategory: 'DeveloperApplication',
-  operatingSystem: 'macOS, Windows, Linux',
+  operatingSystem: 'Windows x64, macOS Intel, macOS Apple silicon',
   description: DESCRIPTION,
   url: SITE_URL,
   license: 'https://github.com/Bulls1986/Inkiva/blob/develop/LICENSE',
@@ -89,7 +88,11 @@ const localeBootstrap = `(function(){try{document.documentElement.lang=location.
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme={DEFAULT_THEME} className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html
+      lang="en"
+      data-theme={DEFAULT_THEME}
+      className={`${geistSans.variable} ${geistMono.variable}`}
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
         <script dangerouslySetInnerHTML={{ __html: localeBootstrap }} />

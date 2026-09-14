@@ -10,7 +10,7 @@
 
 ### Titlebar
 
-The titlebar is located at the top of the window and shows the current opened file path and the menu on Linux and Windows. On macOS we're using client-side decorations (CSD) that look similar to the picture above. On Linux and Windows there are two type of titlebar: a custom CSD that you can see in the image above and the native one.
+The titlebar is located at the top of the window and shows the current opened file path and the menu. macOS uses client-side decorations (CSD); Windows can use either the custom CSD or the native titlebar.
 
 ### Sidebar
 

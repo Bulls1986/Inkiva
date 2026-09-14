@@ -1,6 +1,6 @@
 # Releasing Inkiva
 
-The release pipeline is triggered by pushing a `v*` tag. The `Release Inkiva` workflow (`.github/workflows/release.yml`) then runs **validate → build (5-platform matrix) → publish** and creates a GitHub Release with installers and `SHA256SUMS.txt`.
+The release pipeline is triggered by pushing a `v*` tag. The `Release Inkiva` workflow (`.github/workflows/release.yml`) then runs **validate → build (Windows x64 + macOS Intel/Apple Silicon) → publish** and creates a GitHub Release with installers and `SHA256SUMS.txt`.
 
 The flow below covers both release candidates and stable releases — same steps, only the version string differs.
 
@@ -74,13 +74,12 @@ gh release view vX.Y.Z-rc.N
 Confirm:
 
 - `Pre-release` badge on the release page (RC only)
-- **24 assets**:
-  - **Linux** (5): `AppImage`, `deb`, `rpm`, `snap`, `tar.gz`
+- **15 assets**:
   - **macOS arm64** (4): `dmg`, `dmg.blockmap`, `zip`, `zip.blockmap`
   - **macOS x64** (4): `dmg`, `dmg.blockmap`, `zip`, `zip.blockmap`
   - **Windows x64** (3): `setup.exe`, `setup.exe.blockmap`, `zip`
   - **Windows arm64** (3): `setup.exe`, `setup.exe.blockmap`, `zip`
-  - **Auto-updater metadata** (4): `latest.yml`, `latest-mac.yml`, `latest-linux.yml`, `builder-debug.yml`
+  - **Auto-updater metadata** (3): `latest.yml`, `latest-mac.yml`, `builder-debug.yml`
   - **Checksums** (1): `SHA256SUMS.txt`
 - Auto-generated release notes list the PRs merged since the previous tag
 

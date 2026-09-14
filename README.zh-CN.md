@@ -7,12 +7,12 @@
 <h1 align="center">Inkiva · 墨映</h1>
 
 <p align="center">
-  <strong>Inkiva（墨映）—— 一款免费、开源的所见即所得 Markdown 编辑器。</strong><br>
-  无需离开正在创作的文档，即可编写 Markdown。
+  <strong>Inkiva（墨映）—— 一款免费、开源、以文档为中心的 Markdown 编辑器。</strong><br>
+  文档始终可见，写作无需离开当前页面。
 </p>
 
 <p align="center">
-  <sub>支持 Windows 和 macOS。Linux 支持继承自上游项目，随着 Inkiva 打包流程完善将逐步启用。</sub>
+  <sub>支持 Windows x64、macOS Intel 和 macOS Apple Silicon。</sub>
 </p>
 
 <p align="center">
@@ -23,12 +23,15 @@
 
 ## Inkiva（墨映）是什么？
 
-Inkiva（墨映）是一款桌面 Markdown 编辑器，专注于平静、流畅的所见即所得写作体验。你可以在编写文档的同时直接看到渲染结果，无需在编辑区和预览区之间来回切换。
+Inkiva（墨映）是一款桌面 Markdown 编辑器，专注于平静、流畅、以文档为中心的写作体验。你可以在编写文档的同时直接看到渲染结果；需要比较时，可以打开第二个文档窗格，而不会改变文件本身。
 
 Inkiva 适合希望兼具 Markdown 可移植性与可视化编辑即时性的用户：
 
 - 实时所见即所得 Markdown 编辑。
 - 支持 CommonMark 和 GitHub Flavored Markdown。
+- 支持最近文档、Quick Open、文档标签、目录、查找替换和文件夹搜索。
+- 支持标准相对 Markdown 链接、反向链接，以及明确的重命名/移动修复选择。
+- 提供本地历史、自动保存、恢复保护和更新器校验。
 - 使用 KaTeX 渲染数学表达式。
 - 支持 Mermaid、PlantUML、Flowchart 和 Vega-Lite 图表。
 - 支持专注模式、打字机模式和源码模式。
@@ -41,13 +44,13 @@ Inkiva 适合希望兼具 Markdown 可移植性与可视化编辑即时性的用
 
 从 [GitHub Releases](https://github.com/Bulls1986/Inkiva/releases) 下载最新版本。
 
-| 平台 | 安装包 |
-| --- | --- |
-| Windows x64 | `inkiva-win-x64-<version>-setup.exe` |
-| macOS Intel | `inkiva-mac-x64-<version>.dmg` |
-| macOS Apple Silicon | `inkiva-mac-arm64-<version>.dmg` |
+| 平台                | 安装包                               |
+| ------------------- | ------------------------------------ |
+| Windows x64         | `inkiva-win-x64-<version>-setup.exe` |
+| macOS Intel         | `inkiva-mac-x64-<version>.dmg`       |
+| macOS Apple Silicon | `inkiva-mac-arm64-<version>.dmg`     |
 
-Inkiva 目前仍在积极开发中，发布名称和支持的平台可能会随着打包流程演进而调整。
+Inkiva 目前仍在积极开发中；当前正式发布目标明确为 Windows x64、macOS Intel 和 macOS Apple Silicon。
 
 ## 从源码构建
 

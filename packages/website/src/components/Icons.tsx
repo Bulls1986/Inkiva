@@ -3,13 +3,29 @@ import type { SVGProps } from 'react'
 type IconProps = SVGProps<SVGSVGElement>
 
 export const MoonIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
   </svg>
 )
 
 export const SunIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <circle cx="12" cy="12" r="4" />
     <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
   </svg>
@@ -36,38 +52,85 @@ export const DownloadIcon = (props: IconProps) => (
 )
 
 export const CheckIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <path d="M20 6L9 17l-5-5" />
   </svg>
 )
 
 export const SearchIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    {...props}
+  >
     <circle cx="11" cy="11" r="7" />
     <path d="m21 21-4.3-4.3" />
   </svg>
 )
 
 export const MenuIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <path d="M4 6h16M4 12h16M4 18h10" />
   </svg>
 )
 
 export const BoltIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <path d="M13 2L3 14h9l-1 8 10-12h-9z" />
   </svg>
 )
 
 export const LinesIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <path d="M3 12h18M3 6h18M3 18h12" />
   </svg>
 )
 
 export const GridSmallIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <rect x="3" y="3" width="7" height="7" rx="1" />
     <rect x="14" y="3" width="7" height="7" rx="1" />
     <rect x="3" y="14" width="7" height="7" rx="1" />
@@ -75,21 +138,45 @@ export const GridSmallIcon = (props: IconProps) => (
 )
 
 export const TableIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <rect x="3" y="3" width="18" height="18" rx="2" />
     <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
   </svg>
 )
 
 export const MathIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <path d="M4 19V5a2 2 0 0 1 2-2h2M20 5v14a2 2 0 0 1-2 2h-2M8 21H6M16 3h2" />
     <path d="M9 12h6M12 9v6" />
   </svg>
 )
 
 export const DiagramIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <rect x="3" y="3" width="6" height="6" rx="1" />
     <rect x="15" y="15" width="6" height="6" rx="1" />
     <path d="M9 6h6a2 2 0 0 1 2 2v7" />
@@ -97,7 +184,15 @@ export const DiagramIcon = (props: IconProps) => (
 )
 
 export const FootnoteIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <path d="m10 13-1 6 4-3 4 3-1-6" />
     <path d="M16 8a4 4 0 1 1-8 0" />
     <path d="M8 8V5a4 4 0 0 1 8 0v3" />
@@ -105,27 +200,59 @@ export const FootnoteIcon = (props: IconProps) => (
 )
 
 export const CodeIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <polyline points="16 18 22 12 16 6" />
     <polyline points="8 6 2 12 8 18" />
   </svg>
 )
 
 export const FrontmatterIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <path d="M4 4h16v4H4zM4 12h10M4 16h10M4 20h6" />
   </svg>
 )
 
 export const TargetIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <circle cx="12" cy="12" r="3" />
     <circle cx="12" cy="12" r="9" />
   </svg>
 )
 
 export const ExportIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
     <path d="M14 2v6h6M12 18v-6M9 15l3 3 3-3" />
   </svg>
@@ -146,11 +273,5 @@ export const MacIcon = (props: IconProps) => (
 export const WindowsIcon = (props: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
     <path d="M3 5.1 10.4 4v7.3H3zM11.3 3.9 21 2.5v8.8h-9.7zM3 12.7h7.4V20L3 18.9zM11.3 12.7H21v8.8l-9.7-1.4z" />
-  </svg>
-)
-
-export const LinuxIcon = (props: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-    <path d="M12 2c-1.6 0-2.5 1.4-2.5 3 0 .8.2 1.4.2 2.1-.5.6-1.4 1.6-2 3.2-.6 1.5-.8 3.5-1.6 4.6-.6.8-1.4 1.3-1.4 2.1 0 .6.4 1 1 1.2-.1.5 0 1 .4 1.4.5.5 1.4.6 2.4.5.9.6 2 1 3.5 1s2.6-.4 3.5-1c1 .1 1.9 0 2.4-.5.4-.4.5-.9.4-1.4.6-.2 1-.6 1-1.2 0-.8-.8-1.3-1.4-2.1-.8-1.1-1-3.1-1.6-4.6-.6-1.6-1.5-2.6-2-3.2 0-.7.2-1.3.2-2.1 0-1.6-.9-3-2.5-3z" />
   </svg>
 )

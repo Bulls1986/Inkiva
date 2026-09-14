@@ -7,12 +7,12 @@
 <h1 align="center">Inkiva</h1>
 
 <p align="center">
-  <strong>Inkiva — A free, open-source WYSIWYG Markdown editor.</strong><br>
-  Write in Markdown without leaving the document you are creating.
+  <strong>Inkiva — A free, open-source, document-first Markdown editor.</strong><br>
+  Write in Markdown while the document stays visible.
 </p>
 
 <p align="center">
-  <sub>Available for Windows and macOS. Linux support remains available in the upstream project and can be enabled as the Inkiva packaging matures.</sub>
+  <sub>Available for Windows x64 and macOS Intel or Apple Silicon.</sub>
 </p>
 
 <p align="center">
@@ -23,12 +23,15 @@
 
 ## What is Inkiva?
 
-Inkiva is a desktop Markdown editor built around a calm, WYSIWYG writing experience. The rendered document stays in view while you write, so headings, emphasis, links, lists, tables and code blocks are easier to compose and review.
+Inkiva is a desktop Markdown editor built around a calm, document-first writing experience. The rendered document stays in view while you write, so headings, emphasis, links, lists, tables and code blocks are easier to compose and review. When comparison helps, an optional second pane keeps another document close without changing the files themselves.
 
 Inkiva is designed for people who want the portability of Markdown with the immediacy of a visual editor:
 
 - Realtime WYSIWYG Markdown editing.
 - CommonMark and GitHub Flavored Markdown support.
+- Recent documents, Quick Open, tabs, outlines, find/replace and folder search.
+- Standard relative Markdown links with backlinks and explicit rename/move repair choices.
+- Local history snapshots, autosave, recovery protection and updater checks.
 - Math expressions with KaTeX.
 - Mermaid, PlantUML, flowchart and Vega-Lite diagrams.
 - Focus mode, typewriter mode and source-code mode.
@@ -41,13 +44,13 @@ Inkiva is designed for people who want the portability of Markdown with the imme
 
 Download the latest builds from [GitHub Releases](https://github.com/Bulls1986/Inkiva/releases).
 
-| Platform | Package |
-| --- | --- |
-| Windows x64 | `inkiva-win-x64-<version>-setup.exe` |
-| macOS Intel | `inkiva-mac-x64-<version>.dmg` |
-| macOS Apple Silicon | `inkiva-mac-arm64-<version>.dmg` |
+| Platform            | Package                              |
+| ------------------- | ------------------------------------ |
+| Windows x64         | `inkiva-win-x64-<version>-setup.exe` |
+| macOS Intel         | `inkiva-mac-x64-<version>.dmg`       |
+| macOS Apple Silicon | `inkiva-mac-arm64-<version>.dmg`     |
 
-Inkiva is currently in active development. Release names and supported platforms may change as the packaging workflow evolves.
+Inkiva is currently in active development. The supported release targets are intentionally limited to Windows x64 and macOS Intel/Apple Silicon while packaging and updater contracts mature.
 
 ## Build from source
 
@@ -88,4 +91,3 @@ The original MarkText copyright, source attribution and required license notice 
 ## License
 
 Inkiva project-level work is distributed under the [GNU General Public License v3.0](LICENSE). MarkText copyright, source attribution and required license notices are retained in [NOTICE.md](NOTICE.md); retaining them does not make MIT the project-level license of Inkiva. Third-party package notices are listed in [`packages/desktop/build/THIRD-PARTY-LICENSES.txt`](packages/desktop/build/THIRD-PARTY-LICENSES.txt).
-

@@ -1,6 +1,8 @@
 # User Documentation
 
-Welcome to the end-user documentation of Inkiva.
+Welcome to the end-user documentation of Inkiva, a document-first Markdown editor for Windows x64 and macOS Intel/Apple Silicon.
+
+Inkiva works with ordinary CommonMark/GFM files and folders. Navigation, backlinks, local history, and recovery are assistance around the document — not a separate workspace format.
 
 ![](assets/inkiva-interface-2.png)
 
@@ -20,7 +22,7 @@ Welcome to the end-user documentation of Inkiva.
 - [Export a document](end-user/EXPORT.md)
 - [Image handling](end-user/IMAGES.md)
 - [Image uploader configuration](end-user/IMAGE_UPLOADER_CONFIGRATION.md)
-- [Installation instructions](../README.md#download-and-installation)
+- [Installation instructions](end-user/INSTALLATION.md)
 - [Key bindings](end-user/KEYBINDINGS.md)
 - [Portable mode](end-user/PORTABLE.md)
 - [Preferences](end-user/PREFERENCES.md)
