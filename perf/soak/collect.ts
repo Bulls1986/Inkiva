@@ -184,7 +184,14 @@ export const collectSoakReport = (suite: SoakSuite, inputPath: string): SoakRepo
   }
 
   const metrics: SoakMetric[] = [...samples.entries()]
-    .map(([name, sample]) => ({ name, unit: sample.unit, value: median(sample.values) }))
+    .map(([name, sample]) => ({
+      name,
+      unit: sample.unit,
+      value:
+        sample.unit === 'count'
+          ? sample.values.reduce((maximum, value) => Math.max(maximum, value), 0)
+          : median(sample.values)
+    }))
     .sort((left, right) => left.name.localeCompare(right.name))
   if (metrics.length === 0) {
     throw new Error('no performance metrics collected from ' + inputPath)

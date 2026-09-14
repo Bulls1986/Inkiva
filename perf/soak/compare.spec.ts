@@ -17,12 +17,29 @@ const thresholdsDocument = JSON.parse(
 ) as unknown
 const thresholds = validateThresholdConfig(thresholdsDocument)
 
-const report = (value: number, name = 'desktop.perf-04.large.open'): SoakReport => ({
+const soakPolicyMetrics = [
+  { name: 'soak.durationMs', unit: 'ms' as const, value: 28_800_000 },
+  { name: 'stability.crash', unit: 'count' as const, value: 0 },
+  { name: 'stability.rendererCrash', unit: 'count' as const, value: 0 },
+  { name: 'stability.oom', unit: 'count' as const, value: 0 },
+  { name: 'memory.heapLinearGrowth', unit: 'count' as const, value: 0 },
+  { name: 'stability.cpuRunaway', unit: 'count' as const, value: 0 },
+  { name: 'stability.rendererHang', unit: 'count' as const, value: 0 }
+] as const
+
+const report = (
+  value: number,
+  name = 'desktop.perf-04.large.open',
+  includeAbsolute = true
+): SoakReport => ({
   schemaVersion: SOAK_SCHEMA_VERSION,
   suite: 'desktop',
   generatedAt: '2026-09-14T00:00:00.000Z',
   commit: 'commit-test',
-  metrics: [{ name, unit: 'ms', value }]
+  metrics: [
+    { name, unit: 'ms', value },
+    ...(includeAbsolute ? soakPolicyMetrics : [])
+  ]
 })
 
 test('keeps the machine-readable schema and blocking policy auditable', () => {
@@ -33,7 +50,19 @@ test('keeps the machine-readable schema and blocking policy auditable', () => {
   assert.equal((properties.metrics.items as Record<string, unknown>).additionalProperties, false)
   assert.equal(thresholds.maxRelativeRegression, 0.1)
   assert.equal(thresholds.regressionPolicy, 'blocking')
-  assert.deepEqual(thresholds.absoluteGates, [])
+  assert.equal(thresholds.absoluteGates.length, 7)
+  assert.deepEqual(
+    thresholds.absoluteGates.map((gate) => gate.name),
+    [
+      'soak.durationMs',
+      'stability.crash',
+      'stability.rendererCrash',
+      'stability.oom',
+      'memory.heapLinearGrowth',
+      'stability.cpuRunaway',
+      'stability.rendererHang'
+    ]
+  )
 })
 
 test('rejects malformed reports instead of silently comparing them', () => {
@@ -75,14 +104,15 @@ test('fails closed when the baseline is unavailable', () => {
   assert.equal(comparison.status, 'baseline-unavailable')
   assert.equal(comparison.passed, false)
   assert.equal(comparison.failures.length, 0)
+  assert.equal(comparison.absoluteFailures.length, 0)
   assert.deepEqual(comparison.skippedMetrics, [
     { name: 'desktop.perf-04.large.open', reason: 'baseline-missing' }
   ])
 })
 
 test('fails closed when no metrics can be compared', () => {
-  const current = report(100, 'desktop.current')
-  const baseline = report(100, 'desktop.baseline')
+  const current = report(100, 'desktop.current', false)
+  const baseline = report(100, 'desktop.baseline', false)
   const comparison = compareSoakReports(current, baseline, thresholds)
   assert.equal(comparison.status, 'no-comparable-metrics')
   assert.equal(comparison.passed, false)
