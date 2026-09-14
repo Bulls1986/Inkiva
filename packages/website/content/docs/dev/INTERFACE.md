@@ -14,7 +14,7 @@ The titlebar is located at the top of the window and shows the current opened fi
 
 ### Sidebar
 
-The sidebar is an optional feature of Inkiva that contains three panels and has a variable width. The first panel is a tree view of the opened root directory; it also hosts a collapsible *Opened Files* subsection (toggle via the `openedFilesInSidebar` preference). The latter two panels are a folder searcher (find in files) that is powered by ripgrep and a table of contents of the currently opened document.
+The sidebar is an optional feature of Inkiva that contains four panels and has a variable width. The first panel is a tree view of the opened root directory; it also hosts a collapsible *Opened Files* subsection (toggle via the `openedFilesInSidebar` preference). The other panels are a folder searcher (find in files) powered by ripgrep, a table of contents of the currently opened document, and Document Info with backlinks and Local History for that document.
 
 ### Editor
 

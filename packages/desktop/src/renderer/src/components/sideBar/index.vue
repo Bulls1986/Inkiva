@@ -52,6 +52,7 @@
       />
       <side-bar-search v-else-if="rightColumn === 'search'" />
       <toc v-else-if="rightColumn === 'toc'" />
+      <document-intelligence v-else-if="rightColumn === 'document-intelligence'" />
     </div>
     <div
       v-show="rightColumn"
@@ -71,6 +72,7 @@ import { sideBarIcons, sideBarBottomIcons } from './help'
 import Tree from './tree.vue'
 import SideBarSearch from './search.vue'
 import Toc from './toc.vue'
+import DocumentIntelligence from './documentIntelligence.vue'
 import { storeToRefs } from 'pinia'
 import type { TabDescriptor } from './types'
 

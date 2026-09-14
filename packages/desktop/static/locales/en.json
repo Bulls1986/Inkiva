@@ -220,10 +220,44 @@
       "noMatches": "No headings match your search.",
       "empty": "No headings in this document"
     },
+    "documentIntelligence": {
+      "title": "Document Info",
+      "refresh": "Refresh document info",
+      "noDocument": "Open a saved Markdown file to view document info.",
+      "loading": "Loading document info…",
+      "backlinks": "Backlinks",
+      "noBacklinks": "No backlinks from open documents.",
+      "line": "Line {line}",
+      "localHistory": "Local History",
+      "noHistory": "No local history yet.",
+      "saveBeforeRestore": "Save current changes before restoring history.",
+      "restore": "Restore",
+      "restoring": "Restoring…",
+      "restoreEntry": "Restore snapshot from {date}",
+      "bytes": "{count} B",
+      "kilobytes": "{count} KB",
+      "historyReasons": {
+        "manual": "Manual",
+        "before-save": "Saved",
+        "before-external-change": "External change",
+        "autosave": "Editing",
+        "close": "Closed",
+        "import": "Imported",
+        "unknown": "Snapshot"
+      },
+      "errors": {
+        "load": "Document info could not be loaded.",
+        "sync": "Document info could not be updated.",
+        "restore": "This snapshot could not be restored.",
+        "restore-unsaved": "Save current changes before restoring history.",
+        "restore-stale": "The file changed before the restore completed. Nothing was overwritten."
+      }
+    },
     "icons": {
       "files": "Files",
       "search": "Search",
       "toc": "Table of Contents",
+      "documentIntelligence": "Backlinks and Local History",
       "settings": "Settings"
     }
   },
