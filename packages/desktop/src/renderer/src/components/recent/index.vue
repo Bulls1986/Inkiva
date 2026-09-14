@@ -23,6 +23,89 @@
         <p>{{ t('recent.welcomeDescription') }}</p>
       </div>
 
+      <section
+        class="recent-documents-panel"
+        data-testid="recent-documents-list"
+        :aria-label="t('recent.documents')"
+      >
+        <div class="recent-documents-header">
+          <h2>{{ t('recent.documents') }}</h2>
+          <button
+            type="button"
+            class="recent-clear"
+            data-testid="recent-clear"
+            :disabled="recentItems.length === 0"
+            @click="clearRecent"
+          >
+            {{ t('recent.clear') }}
+          </button>
+        </div>
+
+        <p
+          v-if="recentItems.length === 0"
+          class="recent-empty"
+          data-testid="recent-empty"
+        >
+          {{ t('recent.empty') }}
+        </p>
+        <ul
+          v-else
+          class="recent-document-items"
+          data-testid="recent-document-items"
+        >
+          <li
+            v-for="item of recentItems"
+            :key="item.pathname"
+            class="recent-document-item"
+            data-testid="recent-document-item"
+            :data-path="item.pathname"
+            :data-kind="item.kind"
+            :data-pinned="item.pinned"
+          >
+            <button
+              type="button"
+              class="recent-document-open"
+              data-testid="recent-open"
+              :aria-label="t('recent.open') + ' ' + displayName(item.pathname)"
+              @click="openRecent(item)"
+            >
+              <el-icon :size="16" aria-hidden="true">
+                <FolderOpened v-if="item.kind === 'folder'" />
+                <Document v-else />
+              </el-icon>
+              <span class="recent-document-copy">
+                <strong>{{ displayName(item.pathname) }}</strong>
+                <small>{{ item.pathname }}</small>
+              </span>
+            </button>
+            <div class="recent-document-actions">
+              <button
+                type="button"
+                class="recent-document-action"
+                data-testid="recent-pin"
+                :aria-label="t(item.pinned ? 'recent.unpin' : 'recent.pin')"
+                @click.stop="recentStore.TOGGLE_PIN(item.pathname)"
+              >
+                <el-icon :size="14" aria-hidden="true">
+                  <Paperclip />
+                </el-icon>
+              </button>
+              <button
+                type="button"
+                class="recent-document-action"
+                data-testid="recent-remove"
+                :aria-label="t('recent.remove')"
+                @click.stop="recentStore.REMOVE(item.pathname)"
+              >
+                <el-icon :size="14" aria-hidden="true">
+                  <Close />
+                </el-icon>
+              </button>
+            </div>
+          </li>
+        </ul>
+      </section>
+
       <div
         class="welcome-actions"
         :aria-label="t('recent.actions')"
@@ -62,7 +145,7 @@
         class="welcome-quick-open"
         data-testid="welcome-quick-open"
         type="button"
-        aria-keyshortcuts="Control+P"
+        :aria-keyshortcuts="quickOpenKey"
         @click="quickOpen"
       >
         <span>{{ t('recent.quickOpen', { shortcut: quickOpenShortcut }) }}</span>
@@ -73,17 +156,22 @@
 
 <script setup lang="ts">
 import { useEditorStore } from '@/store/editor'
+import { useRecentDocumentsStore, type RecentDocument } from '@/store/recentDocuments'
+import { storeToRefs } from 'pinia'
 import { isOsx } from '@/util'
-import { DocumentAdd, FolderOpened } from '@element-plus/icons-vue'
+import { Close, Document, DocumentAdd, FolderOpened, Paperclip } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import bus from '../../bus'
 
 const editorStore = useEditorStore()
+const recentStore = useRecentDocumentsStore()
 const { t } = useI18n()
+const { items: recentItems } = storeToRefs(recentStore)
 
 const openFileShortcut = isOsx ? '⌘O' : 'Ctrl+O'
 const openFileKey = isOsx ? 'Meta+O' : 'Control+O'
-const quickOpenShortcut = 'Ctrl+P'
+const quickOpenShortcut = isOsx ? '⌘P' : 'Ctrl+P'
+const quickOpenKey = isOsx ? 'Meta+P' : 'Control+P'
 
 const newFile = () => {
   editorStore.NEW_UNTITLED_TAB({})
@@ -91,6 +179,24 @@ const newFile = () => {
 
 const openFile = (): void => {
   window.electron.ipcRenderer.send('mt::cmd-open-file')
+}
+
+const displayName = (pathname: string): string => {
+  return window.path.basename(pathname) || pathname
+}
+
+const openRecent = (item: RecentDocument): void => {
+  const windowId = window.inkiva?.env?.windowId
+  if (typeof windowId !== 'number') return
+  if (item.kind === 'folder') {
+    window.electron.ipcRenderer.send('app-open-directory-by-id', windowId, item.pathname)
+  } else {
+    window.electron.ipcRenderer.send('app-open-file-by-id', windowId, item.pathname)
+  }
+}
+
+const clearRecent = (): void => {
+  recentStore.CLEAR()
 }
 
 const quickOpen = (): void => {
@@ -161,6 +267,150 @@ const quickOpen = (): void => {
   color: var(--text-tertiary);
   font-size: var(--font-ui-md);
   line-height: 1.5;
+}
+
+.recent-documents-panel {
+  width: min(100%, 460px);
+  box-sizing: border-box;
+  margin-top: var(--space-6);
+  padding: var(--space-3);
+  text-align: left;
+  background: var(--surface-chrome);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.recent-documents-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.recent-documents-header h2 {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-ui-md);
+  font-weight: var(--font-weight-medium);
+}
+
+.recent-clear,
+.recent-document-action {
+  appearance: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.recent-clear {
+  padding: 4px 6px;
+  font-size: var(--font-size-shortcut);
+}
+
+.recent-clear:hover:not(:disabled),
+.recent-clear:focus-visible,
+.recent-document-action:hover,
+.recent-document-action:focus-visible {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.recent-clear:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.recent-empty {
+  margin: var(--space-3) 0 var(--space-1);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-shortcut);
+}
+
+.recent-document-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 240px;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.recent-document-item {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border-radius: var(--radius-sm);
+}
+
+.recent-document-item[data-pinned='true'] {
+  background: var(--surface-selected);
+}
+
+.recent-document-open {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: var(--space-2);
+  padding: 7px 6px;
+  border: 0;
+  color: var(--text-primary);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.recent-document-open:hover,
+.recent-document-open:focus-visible {
+  outline: none;
+  background: var(--surface-hover);
+}
+
+.recent-document-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.recent-document-copy strong,
+.recent-document-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-document-copy strong {
+  color: var(--text-secondary);
+  font-size: var(--font-size-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.recent-document-copy small {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-shortcut);
+}
+
+.recent-document-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding-right: 4px;
+}
+
+.recent-document-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--hit-target-sm);
+  height: var(--hit-target-sm);
 }
 
 .welcome-actions {

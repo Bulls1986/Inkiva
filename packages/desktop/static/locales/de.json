@@ -169,8 +169,13 @@
     "tabs": {
       "close": "Schließen",
       "closeOthers": "Andere schließen",
+      "closeRight": "Rechts schließen",
       "closeSavedTabs": "Gespeicherte Tabs schließen",
       "closeAllTabs": "Alle Tabs schließen",
+      "reopenClosed": "Geschlossenen Tab erneut öffnen",
+      "pin": "Anheften",
+      "unpin": "Lösen",
+      "pinned": "Angeheftet",
       "rename": "Umbenennen",
       "copyPath": "Pfad kopieren",
       "showInFolder": "Im Ordner anzeigen"
@@ -324,7 +329,14 @@
     "welcomeDescription": "Erstellen Sie ein neues Dokument oder öffnen Sie eine vorhandene Datei.",
     "actions": "Dokumentaktionen",
     "openFile": "Datei öffnen",
-    "quickOpen": "Drücken Sie {shortcut}, um schnell eine Datei zu öffnen"
+    "quickOpen": "Drücken Sie {shortcut}, um schnell eine Datei zu öffnen",
+    "documents": "Zuletzt verwendete Dokumente",
+    "empty": "Keine zuletzt verwendeten Dokumente.",
+    "open": "Öffnen",
+    "pin": "Anheften",
+    "unpin": "Lösen",
+    "remove": "Entfernen",
+    "clear": "Leeren"
   },
   "import": {
     "title": "Importieren oder öffnen",

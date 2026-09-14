@@ -169,8 +169,13 @@
     "tabs": {
       "close": "閉じる",
       "closeOthers": "他を閉じる",
+      "closeRight": "右側を閉じる",
       "closeSavedTabs": "保存済みタブを閉じる",
       "closeAllTabs": "すべてのタブを閉じる",
+      "reopenClosed": "閉じたタブを再び開く",
+      "pin": "ピン留め",
+      "unpin": "ピン留めを解除",
+      "pinned": "ピン留め済み",
       "rename": "名前を変更",
       "copyPath": "パスをコピー",
       "showInFolder": "フォルダで表示"
@@ -324,7 +329,14 @@
     "welcomeDescription": "新しいドキュメントを作成するか、既存のファイルを開きます。",
     "actions": "ドキュメント操作",
     "openFile": "ファイルを開く",
-    "quickOpen": "{shortcut} でファイルをすばやく開く"
+    "quickOpen": "{shortcut} でファイルをすばやく開く",
+    "documents": "最近使ったドキュメント",
+    "empty": "最近使ったドキュメントはありません。",
+    "open": "開く",
+    "pin": "ピン留め",
+    "unpin": "ピン留めを解除",
+    "remove": "削除",
+    "clear": "クリア"
   },
   "import": {
     "title": "インポートまたは開く",

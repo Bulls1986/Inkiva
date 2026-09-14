@@ -18,11 +18,13 @@ import {
 import { defineStore } from 'pinia'
 import { usePreferencesStore } from './preferences'
 import { useProjectStore } from './project'
+import { useRecentDocumentsStore } from './recentDocuments'
 import { DEFAULT_RIGHT_COLUMN, useLayoutStore } from './layout'
 import { useMainStore } from '.'
 import { t } from '../i18n'
 import { debouncedSendBufferedState, sendBufferedState } from './bufferedState'
 import { AutosaveQueue, type AutosaveRequest } from './autosaveQueue'
+import { getTabIdsToCloseRight, pushClosedTab } from './tabsWorkflow'
 import type {
   IFileState,
   FileNotification,
@@ -150,9 +152,39 @@ export interface EditorState {
   currentFile: IFileState | null
   tabs: IFileState[]
   tabIdToIndex: Record<string, number>
+  pinnedTabIds: string[]
+  closedTabs: ClosedTabState[]
   listToc: TocItem[]
   toc: TocTreeNode[]
   activeTocSlug: string | null
+}
+
+export type ClosedTabState = Pick<
+  IFileState,
+  | 'id'
+  | 'filename'
+  | 'pathname'
+  | 'markdown'
+  | 'isSaved'
+  | 'encoding'
+  | 'lineEnding'
+  | 'adjustLineEndingOnSave'
+  | 'trimTrailingNewline'
+  | 'cursor'
+  | 'scrollTop'
+> & {
+  pinned: boolean
+}
+
+const MAX_CLOSED_TABS = 10
+
+const cloneEditorValue = <T>(value: T): T => {
+  if (value == null) return value
+  try {
+    return deepClone(value)
+  } catch {
+    return value
+  }
 }
 
 const documentRevisions = new Map<string, number>()
@@ -184,6 +216,8 @@ export const useEditorStore = defineStore('editor', {
     currentFile: null,
     tabs: [],
     tabIdToIndex: {},
+    pinnedTabIds: [],
+    closedTabs: [],
     listToc: [], // Used for equal check and for searching for the correct github-slug to jump to
     toc: [],
     activeTocSlug: null
@@ -195,6 +229,24 @@ export const useEditorStore = defineStore('editor', {
         map[tab.id] = index
         return map
       }, {})
+    },
+
+    _recordClosedTab(file: IFileState): void {
+      const closedTab: ClosedTabState = {
+        id: file.id,
+        filename: file.filename,
+        pathname: file.pathname,
+        markdown: file.markdown,
+        isSaved: file.isSaved,
+        encoding: cloneEditorValue(file.encoding),
+        lineEnding: file.lineEnding,
+        adjustLineEndingOnSave: file.adjustLineEndingOnSave,
+        trimTrailingNewline: file.trimTrailingNewline,
+        cursor: cloneEditorValue(file.cursor),
+        scrollTop: file.scrollTop,
+        pinned: this.pinnedTabIds.includes(file.id)
+      }
+      this.closedTabs = pushClosedTab(this.closedTabs, closedTab, MAX_CLOSED_TABS)
     },
 
     CREATE_BUFFERED_STATE(): ReturnType<typeof createBufferedEditorState> {
@@ -231,6 +283,12 @@ export const useEditorStore = defineStore('editor', {
         s.tabs = tabs
         s.currentFile = currentFile
         s.tabIdToIndex = {}
+        s.pinnedTabIds = bufferedEditorState.pinnedPathnames.reduce<string[]>((ids, pathname) => {
+          const tab = tabs.find((candidate) => window.fileUtils.isSamePathSync(candidate.pathname, pathname))
+          if (tab) ids.push(tab.id)
+          return ids
+        }, [])
+        s.closedTabs = []
         s.listToc = []
         s.toc = []
         s.activeTocSlug = null
@@ -239,6 +297,10 @@ export const useEditorStore = defineStore('editor', {
       this.updateTabIdToIndex()
       window.DIRNAME = currentFile?.pathname ? window.path.dirname(currentFile.pathname) : ''
       this.UPDATE_LINE_ENDING_MENU()
+      const recentDocumentsStore = useRecentDocumentsStore()
+      tabs.forEach((tab) => {
+        if (tab.pathname) recentDocumentsStore.RECORD_FILE(tab.pathname)
+      })
 
       for (const warning of bufferedEditorState.restoreWarnings) {
         const restoredTabId = warning.tabId ? oldIdToNewId[warning.tabId] : null
@@ -650,6 +712,7 @@ export const useEditorStore = defineStore('editor', {
         }
         if (tab) {
           Object.assign(tab, { filename, pathname, isSaved: true })
+          if (pathname) useRecentDocumentsStore().RECORD_FILE(pathname)
           debouncedSendBufferedState()
         }
       })
@@ -1070,7 +1133,10 @@ export const useEditorStore = defineStore('editor', {
       }
       const index = tabs.findIndex((t) => t.id === file.id)
       if (index > -1) {
+        const closedTab = tabs[index]
+        if (closedTab) this._recordClosedTab(closedTab)
         tabs.splice(index, 1)
+        this.pinnedTabIds = this.pinnedTabIds.filter((id) => id !== file.id)
         this.updateTabIdToIndex()
       }
 
@@ -1125,6 +1191,71 @@ export const useEditorStore = defineStore('editor', {
       ])
     },
 
+    CLOSE_RIGHT_TABS(file: IFileState | null = null): void {
+      const target = file ?? this.currentFile
+      if (!target) return
+
+      const rightTabIds = getTabIdsToCloseRight(this.tabs, target.id)
+      rightTabIds.forEach((id) => {
+        const tab = this.tabs.find((candidate) => candidate.id === id)
+        if (tab) this.CLOSE_TAB(tab)
+      })
+    },
+
+    TOGGLE_TAB_PIN(file: IFileState | null = null): void {
+      const target = file ?? this.currentFile
+      if (!target) return
+
+      const isPinned = this.pinnedTabIds.includes(target.id)
+      if (isPinned) {
+        this.pinnedTabIds = this.pinnedTabIds.filter((id) => id !== target.id)
+      } else {
+        this.pinnedTabIds = [...this.pinnedTabIds, target.id]
+      }
+      this.NORMALIZE_PINNED_TABS()
+      debouncedSendBufferedState()
+    },
+
+    NORMALIZE_PINNED_TABS(): void {
+      if (this.tabs.length < 2) return
+      const pinned = this.tabs.filter((tab) => this.pinnedTabIds.includes(tab.id))
+      const unpinned = this.tabs.filter((tab) => !this.pinnedTabIds.includes(tab.id))
+      const changed = pinned.some((tab, index) => this.tabs[index]?.id !== tab.id)
+      if (!changed) return
+      this.tabs = pinned.concat(unpinned)
+      this.updateTabIdToIndex()
+    },
+
+    REOPEN_CLOSED_TAB(): void {
+      while (this.closedTabs.length > 0) {
+        const closedTab = this.closedTabs.shift()
+        if (!closedTab) return
+
+        if (
+          closedTab.pathname &&
+          this.tabs.some((tab) => window.fileUtils.isSamePathSync(tab.pathname, closedTab.pathname))
+        ) {
+          continue
+        }
+
+        this.SHOW_TAB_VIEW(false)
+        const restored = createDocumentState(closedTab as unknown as Record<string, unknown>)
+        this.UPDATE_CURRENT_FILE(restored)
+        if (closedTab.pinned) {
+          this.pinnedTabIds = [...this.pinnedTabIds, restored.id]
+          this.NORMALIZE_PINNED_TABS()
+        }
+        if (restored.pathname) useRecentDocumentsStore().RECORD_FILE(restored.pathname)
+        bus.emit('file-loaded', {
+          id: restored.id,
+          markdown: restored.markdown,
+          cursor: restored.cursor,
+          contentAlreadyLoaded: true
+        })
+        return
+      }
+    },
+
     CLOSE_OTHER_TABS(file: IFileState): void {
       this.tabs
         .filter((f) => f.id !== file.id)
@@ -1165,11 +1296,14 @@ export const useEditorStore = defineStore('editor', {
         const closed = this.tabs[index]
         const { pathname } = closed ?? { pathname: '' }
 
+        if (closed) this._recordClosedTab(closed)
+
         if (pathname) {
           window.electron.ipcRenderer.send('mt::window-tab-closed', pathname)
         }
 
         this.tabs.splice(index, 1)
+        this.pinnedTabIds = this.pinnedTabIds.filter((tabId) => tabId !== id)
         if (this.currentFile?.id === id) {
           this.currentFile = null
           window.DIRNAME = ''
@@ -1232,6 +1366,7 @@ export const useEditorStore = defineStore('editor', {
         const realToIndex = fromIndex < toIndex ? toIndex - 1 : toIndex
         moveItem(tabs, fromIndex, realToIndex)
       }
+      this.NORMALIZE_PINNED_TABS()
       this.updateTabIdToIndex()
       debouncedSendBufferedState()
     },
@@ -1374,6 +1509,7 @@ export const useEditorStore = defineStore('editor', {
 
       const { currentFile, tabs } = this
       const { pathname } = markdownDocument
+      if (pathname) useRecentDocumentsStore().RECORD_FILE(pathname)
       const existingTab = tabs.find((t) =>
         window.fileUtils.isSamePathSync(t.pathname, pathname ?? '')
       )
@@ -2190,6 +2326,7 @@ const createBufferedRestoreWarning = (
 interface BufferedEditorState {
   currentFileId: string | null
   tabs: BufferedTabState[]
+  pinnedPathnames: string[]
   restoreWarnings: BufferedRestoreWarning[]
 }
 
@@ -2199,6 +2336,8 @@ const createBufferedEditorState = (state: unknown): BufferedEditorState | null =
       tabs?: unknown
       currentFileId?: string
       currentFile?: { id?: string } | null
+      pinnedPathnames?: unknown
+      pinnedTabIds?: unknown
       restoreWarnings?: unknown
     }
     | null
@@ -2207,9 +2346,19 @@ const createBufferedEditorState = (state: unknown): BufferedEditorState | null =
     return null
   }
 
+  const tabs = s.tabs as Array<{ id?: unknown; pathname?: unknown }>
+  const pinnedPathnames = Array.isArray(s.pinnedPathnames)
+    ? s.pinnedPathnames.filter((pathname): pathname is string => typeof pathname === 'string')
+    : Array.isArray(s.pinnedTabIds)
+      ? s.pinnedTabIds
+        .map((id) => tabs.find((tab) => tab.id === id)?.pathname)
+        .filter((pathname): pathname is string => typeof pathname === 'string' && pathname.length > 0)
+      : []
+
   return {
     currentFileId: s.currentFileId || s.currentFile?.id || null,
     tabs: (s.tabs as Array<Partial<IFileState> & { id: string }>).map(createBufferedTabState),
+    pinnedPathnames,
     restoreWarnings: Array.isArray(s.restoreWarnings)
       ? (s.restoreWarnings as RestoreWarning[])
         .map(createBufferedRestoreWarning)

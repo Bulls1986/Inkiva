@@ -26,6 +26,31 @@ export const getCloseOthers = () => ({
   }
 })
 
+export const getCloseRight = () => ({
+  label: t('contextMenu.tabs.closeRight'),
+  id: 'closeRightTabs',
+  click(menuItem: TabMenuItem, _browserWindow?: unknown) {
+    contextMenu.closeRight(menuItem._tabId)
+  }
+})
+
+export const getTogglePin = (pinned = false) => ({
+  label: t(pinned ? 'contextMenu.tabs.unpin' : 'contextMenu.tabs.pin'),
+  id: pinned ? 'unpinTab' : 'pinTab',
+  click(menuItem: TabMenuItem, _browserWindow?: unknown) {
+    contextMenu.togglePin(menuItem._tabId)
+  }
+})
+
+export const getReopenClosed = (enabled = false) => ({
+  label: t('contextMenu.tabs.reopenClosed'),
+  id: 'reopenClosedTab',
+  click(_menuItem: TabMenuItem, _browserWindow?: unknown) {
+    contextMenu.reopenClosed()
+  },
+  enabled
+})
+
 export const getCloseSaved = () => ({
   label: t('contextMenu.tabs.closeSavedTabs'),
   id: 'closeSavedTabs',
@@ -70,6 +95,7 @@ export const getShowInFolder = () => ({
 // Retained for backward compatibility
 export const CLOSE_THIS = getCloseThis()
 export const CLOSE_OTHERS = getCloseOthers()
+export const CLOSE_RIGHT = getCloseRight()
 export const CLOSE_SAVED = getCloseSaved()
 export const CLOSE_ALL = getCloseAll()
 export const RENAME = getRENAME()

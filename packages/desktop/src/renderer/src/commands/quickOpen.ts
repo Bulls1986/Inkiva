@@ -8,6 +8,7 @@ import {
   type CancellableSearchPromise
 } from '@/node/workspaceSearch'
 import type { EditorState } from '@/store/editor'
+import { useRecentDocumentsStore } from '@/store/recentDocuments'
 import getCommandDescriptionById from './descriptions'
 import { t } from '../i18n'
 
@@ -18,6 +19,56 @@ interface QuickOpenSubcommand {
   id: string
   description?: string
   title?: string
+}
+
+const MARKDOWN_EXTENSIONS = new Set([
+  'markdown',
+  'mdown',
+  'mkdn',
+  'md',
+  'mkd',
+  'mdwn',
+  'mdtxt',
+  'mdtext',
+  'mdx',
+  'text',
+  'txt'
+])
+
+export const isMarkdownQuickOpenPath = (pathname: string): boolean => {
+  try {
+    const matcher = window.fileUtils?.hasMarkdownExtension
+    if (typeof matcher === 'function') return matcher(pathname)
+  } catch {
+    // Fall back to the renderer's stable extension list in unit tests.
+  }
+  const extension = pathname.toLowerCase().split('.').pop()
+  return !!extension && MARKDOWN_EXTENSIONS.has(extension)
+}
+
+const sameQuickOpenPath = (a: string, b: string): boolean => {
+  try {
+    const matcher = window.fileUtils?.isSamePathSync
+    if (typeof matcher === 'function') return matcher(a, b)
+  } catch {
+    // Use a platform-neutral fallback when the preload bridge is unavailable.
+  }
+  return a.replaceAll('\\', '/').toLowerCase() === b.replaceAll('\\', '/').toLowerCase()
+}
+
+export const mergeQuickOpenPathGroups = (
+  groups: ReadonlyArray<ReadonlyArray<string>>,
+  limit: number
+): string[] => {
+  const merged: string[] = []
+  for (const group of groups) {
+    for (const pathname of group) {
+      if (merged.some((candidate) => sameQuickOpenPath(candidate, pathname))) continue
+      merged.push(pathname)
+      if (merged.length >= limit) return merged
+    }
+  }
+  return merged
 }
 
 interface FolderState {
@@ -77,6 +128,13 @@ class QuickOpenCommand {
 
     // Show opened files when no query is given.
     if (!query.trim()) {
+      const recentStore = this._getRecentStore()
+      this.subcommands = this._toSubcommands(
+        this._getOpenPaths(),
+        recentStore?.items
+          .filter((entry) => entry.kind === 'file' && isMarkdownQuickOpenPath(entry.pathname))
+          .map((entry) => entry.pathname) ?? []
+      )
       return this.subcommands
     }
 
@@ -109,20 +167,15 @@ class QuickOpenCommand {
   }
 
   run = async(): Promise<void> => {
-    const { _editorState, _folderState } = this
-    if (!_folderState.projectTree && _editorState.tabs.length === 0) {
-      throw new Error(null as unknown as string)
-    }
+    const recentStore = this._getRecentStore()
+    if (recentStore) await recentStore.HYDRATE()
 
-    this.subcommands = _editorState.tabs
-      .map((tab) => tab.pathname)
-      // Filter untitled tabs
-      .filter((tabPath: string | null | undefined) => !!tabPath)
-      .map((pathname: string) => {
-        const item: QuickOpenSubcommand = { id: pathname }
-        Object.assign(item, this._getPath(pathname))
-        return item
-      })
+    this.subcommands = this._toSubcommands(
+      this._getOpenPaths(),
+      recentStore?.items
+        .filter((entry) => entry.kind === 'file' && isMarkdownQuickOpenPath(entry.pathname))
+        .map((entry) => entry.pathname) ?? []
+    )
 
     const rootPath = this._getRootPath()
     if (rootPath) {
@@ -161,8 +214,31 @@ class QuickOpenCommand {
   }
 
   private _getRootPath = (): string | null => {
-    return this._folderState.projectTree?.pathname ?? null
+    const projectPath = this._folderState.projectTree?.pathname
+    if (projectPath) return projectPath
+    const currentPath = this._editorState.currentFile?.pathname
+    return currentPath ? window.path.dirname(currentPath) : null
   }
+
+  private _getRecentStore = (): ReturnType<typeof useRecentDocumentsStore> | null => {
+    try {
+      return useRecentDocumentsStore()
+    } catch {
+      return null
+    }
+  }
+
+  private _getOpenPaths = (): string[] =>
+    this._editorState.tabs
+      .map((tab) => tab.pathname)
+      .filter((pathname): pathname is string => !!pathname && isMarkdownQuickOpenPath(pathname))
+
+  private _toSubcommands = (...groups: ReadonlyArray<string>[]): QuickOpenSubcommand[] =>
+    mergeQuickOpenPathGroups(groups, QUICK_OPEN_RESULT_LIMIT).map((pathname) => {
+      const item: QuickOpenSubcommand = { id: pathname }
+      Object.assign(item, this._getPath(pathname))
+      return item
+    })
 
   private _handleProjectTreeChanged = (payload: unknown): void => {
     const type =
@@ -223,28 +299,53 @@ class QuickOpenCommand {
     const indexedPaths = rootPath ? await this._ensureIndex(rootPath) : []
     if (generation !== this._searchGeneration) throw new SearchAbortError()
 
-    const candidates = new SearchPathIndex()
-    candidates.add(indexedPaths)
-    candidates.add(
-      this._editorState.tabs
-        .map((tab) => tab.pathname)
-        .filter((pathname): pathname is string => !!pathname)
+    const recentStore = this._getRecentStore()
+    if (recentStore) await recentStore.HYDRATE()
+    const openPaths = this._getOpenPaths()
+    const recentPaths =
+      recentStore?.items
+        .filter((entry) => entry.kind === 'file' && isMarkdownQuickOpenPath(entry.pathname))
+        .map((entry) => entry.pathname) ?? []
+
+    const openedResults = await this._searchPathGroup(openPaths, query, rootPath, generation)
+    const recentResults = await this._searchPathGroup(
+      recentPaths,
+      query,
+      rootPath,
+      generation
+    )
+    const indexedResults = await this._searchPathGroup(
+      indexedPaths.filter(isMarkdownQuickOpenPath),
+      query,
+      rootPath,
+      generation
+    )
+    const result = mergeQuickOpenPathGroups(
+      [openedResults, recentResults, indexedResults],
+      QUICK_OPEN_RESULT_LIMIT
     )
 
+    return this._toSubcommands(result)
+  }
+
+  private _searchPathGroup = async(
+    paths: string[],
+    query: string,
+    rootPath: string | null,
+    generation: number
+  ): Promise<string[]> => {
+    if (paths.length === 0) return []
+    const candidates = new SearchPathIndex()
+    candidates.add(paths)
     const searchPromise = fuzzySearchPaths(candidates.values(), query, {
       rootPath: rootPath ?? undefined,
       limit: QUICK_OPEN_RESULT_LIMIT,
       getSearchText: (pathname, currentRoot) => this._getSearchText(pathname, currentRoot)
     })
     this._querySearch = searchPromise
-    const searchResult = await searchPromise
+    const result = await searchPromise
     if (generation !== this._searchGeneration) throw new SearchAbortError()
-
-    return searchResult.map((pathname) => {
-      const item: QuickOpenSubcommand = { id: pathname }
-      Object.assign(item, this._getPath(pathname))
-      return item
-    })
+    return result
   }
 
   private _getSearchText = (pathname: string, rootPath?: string): string => {

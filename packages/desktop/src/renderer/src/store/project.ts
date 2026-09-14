@@ -9,6 +9,7 @@ import notice from '../services/notification'
 import { getFileStateFromData } from './help'
 import { useLayoutStore } from './layout'
 import { useEditorStore } from './editor'
+import { useRecentDocumentsStore } from './recentDocuments'
 import { debouncedSendBufferedState } from './bufferedState'
 import type { TreeNode } from '../components/sideBar/types'
 import type { FileChangeDetail } from '@shared/types/files'
@@ -105,6 +106,7 @@ export const useProjectStore = defineStore('project', () => {
     if (!tree) return
 
     projectTree.value = tree
+    useRecentDocumentsStore().RECORD_FOLDER(tree.pathname)
 
     const layout = {
       // Keep the current panel when a project is opened. On first launch the
