@@ -127,6 +127,7 @@ import { dataUrlToFile } from '@/util/imageData'
 import { getCssForOptions, getHtmlToc, type PdfCssOptions, type HtmlTocOptions } from '@/util/pdf'
 import { resolveTocHeadingElement } from '@/util/tocNavigation'
 import { createTocRefreshScheduler, createTocScrollSync } from '@/util/tocOutline'
+import { createEditorLayoutReconciler } from '@/util/editorLayout'
 import { addCommonStyle, setEditorWidth } from '@/util/theme'
 import { usePreferencesStore } from '@/store/preferences'
 import { useEditorStore } from '@/store/editor'
@@ -290,6 +291,7 @@ let imageViewer: SimpleImageViewer | null = null
 // The engine has no `scroll` event; we listen on the scroll container directly.
 let scrollHandler: ((e: Event) => void) | null = null
 let tocScrollSync: ReturnType<typeof createTocScrollSync> | null = null
+let editorLayoutReconciler: ReturnType<typeof createEditorLayoutReconciler> | null = null
 const tocRefreshScheduler = createTocRefreshScheduler()
 
 // The engine's undo/redo history (`getHistory()`) has a different shape than
@@ -1206,14 +1208,12 @@ type PendingScrollRestore = {
   stableSince: number | null
   timer: ReturnType<typeof setTimeout> | null
   frame: number | null
-  mutationObserver: MutationObserver
-  resizeObserver: ResizeObserver
   removeInteractionListeners: () => void
 }
 
 const SCROLL_RESTORE_FALLBACK_MS = 250
 const SCROLL_RESTORE_SETTLE_MS = 1000
-const SCROLL_RESTORE_TIMEOUT_MS = 10000
+const SCROLL_RESTORE_TIMEOUT_MS = 3000
 
 // The editor rebuilds its block tree synchronously, but diagrams and other
 // media can change the document height after their asynchronous render. Do not
@@ -1229,8 +1229,6 @@ const clearPendingScrollRestore = (): void => {
 
   if (pending.timer !== null) clearTimeout(pending.timer)
   if (pending.frame !== null) cancelAnimationFrame(pending.frame)
-  pending.mutationObserver.disconnect()
-  pending.resizeObserver.disconnect()
   pending.removeInteractionListeners()
   pendingScrollRestore = null
 }
@@ -1325,7 +1323,7 @@ const scrollToCords = (y: number) => {
   const container = getScrollContainer()
   if (!container) return
 
-  // Cancel any restore watcher from the previous document before reusing the
+  // Cancel any restore state from the previous document before reusing the
   // editor root for this document.
   clearPendingScrollRestore()
 
@@ -1339,18 +1337,8 @@ const scrollToCords = (y: number) => {
     stableSince: null,
     timer: null,
     frame: null,
-    mutationObserver: new MutationObserver(schedulePendingScrollRestoreCheck),
-    resizeObserver: new ResizeObserver(schedulePendingScrollRestoreCheck),
     removeInteractionListeners: () => {}
   }
-  // Diagram rendering may replace the editor's first child. Observe the stable
-  // scroll container instead so a rebuilt content root cannot cancel restore.
-  pending.mutationObserver.observe(container, {
-    attributes: true,
-    childList: true,
-    subtree: true
-  })
-  pending.resizeObserver.observe(container)
   pendingScrollRestore = pending
   const cancelOnInteraction = () => {
     if (pendingScrollRestore === pending) clearPendingScrollRestore()
@@ -1364,10 +1352,11 @@ const scrollToCords = (y: number) => {
       container.removeEventListener(eventName, cancelOnInteraction)
     }
   }
-  requestAnimationFrame(() => {
-    if (!container) return
+  pending.frame = requestAnimationFrame(() => {
+    if (pendingScrollRestore !== pending) return
+    pending.frame = null
     // Reveal after the first real layout. If an async block later increases
-    // scrollHeight, the background retry restores the saved position without
+    // scrollHeight, the local layout reconciler schedules another check without
     // making the user wait for the renderer.
     container.style.visibility = 'visible'
     container.style.pointerEvents = 'auto'
@@ -1729,6 +1718,7 @@ const setMarkdownToEditor = (payload: unknown) => {
       // a cursor afterwards (a freshly-opened file has no history to restore).
       recordEditorSetContent('markdown')
       editor.value.setContent(newMarkdown ?? '')
+      editorLayoutReconciler?.reset()
     }
     // The freshly loaded content is this tab's clean baseline (id 0). Re-seed
     // the monotonic save-tracking allocator so undoing an edit back to this
@@ -1893,6 +1883,7 @@ const handleFileChange = (payload: unknown) => {
         getSyntheticHistory(id, editor.value.getMarkdown())
       }
     }
+    editorLayoutReconciler?.reset()
   } else if (newCursor) {
     applyCursor(editor.value, newCursor)
   }
@@ -2117,6 +2108,18 @@ onMounted(() => {
   tocScrollSync.attach()
   tocScrollSync.refresh()
 
+  // Reconcile asynchronous block geometry at the editor's direct-child
+  // boundary. Diagram descendants can mutate repeatedly while rendering; the
+  // reconciler batches those signals and hands the same local changes to TOC
+  // cache maintenance and pending tab-scroll restoration.
+  editorLayoutReconciler = createEditorLayoutReconciler(container, {
+    shouldDeferScroll: () => pendingScrollRestore !== null,
+    onChange: (changes) => {
+      schedulePendingScrollRestoreCheck()
+      tocScrollSync?.reconcile(changes)
+    }
+  })
+
   // Listen for language changes and update the engine locale.
   bus.on('language-changed', handleLanguageChanged)
 
@@ -2208,8 +2211,8 @@ onMounted(() => {
     if (pending) {
       // A layout pass can clamp scrollTop while diagrams or media settle. The
       // explicit interaction listeners installed by scrollToCords cancel on
-      // real user input; a bare scroll event is not enough to distinguish
-      // programmatic layout from a user scroll, so let the watcher recover.
+      // real user input; the local editor-layout reconciler schedules checks for
+      // actual block changes, while this fallback remains a bounded safety net.
       return
     }
     if (currentFile.value) {
@@ -2349,6 +2352,8 @@ onBeforeUnmount(() => {
   scrollHandler = null
 
   tocRefreshScheduler.cancel()
+  editorLayoutReconciler?.destroy()
+  editorLayoutReconciler = null
   tocScrollSync?.destroy()
   tocScrollSync = null
 

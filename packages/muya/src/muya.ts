@@ -31,6 +31,7 @@ import {
 import { isAnyListState, isAtxHeadingState, isCodeBlockState } from './state/types';
 import { Ui } from './ui/ui';
 import { deepClone } from './utils';
+import { getDiagramRenderCoordinator } from './utils/diagram/coordinator';
 import { encodeImageSrc } from './utils/image';
 import './assets/styles/blockSyntax.css';
 import './assets/styles/index.css';
@@ -1641,6 +1642,8 @@ export class Muya {
     }
 
     destroy() {
+        this.editor.destroy();
+        getDiagramRenderCoordinator(this).dispose();
         this.eventCenter.detachAllDomEvents();
         this.eventCenter.unsubscribeAll();
         // this.domNode[BLOCK_DOM_PROPERTY] = null;

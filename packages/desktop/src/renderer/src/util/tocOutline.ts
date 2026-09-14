@@ -1,4 +1,5 @@
 import type { KeyedTocNode } from './tocKeys'
+import type { EditorLayoutChange } from './editorLayout'
 import { TOP_LEVEL_HEADINGS_SELECTOR, TOC_HEADING_SLUG_ATTRIBUTE } from './tocNavigation'
 
 export { TOC_HEADING_SLUG_ATTRIBUTE }
@@ -141,7 +142,14 @@ export interface TocScrollSync {
   attach(): void
   update(toc: readonly TocSlugLike[]): void
   refresh(): void
+  reconcile(changes: readonly EditorLayoutChange[]): void
   destroy(): void
+}
+
+interface CachedTocPosition extends TocPosition {
+  heading: Element
+  block: Element | null
+  blockIndex: number
 }
 
 const requestFrame = (callback: FrameRequestCallback): number => {
@@ -160,8 +168,9 @@ const cancelFrame = (handle: number): void => {
 /**
  * Keep active-heading state in sync with scrolling using a cached position
  * index. Layout is read during explicit rebuilds only, never from the scroll
- * event's hot path; MutationObserver deliberately watches only direct child
- * replacement so diagram internals cannot cause one rebuild per SVG mutation.
+ * event's hot path. Block-size changes are reconciled from the editor's local
+ * layout signal so a diagram resize shifts following headings without
+ * rescanning every heading.
  */
 export function createTocScrollSync(
   container: HTMLElement,
@@ -169,14 +178,12 @@ export function createTocScrollSync(
   activationOffset = 40
 ): TocScrollSync {
   let toc: readonly TocSlugLike[] = []
-  let positions: TocPosition[] = []
+  let positions: CachedTocPosition[] = []
   let activeSlug: string | null = null
   let rebuildHandle: number | null = null
   let activeHandle: number | null = null
   let attached = false
   let destroyed = false
-  let mutationObserver: MutationObserver | null = null
-  let resizeObserver: ResizeObserver | null = null
 
   const updateActive = (): void => {
     if (destroyed) return
@@ -192,14 +199,26 @@ export function createTocScrollSync(
 
     const rootRect = container.getBoundingClientRect()
     const headings = Array.from(container.querySelectorAll(TOP_LEVEL_HEADINGS_SELECTOR))
+    const root = Array.from(container.children).find((child) =>
+      child instanceof HTMLElement && child.classList.contains('mu-container'))
     syncTocHeadingAnchors(container, toc)
-    positions = headings.reduce<TocPosition[]>((result, heading, index) => {
+    positions = headings.reduce<CachedTocPosition[]>((result, heading, index) => {
       const slug = toc[index]?.slug
       if (typeof slug !== 'string' || slug.length === 0) return result
       const rect = heading.getBoundingClientRect()
+      let block: Element = heading
+      while (block.parentElement && block.parentElement !== root) {
+        block = block.parentElement
+      }
+      const blockIndex = root && block.parentElement === root
+        ? Array.prototype.indexOf.call(root.children, block)
+        : -1
       result.push({
         slug,
-        top: rect.top - rootRect.top + container.scrollTop
+        top: rect.top - rootRect.top + container.scrollTop,
+        heading,
+        block: root && block.parentElement === root ? block : null,
+        blockIndex
       })
       return result
     }, [])
@@ -234,19 +253,44 @@ export function createTocScrollSync(
     rebuild()
   }
 
+  const reconcile = (changes: readonly EditorLayoutChange[]): void => {
+    if (destroyed || changes.length === 0) return
+
+    // Insertion/removal changes the heading-to-block mapping. Rebuild once for
+    // that structural boundary; ordinary diagram resizes stay on the local
+    // numeric cache path below.
+    if (changes.some(({ previous, next }) => previous === null || next === null)) {
+      scheduleRebuild()
+      return
+    }
+
+    for (const change of changes) {
+      if (change.delta === 0) continue
+      for (const position of positions) {
+        if (position.block === change.element) continue
+        if (position.blockIndex > change.index) {
+          position.top += change.delta
+        }
+      }
+    }
+
+    let rootRect: DOMRect | null = null
+    for (const change of changes) {
+      if (!change.next) continue
+      for (const position of positions) {
+        if (position.block !== change.element) continue
+        rootRect ??= container.getBoundingClientRect()
+        const rect = position.heading.getBoundingClientRect()
+        position.top = rect.top - rootRect.top + container.scrollTop
+      }
+    }
+    updateActive()
+  }
+
   const attach = (): void => {
     if (destroyed || attached) return
     attached = true
     container.addEventListener('scroll', handleScroll, { passive: true })
-
-    if (typeof MutationObserver !== 'undefined') {
-      mutationObserver = new MutationObserver(() => scheduleRebuild())
-      mutationObserver.observe(container, { childList: true })
-    }
-    if (typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(() => scheduleRebuild())
-      resizeObserver.observe(container)
-    }
     scheduleRebuild()
   }
 
@@ -262,13 +306,9 @@ export function createTocScrollSync(
     if (activeHandle !== null) cancelFrame(activeHandle)
     rebuildHandle = null
     activeHandle = null
-    mutationObserver?.disconnect()
-    resizeObserver?.disconnect()
     container.removeEventListener('scroll', handleScroll)
-    mutationObserver = null
-    resizeObserver = null
     positions = []
   }
 
-  return { attach, update, refresh, destroy }
+  return { attach, update, refresh, reconcile, destroy }
 }

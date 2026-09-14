@@ -141,6 +141,145 @@ function remapReference(value: string, ids: Map<string, string>): string {
     );
 }
 
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Rewrite only the selector prelude of each CSS rule. Replacing every
+ * `#token` in a stylesheet would also rewrite declarations such as
+ * `fill: #fff`; walking rule boundaries keeps color literals and other
+ * declaration values byte-for-byte intact while updating Mermaid's
+ * `#<svg-id> ...` namespace selectors.
+ */
+function remapCssSelectors(value: string, ids: Map<string, string>): string {
+    const remapSelector = (selector: string): string => {
+        let remapped = selector;
+        for (const [originalId, mountedId] of ids) {
+            const pattern = new RegExp(
+                `#${escapeRegExp(originalId)}(?=$|[\\s>+~.,:#\\[\\](){}])`,
+                'g',
+            );
+            remapped = remapped.replace(pattern, `#${mountedId}`);
+        }
+        return remapped;
+    };
+
+    const rewriteRules = (start: number): { value: string; next: number } => {
+        let output = '';
+        let segmentStart = start;
+        let index = start;
+        let quote: string | null = null;
+        let inComment = false;
+        let parentheses = 0;
+        let brackets = 0;
+
+        while (index < value.length) {
+            const character = value[index];
+            const nextCharacter = value[index + 1];
+
+            if (inComment) {
+                if (character === '*' && nextCharacter === '/') {
+                    inComment = false;
+                    index += 2;
+                }
+                else {
+                    index += 1;
+                }
+                continue;
+            }
+
+            if (quote !== null) {
+                if (character === '\\') {
+                    index += 2;
+                }
+                else {
+                    if (character === quote) {
+                        quote = null;
+                    }
+                    index += 1;
+                }
+                continue;
+            }
+
+            if (character === '/' && nextCharacter === '*') {
+                inComment = true;
+                index += 2;
+                continue;
+            }
+            if (character === '"' || character === '\'') {
+                quote = character;
+                index += 1;
+                continue;
+            }
+            if (character === '(') {
+                parentheses += 1;
+                index += 1;
+                continue;
+            }
+            if (character === ')' && parentheses > 0) {
+                parentheses -= 1;
+                index += 1;
+                continue;
+            }
+            if (character === '[') {
+                brackets += 1;
+                index += 1;
+                continue;
+            }
+            if (character === ']' && brackets > 0) {
+                brackets -= 1;
+                index += 1;
+                continue;
+            }
+            if (parentheses > 0 || brackets > 0) {
+                index += 1;
+                continue;
+            }
+
+            if (character === ';') {
+                output += value.slice(segmentStart, index + 1);
+                index += 1;
+                segmentStart = index;
+                continue;
+            }
+
+            if (character === '{') {
+                output += remapSelector(value.slice(segmentStart, index));
+                output += character;
+
+                const nested = rewriteRules(index + 1);
+                output += nested.value;
+                if (nested.next < value.length && value[nested.next] === '}') {
+                    output += '}';
+                    index = nested.next + 1;
+                    segmentStart = index;
+                }
+                else {
+                    index = nested.next;
+                    segmentStart = index;
+                }
+                continue;
+            }
+
+            if (character === '}') {
+                // This is a declaration tail when called for a rule body. It
+                // must not pass through remapSelector, or a final `#fff`
+                // declaration could be mistaken for an ID selector.
+                output += value.slice(segmentStart, index);
+                return { value: output, next: index };
+            }
+
+            index += 1;
+        }
+
+        output += remapSelector(value.slice(segmentStart));
+        return { value: output, next: value.length };
+    };
+
+    return rewriteRules(0).value;
+}
+
 function remapDiagramIds(target: HTMLElement): IDiagramIdBinding[] {
     const bindings: IDiagramIdBinding[] = [];
     const ids = new Map<string, string>();
@@ -187,7 +326,8 @@ function remapDiagramIds(target: HTMLElement): IDiagramIdBinding[] {
     });
 
     target.querySelectorAll('style').forEach((style) => {
-        style.textContent = remapReference(style.textContent ?? '', ids);
+        const css = remapReference(style.textContent ?? '', ids);
+        style.textContent = remapCssSelectors(css, ids);
     });
 
     return bindings;

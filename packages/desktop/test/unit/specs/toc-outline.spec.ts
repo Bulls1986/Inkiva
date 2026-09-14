@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { KeyedTocNode } from '@/util/tocKeys'
 import {
   createTocRefreshScheduler,
+  createTocScrollSync,
   filterTocTree,
   findActiveTocSlug,
   getExpandableTocKeys,
@@ -103,5 +104,56 @@ describe('TOC outline utilities', () => {
     expect(container.querySelector('blockquote h2')?.hasAttribute(TOC_HEADING_SLUG_ATTRIBUTE)).toBe(
       false
     )
+  })
+
+  it('shifts cached headings locally when a preceding diagram changes size', () => {
+    const container = document.createElement('div')
+    const root = document.createElement('div')
+    const diagram = document.createElement('figure')
+    const firstHeading = document.createElement('h1')
+    const secondHeading = document.createElement('h2')
+    root.className = 'mu-container'
+    diagram.className = 'mu-diagram-block'
+    firstHeading.textContent = 'First'
+    secondHeading.textContent = 'Second'
+    root.append(diagram, firstHeading, secondHeading)
+    container.append(root)
+    document.body.append(container)
+    container.scrollTop = 350
+
+    const rect = (top: number): DOMRect => ({
+      top,
+      bottom: top + 40,
+      height: 40,
+      left: 0,
+      right: 700,
+      width: 700,
+      x: 0,
+      y: top,
+      toJSON: () => ({})
+    } as DOMRect)
+    vi.spyOn(container, 'getBoundingClientRect').mockReturnValue(rect(0))
+    vi.spyOn(firstHeading, 'getBoundingClientRect').mockReturnValue(rect(-350))
+    const secondRect = vi.spyOn(secondHeading, 'getBoundingClientRect').mockReturnValue(rect(-50))
+    const onActiveChange = vi.fn()
+    const sync = createTocScrollSync(container, onActiveChange)
+    sync.update([{ slug: 'first' }, { slug: 'second' }])
+    sync.attach()
+    sync.refresh()
+    secondRect.mockClear()
+    onActiveChange.mockClear()
+
+    sync.reconcile([{
+      element: diagram,
+      index: 0,
+      previous: { top: -250, height: 100, bottom: -150 },
+      next: { top: -250, height: 220, bottom: -30 },
+      delta: 120
+    }])
+
+    expect(secondRect).not.toHaveBeenCalled()
+    expect(onActiveChange).toHaveBeenCalledWith('first')
+    sync.destroy()
+    container.remove()
   })
 })

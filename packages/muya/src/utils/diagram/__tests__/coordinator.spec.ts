@@ -162,6 +162,39 @@ describe('diagram render coordinator', () => {
         coordinator.dispose();
     });
 
+    it('rewrites Mermaid CSS selectors without changing hex colors or url references', async () => {
+        const render = vi.fn(async () => result(
+            '<div id="diagram" data-diagram-root="true"><style>'
+            + '#diagram .node, #fff .child { fill: #fff; stroke: #ffffff; } '
+            + '.edge { marker-end: url(#marker); }'
+            + '</style><div id="marker"><div /></div>'
+            + '<div id="fff"><div class="child" /></div></div>',
+        ));
+        const coordinator = new DiagramRenderCoordinator({ render });
+        const renderTarget = target();
+
+        await coordinator.schedule({
+            blockId: 'css-selector-remap',
+            generation: 1,
+            target: renderTarget,
+            options: options(),
+        }).promise;
+
+        const svg = renderTarget.querySelector('[data-diagram-root="true"]')!;
+        const style = renderTarget.querySelector('style')!.textContent!;
+        const mountedColorId = renderTarget.querySelector('[id^="fff-muya-"]')!.id;
+        const mountedMarkerId = renderTarget.querySelector('[id^="marker-muya-"]')!.id;
+
+        expect(style).toContain(`#${svg.id} .node`);
+        expect(style).toContain(`#${mountedColorId} .child`);
+        expect(style).not.toContain('#diagram .node');
+        expect(style).not.toContain('#fff .child');
+        expect(style).toContain('fill: #fff');
+        expect(style).toContain('stroke: #ffffff');
+        expect(style).toContain(`url(#${mountedMarkerId})`);
+        coordinator.dispose();
+    });
+
     it('never runs more than two CPU-heavy renders at once by default', async () => {
         let running = 0;
         let maximumRunning = 0;
