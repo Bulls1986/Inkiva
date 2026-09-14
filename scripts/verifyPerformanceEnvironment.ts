@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import * as os from 'node:os'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -15,7 +15,7 @@ const POWERSHELL_PROBE = [
   '$plan = Get-CimInstance -Namespace root/cimv2/power -ClassName Win32_PowerPlan | Where-Object IsActive | Select-Object -First 1',
   '$name = [string]$video.Name',
   '$integrated = $name -match "(?i)intel.*(UHD|HD|Iris)|amd.*(Radeon Graphics|Vega)|Microsoft Basic Display"',
-  '$diskKind = if ([string]$disk.BusType -match "(?i)SATA") { "SATA SSD" } elseif ([string]$disk.BusType -match "(?i)NVMe") { "entry NVMe" } else { "" }',
+  '$diskKind = if ([string]$disk.BusType -match "(?i)SATA") { "SATA SSD" } elseif ([string]$disk.BusType -match "(?i)NVMe") { "entry NVMe" } else { "unsupported" }',
   '[pscustomobject]@{ os = $os; diskKind = $diskKind; integratedGpu = $integrated; displayWidth = $video.CurrentHorizontalResolution; displayHeight = $video.CurrentVerticalResolution; refreshRateHz = $video.CurrentRefreshRate; powerMode = $plan.ElementName } | ConvertTo-Json -Compress'
 ].join('; ')
 
@@ -58,9 +58,11 @@ const asNumber = (value: unknown, label: string): number => {
   return numeric
 }
 
-const asDiskKind = (value: unknown): ReferenceEnvironmentObservation['diskKind'] => {
+export const normalizeDiskKind = (
+  value: unknown
+): ReferenceEnvironmentObservation['diskKind'] => {
   if (value === 'SATA SSD' || value === 'entry NVMe') return value
-  throw new Error('reference environment probe returned an unsupported disk kind')
+  return 'unsupported'
 }
 
 export const readReferenceEnvironmentObservation = (): ReferenceEnvironmentObservation => {
@@ -75,7 +77,7 @@ export const readReferenceEnvironmentObservation = (): ReferenceEnvironmentObser
     os: typeof system.os === 'string' ? system.os : '',
     cpuCores: os.cpus().length,
     memoryBytes: os.totalmem(),
-    diskKind: asDiskKind(system.diskKind),
+    diskKind: normalizeDiskKind(system.diskKind),
     integratedGpu: system.integratedGpu === true,
     displayWidth: asNumber(system.displayWidth, 'display width'),
     displayHeight: asNumber(system.displayHeight, 'display height'),
@@ -89,13 +91,26 @@ export const readReferenceEnvironmentObservation = (): ReferenceEnvironmentObser
 export const verifyPerformanceEnvironment = (): Record<string, string> =>
   canonicalizeReferenceEnvironment(readReferenceEnvironmentObservation())
 
-const readOutputPath = (args: string[]): string => {
-  const index = args.indexOf('--output')
+const readArgument = (
+  args: string[],
+  name: string,
+  required: boolean
+): string | undefined => {
+  const index = args.indexOf(name)
   const value = args[index + 1]
-  if (index < 0 || value === undefined || value.trim() === '') {
+  if (index < 0) {
+    if (required) throw new Error('usage: verifyPerformanceEnvironment.ts --output <environment.json>')
+    return undefined
+  }
+  if (value === undefined || value.trim() === '') {
     throw new Error('usage: verifyPerformanceEnvironment.ts --output <environment.json>')
   }
   return resolve(value)
+}
+
+const writeJson = (path: string, value: unknown): void => {
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, JSON.stringify(value, null, 2) + '\n', 'utf8')
 }
 
 const isMainModule =
@@ -104,10 +119,12 @@ const isMainModule =
 
 if (isMainModule) {
   try {
-    const outputPath = readOutputPath(process.argv.slice(2))
-    const environment = verifyPerformanceEnvironment()
-    mkdirSync(dirname(outputPath), { recursive: true })
-    writeFileSync(outputPath, JSON.stringify(environment, null, 2) + '\n', 'utf8')
+    const args = process.argv.slice(2)
+    const outputPath = readArgument(args, '--output', true) as string
+    const observationOutputPath = readArgument(args, '--observation-output', false)
+    const observation = readReferenceEnvironmentObservation()
+    if (observationOutputPath !== undefined) writeJson(observationOutputPath, observation)
+    writeJson(outputPath, canonicalizeReferenceEnvironment(observation))
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))
     process.exitCode = 1

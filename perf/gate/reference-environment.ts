@@ -11,7 +11,7 @@ export interface ReferenceEnvironmentObservation {
   os: string
   cpuCores: number
   memoryBytes: number
-  diskKind: 'SATA SSD' | 'entry NVMe'
+  diskKind: 'SATA SSD' | 'entry NVMe' | 'unsupported'
   integratedGpu: boolean
   displayWidth: number
   displayHeight: number
@@ -42,6 +42,9 @@ export const canonicalizeReferenceEnvironment = (
     observation.memoryBytes < MIN_REFERENCE_MEMORY_BYTES
   ) {
     fail('requires at least 8 GB of memory')
+  }
+  if (observation.diskKind !== 'SATA SSD' && observation.diskKind !== 'entry NVMe') {
+    fail('requires a SATA SSD or entry NVMe disk')
   }
   if (!observation.integratedGpu) {
     fail('requires an integrated GPU')

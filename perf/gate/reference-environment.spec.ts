@@ -49,6 +49,7 @@ test('rejects a non-reference capability before a report can be marked official'
     { os: 'Ubuntu 24.04' },
     { cpuCores: 2 },
     { memoryBytes: 7 * 1024 ** 3 },
+    { diskKind: 'unsupported' },
     { integratedGpu: false },
     { displayWidth: 1280 },
     { refreshRateHz: 30 },

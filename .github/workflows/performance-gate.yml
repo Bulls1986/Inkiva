@@ -37,7 +37,7 @@ jobs:
 
       - name: Validate reference hardware and test mode
         shell: bash
-        run: pnpm exec tsx scripts/verifyPerformanceEnvironment.ts --output perf-results/reference-environment.json
+        run: pnpm exec tsx scripts/verifyPerformanceEnvironment.ts --output perf-results/reference-environment.json --observation-output perf-results/reference-observation.json
         env:
           INKIVA_PERF_OFFLINE: 'true'
           INKIVA_PERF_RUNNER_LABEL: reference-low-end
