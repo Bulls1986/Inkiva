@@ -102,6 +102,18 @@ test('canonical thresholds validate and cover every release level', async() => {
   assert.equal(config.levels.P2.degradation?.maxRelativeIncrease, 0.25)
 })
 
+test('every release level includes the 200-cycle memory leak gate', async() => {
+  const raw = await readFile(new URL('./thresholds.json', import.meta.url), 'utf8')
+  const config = parsePerformanceGateConfig(JSON.parse(raw))
+
+  for (const level of ['P0', 'P1', 'P2', 'P3'] as const) {
+    assert.ok(
+      config.levels[level].gates.some((gate) => gate.metric === 'memory.heapLinearGrowth200'),
+      level + ' must gate 200-cycle heap linear growth'
+    )
+  }
+})
+
 test('a report passes when every absolute gate passes', () => {
   const config = configFor([
     {

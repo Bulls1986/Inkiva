@@ -40,3 +40,14 @@ test('large collection contract requires raw samples and a P0 baseline for P2', 
     minimumSamples: 20
   })
 })
+
+test('large release levels require real 200-cycle memory samples', async() => {
+  const { getLargeGateScenario } = await import('./large-scenarios.js')
+
+  for (const level of ['P1', 'P2', 'P3'] as const) {
+    assert.ok(
+      getLargeGateScenario(level).metrics.includes('memory.heapLinearGrowth200'),
+      level + ' must collect 200-cycle heap leak samples'
+    )
+  }
+})
