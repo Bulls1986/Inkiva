@@ -112,7 +112,10 @@ describe('background priority scheduler', () => {
       run: () => { order.push('new') }
     })
 
-    await vi.advanceTimersByTimeAsync(0)
+    // Each scheduler slice is a macrotask so the browser gets a paint
+    // opportunity between background invocations.
+    await vi.advanceTimersByTimeAsync(1)
+    await vi.advanceTimersByTimeAsync(1)
     expect(order).toEqual(['old-start', 'new'])
 
     release()
