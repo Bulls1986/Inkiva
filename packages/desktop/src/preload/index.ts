@@ -19,6 +19,13 @@ import {
   type IpcMainEventChannels,
   type BootInfo
 } from '@shared/types/ipc'
+import {
+  DOCUMENT_INTELLIGENCE_CHANNELS,
+  type ApplyRenameRepairRequest,
+  type LocalHistoryCreateRequest,
+  type LocalHistoryRestoreRequest,
+  type PrepareRenameRepairRequest
+} from '@shared/types/documentIntelligence'
 
 // Set the application appearance before the renderer module starts. This lets
 // the inline loading shell select the persisted Light/Dark/Paper surface
@@ -342,6 +349,32 @@ const uploaderAPI = {
   pickPicgoAppPath: () => invoke('mt::uploader::pick-picgo-app')
 }
 
+const documentIntelligenceAPI = {
+  indexDocument: (pathname: string, markdown: string) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.indexDocument, pathname, markdown),
+  removeDocument: (pathname: string) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.removeDocument, pathname),
+  getBacklinks: (targetPath: string) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.getBacklinks, targetPath),
+  getLinkCandidates: (sourcePath: string, pathnames: string[]) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.getLinkCandidates, sourcePath, pathnames),
+  prepareRenameRepair: (request: PrepareRenameRepairRequest) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.prepareRenameRepair, request),
+  applyRenameRepair: (request: ApplyRenameRepairRequest) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.applyRenameRepair, request),
+  createSnapshot: (request: LocalHistoryCreateRequest) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.createSnapshot, request),
+  listSnapshots: (filePath: string) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.listSnapshots, filePath),
+  getSnapshot: (filePath: string, id: string) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.getSnapshot, filePath, id),
+  deleteSnapshot: (filePath: string, id: string) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.deleteSnapshot, filePath, id),
+  restoreSnapshot: (request: LocalHistoryRestoreRequest) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.restoreSnapshot, request),
+  pruneHistory: () => invoke(DOCUMENT_INTELLIGENCE_CHANNELS.pruneHistory)
+}
+
 const fontsAPI = {
   list: () => invoke('mt::fonts::list')
 }
@@ -417,6 +450,7 @@ try {
   contextBridge.exposeInMainWorld('i18nUtils', i18nAPI)
   contextBridge.exposeInMainWorld('ripgrep', ripgrepAPI)
   contextBridge.exposeInMainWorld('uploader', uploaderAPI)
+  contextBridge.exposeInMainWorld('documentIntelligence', documentIntelligenceAPI)
   contextBridge.exposeInMainWorld('fonts', fontsAPI)
 } catch (error) {
   console.error(error)

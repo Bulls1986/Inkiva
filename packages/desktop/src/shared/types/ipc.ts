@@ -36,6 +36,19 @@ import type { ShortcutStyle } from './preferences'
 import type { UpdateStatus } from '../../main/update/types'
 import { type PERFORMANCE_EVENT_CHANNEL } from './performance'
 import type { PerformanceEvent, PerformanceBootInfo } from './performance'
+import type {
+  ApplyRenameRepairRequest,
+  ApplyRenameRepairResult,
+  LocalHistoryCreateRequest,
+  LocalHistoryEntry,
+  LocalHistoryPruneResult,
+  LocalHistoryRestoreRequest,
+  LocalHistorySnapshot,
+  MarkdownBacklink,
+  MarkdownLinkCandidate,
+  PrepareRenameRepairRequest,
+  RenameRepairPlan
+} from './documentIntelligence'
 
 export const WINDOW_INITIAL_SHELL_READY_CHANNEL = 'mt::window-initial-shell-ready'
 
@@ -50,6 +63,51 @@ export interface KeybindingPreferences {
 // =================================================================
 
 export interface IpcInvokeChannels {
+  'mt::document-intelligence::index-document': {
+    args: [pathname: string, markdown: string]
+    ret: void
+  }
+  'mt::document-intelligence::remove-document': { args: [pathname: string]; ret: void }
+  'mt::document-intelligence::backlinks': {
+    args: [targetPath: string]
+    ret: MarkdownBacklink[]
+  }
+  'mt::document-intelligence::link-candidates': {
+    args: [sourcePath: string, pathnames: string[]]
+    ret: MarkdownLinkCandidate[]
+  }
+  'mt::document-intelligence::prepare-rename-repair': {
+    args: [request: PrepareRenameRepairRequest]
+    ret: RenameRepairPlan
+  }
+  'mt::document-intelligence::apply-rename-repair': {
+    args: [request: ApplyRenameRepairRequest]
+    ret: ApplyRenameRepairResult
+  }
+  'mt::document-intelligence::history-create': {
+    args: [request: LocalHistoryCreateRequest]
+    ret: LocalHistoryEntry
+  }
+  'mt::document-intelligence::history-list': {
+    args: [filePath: string]
+    ret: LocalHistoryEntry[]
+  }
+  'mt::document-intelligence::history-get': {
+    args: [filePath: string, id: string]
+    ret: LocalHistorySnapshot | null
+  }
+  'mt::document-intelligence::history-delete': {
+    args: [filePath: string, id: string]
+    ret: boolean
+  }
+  'mt::document-intelligence::history-restore': {
+    args: [request: LocalHistoryRestoreRequest]
+    ret: LocalHistorySnapshot
+  }
+  'mt::document-intelligence::history-prune': {
+    args: []
+    ret: LocalHistoryPruneResult
+  }
   'mt::ask-for-image-path': { args: []; ret: string[] }
   'mt::boot-info-async': { args: []; ret: BootInfo }
   'mt::clipboard::guess-file-path': { args: []; ret: string | null }
