@@ -36,8 +36,9 @@ export default function loadImageAsync(
         const loadSrc = /^file:\/\//i.test(src)
             ? `${src}${src.includes('?') ? '&' : '?'}mucache=${id}`
             : src;
-        loadImage(loadSrc, isUnknownType)
-            .then(({ url, width, height }) => {
+        const startLoad = () => {
+            loadImage(loadSrc, isUnknownType)
+                .then(({ url, width, height }) => {
                 const imageText: HTMLElement | null = document.querySelector(`#${id}`);
                 const img = document.createElement('img');
                 img.src = url;
@@ -91,25 +92,56 @@ export default function loadImageAsync(
                     width,
                     height,
                 });
-            })
-            .catch(() => {
-                const imageText: HTMLElement | null = document.querySelector(`#${id}`);
-                if (imageText) {
-                    operateClassName(imageText, 'remove', CLASS_NAMES.MU_IMAGE_LOADING);
-                    operateClassName(imageText, 'add', CLASS_NAMES.MU_IMAGE_FAIL);
-                    const image = imageText.querySelector('img');
-                    if (image)
-                        image.remove();
+                })
+                .catch(() => {
+                    const imageText: HTMLElement | null = document.querySelector(`#${id}`);
+                    if (imageText) {
+                        operateClassName(imageText, 'remove', CLASS_NAMES.MU_IMAGE_LOADING);
+                        operateClassName(imageText, 'add', CLASS_NAMES.MU_IMAGE_FAIL);
+                        const image = imageText.querySelector('img');
+                        if (image)
+                            image.remove();
+                    }
+
+                    if (this.urlMap.has(src))
+                        this.urlMap.delete(src);
+
+                    this.loadImageMap.set(src, {
+                        id,
+                        isSuccess: false,
+                    });
+                });
+        };
+
+        if (typeof IntersectionObserver === 'undefined') {
+            startLoad();
+        }
+        else {
+            const observer = new IntersectionObserver((entries) => {
+                if (!entries.some(entry =>
+                    entry.isIntersecting || entry.intersectionRatio > 0))
+                    return;
+
+                const imageText = document.getElementById(id);
+                observer.disconnect();
+                if (!imageText)
+                    return;
+
+                imageText.removeAttribute('data-image-lazy');
+                startLoad();
+            }, { rootMargin: '0px' });
+
+            setTimeout(() => {
+                const imageText = document.getElementById(id);
+                if (!imageText) {
+                    observer.disconnect();
+                    return;
                 }
 
-                if (this.urlMap.has(src))
-                    this.urlMap.delete(src);
-
-                this.loadImageMap.set(src, {
-                    id,
-                    isSuccess: false,
-                });
-            });
+                imageText.setAttribute('data-image-lazy', 'pending');
+                observer.observe(imageText);
+            }, 0);
+        }
     }
     else {
         id = cached.id;

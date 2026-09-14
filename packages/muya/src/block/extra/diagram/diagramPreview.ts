@@ -34,6 +34,10 @@ class DiagramPreview extends Parent {
     private _disposed = false;
     private _activeRenderHandle: IDiagramRenderCoordinatorHandle | null = null;
     private _clickSubscription: Subscription | null = null;
+    private _viewportObserver: IntersectionObserver | null = null;
+    private _viewportObserveTimer: ReturnType<typeof setTimeout> | null = null;
+    private _isViewportReady = false;
+
     static override blockName = 'diagram-preview';
 
     static create(muya: Muya, state: IDiagramState) {
@@ -59,6 +63,7 @@ class DiagramPreview extends Parent {
         };
         this.createDomNode();
         this._attachDOMEvents();
+        this._installViewportObserver();
         this.update();
     }
 
@@ -70,6 +75,34 @@ class DiagramPreview extends Parent {
     private _attachDOMEvents() {
         const clickObservable = fromEvent(this.domNode!, 'click');
         this._clickSubscription = clickObservable.subscribe(this.clickHandler.bind(this));
+    }
+
+    private _installViewportObserver() {
+        if (typeof IntersectionObserver === 'undefined') {
+            this._isViewportReady = true;
+            return;
+        }
+
+        this.domNode?.setAttribute('data-diagram-lazy', 'pending');
+        this._viewportObserver = new IntersectionObserver((entries) => {
+            if (this._disposed || !entries.some(entry =>
+                entry.isIntersecting || entry.intersectionRatio > 0))
+                return;
+
+            this._isViewportReady = true;
+            this.domNode?.removeAttribute('data-diagram-lazy');
+            this._viewportObserver?.disconnect();
+            this._viewportObserver = null;
+            void this._renderImmediately();
+        }, { rootMargin: '0px' });
+
+        this._viewportObserveTimer = setTimeout(() => {
+            this._viewportObserveTimer = null;
+            if (this._disposed || !this.domNode)
+                return;
+
+            this._viewportObserver?.observe(this.domNode);
+        }, 0);
     }
 
     /**
@@ -270,6 +303,11 @@ class DiagramPreview extends Parent {
         if (this._disposed)
             return Promise.resolve();
 
+        if (!this._isViewportReady) {
+            this._prepareRender(this._code);
+            return Promise.resolve();
+        }
+
         const generation = this._prepareRender(this._code);
 
         return new Promise((resolve) => {
@@ -297,6 +335,9 @@ class DiagramPreview extends Parent {
         // preview mode to avoid an unnecessary source/preview flash.
         if (sourceChanged || !this._hasRenderedResult || this._presentationMode === 'error')
             this.showSource();
+
+        if (!this._isViewportReady)
+            return Promise.resolve();
 
         return new Promise((resolve) => {
             this._renderWaiters.set(generation, resolve);
@@ -327,6 +368,11 @@ class DiagramPreview extends Parent {
         if (this._renderTimer !== null)
             clearTimeout(this._renderTimer);
         this._renderTimer = null;
+        if (this._viewportObserveTimer !== null)
+            clearTimeout(this._viewportObserveTimer);
+        this._viewportObserveTimer = null;
+        this._viewportObserver?.disconnect();
+        this._viewportObserver = null;
         this._activeRenderHandle?.dispose();
         this._activeRenderHandle = null;
         getDiagramRenderCoordinator(this.muya).dispose(this._renderBlockId);
