@@ -4,7 +4,27 @@ import { calculateVirtualWindow } from '@/util/virtualization'
 import { flattenTocRows } from '@/util/tocVirtualization'
 import { flattenTreeRows } from '@/util/treeVirtualization'
 
-const folder = (pathname: string, children: ReturnType<typeof folder>['folders'] = []) => ({
+type TestFile = {
+  id: string
+  pathname: string
+  name: string
+  isDirectory: false
+  isFile: true
+  isMarkdown: boolean
+}
+
+type TestFolder = {
+  id: string
+  pathname: string
+  name: string
+  isDirectory: true
+  isFile: false
+  isMarkdown: false
+  folders: TestFolder[]
+  files: TestFile[]
+}
+
+const folder = (pathname: string, children: TestFolder[] = []): TestFolder => ({
   id: pathname,
   pathname,
   name: pathname.split('/').at(-1) ?? pathname,
@@ -15,7 +35,7 @@ const folder = (pathname: string, children: ReturnType<typeof folder>['folders']
   files: []
 })
 
-const file = (pathname: string) => ({
+const file = (pathname: string): TestFile => ({
   id: pathname,
   pathname,
   name: pathname.split('/').at(-1) ?? pathname,

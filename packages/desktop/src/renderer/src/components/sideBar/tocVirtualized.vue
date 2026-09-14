@@ -96,8 +96,11 @@ const visibleRows = computed(() =>
 const isExpanded = (key: string): boolean => expanded.value.has(key)
 
 const toggle = (key: string): void => {
-  const event = isExpanded(key) ? 'node-collapse' : 'node-expand'
-  emit(event, { key })
+  if (isExpanded(key)) {
+    emit('node-collapse', { key })
+  } else {
+    emit('node-expand', { key })
+  }
 }
 
 const handleScroll = (event: Event): void => {
