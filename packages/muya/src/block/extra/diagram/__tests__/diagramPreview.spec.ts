@@ -133,6 +133,34 @@ describe('diagramPreview — empty state', () => {
     });
 });
 
+describe('diagramPreview — lazy height restoration', () => {
+    it('reuses the last successful rendered height as a lazy placeholder', async () => {
+        loadRendererMock.mockResolvedValue({
+            initialize: vi.fn(),
+            registerIconPacks: vi.fn(),
+            render: vi.fn().mockResolvedValue({
+                svg: '<svg data-rendered="height-hint"></svg>',
+            }),
+        });
+
+        const first = makePreview('graph TD\\n  A --> B');
+        await first.preview.update('graph TD\\n  A --> B');
+        Object.defineProperty(first.preview.domNode!, 'offsetHeight', {
+            configurable: true,
+            value: 640,
+        });
+        vi.spyOn(first.preview.domNode!, 'getBoundingClientRect').mockReturnValue({
+            height: 640,
+        } as DOMRect);
+        first.preview.dispose();
+
+        const second = makePreview('graph TD\\n  A --> B');
+
+        expect(second.preview.domNode!.style.minHeight).toBe('640px');
+        expect(second.preview.domNode!.getAttribute('data-diagram-height-hint')).toBe('640');
+    });
+});
+
 describe('diagramPreview — invalid / error state', () => {
     it('renders the error class + localized "Invalid Diagram Code" when the renderer throws', async () => {
         loadRendererMock.mockRejectedValue(new Error('Unknown diagram name mermaid'));
