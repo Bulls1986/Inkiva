@@ -80,4 +80,79 @@ describe('MainProcessPerformanceMonitor', () => {
       expect.objectContaining({ phase: 'memory' })
     )
   })
+  it('emits stability heartbeats and flags sustained renderer CPU runaway', async() => {
+    const intervalCallbacks: Array<() => void> = []
+    const setInterval = vi.fn((callback: () => void) => {
+      intervalCallbacks.push(callback)
+      return intervalCallbacks.length as unknown as ReturnType<typeof globalThis.setInterval>
+    })
+    const recorder = createRecorder()
+    const monitor = new MainProcessPerformanceMonitor({
+      recorder,
+      source: {
+        getAppMetrics: () => [{ type: 'Renderer', cpu: { percentCPUUsage: 90 } }],
+        getProcessMemoryInfo: async() => ({})
+      },
+      setInterval,
+      cpuRunawaySamples: 2
+    })
+
+    monitor.start()
+    intervalCallbacks[0]?.()
+    await Promise.resolve()
+    await Promise.resolve()
+    intervalCallbacks[0]?.()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(recorder.recordSample).toHaveBeenCalledWith(
+      'stability.crash',
+      'count',
+      0,
+      expect.objectContaining({ phase: 'memory' })
+    )
+    expect(recorder.recordSample).toHaveBeenCalledWith(
+      'stability.cpuRunaway',
+      'count',
+      1,
+      expect.objectContaining({ phase: 'memory' })
+    )
+    monitor.dispose()
+  })
+
+  it('records renderer crash, OOM, and hang signals as hard-gate samples', () => {
+    const recorder = createRecorder()
+    const monitor = new MainProcessPerformanceMonitor({
+      recorder,
+      source: {
+        getAppMetrics: () => [],
+        getProcessMemoryInfo: async() => ({})
+      }
+    })
+
+    monitor.recordRendererCrash(false)
+    monitor.recordRendererCrash(true)
+    monitor.recordRendererHang()
+
+    expect(recorder.recordSample).toHaveBeenCalledWith(
+      'stability.rendererCrash',
+      'count',
+      1,
+      expect.objectContaining({ phase: 'memory' })
+    )
+    expect(recorder.recordSample).toHaveBeenCalledWith(
+      'stability.oom',
+      'count',
+      1,
+      expect.objectContaining({ phase: 'memory' })
+    )
+    expect(recorder.recordSample).toHaveBeenCalledWith(
+      'stability.rendererHang',
+      'count',
+      1,
+      expect.objectContaining({ phase: 'memory' })
+    )
+  })
+
+
 })
