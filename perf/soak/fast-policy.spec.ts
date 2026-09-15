@@ -83,6 +83,6 @@ test('legacy reference performance gate is not an automatic PR gate', () => {
     'utf8'
   )
 
-  assert.doesNotMatch(workflow, /^  pull_request:/m)
-  assert.match(workflow, /^  workflow_dispatch:/m)
+  assert.doesNotMatch(workflow, /^\x20{2}pull_request:/m)
+  assert.match(workflow, /^\x20{2}workflow_dispatch:/m)
 })
