@@ -5,6 +5,9 @@
   "comparison": "relative",
   "maxRelativeRegression": 0.1,
   "regressionPolicy": "blocking",
+  "relativeMetricDirections": {
+    "soak.cycles": "higher-is-better"
+  },
   "absoluteGates": [
     {
       "id": "soak-duration",

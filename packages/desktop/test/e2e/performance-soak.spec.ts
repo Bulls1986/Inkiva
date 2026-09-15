@@ -17,6 +17,10 @@ import {
   waitForMenuReady,
   waitForWorkspaceReady
 } from './helpers'
+import {
+  hasCompletedEditorPerformanceMilestones,
+  type EditorPerformanceMilestoneTimestamps
+} from '../../src/renderer/src/components/editorWithTabs/editorPerformanceMilestones'
 
 type SoakUnit = PerformanceSampleUnit
 
@@ -119,13 +123,40 @@ const waitForPaint = async(page: Page): Promise<void> => {
 
 const measurePageAction = async(
   page: Page,
-  action: () => Promise<void>
+  action: (startedAt: number) => Promise<void>
 ): Promise<number> => {
   const startedAt = await page.evaluate(() => performance.now())
-  await action()
+  await action(startedAt)
   await waitForPaint(page)
   const endedAt = await page.evaluate(() => performance.now())
   return Math.max(0, endedAt - startedAt)
+}
+
+const readEditorPerformanceMilestones = async(
+  page: Page
+): Promise<EditorPerformanceMilestoneTimestamps | null> => {
+  return await page.evaluate(() => {
+    const element = document.querySelector('.editor-component')
+    if (!element) return null
+    return {
+      openStartAt: Number(element.getAttribute('data-editor-open-start-at')),
+      firstScreenAt: Number(element.getAttribute('data-editor-first-screen-at')),
+      editableAt: Number(element.getAttribute('data-editor-editable-at'))
+    }
+  })
+}
+
+const waitForEditorEditable = async(
+  page: Page,
+  minimumOpenStartAt: number
+): Promise<void> => {
+  await expect.poll(
+    async() => {
+      const milestones = await readEditorPerformanceMilestones(page)
+      return milestones !== null && hasCompletedEditorPerformanceMilestones(milestones, minimumOpenStartAt)
+    },
+    { timeout: 60000 }
+  ).toBe(true)
 }
 
 const recordSample = async(
@@ -234,12 +265,12 @@ const openDocument = async(
   page: Page,
   filePath: string
 ): Promise<number> => {
-  const duration = await measurePageAction(page, async() => {
+  const duration = await measurePageAction(page, async(startedAt) => {
     await page.evaluate((pathname) => {
       window.electron.ipcRenderer.send('mt::open-file', pathname, {})
     }, filePath)
     await expect.poll(() => readCurrentPath(page), { timeout: 60000 }).toBe(filePath)
-    await page.waitForSelector('.editor-component', { state: 'attached', timeout: 60000 })
+    await waitForEditorEditable(page, startedAt)
   })
   return duration
 }

@@ -4,7 +4,7 @@
   "title": "Inkiva performance soak threshold policy",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "comparison", "maxRelativeRegression", "regressionPolicy", "absoluteGates"],
+  "required": ["schemaVersion", "comparison", "maxRelativeRegression", "regressionPolicy", "relativeMetricDirections", "absoluteGates"],
   "properties": {
     "$schema": {"type": "string"},
     "$id": {"type": "string"},
@@ -12,6 +12,10 @@
     "comparison": {"const": "relative"},
     "maxRelativeRegression": {"type": "number", "minimum": 0, "exclusiveMaximum": 1},
     "regressionPolicy": {"const": "blocking"},
+    "relativeMetricDirections": {
+      "type": "object",
+      "additionalProperties": {"enum": ["lower-is-better", "higher-is-better"]}
+    },
     "absoluteGates": {
       "type": "array",
       "items": {

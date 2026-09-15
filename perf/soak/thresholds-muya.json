@@ -5,5 +5,6 @@
   "comparison": "relative",
   "maxRelativeRegression": 0.1,
   "regressionPolicy": "blocking",
+  "relativeMetricDirections": {},
   "absoluteGates": []
 }

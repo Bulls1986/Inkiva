@@ -7,6 +7,26 @@ export interface EditorPerformanceMilestoneScheduleOptions {
   notifyMainProcess?: () => void
 }
 
+export interface EditorPerformanceMilestoneTimestamps {
+  openStartAt: number
+  firstScreenAt: number
+  editableAt: number
+}
+
+export const hasCompletedEditorPerformanceMilestones = (
+  timestamps: EditorPerformanceMilestoneTimestamps,
+  minimumOpenStartAt = 0
+): boolean => {
+  return (
+    Number.isFinite(timestamps.openStartAt) &&
+    Number.isFinite(timestamps.firstScreenAt) &&
+    Number.isFinite(timestamps.editableAt) &&
+    timestamps.openStartAt >= minimumOpenStartAt &&
+    timestamps.firstScreenAt >= timestamps.openStartAt &&
+    timestamps.editableAt > timestamps.firstScreenAt
+  )
+}
+
 /**
  * Schedule user-visible editor milestones across browser frame boundaries.
  *

@@ -21,6 +21,11 @@ closed. Only an explicit manual bootstrap may create a baseline; failed or
 incomplete samples never replace the previous baseline. Raw reports remain
 attached so every failure can be audited.
 
+Relative metrics default to `lower-is-better`. Throughput counters or other
+metrics where a larger value is an improvement must be declared explicitly in
+`relativeMetricDirections`; the comparator records the direction in every
+compared metric and applies the same blocking regression threshold.
+
 Muya `muya.perf.*` metrics require at least 20 raw samples. The Muya browser
 lane writes one canonical report per sample (`muya-perf-00.json` through
 `muya-perf-19.json`); collection keeps those raw files and emits their median

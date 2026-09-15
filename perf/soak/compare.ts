@@ -7,6 +7,7 @@ export const SOAK_SCHEMA_VERSION = 1 as const
 export type SoakSuite = 'desktop' | 'muya'
 export type MetricUnit = 'ms' | 'count' | 'bytes' | 'ratio'
 export type AbsoluteGateOperator = 'eq' | 'lt' | 'lte' | 'gt' | 'gte'
+export type RelativeMetricDirection = 'lower-is-better' | 'higher-is-better'
 
 export interface AbsoluteGate {
   id: string
@@ -46,12 +47,14 @@ export interface ThresholdConfig {
   comparison: 'relative'
   maxRelativeRegression: number
   regressionPolicy: 'blocking'
+  relativeMetricDirections: Record<string, RelativeMetricDirection>
   absoluteGates: AbsoluteGate[]
 }
 
 export interface ComparedMetric {
   name: string
   unit: MetricUnit
+  direction: RelativeMetricDirection
   baselineValue: number
   currentValue: number
   relativeChange: number
@@ -92,6 +95,7 @@ const allowedThresholdKeys = new Set([
   'comparison',
   'maxRelativeRegression',
   'regressionPolicy',
+  'relativeMetricDirections',
   'absoluteGates'
 ])
 const metricUnits: readonly MetricUnit[] = ['ms', 'count', 'bytes', 'ratio']
@@ -121,6 +125,9 @@ const isMetricUnit = (value: unknown): value is MetricUnit =>
 
 const isAbsoluteGateOperator = (value: unknown): value is AbsoluteGateOperator =>
   typeof value === 'string' && absoluteGateOperators.includes(value as AbsoluteGateOperator)
+
+const isRelativeMetricDirection = (value: unknown): value is RelativeMetricDirection =>
+  value === 'lower-is-better' || value === 'higher-is-better'
 
 export const validateSoakReport = (value: unknown): SoakReport => {
   if (!isRecord(value)) {
@@ -214,6 +221,19 @@ export const validateThresholdConfig = (value: unknown): ThresholdConfig => {
   if (value.regressionPolicy !== 'blocking') {
     throw new Error('threshold config regressionPolicy must be blocking')
   }
+  if (!isRecord(value.relativeMetricDirections)) {
+    throw new Error('threshold config relativeMetricDirections must be an object')
+  }
+  const relativeMetricDirections: Record<string, RelativeMetricDirection> = {}
+  for (const [name, direction] of Object.entries(value.relativeMetricDirections)) {
+    if (name.length === 0) {
+      throw new Error('threshold config relative metric name must be non-empty')
+    }
+    if (!isRelativeMetricDirection(direction)) {
+      throw new Error('threshold config relative metric ' + name + ' has an invalid direction')
+    }
+    relativeMetricDirections[name] = direction
+  }
   if (!Array.isArray(value.absoluteGates)) {
     throw new Error('threshold config absoluteGates must be an array')
   }
@@ -258,6 +278,7 @@ export const validateThresholdConfig = (value: unknown): ThresholdConfig => {
     comparison: 'relative',
     maxRelativeRegression: value.maxRelativeRegression,
     regressionPolicy: 'blocking',
+    relativeMetricDirections,
     absoluteGates
   }
 }
@@ -370,23 +391,30 @@ export const compareSoakReports = (
     if (baselineMetric.value === 0) {
       // Zero is a valid baseline for counters and ratios such as forced
       // reflow or heap growth. Equal zero values are stable; a newly positive
-      // value is an unbounded regression and must fail the blocking gate.
+      // value is an unbounded regression for lower-is-better metrics. For a
+      // higher-is-better metric it is an improvement instead.
+      const direction = thresholds.relativeMetricDirections[metric.name] ?? 'lower-is-better'
       comparedMetrics.push({
         name: metric.name,
         unit: metric.unit,
+        direction,
         baselineValue: baselineMetric.value,
         currentValue: metric.value,
-        relativeChange: metric.value === 0 ? 0 : 1
+        relativeChange: metric.value === 0 ? 0 : direction === 'higher-is-better' ? -1 : 1
       })
       continue
     }
 
+    const direction = thresholds.relativeMetricDirections[metric.name] ?? 'lower-is-better'
     comparedMetrics.push({
       name: metric.name,
       unit: metric.unit,
+      direction,
       baselineValue: baselineMetric.value,
       currentValue: metric.value,
-      relativeChange: (metric.value - baselineMetric.value) / baselineMetric.value
+      relativeChange: direction === 'higher-is-better'
+        ? (baselineMetric.value - metric.value) / baselineMetric.value
+        : (metric.value - baselineMetric.value) / baselineMetric.value
     })
   }
 
@@ -504,9 +532,10 @@ export const runComparisonCli = (args: string[]): PerformanceComparison => {
   mkdirSync(dirname(options.outputPath), { recursive: true })
   writeFileSync(options.outputPath, `${JSON.stringify(comparison, null, 2)}\n`, 'utf8')
   for (const failure of comparison.failures) {
+    const change = (failure.relativeChange * 100).toFixed(1)
     console.error(
       '::error title=Performance regression::' + comparison.suite + ' ' + failure.name +
-      ' increased ' + (failure.relativeChange * 100).toFixed(1) + '% (' +
+      ' regressed by ' + change + '% (' +
       failure.baselineValue.toFixed(2) + ' → ' + failure.currentValue.toFixed(2) + ' ' + failure.unit + ')'
     )
   }

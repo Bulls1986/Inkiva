@@ -99,6 +99,26 @@ test('turns a large numeric regression into a hard-gate failure', () => {
   assert.equal(comparison.threshold, 0.1)
 })
 
+test('uses the declared higher-is-better direction for throughput counters', () => {
+  const withCycles = (value: number): SoakReport => ({
+    ...report(100),
+    metrics: [
+      ...report(100).metrics,
+      { name: 'soak.cycles', unit: 'count', value }
+    ]
+  })
+
+  const improved = compareSoakReports(withCycles(79), withCycles(70), thresholds)
+  assert.equal(improved.passed, true)
+  assert.equal(improved.failures.length, 0)
+  assert.equal(improved.comparedMetrics.find(metric => metric.name === 'soak.cycles')?.relativeChange, -0.12857142857142856)
+
+  const regressed = compareSoakReports(withCycles(60), withCycles(70), thresholds)
+  assert.equal(regressed.passed, false)
+  assert.equal(regressed.failures.length, 1)
+  assert.equal(regressed.failures[0]?.name, 'soak.cycles')
+})
+
 test('treats an unchanged zero baseline as comparable but blocks a new signal', () => {
   const withForcedReflow = (value: number): SoakReport => ({
     ...report(100),
@@ -114,6 +134,7 @@ test('treats an unchanged zero baseline as comparable but blocks a new signal', 
   assert.deepEqual(stable.comparedMetrics.find(metric => metric.name === 'core.forcedReflow'), {
     name: 'core.forcedReflow',
     unit: 'count',
+    direction: 'lower-is-better',
     baselineValue: 0,
     currentValue: 0,
     relativeChange: 0

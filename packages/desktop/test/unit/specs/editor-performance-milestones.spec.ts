@@ -1,9 +1,39 @@
 import { describe, expect, it, vi } from 'vitest'
-import { scheduleEditorPerformanceMilestones } from '../../../src/renderer/src/components/editorWithTabs/editorPerformanceMilestones'
+import {
+  hasCompletedEditorPerformanceMilestones,
+  scheduleEditorPerformanceMilestones
+} from '../../../src/renderer/src/components/editorWithTabs/editorPerformanceMilestones'
 
 type FrameCallback = () => void
 
 describe('editor performance milestone scheduling', () => {
+  it('accepts only finite, ordered milestones for the requested document operation', () => {
+    expect(
+      hasCompletedEditorPerformanceMilestones(
+        { openStartAt: 10, firstScreenAt: 20, editableAt: 30 },
+        10
+      )
+    ).toBe(true)
+    expect(
+      hasCompletedEditorPerformanceMilestones(
+        { openStartAt: 9, firstScreenAt: 20, editableAt: 30 },
+        10
+      )
+    ).toBe(false)
+    expect(
+      hasCompletedEditorPerformanceMilestones(
+        { openStartAt: 10, firstScreenAt: 30, editableAt: 20 },
+        10
+      )
+    ).toBe(false)
+    expect(
+      hasCompletedEditorPerformanceMilestones(
+        { openStartAt: Number.NaN, firstScreenAt: 20, editableAt: 30 },
+        0
+      )
+    ).toBe(false)
+  })
+
   it('records screen, interactive, and editable only across ordered paint frames', () => {
     const frames: FrameCallback[] = []
     const requestFrame = (callback: FrameCallback): void => {
