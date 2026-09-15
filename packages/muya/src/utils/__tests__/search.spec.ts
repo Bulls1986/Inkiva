@@ -1,6 +1,6 @@
 import type { IMatch } from '../../search/types';
 import { describe, expect, it } from 'vitest';
-import { buildRegexValue, matchString } from '../search';
+import { buildRegexValue, createSearchMatcher, matchString } from '../search';
 
 // Defensive coverage for the search helpers migrated from marktext.
 //
@@ -124,5 +124,34 @@ describe('matchString — search option matrix', () => {
             expect(matches[0].index).toBe(2);
             expect(matches[0].subMatches).toEqual(['26', '05']);
         });
+    });
+});
+
+describe('createSearchMatcher — reusable document search matcher', () => {
+    it('keeps the execall result shape while reusing one compiled expression', () => {
+        const matcher = createSearchMatcher('foo', { isCaseSensitive: false });
+
+        expect(matcher).not.toBeNull();
+        expect(matcher?.('Foo foo FOO')).toEqual([
+            { match: 'Foo', subMatches: [], index: 0 },
+            { match: 'foo', subMatches: [], index: 4 },
+            { match: 'FOO', subMatches: [], index: 8 },
+        ]);
+        expect(matcher?.('nothing here')).toEqual([]);
+    });
+
+    it('returns null once for an invalid expression instead of retrying per block', () => {
+        expect(createSearchMatcher('(', { isRegexp: true })).toBeNull();
+    });
+
+    it('preserves capture groups and whole-word matching', () => {
+        const matcher = createSearchMatcher('(cat)', {
+            isRegexp: true,
+            isWholeWord: true,
+        });
+
+        expect(matcher?.('cat category')).toEqual([
+            { match: 'cat', subMatches: ['cat'], index: 0 },
+        ]);
     });
 });
