@@ -51,6 +51,9 @@ export default function referenceImage(
         ? `span#${isSuccess ? `${id}_${token.range.start}` : id}.${imageClass}`
         : `span.${imageClass}`;
     selector += `.${CLASS_NAMES.MU_OUTPUT_REMOVE}`;
+    const wrapperData = isViewportLazy
+        ? { attrs: { 'data-image-lazy': 'pending' } }
+        : {};
     if (isSuccess)
         selector += `.${className}`;
     else if (isViewportLazy)
@@ -60,11 +63,11 @@ export default function referenceImage(
 
     return isSuccess
         ? [
-                h(selector, tag),
+                h(selector, wrapperData, tag),
                 // Prefer the resolved URL from the loadImageAsync cache; fall
                 // back to the raw src if the cache hasn't been populated for
                 // some reason.
                 h(`img.${CLASS_NAMES.MU_COPY_REMOVE}`, { props: { alt, src: resolvedSrc ?? src, title } }),
             ]
-        : [h(selector, tag)];
+        : [h(selector, wrapperData, tag)];
 }

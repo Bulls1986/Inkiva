@@ -236,6 +236,7 @@ export default function loadImageAsync(
             startLoad();
         }
         else {
+            isViewportLazy = true;
             observeInViewport(id, startLoad);
         }
     }

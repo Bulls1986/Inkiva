@@ -98,6 +98,7 @@ export default function image(
     let naturalWidth: number | undefined;
     let naturalHeight: number | undefined;
     let resolvedUrl: string | undefined;
+    let isViewportLazy = false;
     // `src` stays the plain path — it is the key the `urlMap`/cache lookups use.
     const src = imageSrc.src;
     const alt = token.attrs.alt;
@@ -106,7 +107,7 @@ export default function image(
     const height = token.attrs.height;
 
     if (src) {
-        ({ id, isSuccess, url: resolvedUrl, width: naturalWidth, height: naturalHeight }
+        ({ id, isSuccess, url: resolvedUrl, width: naturalWidth, height: naturalHeight, isViewportLazy }
             = this.loadImageAsync(imageSrc, token.attrs));
     }
 
@@ -116,6 +117,12 @@ export default function image(
     // of the plain path Chromium has cached. Uploads in progress override it
     // with the base64 preview below.
     let imgSrc = resolvedUrl ?? src;
+
+    // Keep the deferred state in the VNode itself. The observer is installed
+    // after the wrapper is mounted, so a timer-only marker leaves a race where
+    // layout probes can see an eager image before the observer owns the node.
+    if (isViewportLazy)
+        data.attrs['data-image-lazy'] = 'pending';
 
     let wrapperSelector = id
         ? `span#${isSuccess ? `${id}_${token.range.start}` : id}.${
