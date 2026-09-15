@@ -202,7 +202,7 @@ jobs:
         uses: actions/cache/save@v4.2.4
         with:
           path: perf-baseline
-          key: perf-soak-muya-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json', 'perf/soak/baseline-version.json') }}-${{ github.sha }}
+          key: perf-soak-muya-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds*.json', 'perf/soak/baseline-version.json') }}-${{ github.sha }}
 
       - name: Upload Muya performance reports
         if: always()

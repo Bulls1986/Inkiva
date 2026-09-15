@@ -156,7 +156,7 @@ const recordSample = async(
 const waitForTreePath = async(page: Page, expectedPath: string): Promise<void> => {
   await page.waitForFunction(
     (candidatePath) => {
-      const normalize = (value: string): string => value.replaceAll('\\\\', '/')
+      const normalize = (value: string): string => value.replaceAll('\\', '/')
       const expected = normalize(candidatePath)
       return Array.from(document.querySelectorAll('[data-path]')).some((element) => {
         const actual = element.getAttribute('data-path')
