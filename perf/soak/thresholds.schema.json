@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Bulls1986/Inkiva/blob/develop/perf/soak/thresholds.schema.json",
+  "title": "Inkiva performance soak threshold policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "comparison", "maxRelativeRegression", "regressionPolicy", "absoluteGates"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "$id": {"type": "string"},
+    "schemaVersion": {"const": 1},
+    "comparison": {"const": "relative"},
+    "maxRelativeRegression": {"type": "number", "minimum": 0, "exclusiveMaximum": 1},
+    "regressionPolicy": {"const": "blocking"},
+    "absoluteGates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "unit", "operator", "limit"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1},
+          "unit": {"enum": ["ms", "count", "bytes", "ratio"]},
+          "operator": {"enum": ["eq", "lt", "lte", "gt", "gte"]},
+          "limit": {"type": "number", "minimum": 0}
+        }
+      }
+    }
+  }
+}

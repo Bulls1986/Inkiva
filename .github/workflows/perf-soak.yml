@@ -8,6 +8,7 @@ on:
       - 'packages/desktop/src/**'
       - 'packages/desktop/test/e2e/performance-trace.spec.ts'
       - 'packages/desktop/test/e2e/perf-04-large-document.spec.ts'
+      - 'packages/desktop/test/e2e/performance-soak.spec.ts'
       - 'packages/desktop/test/performance/**'
       - 'packages/muya/src/**'
       - 'packages/muya/e2e/**'
@@ -37,7 +38,8 @@ jobs:
   desktop:
     name: Desktop @perf
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Full scheduled/manual runs are eight hours; PRs use the explicit smoke mode.
+    timeout-minutes: 510
     steps:
       - uses: actions/checkout@v4.3.1
 
@@ -68,7 +70,7 @@ jobs:
         uses: actions/cache/restore@v4.2.4
         with:
           path: perf-baseline
-          key: perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json', 'perf/soak/baseline-version.json') }}-${{ github.sha }}
+          key: perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds*.json', 'perf/soak/baseline-version.json') }}-${{ github.sha }}
           restore-keys: |
             perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json', 'perf/soak/baseline-version.json') }}-
 
@@ -79,6 +81,10 @@ jobs:
           INKIVA_PERF_CAPTURE: 'true'
           INKIVA_PERF_REPORT_DIR: ${{ github.workspace }}/packages/desktop/test-results/perf-results
           INKIVA_RUN_PERF: 'true'
+          INKIVA_RUN_PERF_SOAK: 'true'
+          INKIVA_PERF_SOAK_MODE: ${{ github.event_name == 'pull_request' && 'pr-smoke' || 'full' }}
+          INKIVA_RUN_PERF_SOAK: 'true'
+          INKIVA_PERF_SOAK_MODE: ${{ github.event_name == 'pull_request' && 'pr-smoke' || 'full' }}
 
       - name: Note desktop lane outcome
         if: always() && steps.perf.outcome != 'success'
@@ -92,7 +98,12 @@ jobs:
       - name: Compare desktop performance baseline
         id: compare
         if: always()
-        run: pnpm exec tsx perf/soak/compare.ts --current perf-results/desktop.json --baseline perf-baseline/desktop.json --thresholds perf/soak/thresholds.json --output perf-results/desktop-comparison.json
+        run: |
+          threshold_file=perf/soak/thresholds.json
+          if [[ "${INKIVA_PERF_SOAK_MODE}" == "pr-smoke" ]]; then
+            threshold_file=perf/soak/thresholds-pr-smoke.json
+          fi
+          pnpm exec tsx perf/soak/compare.ts --current perf-results/desktop.json --baseline perf-baseline/desktop.json --thresholds "$threshold_file" --output perf-results/desktop-comparison.json
 
       - name: Bootstrap desktop baseline (manual only)
         id: bootstrap

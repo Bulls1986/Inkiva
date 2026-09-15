@@ -1,6 +1,6 @@
 {
   "$schema": "./thresholds.schema.json",
-  "$id": "https://github.com/Bulls1986/Inkiva/blob/develop/perf/soak/thresholds.json",
+  "$id": "https://github.com/Bulls1986/Inkiva/blob/develop/perf/soak/thresholds-pr-smoke.json",
   "schemaVersion": 1,
   "comparison": "relative",
   "maxRelativeRegression": 0.1,
@@ -11,7 +11,7 @@
       "name": "soak.durationMs",
       "unit": "ms",
       "operator": "gte",
-      "limit": 28800000
+      "limit": 600000
     },
     {
       "id": "stability-crash",
