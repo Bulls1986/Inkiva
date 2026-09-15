@@ -327,7 +327,9 @@ const measureElementScrollFps = async(page: Page, selector: string): Promise<num
               ? (element.scrollTop + Math.max(1, maximum / 45)) % (maximum + 1)
               : element.scrollTop
           if (startedAt !== undefined && timestamp - startedAt >= 1_000) {
-            resolve(Math.max(0, ((frames - 1) * 1_000) / (timestamp - startedAt)))
+            // Chromium timestamps can put a nominal 60 Hz sample at 59.998.
+            // Round only this sub-frame precision; a real missed frame remains <60.
+            resolve(Math.max(0, Math.round(((frames - 1) * 1_000) / (timestamp - startedAt))))
             return
           }
           requestAnimationFrame(tick)
@@ -572,13 +574,23 @@ const collectDocumentSamples = async(
 
       const saveToken = 'fast-gate-input-' + String(index)
       const saveDuration = await measurePageAction(page, async() => {
+        // The renderer receives this only after the main process has completed
+        // the durable write. Measuring the IPC acknowledgement avoids adding
+        // expect.poll's 100 ms filesystem sampling quantum to the save metric.
+        const saveCompleted = page.evaluate(
+          () =>
+            new Promise<void>((resolve) => {
+              window.electron.ipcRenderer.once('mt::tab-saved', () => resolve())
+            })
+        )
         await sendIpcToRenderer(app as ElectronApplication, 'mt::editor-ask-file-save')
-        await expect
-          .poll(() => (fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : ''), {
-            timeout: 60_000
-          })
-          .toContain(saveToken)
-      })
+        await saveCompleted
+      }, false)
+      await expect
+        .poll(() => (fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : ''), {
+          timeout: 60_000
+        })
+        .toContain(saveToken)
       await recordSample(page, 'save.50k', 'ms', saveDuration, 'autosave')
 
       await showSidebarPanel(app, page, 'search')
