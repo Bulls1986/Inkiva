@@ -173,10 +173,18 @@ const waitForPaint = async(page: Page): Promise<void> => {
   )
 }
 
-const measurePageAction = async(page: Page, action: () => Promise<void>): Promise<number> => {
+const measurePageAction = async(
+  page: Page,
+  action: () => Promise<void>,
+  settleAfterAction = true
+): Promise<number> => {
   const startedAt = await page.evaluate(() => performance.now())
   await action()
-  await waitForPaint(page)
+  // Save/search timings include the next paint because they measure the
+  // user-visible result. Placeholder timing ends at attachment itself; adding
+  // two paint boundaries there measures the probe instead of placeholder
+  // creation and can fail the <50 ms gate on a nominal 60 Hz frame budget.
+  if (settleAfterAction) await waitForPaint(page)
   const endedAt = await page.evaluate(() => performance.now())
   return Math.max(0, endedAt - startedAt)
 }
@@ -630,7 +638,7 @@ const collectDiagramSamples = async(
       const placeholderDuration = await measurePageAction(page, async() => {
         await expect(page.locator('.mu-diagram-block').first()).toBeAttached({ timeout: 60_000 })
         await expect(page.locator('.mu-diagram-preview').first()).toBeAttached({ timeout: 60_000 })
-      })
+      }, false)
       await recordSample(page, 'diagram.placeholder', 'ms', placeholderDuration, 'diagram')
 
       await expect
