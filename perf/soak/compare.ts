@@ -367,8 +367,17 @@ export const compareSoakReports = (
       skippedMetrics.push({ name: metric.name, reason: 'unit-mismatch' })
       continue
     }
-    if (baselineMetric.value <= 0) {
-      skippedMetrics.push({ name: metric.name, reason: 'baseline-not-positive' })
+    if (baselineMetric.value === 0) {
+      // Zero is a valid baseline for counters and ratios such as forced
+      // reflow or heap growth. Equal zero values are stable; a newly positive
+      // value is an unbounded regression and must fail the blocking gate.
+      comparedMetrics.push({
+        name: metric.name,
+        unit: metric.unit,
+        baselineValue: baselineMetric.value,
+        currentValue: metric.value,
+        relativeChange: metric.value === 0 ? 0 : 1
+      })
       continue
     }
 

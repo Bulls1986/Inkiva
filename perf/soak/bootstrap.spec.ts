@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { SOAK_SCHEMA_VERSION, type SoakReport } from './compare'
+import { SOAK_SCHEMA_VERSION, type SoakReport, validateSoakReport } from './compare'
 import { bootstrapSoakBaseline } from './bootstrap'
 
 const report = (metrics: SoakReport['metrics']): SoakReport => ({
@@ -59,6 +59,22 @@ test('keeps baseline identity and explicit bootstrap policy in the workflow', ()
   assert.match(workflow, /bootstrap_baseline/)
   assert.match(workflow, /perf\/soak\/bootstrap\.ts/)
   assert.match(workflow, /hashFiles\([^\n]*baseline-version\.json/)
+  assert.match(workflow, /perf\/soak\/baselines\/desktop\.json/)
+  assert.match(workflow, /perf\/soak\/baselines\/muya\.json/)
   assert.match(workflow, /steps\.bootstrap\.outcome/)
   assert.match(workflow, /regressionPolicy.*blocking/)
+})
+
+test('checked-in baselines are real, non-empty reports with provenance', () => {
+  for (const suite of ['desktop', 'muya'] as const) {
+    const value = JSON.parse(
+      readFileSync(new URL(`./baselines/${suite}.json`, import.meta.url), 'utf8')
+    ) as unknown
+    const baseline = validateSoakReport(value)
+
+    assert.equal(baseline.suite, suite)
+    assert.ok(baseline.metrics.length > 0)
+    assert.ok(baseline.commit)
+    assert.ok(baseline.environment?.runId)
+  }
 })

@@ -21,6 +21,13 @@ closed. Only an explicit manual bootstrap may create a baseline; failed or
 incomplete samples never replace the previous baseline. Raw reports remain
 attached so every failure can be audited.
 
+The checked-in reports under `baselines/` are the reviewable seed for a new
+runner or cache. They must be copied from a successful collected run, retain
+the source commit and environment metadata, and are included in the cache key
+so changing a baseline cannot silently reuse an older cache. A baseline update
+is therefore a normal reviewed change, not an automatic overwrite from a
+failing run.
+
 Run the policy tests locally with:
 
 ```sh

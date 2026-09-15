@@ -99,6 +99,32 @@ test('turns a large numeric regression into a hard-gate failure', () => {
   assert.equal(comparison.threshold, 0.1)
 })
 
+test('treats an unchanged zero baseline as comparable but blocks a new signal', () => {
+  const withForcedReflow = (value: number): SoakReport => ({
+    ...report(100),
+    metrics: [
+      { name: 'core.forcedReflow', unit: 'count', value },
+      ...soakPolicyMetrics
+    ]
+  })
+
+  const stable = compareSoakReports(withForcedReflow(0), withForcedReflow(0), thresholds)
+  assert.equal(stable.passed, true)
+  assert.equal(stable.skippedMetrics.length, 0)
+  assert.deepEqual(stable.comparedMetrics.find(metric => metric.name === 'core.forcedReflow'), {
+    name: 'core.forcedReflow',
+    unit: 'count',
+    baselineValue: 0,
+    currentValue: 0,
+    relativeChange: 0
+  })
+
+  const regressed = compareSoakReports(withForcedReflow(1), withForcedReflow(0), thresholds)
+  assert.equal(regressed.passed, false)
+  assert.equal(regressed.skippedMetrics.length, 0)
+  assert.equal(regressed.failures[0]?.name, 'core.forcedReflow')
+})
+
 test('fails closed when the baseline is unavailable', () => {
   const comparison = compareSoakReports(report(100), undefined, thresholds)
   assert.equal(comparison.status, 'baseline-unavailable')
