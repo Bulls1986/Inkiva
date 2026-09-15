@@ -17,6 +17,16 @@ vi.mock('../../../utils/image', () => ({
 vi.mock('../../../utils/dom', () => ({
     insertAfter: vi.fn(),
     operateClassName: vi.fn(),
+    findScrollContainer: (node: HTMLElement) => {
+        let current: HTMLElement | null = node;
+        while (current && current !== document.body && current !== document.documentElement) {
+            if (current.style.overflowY === 'auto' || current.style.overflowY === 'scroll')
+                return current;
+            current = current.parentElement;
+        }
+
+        return node;
+    },
 }));
 
 interface IFakeRenderer {
@@ -35,9 +45,11 @@ class TestIntersectionObserver {
     static instances: TestIntersectionObserver[] = [];
     private readonly _callback: IntersectionObserverCallback;
     private _target: Element | null = null;
+    readonly options: IntersectionObserverInit;
 
-    constructor(callback: IntersectionObserverCallback) {
+    constructor(callback: IntersectionObserverCallback, options: IntersectionObserverInit = {}) {
         this._callback = callback;
+        this.options = options;
         TestIntersectionObserver.instances.push(this);
     }
 
@@ -187,6 +199,26 @@ describe('loadImageAsync — viewport lazy loading', () => {
             'https://example.com/lazy.png',
             false,
         );
+    });
+
+    it('uses the nearest editor scroll container as the observer root', async () => {
+        vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const r = makeRenderer();
+        const out = loadImageAsync.call(
+            asRenderer(r),
+            { isUnknownType: false, src: 'https://example.com/scroll-root.png' },
+            {},
+        );
+
+        const scrollContainer = document.createElement('div');
+        scrollContainer.style.overflowY = 'auto';
+        const wrapper = document.createElement('span');
+        wrapper.id = out.id;
+        scrollContainer.appendChild(wrapper);
+        document.body.appendChild(scrollContainer);
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+        expect(TestIntersectionObserver.instances[0]?.options.root).toBe(scrollContainer);
     });
 
     it('keeps cached duplicate images lazy until they intersect the viewport', async () => {

@@ -1,7 +1,7 @@
 import type Renderer from './index';
 import { CLASS_NAMES } from '../../config';
 import { getUniqueId } from '../../utils';
-import { insertAfter, operateClassName } from '../../utils/dom';
+import { findScrollContainer, insertAfter, operateClassName } from '../../utils/dom';
 import { loadImage } from '../../utils/image';
 
 interface ILoadedImage {
@@ -61,28 +61,38 @@ function mountLoadedImage(
 }
 
 function observeInViewport(id: string, callback: () => void): void {
-    const observer = new IntersectionObserver((entries) => {
+    let observer: IntersectionObserver | null = null;
+    const onIntersect: IntersectionObserverCallback = (entries) => {
         if (!entries.some(entry =>
             entry.isIntersecting || entry.intersectionRatio > 0)) {
             return;
         }
 
         const imageText = document.getElementById(id);
-        observer.disconnect();
+        observer?.disconnect();
         if (!imageText)
             return;
 
         imageText.removeAttribute('data-image-lazy');
         callback();
-    }, { rootMargin: '0px' });
+    };
 
     setTimeout(() => {
         const imageText = document.getElementById(id);
         if (!imageText) {
-            observer.disconnect();
             return;
         }
 
+        // Muya's desktop host scrolls the contenteditable root, not the
+        // browser viewport. An implicit viewport observer can therefore mark
+        // a document image visible while it is clipped by the editor's
+        // scrollport. Resolve the actual scroll container after the wrapper
+        // is mounted and use it as the observer root.
+        const scrollContainer = findScrollContainer(imageText);
+        observer = new IntersectionObserver(onIntersect, {
+            root: scrollContainer === imageText ? null : scrollContainer,
+            rootMargin: '0px',
+        });
         imageText.setAttribute('data-image-lazy', 'pending');
         observer.observe(imageText);
     }, 0);
