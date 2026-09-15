@@ -85,7 +85,9 @@ const writeSoakWorkspace = (): SoakWorkspace => {
   return {
     root,
     documents,
-    watchedPath: path.join(notesDirectory, 'watched-later.md')
+    // Keep the injected watcher file in the initial virtual window so the
+    // event can be observed without expanding a collapsed folder first.
+    watchedPath: path.join(root, 'a-watched-later.md')
   }
 }
 
