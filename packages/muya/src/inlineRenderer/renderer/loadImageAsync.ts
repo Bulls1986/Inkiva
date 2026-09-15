@@ -5,6 +5,7 @@ import { findScrollContainer, insertAfter, operateClassName } from '../../utils/
 import { loadImage } from '../../utils/image';
 
 const INITIAL_IMAGE_LAYOUT_SETTLE_MS = 250;
+const LAZY_LOAD_BOTTOM_MARGIN_PX = 64;
 
 interface ILoadedImage {
     url: string;
@@ -77,8 +78,10 @@ function observeInViewport(id: string, callback: () => void): void {
 
         const viewportRect = scrollContainer?.getBoundingClientRect();
         const top = viewportRect?.top ?? 0;
-        const bottom = viewportRect?.bottom
-            ?? (typeof window !== 'undefined' ? window.innerHeight : 0);
+        const bottom = (
+            viewportRect?.bottom
+            ?? (typeof window !== 'undefined' ? window.innerHeight : 0)
+        ) - LAZY_LOAD_BOTTOM_MARGIN_PX;
         const left = viewportRect?.left ?? 0;
         const right = viewportRect?.right
             ?? (typeof window !== 'undefined' ? window.innerWidth : 0);
@@ -124,7 +127,11 @@ function observeInViewport(id: string, callback: () => void): void {
             : detectedScrollContainer;
         observer = new IntersectionObserver(onIntersect, {
             root: scrollContainer,
-            rootMargin: '0px',
+            // Do not make a load decision in the editor's bottom edge. Native
+            // window chrome and nested scrollports can differ by a few dozen
+            // pixels; the guard keeps expensive image decode for content that
+            // is comfortably visible instead of a transient boundary hit.
+            rootMargin: `0px 0px -${LAZY_LOAD_BOTTOM_MARGIN_PX}px 0px`,
         });
         imageText.setAttribute('data-image-lazy', 'pending');
         observer.observe(imageText);
