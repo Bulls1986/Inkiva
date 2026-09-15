@@ -149,11 +149,10 @@ export class ScrollPage extends Parent {
         });
     }
 
-    private _mountBlocks(state: TState[], beforeSpacer = false): void {
-        if (state.length === 0)
+    private _appendBlocks(blocks: Parent[], beforeSpacer = false): void {
+        if (blocks.length === 0)
             return;
 
-        const blocks = this._createBlocks(state);
         const fragment = document.createDocumentFragment();
 
         blocks.forEach((block) => {
@@ -166,6 +165,10 @@ export class ScrollPage extends Parent {
             this.domNode!.insertBefore(fragment, this._progressiveSpacer);
         else
             this.domNode!.appendChild(fragment);
+    }
+
+    private _mountBlocks(state: TState[], beforeSpacer = false): void {
+        this._appendBlocks(this._createBlocks(state), beforeSpacer);
     }
 
     private _mountState(state: TState[]): void {
@@ -223,20 +226,25 @@ export class ScrollPage extends Parent {
             return;
         }
 
+        // Measure the expensive operation itself. Advancing an index in a
+        // tight loop is cheap and would otherwise select the whole document
+        // before `_mountBlocks` constructs any of its DOM.
         const startedAt = performance.now();
-        const startIndex = this._progressiveIndex;
-        while (
-            this._progressiveIndex < states.length
-            && (this._progressiveIndex === startIndex
-                || performance.now() - startedAt < PROGRESSIVE_RENDER_CHUNK_BUDGET_MS)
-        ) {
+        const blocks: Parent[] = [];
+        do {
+            const state = states[this._progressiveIndex];
+            if (!state)
+                break;
+
+            blocks.push(ScrollPage.loadBlock(state.name).create(this.muya, state));
             this._progressiveIndex += 1;
         }
-
-        this._mountBlocks(
-            states.slice(startIndex, this._progressiveIndex),
-            true,
+        while (
+            this._progressiveIndex < states.length
+            && performance.now() - startedAt < PROGRESSIVE_RENDER_CHUNK_BUDGET_MS
         );
+
+        this._appendBlocks(blocks, true);
         this._progressiveRemainingHeight = estimateStatesHeight(
             states.slice(this._progressiveIndex),
         );
