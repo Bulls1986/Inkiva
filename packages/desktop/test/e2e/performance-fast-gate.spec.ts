@@ -309,26 +309,38 @@ const readEditorMilestones = async(
 ): Promise<{ timestamps: EditorMilestoneTimestamps; durations: EditorMilestoneDurations }> => {
   await page.waitForFunction(
     (minimum) => {
-      const element = document.querySelector('.editor-component')
-      if (!element) return false
-      const openStartAt = Number(element.getAttribute('data-editor-open-start-at'))
-      const firstScreenAt = Number(element.getAttribute('data-editor-first-screen-at'))
-      const editableAt = Number(element.getAttribute('data-editor-editable-at'))
-      return (
-        Number.isFinite(openStartAt) &&
-        Number.isFinite(firstScreenAt) &&
-        Number.isFinite(editableAt) &&
-        openStartAt >= minimum &&
-        firstScreenAt >= openStartAt &&
-        editableAt > firstScreenAt
-      )
+      return Array.from(document.querySelectorAll('.editor-component')).some((element) => {
+        const openStartAt = Number(element.getAttribute('data-editor-open-start-at'))
+        const firstScreenAt = Number(element.getAttribute('data-editor-first-screen-at'))
+        const editableAt = Number(element.getAttribute('data-editor-editable-at'))
+        return (
+          Number.isFinite(openStartAt) &&
+          Number.isFinite(firstScreenAt) &&
+          Number.isFinite(editableAt) &&
+          openStartAt >= minimum &&
+          firstScreenAt >= openStartAt &&
+          editableAt > firstScreenAt
+        )
+      })
     },
     minimumOpenStartAt,
     { timeout }
   )
 
   const timestamps = (await page.evaluate(() => {
-    const element = document.querySelector('.editor-component')
+    const element = Array.from(document.querySelectorAll('.editor-component')).find((candidate) => {
+      const openStartAt = Number(candidate.getAttribute('data-editor-open-start-at'))
+      const firstScreenAt = Number(candidate.getAttribute('data-editor-first-screen-at'))
+      const editableAt = Number(candidate.getAttribute('data-editor-editable-at'))
+      return (
+        Number.isFinite(openStartAt) &&
+        Number.isFinite(firstScreenAt) &&
+        Number.isFinite(editableAt) &&
+        openStartAt >= 0 &&
+        firstScreenAt >= openStartAt &&
+        editableAt > firstScreenAt
+      )
+    })
     if (!element) throw new Error('editor component is missing for fast milestones')
     return {
       openStartAt: Number(element.getAttribute('data-editor-open-start-at')),
