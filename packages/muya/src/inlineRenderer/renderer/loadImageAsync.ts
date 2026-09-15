@@ -77,7 +77,7 @@ function observeInViewport(id: string, callback: () => void): void {
         callback();
     };
 
-    setTimeout(() => {
+    const installObserver = () => {
         const imageText = document.getElementById(id);
         if (!imageText) {
             return;
@@ -95,7 +95,19 @@ function observeInViewport(id: string, callback: () => void): void {
         });
         imageText.setAttribute('data-image-lazy', 'pending');
         observer.observe(imageText);
-    }, 0);
+    };
+
+    // The image wrapper is created during the same render pass as its
+    // surrounding blocks. Wait for two paint boundaries before observing so
+    // the editor scrollport and any block height hints have settled; otherwise
+    // the initial IntersectionObserver delivery can see a transient geometry
+    // and start every image load before the final layout is established.
+    if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => requestAnimationFrame(installObserver));
+    }
+    else {
+        setTimeout(installObserver, 0);
+    }
 }
 
 export default function loadImageAsync(

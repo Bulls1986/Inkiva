@@ -76,6 +76,15 @@ class TestIntersectionObserver {
     }
 }
 
+function waitForLazyObserver(): Promise<void> {
+    if (typeof requestAnimationFrame === 'function') {
+        return new Promise(resolve =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    }
+
+    return new Promise(resolve => setTimeout(resolve, 0));
+}
+
 beforeEach(() => {
     vi.stubGlobal('IntersectionObserver', undefined);
 });
@@ -181,7 +190,7 @@ describe('loadImageAsync — viewport lazy loading', () => {
         const wrapper = document.createElement('span');
         wrapper.id = out.id;
         document.body.appendChild(wrapper);
-        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        await waitForLazyObserver();
 
         expect(TestIntersectionObserver.instances).toHaveLength(1);
         expect(loadImage).not.toHaveBeenCalled();
@@ -216,7 +225,7 @@ describe('loadImageAsync — viewport lazy loading', () => {
         wrapper.id = out.id;
         scrollContainer.appendChild(wrapper);
         document.body.appendChild(scrollContainer);
-        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        await waitForLazyObserver();
 
         expect(TestIntersectionObserver.instances[0]?.options.root).toBe(scrollContainer);
     });
@@ -249,7 +258,7 @@ describe('loadImageAsync — viewport lazy loading', () => {
         container.classList.add('mu-image-container');
         wrapper.appendChild(container);
         document.body.appendChild(wrapper);
-        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        await waitForLazyObserver();
 
         const observer = TestIntersectionObserver.instances[0];
         observer.trigger(false);
