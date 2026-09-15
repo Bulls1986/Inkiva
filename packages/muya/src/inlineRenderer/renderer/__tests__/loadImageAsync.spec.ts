@@ -76,13 +76,12 @@ class TestIntersectionObserver {
     }
 }
 
-function waitForLazyObserver(): Promise<void> {
+async function waitForLazyObserver(): Promise<void> {
+    await new Promise<void>(resolve => setTimeout(resolve, 250));
     if (typeof requestAnimationFrame === 'function') {
-        return new Promise(resolve =>
+        await new Promise<void>(resolve =>
             requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     }
-
-    return new Promise(resolve => setTimeout(resolve, 0));
 }
 
 beforeEach(() => {

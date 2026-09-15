@@ -4,6 +4,8 @@ import { getUniqueId } from '../../utils';
 import { findScrollContainer, insertAfter, operateClassName } from '../../utils/dom';
 import { loadImage } from '../../utils/image';
 
+const INITIAL_IMAGE_LAYOUT_SETTLE_MS = 250;
+
 interface ILoadedImage {
     url: string;
     width: number;
@@ -133,12 +135,20 @@ function observeInViewport(id: string, callback: () => void): void {
     // the editor scrollport and any block height hints have settled; otherwise
     // the initial IntersectionObserver delivery can see a transient geometry
     // and start every image load before the final layout is established.
-    if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(() => requestAnimationFrame(installObserver));
-    }
-    else {
-        setTimeout(installObserver, 0);
-    }
+    const scheduleObserverInstall = () => {
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => requestAnimationFrame(installObserver));
+        }
+        else {
+            installObserver();
+        }
+    };
+
+    // Diagram previews use the same initial window to settle their reserved
+    // height before rendering a visible result. Do not let images make a
+    // viewport decision during that transition: a wrapper can be visible
+    // before a diagram settles and offscreen immediately afterwards.
+    setTimeout(scheduleObserverInstall, INITIAL_IMAGE_LAYOUT_SETTLE_MS);
 }
 
 export default function loadImageAsync(
