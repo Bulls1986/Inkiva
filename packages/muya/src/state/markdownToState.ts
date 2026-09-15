@@ -14,6 +14,7 @@ import { firstWordOfInfo } from '../utils';
 import { getDiagramType } from '../utils/diagram/languages';
 import logger from '../utils/logger';
 import { lexBlock } from '../utils/marked';
+import { TokenWorklist } from './tokenWorklist';
 
 const debug = logger('import markdown: ');
 
@@ -63,19 +64,19 @@ export class MarkdownToState {
         // markdownToState injects synthetic `block-end` markers (see the
         // blockquote/list/list_item/footnote cases below) to pop the parent
         // stack, so the working stream is wider than what `lexBlock` returns.
-        const tokens: TBlockToken[] = lexBlock(markdown, {
+        const tokens = new TokenWorklist(lexBlock(markdown, {
             footnote,
             math,
             frontMatter,
             isGitlabCompatibilityEnabled,
-        });
+        }));
 
         const states: TState[] = [];
         let token: TBlockToken | undefined;
         const parentList: TState[][] = [states];
 
         // eslint-disable-next-line no-cond-assign
-        while ((token = tokens.shift())) {
+        while ((token = tokens.take())) {
             if (CONTAINER_TOKEN_TYPES.has(token.type))
                 this._handleContainerToken(token, parentList, tokens);
             else
@@ -88,7 +89,7 @@ export class MarkdownToState {
     private _handleContainerToken(
         token: TBlockToken,
         parentList: TState[][],
-        tokens: TBlockToken[],
+        tokens: TokenWorklist<TBlockToken>,
     ) {
         let state: TState;
         switch (token.type) {
@@ -118,8 +119,8 @@ export class MarkdownToState {
                 };
                 parentList[0].push(state);
                 parentList.unshift(state.children);
-                tokens.unshift({ type: 'block-end', tokenType: 'blockquote' });
-                tokens.unshift(...(token.tokens as TBlockToken[]));
+                tokens.prepend([{ type: 'block-end', tokenType: 'blockquote' }]);
+                tokens.prepend(token.tokens as TBlockToken[]);
                 break;
             }
 
@@ -164,8 +165,8 @@ export class MarkdownToState {
                 state = listState;
                 parentList[0].push(state);
                 parentList.unshift(state.children);
-                tokens.unshift({ type: 'block-end', tokenType: 'list' });
-                tokens.unshift(...(token.items as TBlockToken[]));
+                tokens.prepend([{ type: 'block-end', tokenType: 'list' }]);
+                tokens.prepend(token.items as TBlockToken[]);
                 break;
             }
 
@@ -189,8 +190,8 @@ export class MarkdownToState {
                 state = itemState;
                 parentList[0].push(state);
                 parentList.unshift(state.children);
-                tokens.unshift({ type: 'block-end', tokenType: 'list-item' });
-                tokens.unshift(...(token.tokens as TBlockToken[]));
+                tokens.prepend([{ type: 'block-end', tokenType: 'list-item' }]);
+                tokens.prepend(token.tokens as TBlockToken[]);
                 break;
             }
 
@@ -198,7 +199,7 @@ export class MarkdownToState {
                 // The footnote extension (utils/marked/extensions/footnote.ts)
                 // emits a parent token whose `tokens` array holds nested
                 // block tokens. Mirror that into a `footnote` container
-                // state and recurse via tokens.unshift / block-end.
+                // state and recurse via the worklist / block-end marker.
                 const { identifier } = token;
                 state = {
                     name: 'footnote' as const,
@@ -207,8 +208,8 @@ export class MarkdownToState {
                 };
                 parentList[0].push(state);
                 parentList.unshift(state.children);
-                tokens.unshift({ type: 'block-end', tokenType: 'footnote' });
-                tokens.unshift(...(token.tokens as TBlockToken[]));
+                tokens.prepend([{ type: 'block-end', tokenType: 'footnote' }]);
+                tokens.prepend(token.tokens as TBlockToken[]);
                 break;
             }
         }
@@ -217,7 +218,7 @@ export class MarkdownToState {
     private _handleLeafToken(
         token: TBlockToken,
         parentList: TState[][],
-        tokens: TBlockToken[],
+        tokens: TokenWorklist<TBlockToken>,
         trimUnnecessaryCodeBlockEmptyLines: boolean,
     ) {
         let state: TState;
@@ -361,8 +362,8 @@ export class MarkdownToState {
 
             case 'text': {
                 value = token.text;
-                while (tokens[0]?.type === 'text') {
-                    const next = tokens.shift() as Extract<TBlockToken, { type: 'text' }>;
+                while (tokens.peek()?.type === 'text') {
+                    const next = tokens.take() as Extract<TBlockToken, { type: 'text' }>;
                     value += `\n${next.text}`;
                 }
                 state = {
