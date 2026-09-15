@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import {
   compareSoakReports,
@@ -8,7 +8,7 @@ import {
 } from './compare'
 
 const thresholds = validateThresholdConfig(JSON.parse(
-  await readFile(new URL('./thresholds.json', import.meta.url), 'utf8')
+  readFileSync(new URL('./thresholds.json', import.meta.url), 'utf8')
 ) as unknown)
 
 const report = (metrics: SoakReport['metrics']): SoakReport => ({

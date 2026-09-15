@@ -74,7 +74,7 @@ test('rejects malformed reports instead of silently comparing them', () => {
   assert.throws(() => validateSoakReport({ ...report(10), extra: true }), /unknown field/)
   assert.throws(
     () => validateThresholdConfig({ ...thresholds, absoluteGates: ['max-ms'] }),
-    /absoluteGates/
+    /absolute gate/
   )
 })
 
