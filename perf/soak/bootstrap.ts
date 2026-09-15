@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { MINIMUM_MUYA_PERF_SAMPLES } from './collect'
 import { validateSoakReport, type SoakReport } from './compare'
 
 export const bootstrapSoakBaseline = (
@@ -10,6 +11,14 @@ export const bootstrapSoakBaseline = (
   const report = validateSoakReport(currentValue)
   if (report.metrics.length === 0) {
     throw new Error('baseline report must contain at least one metric')
+  }
+  if (report.suite === 'muya') {
+    const sampleCount = Number(report.environment?.sampleCount)
+    if (!Number.isInteger(sampleCount) || sampleCount < MINIMUM_MUYA_PERF_SAMPLES) {
+      throw new Error(
+        'Muya baseline requires at least ' + MINIMUM_MUYA_PERF_SAMPLES + ' samples'
+      )
+    }
   }
   if (existsSync(outputPath)) {
     throw new Error('refusing to overwrite existing baseline: ' + outputPath)

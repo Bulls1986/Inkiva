@@ -46,6 +46,23 @@ test('rejects empty or malformed reports before writing a baseline', () => {
   }
 })
 
+test('rejects a Muya baseline without the twenty-sample provenance', () => {
+  const directory = mkdtempSync(join(process.cwd(), 'perf-soak-bootstrap-'))
+  try {
+    const muya = {
+      ...report([{ name: 'muya.perf.set-content.10000', unit: 'ms', value: 42 }]),
+      suite: 'muya' as const,
+      environment: { runId: 'bootstrap-test' }
+    }
+    assert.throws(
+      () => bootstrapSoakBaseline(muya, join(directory, 'muya.json')),
+      /Muya baseline requires at least 20 samples/
+    )
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('keeps baseline identity and explicit bootstrap policy in the workflow', () => {
   const version = JSON.parse(
     readFileSync(new URL('./baseline-version.json', import.meta.url), 'utf8')
