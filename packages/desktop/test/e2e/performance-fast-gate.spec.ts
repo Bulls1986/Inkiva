@@ -20,6 +20,7 @@ import {
   getRendererErrors,
   launchElectron,
   placeCaretInEditor,
+  sendIpcFromRenderer,
   sendIpcToRenderer,
   showSidebarPanel,
   waitForEditor,
@@ -399,7 +400,7 @@ const activateFile = async(
   filePath: string
 ): Promise<EditorMilestoneDurations> => {
   const startedAt = await page.evaluate(() => performance.now())
-  await sendIpcToRenderer(app, 'mt::open-file', filePath, {})
+  await sendIpcFromRenderer(page, 'mt::open-file', filePath, {})
   await waitForActiveFile(page, filePath)
   const milestones = await readEditorMilestones(page, startedAt)
   return {

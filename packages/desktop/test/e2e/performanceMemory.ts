@@ -6,7 +6,7 @@ import {
   type MemoryLeakSeriesEvaluation,
   type MemoryLeakSeriesOptions
 } from '../../../../perf/gate/memory'
-import { placeCaretInEditor, sendIpcToRenderer } from './helpers'
+import { placeCaretInEditor, sendIpcFromRenderer, sendIpcToRenderer } from './helpers'
 
 export type MemoryLeakSampleUnit = 'bytes' | 'count' | 'ratio'
 
@@ -122,7 +122,7 @@ const openEditSwitchClose = async(
   cyclePath: string,
   index: number
 ): Promise<void> => {
-  await sendIpcToRenderer(app, 'mt::open-file', cyclePath, {})
+  await sendIpcFromRenderer(page, 'mt::open-file', cyclePath, {})
   await waitForActiveTab(page, cyclePath)
   await page.waitForFunction(
     () => document.querySelectorAll('.tabs-container > li').length === 2,
