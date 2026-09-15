@@ -363,7 +363,11 @@ const makeSyntheticHistory = (id: string, content: string): IFileHistoryLike => 
   return getSyntheticHistory(id, content).build(content)
 }
 
-const captureEditorSnapshot = (id: string, revision: number): void => {
+const captureEditorSnapshot = (
+  id: string,
+  revision: number,
+  includeBlocks = true
+): void => {
   if (!currentFile.value || currentFile.value.id !== id || !editor.value) return
 
   const markdown = editor.value.getMarkdown()
@@ -378,7 +382,10 @@ const captureEditorSnapshot = (id: string, revision: number): void => {
     // Synthetic, desktop-shaped history so the store's save/dirty tracking
     // keeps working (the engine history shape is incompatible).
     history: makeSyntheticHistory(id, markdown),
-    blocks: editor.value.getState()
+    // A text-only save needs the Markdown/history snapshot, not a deep clone of
+    // the whole AST. Clear the reusable block cache so a later tab switch
+    // cannot reuse a stale tree; structural changes still refresh it.
+    blocks: includeBlocks ? editor.value.getState() : null
   })
 }
 // Drop per-tab bookkeeping for tabs that no longer exist. Tab ids are unique
@@ -2364,8 +2371,9 @@ onMounted(() => {
     const revision = editorStore.MARK_CONTENT_DIRTY(id)
     editorSnapshotScheduler.request(
       id,
-      () => captureEditorSnapshot(id, revision),
-      policy.snapshot === 'immediate'
+      (includeBlocks) => captureEditorSnapshot(id, revision, includeBlocks),
+      policy.snapshot === 'immediate',
+      policy.kind !== 'text-only'
     )
 
     if (policy.refreshToc) scheduleTocRefresh(id)
