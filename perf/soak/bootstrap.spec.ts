@@ -67,7 +67,7 @@ test('keeps baseline identity and explicit bootstrap policy in the workflow', ()
   const version = JSON.parse(
     readFileSync(new URL('./baseline-version.json', import.meta.url), 'utf8')
   ) as { version?: unknown }
-  assert.equal(version.version, 2)
+  assert.equal(version.version, 3)
 
   const workflow = readFileSync(
     new URL('../../.github/workflows/perf-soak.yml', import.meta.url),

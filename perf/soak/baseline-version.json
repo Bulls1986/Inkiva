@@ -1,5 +1,5 @@
 {
-  "version": 2,
-  "reason": "Invalidate cached Soak baselines when the collected metric set changes.",
+  "version": 3,
+  "reason": "Invalidate cached Soak baselines when the collected metric set or sample contract changes.",
   "updatedFor": "Inkiva v0.3.0 performance gate"
 }

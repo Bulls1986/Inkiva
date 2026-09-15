@@ -1,14 +1,15 @@
 {
   "schemaVersion": 1,
   "suite": "muya",
-  "generatedAt": "2026-09-15T01:35:12.945Z",
-  "commit": "871984460043d2643fc5f6338d78b84b396f49c4",
+  "generatedAt": "2026-09-15T02:19:57.335Z",
+  "commit": "b5db2a786463b9e1253c3e6e49eabb912a2c7268",
   "environment": {
     "node": "v22.21.1",
     "platform": "linux",
-    "runId": "34917780240"
+    "sampleCount": "20",
+    "runId": "34920656219"
   },
   "metrics": [
-    { "name": "muya.perf.set-content.10000", "unit": "ms", "value": 1526.2999999999884 }
+    { "name": "muya.perf.set-content.10000", "unit": "ms", "value": 2143.6500000000015 }
   ]
 }
