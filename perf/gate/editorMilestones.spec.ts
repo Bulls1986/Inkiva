@@ -1,43 +1,50 @@
-import { describe, expect, it } from 'vitest'
+import assert from 'node:assert/strict'
+import test from 'node:test'
+
 import { measureEditorMilestones } from './editorMilestones.js'
 
-describe('editor performance milestones', () => {
-  it('keeps first-screen and editable timings as distinct real milestones', () => {
-    expect(
-      measureEditorMilestones({
-        openStartAt: 100,
-        firstScreenAt: 124.5,
-        editableAt: 151.25
-      })
-    ).toEqual({
+test('keeps first-screen and editable timings as distinct real milestones', () => {
+  assert.deepEqual(
+    measureEditorMilestones({
+      openStartAt: 100,
+      firstScreenAt: 124.5,
+      editableAt: 151.25
+    }),
+    {
       firstScreenMs: 24.5,
       editableMs: 51.25
-    })
-  })
+    }
+  )
+})
 
-  it('rejects missing or non-monotonic milestone timestamps', () => {
-    expect(() =>
+test('rejects missing or non-monotonic milestone timestamps', () => {
+  assert.throws(
+    () =>
       measureEditorMilestones({
         openStartAt: Number.NaN,
         firstScreenAt: 124,
         editableAt: 151
-      })
-    ).toThrow('finite timestamps')
+      }),
+    /finite timestamps/
+  )
 
-    expect(() =>
+  assert.throws(
+    () =>
       measureEditorMilestones({
         openStartAt: 100,
         firstScreenAt: 99,
         editableAt: 151
-      })
-    ).toThrow('precedes open start')
+      }),
+    /precedes open start/
+  )
 
-    expect(() =>
+  assert.throws(
+    () =>
       measureEditorMilestones({
         openStartAt: 100,
         firstScreenAt: 124,
         editableAt: 124
-      })
-    ).toThrow('must follow first-screen')
-  })
+      }),
+    /must follow first-screen/
+  )
 })
