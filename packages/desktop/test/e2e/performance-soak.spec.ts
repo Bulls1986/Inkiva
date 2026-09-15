@@ -158,17 +158,58 @@ const recordSample = async(
   if (!recorded) throw new Error('renderer performance gate bridge is unavailable')
 }
 
-const waitForTreePath = async(page: Page, expectedPath: string): Promise<void> => {
+const waitForTreePath = async(
+  page: Page,
+  expectedPath: string,
+  minimumMtimeMs?: number
+): Promise<void> => {
   await page.waitForFunction(
-    (candidatePath) => {
+    ({ candidatePath, minimumMtime }) => {
       const normalize = (value: string): string => value.replaceAll('\\', '/')
       const expected = normalize(candidatePath)
-      return Array.from(document.querySelectorAll('[data-path]')).some((element) => {
-        const actual = element.getAttribute('data-path')
-        return actual !== null && normalize(actual) === expected
-      })
+      const app = document.querySelector('#app') as
+        | (Element & {
+          __vue_app__?: {
+            config?: { globalProperties?: Record<string, unknown> }
+          }
+        })
+        | null
+      const pinia = app?.__vue_app__?.config?.globalProperties?.$pinia as
+        | { _s?: Map<string, { projectTree?: unknown }> }
+        | undefined
+      const projectTree = pinia?._s?.get('project')?.projectTree as
+        | {
+          pathname?: string
+          mtimeMs?: number
+          folders?: unknown[]
+          files?: unknown[]
+        }
+        | null
+        | undefined
+      const visit = (node: unknown): boolean => {
+        if (!node || typeof node !== 'object') return false
+        const candidate = node as {
+          pathname?: unknown
+          mtimeMs?: unknown
+          folders?: unknown[]
+          files?: unknown[]
+        }
+        if (
+          typeof candidate.pathname === 'string' &&
+          normalize(candidate.pathname) === expected &&
+          (minimumMtime === undefined ||
+            (typeof candidate.mtimeMs === 'number' && candidate.mtimeMs >= minimumMtime))
+        ) {
+          return true
+        }
+        return (
+          (candidate.folders ?? []).some(visit) ||
+          (candidate.files ?? []).some(visit)
+        )
+      }
+      return visit(projectTree)
     },
-    expectedPath,
+    { candidatePath: expectedPath, minimumMtime: minimumMtimeMs },
     { timeout: 60000 }
   )
 }
