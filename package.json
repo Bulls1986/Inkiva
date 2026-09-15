@@ -41,7 +41,8 @@
     "verify-update-artifacts": "tsx scripts/verifyUpdateArtifacts.ts",
     "test:perf:gate": "node --import tsx --test perf/gate/*.spec.ts",
     "test:e2e:gate": "pnpm --filter inkiva test:e2e:gate",
-    "test:e2e:gate:large": "pnpm --filter inkiva test:e2e:gate:large"
+    "test:e2e:gate:large": "pnpm --filter inkiva test:e2e:gate:large",
+    "test:e2e:perf:soak": "pnpm --filter inkiva test:e2e:perf:soak"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.29.7",

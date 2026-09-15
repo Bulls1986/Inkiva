@@ -72,17 +72,15 @@ jobs:
           path: perf-baseline
           key: perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds*.json', 'perf/soak/baseline-version.json') }}-${{ github.sha }}
           restore-keys: |
-            perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json', 'perf/soak/baseline-version.json') }}-
+            perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds*.json', 'perf/soak/baseline-version.json') }}-
 
-      - name: Run desktop @perf lane
+      - name: Run desktop eight-hour soak lane
         id: perf
-        run: xvfb-run --auto-servernum pnpm test:e2e:perf
+        run: xvfb-run --auto-servernum pnpm test:e2e:perf:soak
         env:
           INKIVA_PERF_CAPTURE: 'true'
           INKIVA_PERF_REPORT_DIR: ${{ github.workspace }}/packages/desktop/test-results/perf-results
           INKIVA_RUN_PERF: 'true'
-          INKIVA_RUN_PERF_SOAK: 'true'
-          INKIVA_PERF_SOAK_MODE: ${{ github.event_name == 'pull_request' && 'pr-smoke' || 'full' }}
           INKIVA_RUN_PERF_SOAK: 'true'
           INKIVA_PERF_SOAK_MODE: ${{ github.event_name == 'pull_request' && 'pr-smoke' || 'full' }}
 
@@ -100,7 +98,7 @@ jobs:
         if: always()
         run: |
           threshold_file=perf/soak/thresholds.json
-          if [[ "${INKIVA_PERF_SOAK_MODE}" == "pr-smoke" ]]; then
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             threshold_file=perf/soak/thresholds-pr-smoke.json
           fi
           pnpm exec tsx perf/soak/compare.ts --current perf-results/desktop.json --baseline perf-baseline/desktop.json --thresholds "$threshold_file" --output perf-results/desktop-comparison.json
@@ -128,7 +126,7 @@ jobs:
         uses: actions/cache/save@v4.2.4
         with:
           path: perf-baseline
-          key: perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json', 'perf/soak/baseline-version.json') }}-${{ github.sha }}
+          key: perf-soak-desktop-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds*.json', 'perf/soak/baseline-version.json') }}-${{ github.sha }}
 
       - name: Upload desktop performance reports
         if: always()
@@ -154,9 +152,9 @@ jobs:
         uses: actions/cache/restore@v4.2.4
         with:
           path: perf-baseline
-          key: perf-soak-muya-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json', 'perf/soak/baseline-version.json') }}-${{ github.sha }}
+          key: perf-soak-muya-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds*.json', 'perf/soak/baseline-version.json') }}-${{ github.sha }}
           restore-keys: |
-            perf-soak-muya-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds.json', 'perf/soak/baseline-version.json') }}-
+            perf-soak-muya-${{ runner.os }}-${{ hashFiles('perf/soak/schema.json', 'perf/soak/thresholds*.json', 'perf/soak/baseline-version.json') }}-
 
       - name: Install Playwright browser (chromium)
         run: pnpm -C packages/muya/e2e exec playwright install --with-deps chromium
@@ -175,7 +173,7 @@ jobs:
       - name: Compare Muya performance baseline
         id: compare
         if: always()
-        run: pnpm exec tsx perf/soak/compare.ts --current perf-results/muya.json --baseline perf-baseline/muya.json --thresholds perf/soak/thresholds.json --output perf-results/muya-comparison.json
+        run: pnpm exec tsx perf/soak/compare.ts --current perf-results/muya.json --baseline perf-baseline/muya.json --thresholds perf/soak/thresholds-muya.json --output perf-results/muya-comparison.json
 
       - name: Bootstrap Muya baseline (manual only)
         id: bootstrap

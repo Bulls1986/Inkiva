@@ -1,0 +1,9 @@
+{
+  "$schema": "./thresholds.schema.json",
+  "$id": "https://github.com/Bulls1986/Inkiva/blob/develop/perf/soak/thresholds-muya.json",
+  "schemaVersion": 1,
+  "comparison": "relative",
+  "maxRelativeRegression": 0.1,
+  "regressionPolicy": "blocking",
+  "absoluteGates": []
+}
