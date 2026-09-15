@@ -4,10 +4,10 @@ import { expect, test } from '../fixtures/muya';
 import { editor } from '../helpers/selectors';
 
 /**
- * Perf smoke: not a benchmark, just a regression guard. The 10k-paragraph
- * setContent benchmark is intentionally large enough that any quadratic
- * regression on the render path lights up loudly; the wall-clock budgets
- * are generous so CI variance doesn't cause flakes.
+ * Perf smoke: a sampled regression guard. The 10k-paragraph setContent
+ * workload is intentionally large enough that any quadratic regression on
+ * the render path lights up loudly; the wall-clock budgets are generous so
+ * CI variance doesn't cause flakes.
  *
  * Observed numbers (local Chromium against the Vite dev server, M-class
  * macOS) at PR-4 baseline:
@@ -25,17 +25,17 @@ import { editor } from '../helpers/selectors';
  *   - `test.setTimeout(120_000)` below — the ceiling for the whole test
  *     body (setContent + scroll + assertions). Wide enough to ride out
  *     CI variance and still surface a runaway regression as a timeout.
- *   - the budget assertion further down — the actual setContent perf guard.
- *     The dev-server baseline is 60s locally and 90s on shared CI runners;
- *     a future production-bundle lane can tighten both budgets.
+ *   - the budget assertion further down — the actual per-sample setContent
+ *     perf guard. The dev-server baseline is 60s locally and 90s on shared
+ *     CI runners; a future production-bundle lane can tighten both budgets.
  *
  * Tagged @perf so the PR lane can use `--grep-invert "@perf"` while the
  * scheduled/manual performance lane keeps this coverage active.
  */
 test.describe('stability / perf smoke @perf', () => {
-    // Per-spec ceiling: 4× the assertion budget below, so an actual
-    // regression surfaces via the expect (with a useful message), not a
-    // Playwright timeout (with a stack trace).
+    // Per-spec ceiling: enough for twenty large-document samples plus the
+    // final DOM and scroll assertions, so an actual regression surfaces via
+    // the budget assertion instead of a Playwright timeout.
     test.setTimeout(120_000);
 
     test('setContent with 10k paragraphs finishes within the budget and scroll is reachable', async ({ page }) => {
@@ -50,38 +50,46 @@ test.describe('stability / perf smoke @perf', () => {
                 lines.push(`paragraph ${i}`);
             const md = lines.join('\n\n');
 
-            const t0 = performance.now();
-            window.muya!.setContent(md);
-            const t1 = performance.now();
+            const SAMPLE_COUNT = 20;
+            const samples: number[] = [];
+            for (let sample = 0; sample < SAMPLE_COUNT; sample++) {
+                const t0 = performance.now();
+                window.muya!.setContent(md);
+                const t1 = performance.now();
+                samples.push(t1 - t0);
+            }
 
-            return { ms: t1 - t0, n: N };
+            return { maxMs: Math.max(...samples), n: N, samples };
         });
 
         const reportDirectory = process.env.PERF_RESULTS_DIR?.trim();
         if (reportDirectory) {
             fs.mkdirSync(reportDirectory, { recursive: true });
-            fs.writeFileSync(
-                path.join(reportDirectory, 'muya-perf.json'),
-                `${JSON.stringify({
-                    schemaVersion: 1,
-                    suite: 'muya',
-                    generatedAt: new Date().toISOString(),
-                    environment: {
-                        node: process.version,
-                        platform: process.platform,
-                    },
-                    metrics: [{
-                        name: 'muya.perf.set-content.10000',
-                        unit: 'ms',
-                        value: result.ms,
-                    }],
-                }, null, 2)}\n`,
-                'utf8',
-            );
+            for (const [index, value] of result.samples.entries()) {
+                fs.writeFileSync(
+                    path.join(reportDirectory, `muya-perf-${String(index).padStart(2, '0')}.json`),
+                    `${JSON.stringify({
+                        schemaVersion: 1,
+                        suite: 'muya',
+                        generatedAt: new Date().toISOString(),
+                        environment: {
+                            node: process.version,
+                            platform: process.platform,
+                            sample: String(index + 1),
+                        },
+                        metrics: [{
+                            name: 'muya.perf.set-content.10000',
+                            unit: 'ms',
+                            value,
+                        }],
+                    }, null, 2)}\n`,
+                    'utf8',
+                );
+            }
         }
 
         const budget = process.env.CI ? 90_000 : 60_000;
-        expect(result.ms, `setContent(${result.n} paragraphs) took ${result.ms.toFixed(0)}ms (budget ${budget}ms)`)
+        expect(result.maxMs, `setContent(${result.n} paragraphs) max sample took ${result.maxMs.toFixed(0)}ms (budget ${budget}ms)`)
             .toBeLessThan(budget);
 
         // Confirm the DOM actually rendered the count we asked for.

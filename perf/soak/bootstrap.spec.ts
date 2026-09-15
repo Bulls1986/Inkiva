@@ -76,5 +76,8 @@ test('checked-in baselines are real, non-empty reports with provenance', () => {
     assert.ok(baseline.metrics.length > 0)
     assert.ok(baseline.commit)
     assert.ok(baseline.environment?.runId)
+    if (suite === 'muya') {
+      assert.equal(baseline.environment?.sampleCount, '20')
+    }
   }
 })

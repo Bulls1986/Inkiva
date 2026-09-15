@@ -14,6 +14,18 @@ const withInputDirectory = (callback: (directory: string) => void): void => {
   }
 }
 
+const writeMuyaReport = (directory: string, index: number, value: number): void => {
+  writeFileSync(
+    join(directory, `muya-perf-${String(index).padStart(2, '0')}.json`),
+    JSON.stringify({
+      schemaVersion: 1,
+      suite: 'muya',
+      generatedAt: '2026-09-14T00:00:00.000Z',
+      metrics: [{ name: 'muya.perf.set-content.10000', unit: 'ms', value }]
+    })
+  )
+}
+
 test('normalizes desktop trace and PERF-04 reports into median metrics', () => {
   withInputDirectory((directory) => {
     writeFileSync(
@@ -61,23 +73,38 @@ test('normalizes desktop trace and PERF-04 reports into median metrics', () => {
 
 test('accepts a Muya canonical report and preserves the schema contract', () => {
   withInputDirectory((directory) => {
-    const inputPath = join(directory, 'muya-perf.json')
-    writeFileSync(
-      inputPath,
-      JSON.stringify({
-        schemaVersion: 1,
-        suite: 'muya',
-        generatedAt: '2026-09-14T00:00:00.000Z',
-        metrics: [{ name: 'muya.perf.set-content.10000', unit: 'ms', value: 42 }]
-      })
-    )
+    for (let index = 0; index < 20; index += 1) writeMuyaReport(directory, index, 42)
 
     const report = collectSoakReport('muya', directory)
 
     assert.equal(report.schemaVersion, 1)
     assert.equal(report.suite, 'muya')
+    assert.equal(report.environment?.sampleCount, '20')
     assert.deepEqual(report.metrics, [
       { name: 'muya.perf.set-content.10000', unit: 'ms', value: 42 }
+    ])
+  })
+})
+
+test('fails closed when a Muya performance metric has fewer than twenty samples', () => {
+  withInputDirectory((directory) => {
+    for (let index = 0; index < 19; index += 1) writeMuyaReport(directory, index, index + 1)
+
+    assert.throws(
+      () => collectSoakReport('muya', directory),
+      /muya\.perf\.set-content\.10000 has 19 samples; requires at least 20/
+    )
+  })
+})
+
+test('aggregates twenty Muya performance reports into a deterministic median', () => {
+  withInputDirectory((directory) => {
+    for (let index = 0; index < 20; index += 1) writeMuyaReport(directory, index, index + 1)
+
+    const report = collectSoakReport('muya', directory)
+
+    assert.deepEqual(report.metrics, [
+      { name: 'muya.perf.set-content.10000', unit: 'ms', value: 10.5 }
     ])
   })
 })

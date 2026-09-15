@@ -14,6 +14,8 @@ interface MetricSample {
   values: number[]
 }
 
+export const MINIMUM_MUYA_PERF_SAMPLES = 20 as const
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
@@ -173,6 +175,29 @@ const collectDesktopTraceReport = (
   return true
 }
 
+const validateMuyaPerformanceSampleCounts = (
+  samples: Map<string, MetricSample>
+): number | undefined => {
+  let minimumSampleCount: number | undefined
+  for (const [name, sample] of samples) {
+    if (!name.startsWith('muya.perf.')) continue
+    if (sample.values.length < MINIMUM_MUYA_PERF_SAMPLES) {
+      throw new Error(
+        name +
+          ' has ' +
+          sample.values.length +
+          ' samples; requires at least ' +
+          MINIMUM_MUYA_PERF_SAMPLES
+      )
+    }
+    minimumSampleCount =
+      minimumSampleCount === undefined
+        ? sample.values.length
+        : Math.min(minimumSampleCount, sample.values.length)
+  }
+  return minimumSampleCount
+}
+
 export const collectSoakReport = (suite: SoakSuite, inputPath: string): SoakReport => {
   const samples = new Map<string, MetricSample>()
   for (const filePath of collectJsonFiles(inputPath)) {
@@ -182,6 +207,8 @@ export const collectSoakReport = (suite: SoakSuite, inputPath: string): SoakRepo
     if (suite === 'desktop' && collectDesktopLargeDocumentReport(value, samples)) continue
     if (suite === 'desktop') collectDesktopTraceReport(value, samples)
   }
+
+  const muyaSampleCount = suite === 'muya' ? validateMuyaPerformanceSampleCounts(samples) : undefined
 
   const metrics: SoakMetric[] = [...samples.entries()]
     .map(([name, sample]) => ({
@@ -200,6 +227,7 @@ export const collectSoakReport = (suite: SoakSuite, inputPath: string): SoakRepo
     node: process.version,
     platform: process.platform
   }
+  if (muyaSampleCount !== undefined) environment.sampleCount = String(muyaSampleCount)
   if (process.env.GITHUB_RUN_ID) environment.runId = process.env.GITHUB_RUN_ID
 
   return validateSoakReport({

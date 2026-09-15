@@ -21,6 +21,13 @@ closed. Only an explicit manual bootstrap may create a baseline; failed or
 incomplete samples never replace the previous baseline. Raw reports remain
 attached so every failure can be audited.
 
+Muya `muya.perf.*` metrics require at least 20 raw samples. The Muya browser
+lane writes one canonical report per sample (`muya-perf-00.json` through
+`muya-perf-19.json`); collection keeps those raw files and emits their median
+as the comparable metric. A single measurement or an incomplete set fails
+closed, and the collected report records the minimum sample count in
+`environment.sampleCount`.
+
 The checked-in reports under `baselines/` are the reviewable seed for a new
 runner or cache. They must be copied from a successful collected run, retain
 the source commit and environment metadata, and are included in the cache key
