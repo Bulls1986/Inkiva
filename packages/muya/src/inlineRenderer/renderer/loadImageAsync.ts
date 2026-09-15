@@ -62,6 +62,33 @@ function mountLoadedImage(
 
 function observeInViewport(id: string, callback: () => void): void {
     let observer: IntersectionObserver | null = null;
+    let scrollContainer: HTMLElement | null = null;
+
+    const isInScrollport = (imageText: HTMLElement): boolean => {
+        const targetRect = imageText.getBoundingClientRect();
+        // Lightweight hosts and happy-dom can report no layout box even when
+        // the observer explicitly says the target intersects. Keep that
+        // fallback permissive; real editor placeholders have dimensions from
+        // the image loading style, so the geometry guard below is active there.
+        if (targetRect.width === 0 && targetRect.height === 0)
+            return true;
+
+        const viewportRect = scrollContainer?.getBoundingClientRect();
+        const top = viewportRect?.top ?? 0;
+        const bottom = viewportRect?.bottom
+            ?? (typeof window !== 'undefined' ? window.innerHeight : 0);
+        const left = viewportRect?.left ?? 0;
+        const right = viewportRect?.right
+            ?? (typeof window !== 'undefined' ? window.innerWidth : 0);
+
+        return (
+            targetRect.bottom > top
+            && targetRect.top < bottom
+            && targetRect.right > left
+            && targetRect.left < right
+        );
+    };
+
     const onIntersect: IntersectionObserverCallback = (entries) => {
         if (!entries.some(entry =>
             entry.isIntersecting || entry.intersectionRatio > 0)) {
@@ -69,9 +96,10 @@ function observeInViewport(id: string, callback: () => void): void {
         }
 
         const imageText = document.getElementById(id);
-        observer?.disconnect();
-        if (!imageText)
+        if (!imageText || !isInScrollport(imageText))
             return;
+
+        observer?.disconnect();
 
         imageText.removeAttribute('data-image-lazy');
         callback();
@@ -88,9 +116,12 @@ function observeInViewport(id: string, callback: () => void): void {
         // a document image visible while it is clipped by the editor's
         // scrollport. Resolve the actual scroll container after the wrapper
         // is mounted and use it as the observer root.
-        const scrollContainer = findScrollContainer(imageText);
+        const detectedScrollContainer = findScrollContainer(imageText);
+        scrollContainer = detectedScrollContainer === imageText
+            ? null
+            : detectedScrollContainer;
         observer = new IntersectionObserver(onIntersect, {
-            root: scrollContainer === imageText ? null : scrollContainer,
+            root: scrollContainer,
             rootMargin: '0px',
         });
         imageText.setAttribute('data-image-lazy', 'pending');

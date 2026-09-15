@@ -230,6 +230,50 @@ describe('loadImageAsync — viewport lazy loading', () => {
         expect(TestIntersectionObserver.instances[0]?.options.root).toBe(scrollContainer);
     });
 
+    it('does not start a load when the observer reports a transient offscreen hit', async () => {
+        vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const { loadImage } = await import('../../../utils/image');
+        const r = makeRenderer();
+        const out = loadImageAsync.call(
+            asRenderer(r),
+            { isUnknownType: false, src: 'https://example.com/transient.png' },
+            {},
+        );
+
+        const scrollContainer = document.createElement('div');
+        scrollContainer.style.overflowY = 'auto';
+        Object.defineProperty(scrollContainer, 'getBoundingClientRect', {
+            value: () => ({
+                top: 0,
+                bottom: 720,
+                left: 0,
+                right: 1280,
+                width: 1280,
+                height: 720,
+            } as DOMRect),
+        });
+        const wrapper = document.createElement('span');
+        wrapper.id = out.id;
+        wrapper.classList.add('mu-inline-image', 'mu-image-loading');
+        Object.defineProperty(wrapper, 'getBoundingClientRect', {
+            value: () => ({
+                top: 900,
+                bottom: 1150,
+                left: 0,
+                right: 400,
+                width: 400,
+                height: 250,
+            } as DOMRect),
+        });
+        scrollContainer.appendChild(wrapper);
+        document.body.appendChild(scrollContainer);
+        await waitForLazyObserver();
+
+        TestIntersectionObserver.instances[0]?.trigger(true);
+        expect(loadImage).not.toHaveBeenCalled();
+        expect(wrapper.getAttribute('data-image-lazy')).toBe('pending');
+    });
+
     it('keeps cached duplicate images lazy until they intersect the viewport', async () => {
         vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
         const { loadImage } = await import('../../../utils/image');
