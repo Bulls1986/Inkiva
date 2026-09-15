@@ -231,12 +231,13 @@ const assertHealthy = async(
 }
 
 const openDocument = async(
-  app: ElectronApplication,
   page: Page,
   filePath: string
 ): Promise<number> => {
   const duration = await measurePageAction(page, async() => {
-    await sendIpcToRenderer(app, 'mt::open-file', filePath, {})
+    await page.evaluate((pathname) => {
+      window.electron.ipcRenderer.send('mt::open-file', pathname, {})
+    }, filePath)
     await expect.poll(() => readCurrentPath(page), { timeout: 60000 }).toBe(filePath)
     await page.waitForSelector('.editor-component', { state: 'attached', timeout: 60000 })
   })
@@ -345,7 +346,7 @@ const runSoak = async(
   await recordSample(page, 'soak.tree', 'ms', initialTree, 'editor')
 
   for (let index = 1; index < workspace.documents.length; index += 1) {
-    const openDuration = await openDocument(app, page, workspace.documents[index] as string)
+    const openDuration = await openDocument(page, workspace.documents[index] as string)
     await recordSample(page, 'soak.open50k', 'ms', openDuration, 'document-open')
   }
   await expect(page.locator(tabSelector)).toHaveCount(workspace.documents.length, { timeout: 60000 })
