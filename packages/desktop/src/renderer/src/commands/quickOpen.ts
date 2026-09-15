@@ -261,12 +261,36 @@ class QuickOpenCommand {
     })
 
   private _handleProjectTreeChanged = (payload: unknown): void => {
-    const type =
-      payload && typeof payload === 'object' && 'type' in payload
-        ? String((payload as { type?: unknown }).type)
-        : ''
-    if (type === 'add' || type === 'unlink' || type === 'addDir' || type === 'unlinkDir') {
-      this._invalidateIndex()
+    if (!payload || typeof payload !== 'object') return
+
+    const { type, change } = payload as {
+      type?: unknown
+      change?: { pathname?: unknown }
+    }
+    const pathname = typeof change?.pathname === 'string' ? change.pathname : ''
+    const rootPath = this._indexRootPath
+    if (!rootPath || !pathname || !window.fileUtils.isChildOfDirectory(rootPath, pathname)) return
+
+    // The directory watcher emits the initial tree as a burst of add events.
+    // Cancelling the in-flight full index for every one of those events can
+    // starve a large workspace: the query then observes whichever partial
+    // index happened to win the cancellation race. Keep one scan in flight and
+    // apply live changes to the same index instead.
+    if (type === 'add') {
+      this._pathIndex.add([pathname])
+      return
+    }
+
+    if (type === 'unlink') {
+      this._pathIndex.remove([pathname])
+      return
+    }
+
+    if (type === 'unlinkDir') {
+      const descendants = this._pathIndex.values().filter((candidate) =>
+        window.fileUtils.isChildOfDirectory(pathname, candidate)
+      )
+      this._pathIndex.remove(descendants)
     }
   }
 
@@ -288,6 +312,9 @@ class QuickOpenCommand {
     this._invalidateIndex()
     this._indexRootPath = rootPath
     const index = new SearchPathIndex()
+    // Make the in-flight index visible to watcher updates immediately. The
+    // final assignment below still protects against a root change race.
+    this._pathIndex = index
     const indexWork: Promise<void>[] = []
     const search = this._directorySearcher.search([rootPath], '', {
       didMatch: (payload: unknown) => {
