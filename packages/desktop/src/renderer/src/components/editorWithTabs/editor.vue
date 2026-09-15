@@ -1766,9 +1766,14 @@ const scheduleTocRefresh = (id: string): void => {
 const editorPerformanceOperationId = (documentId?: string): string =>
   documentId ? `document-${documentId}` : 'document-initial'
 
+// Muya replaces the Vue mount container with its own DOM root during init.
+// Read the live root after init so post-paint milestones remain observable.
+const getEditorPerformanceElement = (): HTMLElement | null =>
+  (editor.value?.domNode as HTMLElement | undefined) ?? editorRef.value
+
 const beginEditorPerformanceOperation = (documentId?: string): void => {
   editorPerformanceGeneration += 1
-  const element = editorRef.value
+  const element = getEditorPerformanceElement()
   if (element) {
     element.dataset.editorOpenStartAt = String(performance.now())
     delete element.dataset.editorFirstScreenAt
@@ -1784,7 +1789,7 @@ const beginEditorPerformanceOperation = (documentId?: string): void => {
 }
 
 const markEditorFirstScreen = (documentId?: string): void => {
-  const element = editorRef.value
+  const element = getEditorPerformanceElement()
   if (element) {
     element.dataset.editorFirstScreenAt = String(performance.now())
   }
@@ -1797,7 +1802,7 @@ const markEditorFirstScreen = (documentId?: string): void => {
 }
 
 const markEditorInteractive = (documentId?: string): void => {
-  const element = editorRef.value
+  const element = getEditorPerformanceElement()
   if (element) {
     element.dataset.editorInteractiveAt = String(performance.now())
   }
@@ -1819,7 +1824,7 @@ const scheduleEditorMilestones = (documentId?: string, notifyMainProcess = false
     markFirstScreen: () => markEditorFirstScreen(documentId),
     markInteractive: () => markEditorInteractive(documentId),
     markEditable: () => {
-      const element = editorRef.value
+      const element = getEditorPerformanceElement()
       if (element) {
         element.dataset.editorEditableAt = String(performance.now())
       }

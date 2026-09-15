@@ -61,8 +61,6 @@ interface FastGateProbe {
   maxEventLoopLag: number
   intervalId: number
   inputObserver?: PerformanceObserver
-  milestoneSnapshots: EditorMilestoneTimestamps[]
-  milestoneObserver?: MutationObserver
 }
 
 const createCaptureDirectory = (): CaptureDirectory => {
@@ -183,29 +181,6 @@ const installFastGateProbe = async(page: Page): Promise<void> => {
     if (state.__inkiva_fast_gate_probe__) return
 
     const inputDurations: number[] = []
-    const milestoneSnapshots: EditorMilestoneTimestamps[] = []
-    const captureMilestones = (): void => {
-      for (const element of document.querySelectorAll('.editor-component')) {
-        const snapshot = {
-          openStartAt: Number(element.getAttribute('data-editor-open-start-at')),
-          firstScreenAt: Number(element.getAttribute('data-editor-first-screen-at')),
-          editableAt: Number(element.getAttribute('data-editor-editable-at'))
-        }
-        if (
-          !Number.isFinite(snapshot.openStartAt) ||
-          !Number.isFinite(snapshot.firstScreenAt) ||
-          !Number.isFinite(snapshot.editableAt) ||
-          snapshot.openStartAt < 0 ||
-          snapshot.firstScreenAt < snapshot.openStartAt ||
-          snapshot.editableAt <= snapshot.firstScreenAt ||
-          milestoneSnapshots.some((candidate) => candidate.openStartAt === snapshot.openStartAt)
-        ) {
-          continue
-        }
-        milestoneSnapshots.push(snapshot)
-      }
-    }
-
     let inputObserver: PerformanceObserver | undefined
     try {
       inputObserver = new PerformanceObserver((list) => {
@@ -236,31 +211,14 @@ const installFastGateProbe = async(page: Page): Promise<void> => {
       inputObserver = undefined
     }
 
-    let milestoneObserver: MutationObserver | undefined
-    if (document.documentElement && typeof MutationObserver === 'function') {
-      milestoneObserver = new MutationObserver(captureMilestones)
-      milestoneObserver.observe(document.documentElement, {
-        subtree: true,
-        attributes: true,
-        attributeFilter: [
-          'data-editor-open-start-at',
-          'data-editor-first-screen-at',
-          'data-editor-editable-at'
-        ]
-      })
-    }
-
     let expected = performance.now() + 16
     const probe: FastGateProbe = {
       inputDurations,
       maxEventLoopLag: 0,
       intervalId: 0,
-      inputObserver,
-      milestoneSnapshots,
-      milestoneObserver
+      inputObserver
     }
     state.__inkiva_fast_gate_probe__ = probe
-    captureMilestones()
     probe.intervalId = window.setInterval(() => {
       const now = performance.now()
       probe.maxEventLoopLag = Math.max(probe.maxEventLoopLag, Math.max(0, now - expected))
@@ -351,32 +309,22 @@ const readEditorMilestones = async(
   minimumOpenStartAt = 0,
   timeout = 60_000
 ): Promise<{ timestamps: EditorMilestoneTimestamps; durations: EditorMilestoneDurations }> => {
-  let milestoneHandle
   try {
-    milestoneHandle = await page.waitForFunction(
+    await page.waitForFunction(
       (minimum) => {
-        const state = globalThis as typeof globalThis & {
-          __inkiva_fast_gate_probe__?: FastGateProbe
-        }
-        const current = Array.from(document.querySelectorAll('.editor-component')).map((element) => ({
-          openStartAt: Number(element.getAttribute('data-editor-open-start-at')),
-          firstScreenAt: Number(element.getAttribute('data-editor-first-screen-at')),
-          editableAt: Number(element.getAttribute('data-editor-editable-at'))
-        }))
-        const candidates = [
-          ...(state.__inkiva_fast_gate_probe__?.milestoneSnapshots ?? []),
-          ...current
-        ]
-        return candidates.find((candidate) => {
+        return Array.from(document.querySelectorAll('.editor-component')).some((element) => {
+          const openStartAt = Number(element.getAttribute('data-editor-open-start-at'))
+          const firstScreenAt = Number(element.getAttribute('data-editor-first-screen-at'))
+          const editableAt = Number(element.getAttribute('data-editor-editable-at'))
           return (
-            Number.isFinite(candidate.openStartAt) &&
-            Number.isFinite(candidate.firstScreenAt) &&
-            Number.isFinite(candidate.editableAt) &&
-            candidate.openStartAt >= minimum &&
-            candidate.firstScreenAt >= candidate.openStartAt &&
-            candidate.editableAt > candidate.firstScreenAt
+            Number.isFinite(openStartAt) &&
+            Number.isFinite(firstScreenAt) &&
+            Number.isFinite(editableAt) &&
+            openStartAt >= minimum &&
+            firstScreenAt >= openStartAt &&
+            editableAt > firstScreenAt
           )
-        }) ?? false
+        })
       },
       minimumOpenStartAt,
       { timeout }
@@ -385,24 +333,18 @@ const readEditorMilestones = async(
     let diagnostics = 'unavailable'
     try {
       diagnostics = JSON.stringify(
-        await page.evaluate(() => {
-          const state = globalThis as typeof globalThis & {
-            __inkiva_fast_gate_probe__?: FastGateProbe
-          }
-          return {
-            editorCount: document.querySelectorAll('.editor-component').length,
-            editorAttributes: Array.from(document.querySelectorAll('.editor-component')).map(
-              (element) => ({
-                className: element.className,
-                openStartAt: element.getAttribute('data-editor-open-start-at'),
-                firstScreenAt: element.getAttribute('data-editor-first-screen-at'),
-                editableAt: element.getAttribute('data-editor-editable-at')
-              })
-            ),
-            milestoneSnapshots: state.__inkiva_fast_gate_probe__?.milestoneSnapshots ?? [],
-            documentReadyState: document.readyState
-          }
-        })
+        await page.evaluate(() => ({
+          editorCount: document.querySelectorAll('.editor-component').length,
+          editorAttributes: Array.from(document.querySelectorAll('.editor-component')).map(
+            (element) => ({
+              className: element.className,
+              openStartAt: element.getAttribute('data-editor-open-start-at'),
+              firstScreenAt: element.getAttribute('data-editor-first-screen-at'),
+              editableAt: element.getAttribute('data-editor-editable-at')
+            })
+          ),
+          documentReadyState: document.readyState
+        }))
       )
     } catch {
       // Preserve the original timeout when the renderer has already closed.
@@ -415,8 +357,27 @@ const readEditorMilestones = async(
     )
   }
 
-  const timestamps = (await milestoneHandle.jsonValue()) as EditorMilestoneTimestamps
-  await milestoneHandle.dispose()
+  const timestamps = (await page.evaluate(() => {
+    const element = Array.from(document.querySelectorAll('.editor-component')).find((candidate) => {
+      const openStartAt = Number(candidate.getAttribute('data-editor-open-start-at'))
+      const firstScreenAt = Number(candidate.getAttribute('data-editor-first-screen-at'))
+      const editableAt = Number(candidate.getAttribute('data-editor-editable-at'))
+      return (
+        Number.isFinite(openStartAt) &&
+        Number.isFinite(firstScreenAt) &&
+        Number.isFinite(editableAt) &&
+        openStartAt >= 0 &&
+        firstScreenAt >= openStartAt &&
+        editableAt > firstScreenAt
+      )
+    })
+    if (!element) throw new Error('editor component is missing for fast milestones')
+    return {
+      openStartAt: Number(element.getAttribute('data-editor-open-start-at')),
+      firstScreenAt: Number(element.getAttribute('data-editor-first-screen-at')),
+      editableAt: Number(element.getAttribute('data-editor-editable-at'))
+    }
+  })) as EditorMilestoneTimestamps
 
   return { timestamps, durations: measureEditorMilestones(timestamps) }
 }
