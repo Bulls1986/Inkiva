@@ -189,6 +189,10 @@ describe('loadImageAsync — viewport lazy loading', () => {
         const wrapper = document.createElement('span');
         wrapper.id = out.id;
         document.body.appendChild(wrapper);
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        expect(wrapper.getAttribute('data-image-lazy')).toBe('pending');
+        expect(TestIntersectionObserver.instances).toHaveLength(0);
+
         await waitForLazyObserver();
 
         expect(TestIntersectionObserver.instances).toHaveLength(1);
@@ -224,6 +228,9 @@ describe('loadImageAsync — viewport lazy loading', () => {
         wrapper.id = out.id;
         scrollContainer.appendChild(wrapper);
         document.body.appendChild(scrollContainer);
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        expect(wrapper.getAttribute('data-image-lazy')).toBe('pending');
+
         await waitForLazyObserver();
 
         expect(TestIntersectionObserver.instances[0]?.options.root).toBe(scrollContainer);

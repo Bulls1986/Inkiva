@@ -130,6 +130,14 @@ function observeInViewport(id: string, callback: () => void): void {
         observer.observe(imageText);
     };
 
+    // Mark the placeholder immediately, even though observer registration is
+    // delayed. The performance gate and the renderer both use this state to
+    // distinguish an intentionally deferred image from an eager load.
+    setTimeout(() => {
+        const imageText = document.getElementById(id);
+        imageText?.setAttribute('data-image-lazy', 'pending');
+    }, 0);
+
     // The image wrapper is created during the same render pass as its
     // surrounding blocks. Wait for two paint boundaries before observing so
     // the editor scrollport and any block height hints have settled; otherwise
