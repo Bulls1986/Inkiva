@@ -169,16 +169,30 @@ test('aggregates count signals by their maximum so one crash cannot hide in a me
       join(directory, 'runtime.json'),
       JSON.stringify({
         schemaVersion: 1,
-        traces: [{
-          events: [
-            { name: 'metric_sample', process: 'main', metadata: {
-              metric: 'stability.crash', unit: 'count', value: 0
-            } },
-            { name: 'metric_sample', process: 'main', metadata: {
-              metric: 'stability.crash', unit: 'count', value: 1
-            } }
-          ]
-        }]
+        traces: [
+          {
+            events: [
+              {
+                name: 'metric_sample',
+                process: 'main',
+                metadata: {
+                  metric: 'stability.crash',
+                  unit: 'count',
+                  value: 0
+                }
+              },
+              {
+                name: 'metric_sample',
+                process: 'main',
+                metadata: {
+                  metric: 'stability.crash',
+                  unit: 'count',
+                  value: 1
+                }
+              }
+            ]
+          }
+        ]
       })
     )
 
