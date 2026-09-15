@@ -233,6 +233,7 @@ jobs:
           path: |
             perf-results/muya.json
             perf-results/muya-comparison.json
+            perf-results/muya/
             packages/muya/e2e/playwright-report/
           if-no-files-found: error
           retention-days: 14
