@@ -21,13 +21,14 @@ class TestPerformanceObserver {
   }
 }
 
-const createRecorder = (enabled = true, longTaskObserverAvailable = true) => ({
-  enabled,
-  longTaskObserverAvailable,
-  recordSample: vi.fn()
-}) as unknown as RuntimePerformanceRecorder & {
-  recordSample: ReturnType<typeof vi.fn>
-}
+const createRecorder = (enabled = true, longTaskObserverAvailable = true) =>
+  ({
+    enabled,
+    longTaskObserverAvailable,
+    recordSample: vi.fn()
+  }) as unknown as RuntimePerformanceRecorder & {
+    recordSample: ReturnType<typeof vi.fn>
+  }
 
 const createSchedulers = () => {
   const frameCallbacks: Array<(timestamp: number) => void> = []
@@ -99,8 +100,10 @@ describe('RuntimePerformanceMonitor', () => {
       entryType: 'event',
       name: 'keydown',
       startTime: 10,
-      duration: 7
-    } as PerformanceEntry)
+      duration: 14,
+      processingStart: 17,
+      processingEnd: 24
+    } as unknown as PerformanceEntry)
     TestPerformanceObserver.instances[1]?.emit({
       entryType: 'gc',
       name: 'major',

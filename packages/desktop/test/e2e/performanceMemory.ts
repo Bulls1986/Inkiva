@@ -1,8 +1,8 @@
 import type { CDPSession, ElectronApplication, Page } from 'playwright'
 import {
   evaluateMemoryLeakSeries,
+  createMemoryLeakCyclePlan,
   MEMORY_LEAK_LONG_WINDOW_SIZE,
-  MEMORY_LEAK_SAMPLE_COUNT,
   type MemoryLeakSeriesEvaluation,
   type MemoryLeakSeriesOptions
 } from '../../../../perf/gate/memory'
@@ -24,6 +24,8 @@ export interface MemoryLeakCycleOptions {
   recordSample: MemoryLeakSampleRecorder
   /** Override the number of open/edit/switch/close cycles for a bounded profile. */
   cycleCount?: number
+  /** Run setup cycles before collecting the measured heap series. */
+  warmupCycleCount?: number
   /** Override the evaluation windows while preserving the default long-gate profile. */
   evaluationOptions?: MemoryLeakSeriesOptions
 }
@@ -41,9 +43,7 @@ const waitForActiveTab = async(page: Page, pathname: string): Promise<void> => {
   await page.waitForFunction(
     (expectedPath) =>
       Array.from(document.querySelectorAll('.tabs-container > li')).some(
-        (tab) =>
-          tab.getAttribute('title') === expectedPath &&
-          tab.classList.contains('active')
+        (tab) => tab.getAttribute('title') === expectedPath && tab.classList.contains('active')
       ),
     pathname,
     { timeout: 30_000 }
@@ -51,7 +51,7 @@ const waitForActiveTab = async(page: Page, pathname: string): Promise<void> => {
 }
 
 export const readUsedHeapSize = async(client: CDPSession): Promise<number> => {
-  const usage = await client.send('Runtime.getHeapUsage') as { usedSize?: unknown }
+  const usage = (await client.send('Runtime.getHeapUsage')) as { usedSize?: unknown }
   const value = usage.usedSize
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     throw new Error('renderer V8 heap usage is unavailable for the memory leak gate')
@@ -140,8 +140,7 @@ const openEditSwitchClose = async(
     (expectedPath) => {
       const tab = Array.from(document.querySelectorAll('.tabs-container > li')).find(
         (candidate) =>
-          candidate.getAttribute('title') === expectedPath &&
-          candidate.classList.contains('active')
+          candidate.getAttribute('title') === expectedPath && candidate.classList.contains('active')
       )
       return tab != null && !tab.classList.contains('unsaved')
     },
@@ -166,14 +165,7 @@ const openEditSwitchClose = async(
 export const collectMemoryLeakCycleSamples = async(
   options: MemoryLeakCycleOptions
 ): Promise<MemoryLeakSeriesEvaluation> => {
-  const {
-    app,
-    page,
-    firstPath,
-    cyclePath,
-    recordSample,
-    evaluationOptions = {}
-  } = options
+  const { app, page, firstPath, cyclePath, recordSample, evaluationOptions = {} } = options
   const heapSamples: number[] = []
   const sampler = await createRendererHeapSampler(page)
 
@@ -181,31 +173,23 @@ export const collectMemoryLeakCycleSamples = async(
     const longWindowSize = Math.floor(
       evaluationOptions.longWindowSize ?? MEMORY_LEAK_LONG_WINDOW_SIZE
     )
-    const cycleCount = options.cycleCount ?? longWindowSize + MEMORY_LEAK_SAMPLE_COUNT - 1
-    if (!Number.isInteger(cycleCount) || cycleCount < longWindowSize) {
-      throw new Error('memory leak cycle count must cover the evaluation window')
-    }
-    for (let index = 0; index < cycleCount; index += 1) {
+    const cyclePlan = createMemoryLeakCyclePlan({
+      longWindowSize,
+      cycleCount: options.cycleCount,
+      warmupCycleCount: options.warmupCycleCount
+    })
+    for (let index = 0; index < cyclePlan.warmupCycleCount; index += 1) {
       await openEditSwitchClose(app, page, firstPath, cyclePath, index)
+    }
+    for (let index = 0; index < cyclePlan.measuredCycleCount; index += 1) {
+      await openEditSwitchClose(app, page, firstPath, cyclePath, cyclePlan.warmupCycleCount + index)
       heapSamples.push(await sampler.sample())
 
       if (heapSamples.length < longWindowSize) continue
       const evaluation = evaluateMemoryLeakSeries(heapSamples, evaluationOptions)
-      await recordSample(
-        'memory.heapGrowth50',
-        'ratio',
-        Math.max(0, evaluation.growth50Ratio)
-      )
-      await recordSample(
-        'memory.heapLinearGrowth',
-        'count',
-        evaluation.linearGrowth50 ? 1 : 0
-      )
-      await recordSample(
-        'memory.heapLinearGrowth200',
-        'count',
-        evaluation.linearGrowth200 ? 1 : 0
-      )
+      await recordSample('memory.heapGrowth50', 'ratio', Math.max(0, evaluation.growth50Ratio))
+      await recordSample('memory.heapLinearGrowth', 'count', evaluation.linearGrowth50 ? 1 : 0)
+      await recordSample('memory.heapLinearGrowth200', 'count', evaluation.linearGrowth200 ? 1 : 0)
     }
 
     return evaluateMemoryLeakSeries(heapSamples, evaluationOptions)

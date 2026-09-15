@@ -4,6 +4,11 @@ import { test } from 'node:test'
 import os from 'node:os'
 import path from 'node:path'
 
+import {
+  evaluateFastOffscreenImage,
+  selectFastOffscreenImage,
+  type FastOffscreenImageState
+} from './fast-media'
 import { FAST_GATE_REQUIRED_METRICS } from './fast-policy'
 import {
   createFastPerformanceGateReport,
@@ -210,4 +215,40 @@ test('fast runner keeps stability failures blocking', () => {
     ),
     true
   )
+})
+
+test('fast media probe recognizes a pending wrapper before its img exists', () => {
+  const state: FastOffscreenImageState = {
+    top: 900,
+    lazy: 'pending',
+    loadStarted: null,
+    hasImage: false,
+    complete: false,
+    naturalWidth: 0
+  }
+
+  assert.equal(selectFastOffscreenImage([state], 720), state)
+  assert.deepEqual(evaluateFastOffscreenImage(state), { request: 0, decode: 0 })
+})
+
+test('fast media probe fails closed after an offscreen load starts or decodes', () => {
+  const started: FastOffscreenImageState = {
+    top: 900,
+    lazy: 'pending',
+    loadStarted: '123.4',
+    hasImage: false,
+    complete: false,
+    naturalWidth: 0
+  }
+  const decoded: FastOffscreenImageState = {
+    top: 900,
+    lazy: null,
+    loadStarted: '123.4',
+    hasImage: true,
+    complete: true,
+    naturalWidth: 1
+  }
+
+  assert.deepEqual(evaluateFastOffscreenImage(started), { request: 1, decode: 0 })
+  assert.deepEqual(evaluateFastOffscreenImage(decoded), { request: 1, decode: 1 })
 })

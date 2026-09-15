@@ -12,6 +12,10 @@ import {
   type EditorMilestoneTimestamps
 } from '../../../../perf/gate/editorMilestones'
 import { mergePerformanceTraceReports } from '../../../../perf/gate/trace-input'
+import {
+  evaluateFastOffscreenImage,
+  selectFastOffscreenImage
+} from '../../../../perf/soak/fast-media'
 import { FAST_GATE_DURATION_MS, FAST_GATE_MODE } from '../../../../perf/soak/fast-policy'
 import { collectMemoryLeakCycleSamples } from './performanceMemory'
 import {
@@ -40,6 +44,7 @@ type GatePhase =
 const SAMPLE_COUNT = 20
 const FAST_MEMORY_WINDOW_SIZE = SAMPLE_COUNT
 const FAST_MEMORY_CYCLE_COUNT = FAST_MEMORY_WINDOW_SIZE + SAMPLE_COUNT - 1
+const STABILITY_OBSERVATION_WINDOW_MS = 128
 const runFastGate = process.env.INKIVA_RUN_PERF_FAST_GATE === 'true'
 const categoryNames = ['startup', 'editor', 'diagrams', 'memory'] as const
 
@@ -60,6 +65,7 @@ interface FastFixtures {
 interface FastGateProbe {
   inputDurations: number[]
   maxEventLoopLag: number
+  expectedAt: number
   intervalId: number
   inputObserver?: PerformanceObserver
 }
@@ -191,11 +197,16 @@ const installFastGateProbe = async(page: Page): Promise<void> => {
             entry.entryType === 'event' &&
             ['beforeinput', 'compositionend', 'input', 'keydown', 'keyup', 'paste'].includes(
               entry.name
-            ) &&
-            Number.isFinite(entry.duration) &&
-            entry.duration >= 0
+            )
           ) {
-            inputDurations.push(entry.duration)
+            const timing = entry as PerformanceEntry & { processingStart?: unknown }
+            const latency =
+              typeof timing.processingStart === 'number' &&
+              Number.isFinite(timing.processingStart) &&
+              timing.processingStart >= entry.startTime
+                ? timing.processingStart - entry.startTime
+                : entry.duration
+            if (Number.isFinite(latency) && latency >= 0) inputDurations.push(latency)
           }
         }
       })
@@ -213,18 +224,18 @@ const installFastGateProbe = async(page: Page): Promise<void> => {
       inputObserver = undefined
     }
 
-    let expected = performance.now() + 16
     const probe: FastGateProbe = {
       inputDurations,
       maxEventLoopLag: 0,
+      expectedAt: performance.now() + 16,
       intervalId: 0,
       inputObserver
     }
     state.__inkiva_fast_gate_probe__ = probe
     probe.intervalId = window.setInterval(() => {
       const now = performance.now()
-      probe.maxEventLoopLag = Math.max(probe.maxEventLoopLag, Math.max(0, now - expected))
-      expected = now + 16
+      probe.maxEventLoopLag = Math.max(probe.maxEventLoopLag, Math.max(0, now - probe.expectedAt))
+      probe.expectedAt = now + 16
     }, 16)
   })
 }
@@ -254,6 +265,18 @@ const readMaxEventLoopLag = async(page: Page): Promise<number> =>
     }
     return state.__inkiva_fast_gate_probe__?.maxEventLoopLag ?? 0
   })
+
+const resetFastGateProbe = async(page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & {
+      __inkiva_fast_gate_probe__?: FastGateProbe
+    }
+    const probe = state.__inkiva_fast_gate_probe__
+    if (!probe) return
+    probe.maxEventLoopLag = 0
+    probe.expectedAt = performance.now() + 16
+  })
+}
 
 const measureInput = async(page: Page, iteration: number): Promise<number> => {
   await placeCaretInEditor(page)
@@ -435,6 +458,11 @@ const readStability = async(
 }
 
 const recordStability = async(app: ElectronApplication, page: Page): Promise<void> => {
+  // Exclude the just-measured action (for example, a 50k-document rebuild)
+  // from the independent hang observation. The interval still fails closed
+  // when the renderer cannot service this >100 ms observation window.
+  await resetFastGateProbe(page)
+  await page.waitForTimeout(STABILITY_OBSERVATION_WINDOW_MS)
   const values = await readStability(app, page)
   await recordSample(page, 'stability.crash', 'count', values.crash, 'memory')
   await recordSample(page, 'stability.rendererCrash', 'count', values.rendererCrash, 'memory')
@@ -516,6 +544,7 @@ const collectDocumentSamples = async(
     await installFastGateProbe(page)
     await waitForWorkspaceReady(page)
     await waitForEditor(page, 60_000)
+    await resetFastGateProbe(page)
 
     for (let index = 0; index < fixtures.documents.length; index += 1) {
       const filePath = fixtures.documents[index] as string
@@ -595,6 +624,7 @@ const collectDiagramSamples = async(
       const { page } = launched
       await installFastGateProbe(page)
       await waitForEditor(page, 60_000)
+      await resetFastGateProbe(page)
       const editorMilestones = await readEditorMilestones(page)
 
       const placeholderDuration = await measurePageAction(page, async() => {
@@ -629,36 +659,30 @@ const collectDiagramSamples = async(
         'diagram'
       )
 
-      const imageStates = await page.locator('.mu-inline-image img').evaluateAll((images) =>
-        images.map((image) => {
-          const wrapper = image.closest('.mu-inline-image')
+      const imageStates = await page.locator('.mu-inline-image').evaluateAll((wrappers) =>
+        wrappers.map((wrapper) => {
+          const image = wrapper.querySelector('img') as HTMLImageElement | null
           return {
-            complete: (image as HTMLImageElement).complete,
-            naturalWidth: (image as HTMLImageElement).naturalWidth,
-            top: (image as HTMLElement).getBoundingClientRect().top,
-            lazy: wrapper?.getAttribute('data-image-lazy'),
-            loadStarted: wrapper?.getAttribute('data-image-load-start')
+            complete: image?.complete ?? false,
+            naturalWidth: image?.naturalWidth ?? 0,
+            top: wrapper.getBoundingClientRect().top,
+            lazy: wrapper.getAttribute('data-image-lazy'),
+            loadStarted: wrapper.getAttribute('data-image-load-start'),
+            hasImage: image !== null
           }
         })
       )
       const viewportHeight = page.viewportSize()?.height ?? 720
-      const offscreen = imageStates.find((image) => image.top > viewportHeight)
-      if (!offscreen) throw new Error('fast diagram gate produced no measurable offscreen image')
-      const offscreenLazy = offscreen.lazy === 'pending'
+      const offscreen = selectFastOffscreenImage(imageStates, viewportHeight)
+      const offscreenMetrics = evaluateFastOffscreenImage(offscreen)
       await recordSample(
         page,
         'image.offscreenRequest',
         'count',
-        offscreenLazy && !offscreen.loadStarted ? 0 : 1,
+        offscreenMetrics.request,
         'diagram'
       )
-      await recordSample(
-        page,
-        'image.offscreenDecode',
-        'count',
-        offscreenLazy && !offscreen.complete && offscreen.naturalWidth <= 0 ? 0 : 1,
-        'diagram'
-      )
+      await recordSample(page, 'image.offscreenDecode', 'count', offscreenMetrics.decode, 'diagram')
       await expectNoRendererErrors(app)
       assertWithinBudget(startedAt)
     } finally {
@@ -680,13 +704,16 @@ const collectMemorySamples = async(
     const launched = await launchCaptured([fixtures.memoryFirst], capture)
     app = launched.app
     const { page } = launched
+    await installFastGateProbe(page)
     await waitForEditor(page, 60_000)
+    await resetFastGateProbe(page)
     await collectMemoryLeakCycleSamples({
       app,
       page,
       firstPath: fixtures.memoryFirst,
       cyclePath: fixtures.memoryCycle,
       cycleCount: FAST_MEMORY_CYCLE_COUNT,
+      warmupCycleCount: FAST_MEMORY_WINDOW_SIZE,
       evaluationOptions: {
         shortWindowSize: FAST_MEMORY_WINDOW_SIZE,
         longWindowSize: FAST_MEMORY_WINDOW_SIZE

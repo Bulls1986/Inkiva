@@ -51,12 +51,17 @@ export class ScrollPage extends Parent {
 
     static create(muya: Muya, state: TState[]) {
         const scrollPage = new ScrollPage(muya);
+        const blocks = state.map((block) => {
+            return this.loadBlock(block.name).create(muya, block);
+        });
+        const fragment = document.createDocumentFragment();
 
-        scrollPage.append(
-            ...state.map((block) => {
-                return this.loadBlock(block.name).create(muya, block);
-            }),
-        );
+        blocks.forEach((block) => {
+            block.parent = scrollPage;
+            fragment.appendChild(block.domNode!);
+        });
+        scrollPage.children.append(...blocks);
+        scrollPage.domNode!.appendChild(fragment);
 
         scrollPage.parent!.domNode!.appendChild(scrollPage.domNode!);
 
