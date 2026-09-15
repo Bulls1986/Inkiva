@@ -76,7 +76,14 @@ jobs:
 
       - name: Run desktop eight-hour soak lane
         id: perf
-        run: xvfb-run --auto-servernum pnpm test:e2e:perf:soak
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            export INKIVA_PERF_SOAK_MODE=pr-smoke
+          else
+            export INKIVA_PERF_SOAK_MODE=full
+          fi
+          echo "Running desktop performance soak mode: ${INKIVA_PERF_SOAK_MODE}"
+          xvfb-run --auto-servernum pnpm test:e2e:perf:soak
         env:
           INKIVA_PERF_CAPTURE: 'true'
           INKIVA_PERF_REPORT_DIR: ${{ github.workspace }}/packages/desktop/test-results/perf-results
