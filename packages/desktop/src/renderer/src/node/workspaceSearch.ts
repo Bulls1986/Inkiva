@@ -19,7 +19,9 @@ interface RankedPath {
 }
 
 const DEFAULT_LIMIT = 100
-const DEFAULT_CHUNK_SIZE = 128
+// Keep one search slice small enough to yield between renderer interactions,
+// while avoiding hundreds of timer turns for a 50K workspace scan.
+export const DEFAULT_FUZZY_SEARCH_CHUNK_SIZE = 2048
 
 export class SearchAbortError extends Error {
   constructor() {
@@ -89,7 +91,7 @@ export const fuzzySearchPaths = (
 ): CancellableSearchPromise<string[]> => {
   const rootPath = options.rootPath
   const limit = Math.max(0, options.limit ?? DEFAULT_LIMIT)
-  const chunkSize = Math.max(1, options.chunkSize ?? DEFAULT_CHUNK_SIZE)
+  const chunkSize = Math.max(1, options.chunkSize ?? DEFAULT_FUZZY_SEARCH_CHUNK_SIZE)
   const getSearchText = options.getSearchText ?? defaultSearchText
   const trimmedQuery = query.trim()
 
@@ -119,9 +121,7 @@ export const fuzzySearchPaths = (
       offset += chunk.length
 
       const matching = filter(chunk, trimmedQuery, { key: 'searchText' })
-      const matchingSet = new Set(matching)
-      for (const candidate of chunk) {
-        if (!matchingSet.has(candidate)) continue
+      for (const candidate of matching) {
         ranked.push({
           ...candidate,
           score: score(candidate.searchText, trimmedQuery)
