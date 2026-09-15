@@ -22,9 +22,9 @@ import { editor } from '../helpers/selectors';
  *   - playwright.config `timeout: 30_000` — the default for every other
  *     spec. setContent(10k) alone routinely takes 15-25s on the Vite dev
  *     server, so the suite default is too tight for this spec.
- *   - `test.setTimeout(120_000)` below — the ceiling for the whole test
- *     body (setContent + scroll + assertions). Wide enough to ride out
- *     CI variance and still surface a runaway regression as a timeout.
+ *   - `test.setTimeout(120_000)` below — the ceiling for each independent
+ *     sample (setContent + scroll + assertions). Wide enough to ride out CI
+ *     variance and still surface a runaway regression as a timeout.
  *   - the budget assertion further down — the actual per-sample setContent
  *     perf guard. The dev-server baseline is 60s locally and 90s on shared
  *     CI runners; a future production-bundle lane can tighten both budgets.
@@ -32,42 +32,39 @@ import { editor } from '../helpers/selectors';
  * Tagged @perf so the PR lane can use `--grep-invert "@perf"` while the
  * scheduled/manual performance lane keeps this coverage active.
  */
+const PARAGRAPH_COUNT = 10_000;
+const SAMPLE_COUNT = 20;
+
 test.describe('stability / perf smoke @perf', () => {
-    // Per-spec ceiling: enough for twenty large-document samples plus the
-    // final DOM and scroll assertions, so an actual regression surfaces via
-    // the budget assertion instead of a Playwright timeout.
+    // Each sample has its own page and test timeout. Playwright's configured
+    // workers schedule these independent samples without serially retaining
+    // twenty 10k-paragraph DOM trees in one renderer.
     test.setTimeout(120_000);
 
-    test('setContent with 10k paragraphs finishes within the budget and scroll is reachable', async ({ page }) => {
-        // 10k short paragraphs joined with the blank-line separator marked
-        // requires for distinct paragraph nodes. Building the string from
-        // inside page.evaluate avoids transferring a multi-MB payload
-        // across the Playwright IPC channel for every retry.
-        const result = await page.evaluate(() => {
-            const N = 10_000;
-            const lines: string[] = [];
-            for (let i = 0; i < N; i++)
-                lines.push(`paragraph ${i}`);
-            const md = lines.join('\n\n');
+    for (let sampleIndex = 0; sampleIndex < SAMPLE_COUNT; sampleIndex++) {
+        test(`setContent with 10k paragraphs sample ${sampleIndex + 1}/${SAMPLE_COUNT}`, async ({ page }) => {
+            // 10k short paragraphs joined with the blank-line separator marked
+            // requires for distinct paragraph nodes. Building the string from
+            // inside page.evaluate avoids transferring a multi-MB payload
+            // across the Playwright IPC channel for every retry.
+            const result = await page.evaluate((paragraphCount) => {
+                const lines: string[] = [];
+                for (let i = 0; i < paragraphCount; i++)
+                    lines.push(`paragraph ${i}`);
+                const md = lines.join('\n\n');
 
-            const SAMPLE_COUNT = 20;
-            const samples: number[] = [];
-            for (let sample = 0; sample < SAMPLE_COUNT; sample++) {
                 const t0 = performance.now();
                 window.muya!.setContent(md);
                 const t1 = performance.now();
-                samples.push(t1 - t0);
-            }
 
-            return { maxMs: Math.max(...samples), n: N, samples };
-        });
+                return { ms: t1 - t0, n: paragraphCount };
+            }, PARAGRAPH_COUNT);
 
-        const reportDirectory = process.env.PERF_RESULTS_DIR?.trim();
-        if (reportDirectory) {
-            fs.mkdirSync(reportDirectory, { recursive: true });
-            for (const [index, value] of result.samples.entries()) {
+            const reportDirectory = process.env.PERF_RESULTS_DIR?.trim();
+            if (reportDirectory) {
+                fs.mkdirSync(reportDirectory, { recursive: true });
                 fs.writeFileSync(
-                    path.join(reportDirectory, `muya-perf-${String(index).padStart(2, '0')}.json`),
+                    path.join(reportDirectory, `muya-perf-${String(sampleIndex).padStart(2, '0')}.json`),
                     `${JSON.stringify({
                         schemaVersion: 1,
                         suite: 'muya',
@@ -75,37 +72,37 @@ test.describe('stability / perf smoke @perf', () => {
                         environment: {
                             node: process.version,
                             platform: process.platform,
-                            sample: String(index + 1),
+                            sample: String(sampleIndex + 1),
                         },
                         metrics: [{
                             name: 'muya.perf.set-content.10000',
                             unit: 'ms',
-                            value,
+                            value: result.ms,
                         }],
                     }, null, 2)}\n`,
                     'utf8',
                 );
             }
-        }
 
-        const budget = process.env.CI ? 90_000 : 60_000;
-        expect(result.maxMs, `setContent(${result.n} paragraphs) max sample took ${result.maxMs.toFixed(0)}ms (budget ${budget}ms)`)
-            .toBeLessThan(budget);
+            const budget = process.env.CI ? 90_000 : 60_000;
+            expect(result.ms, `setContent(${result.n} paragraphs) sample ${sampleIndex + 1} took ${result.ms.toFixed(0)}ms (budget ${budget}ms)`)
+                .toBeLessThan(budget);
 
-        // Confirm the DOM actually rendered the count we asked for.
-        // `count()` walks the page synchronously — we use it once here
-        // (not in a polling expect) because rendering completes inside
-        // setContent's synchronous call path.
-        const paragraphCount = await page.locator(editor.paragraph).count();
-        expect(paragraphCount).toBe(result.n);
+            // Confirm the DOM actually rendered the count we asked for.
+            // `count()` walks the page synchronously — we use it once here
+            // (not in a polling expect) because rendering completes inside
+            // setContent's synchronous call path.
+            const paragraphCount = await page.locator(editor.paragraph).count();
+            expect(paragraphCount).toBe(result.n);
 
-        // Scroll the last paragraph into view and assert it becomes
-        // visible within 5s. The .last() chain selects the bottom of
-        // the 10k-paragraph tree. 5s allows for a slow CI runner — the
-        // task spec asks for 1s on a fast box; in practice paint after
-        // scroll lands in tens of ms.
-        const lastParagraph = page.locator(editor.paragraph).last();
-        await lastParagraph.scrollIntoViewIfNeeded({ timeout: 5_000 });
-        await expect(lastParagraph).toContainText(`paragraph ${result.n - 1}`, { timeout: 5_000 });
-    });
+            // Scroll the last paragraph into view and assert it becomes
+            // visible within 5s. The .last() chain selects the bottom of
+            // the 10k-paragraph tree. 5s allows for a slow CI runner — the
+            // task spec asks for 1s on a fast box; in practice paint after
+            // scroll lands in tens of ms.
+            const lastParagraph = page.locator(editor.paragraph).last();
+            await lastParagraph.scrollIntoViewIfNeeded({ timeout: 5_000 });
+            await expect(lastParagraph).toContainText(`paragraph ${result.n - 1}`, { timeout: 5_000 });
+        });
+    }
 });
