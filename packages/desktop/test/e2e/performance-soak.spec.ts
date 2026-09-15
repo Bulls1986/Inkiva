@@ -72,9 +72,11 @@ const writeSoakWorkspace = (): SoakWorkspace => {
     documents.push(filePath)
   }
 
-  for (let index = 0; index < 200; index += 1) {
+  // Keep the long-lived workspace above the renderer's 300-row
+  // virtualization threshold so the soak exercises the bounded tree DOM.
+  for (let index = 0; index < 320; index += 1) {
     fs.writeFileSync(
-      path.join(notesDirectory, 'tree-note-' + String(index).padStart(4, '0') + '.md'),
+      path.join(root, 'tree-note-' + String(index).padStart(4, '0') + '.md'),
       '# Tree note ' + String(index) + '\n\nworkspace-soak\n',
       'utf8'
     )
