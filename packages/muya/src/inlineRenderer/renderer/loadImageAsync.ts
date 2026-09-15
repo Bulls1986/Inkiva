@@ -63,7 +63,11 @@ function mountLoadedImage(
     }
 }
 
-function observeInViewport(id: string, callback: () => void): void {
+function observeInViewport(
+    id: string,
+    callback: () => void,
+    observerDelayMs = INITIAL_IMAGE_LAYOUT_SETTLE_MS,
+): void {
     let observer: IntersectionObserver | null = null;
     let scrollContainer: HTMLElement | null = null;
 
@@ -163,7 +167,7 @@ function observeInViewport(id: string, callback: () => void): void {
     // height before rendering a visible result. Do not let images make a
     // viewport decision during that transition: a wrapper can be visible
     // before a diagram settles and offscreen immediately afterwards.
-    setTimeout(scheduleObserverInstall, INITIAL_IMAGE_LAYOUT_SETTLE_MS);
+    setTimeout(scheduleObserverInstall, observerDelayMs);
 }
 
 export default function loadImageAsync(
@@ -264,7 +268,7 @@ export default function loadImageAsync(
             const imageText = document.getElementById(id);
             if (imageText)
                 mountLoadedImage(imageText, cachedImage, attrs, className, imageClass);
-        });
+        }, 0);
     }
     else {
         id = cached.id;
