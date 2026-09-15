@@ -37,6 +37,8 @@ type GatePhase =
   | 'memory'
 
 const SAMPLE_COUNT = 20
+const FAST_MEMORY_WINDOW_SIZE = SAMPLE_COUNT
+const FAST_MEMORY_CYCLE_COUNT = FAST_MEMORY_WINDOW_SIZE + SAMPLE_COUNT - 1
 const runFastGate = process.env.INKIVA_RUN_PERF_FAST_GATE === 'true'
 const categoryNames = ['startup', 'editor', 'diagrams', 'memory'] as const
 
@@ -59,6 +61,8 @@ interface FastGateProbe {
   maxEventLoopLag: number
   intervalId: number
   inputObserver?: PerformanceObserver
+  milestoneSnapshots: EditorMilestoneTimestamps[]
+  milestoneObserver?: MutationObserver
 }
 
 const createCaptureDirectory = (): CaptureDirectory => {
@@ -179,6 +183,29 @@ const installFastGateProbe = async(page: Page): Promise<void> => {
     if (state.__inkiva_fast_gate_probe__) return
 
     const inputDurations: number[] = []
+    const milestoneSnapshots: EditorMilestoneTimestamps[] = []
+    const captureMilestones = (): void => {
+      for (const element of document.querySelectorAll('.editor-component')) {
+        const snapshot = {
+          openStartAt: Number(element.getAttribute('data-editor-open-start-at')),
+          firstScreenAt: Number(element.getAttribute('data-editor-first-screen-at')),
+          editableAt: Number(element.getAttribute('data-editor-editable-at'))
+        }
+        if (
+          !Number.isFinite(snapshot.openStartAt) ||
+          !Number.isFinite(snapshot.firstScreenAt) ||
+          !Number.isFinite(snapshot.editableAt) ||
+          snapshot.openStartAt < 0 ||
+          snapshot.firstScreenAt < snapshot.openStartAt ||
+          snapshot.editableAt <= snapshot.firstScreenAt ||
+          milestoneSnapshots.some((candidate) => candidate.openStartAt === snapshot.openStartAt)
+        ) {
+          continue
+        }
+        milestoneSnapshots.push(snapshot)
+      }
+    }
+
     let inputObserver: PerformanceObserver | undefined
     try {
       inputObserver = new PerformanceObserver((list) => {
@@ -209,14 +236,31 @@ const installFastGateProbe = async(page: Page): Promise<void> => {
       inputObserver = undefined
     }
 
+    let milestoneObserver: MutationObserver | undefined
+    if (document.documentElement && typeof MutationObserver === 'function') {
+      milestoneObserver = new MutationObserver(captureMilestones)
+      milestoneObserver.observe(document.documentElement, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: [
+          'data-editor-open-start-at',
+          'data-editor-first-screen-at',
+          'data-editor-editable-at'
+        ]
+      })
+    }
+
     let expected = performance.now() + 16
     const probe: FastGateProbe = {
       inputDurations,
       maxEventLoopLag: 0,
       intervalId: 0,
-      inputObserver
+      inputObserver,
+      milestoneSnapshots,
+      milestoneObserver
     }
     state.__inkiva_fast_gate_probe__ = probe
+    captureMilestones()
     probe.intervalId = window.setInterval(() => {
       const now = performance.now()
       probe.maxEventLoopLag = Math.max(probe.maxEventLoopLag, Math.max(0, now - expected))
@@ -307,47 +351,72 @@ const readEditorMilestones = async(
   minimumOpenStartAt = 0,
   timeout = 60_000
 ): Promise<{ timestamps: EditorMilestoneTimestamps; durations: EditorMilestoneDurations }> => {
-  await page.waitForFunction(
-    (minimum) => {
-      return Array.from(document.querySelectorAll('.editor-component')).some((element) => {
-        const openStartAt = Number(element.getAttribute('data-editor-open-start-at'))
-        const firstScreenAt = Number(element.getAttribute('data-editor-first-screen-at'))
-        const editableAt = Number(element.getAttribute('data-editor-editable-at'))
-        return (
-          Number.isFinite(openStartAt) &&
-          Number.isFinite(firstScreenAt) &&
-          Number.isFinite(editableAt) &&
-          openStartAt >= minimum &&
-          firstScreenAt >= openStartAt &&
-          editableAt > firstScreenAt
-        )
-      })
-    },
-    minimumOpenStartAt,
-    { timeout }
-  )
-
-  const timestamps = (await page.evaluate(() => {
-    const element = Array.from(document.querySelectorAll('.editor-component')).find((candidate) => {
-      const openStartAt = Number(candidate.getAttribute('data-editor-open-start-at'))
-      const firstScreenAt = Number(candidate.getAttribute('data-editor-first-screen-at'))
-      const editableAt = Number(candidate.getAttribute('data-editor-editable-at'))
-      return (
-        Number.isFinite(openStartAt) &&
-        Number.isFinite(firstScreenAt) &&
-        Number.isFinite(editableAt) &&
-        openStartAt >= 0 &&
-        firstScreenAt >= openStartAt &&
-        editableAt > firstScreenAt
+  let milestoneHandle
+  try {
+    milestoneHandle = await page.waitForFunction(
+      (minimum) => {
+        const state = globalThis as typeof globalThis & {
+          __inkiva_fast_gate_probe__?: FastGateProbe
+        }
+        const current = Array.from(document.querySelectorAll('.editor-component')).map((element) => ({
+          openStartAt: Number(element.getAttribute('data-editor-open-start-at')),
+          firstScreenAt: Number(element.getAttribute('data-editor-first-screen-at')),
+          editableAt: Number(element.getAttribute('data-editor-editable-at'))
+        }))
+        const candidates = [
+          ...(state.__inkiva_fast_gate_probe__?.milestoneSnapshots ?? []),
+          ...current
+        ]
+        return candidates.find((candidate) => {
+          return (
+            Number.isFinite(candidate.openStartAt) &&
+            Number.isFinite(candidate.firstScreenAt) &&
+            Number.isFinite(candidate.editableAt) &&
+            candidate.openStartAt >= minimum &&
+            candidate.firstScreenAt >= candidate.openStartAt &&
+            candidate.editableAt > candidate.firstScreenAt
+          )
+        }) ?? false
+      },
+      minimumOpenStartAt,
+      { timeout }
+    )
+  } catch (error) {
+    let diagnostics = 'unavailable'
+    try {
+      diagnostics = JSON.stringify(
+        await page.evaluate(() => {
+          const state = globalThis as typeof globalThis & {
+            __inkiva_fast_gate_probe__?: FastGateProbe
+          }
+          return {
+            editorCount: document.querySelectorAll('.editor-component').length,
+            editorAttributes: Array.from(document.querySelectorAll('.editor-component')).map(
+              (element) => ({
+                className: element.className,
+                openStartAt: element.getAttribute('data-editor-open-start-at'),
+                firstScreenAt: element.getAttribute('data-editor-first-screen-at'),
+                editableAt: element.getAttribute('data-editor-editable-at')
+              })
+            ),
+            milestoneSnapshots: state.__inkiva_fast_gate_probe__?.milestoneSnapshots ?? [],
+            documentReadyState: document.readyState
+          }
+        })
       )
-    })
-    if (!element) throw new Error('editor component is missing for fast milestones')
-    return {
-      openStartAt: Number(element.getAttribute('data-editor-open-start-at')),
-      firstScreenAt: Number(element.getAttribute('data-editor-first-screen-at')),
-      editableAt: Number(element.getAttribute('data-editor-editable-at'))
+    } catch {
+      // Preserve the original timeout when the renderer has already closed.
     }
-  })) as EditorMilestoneTimestamps
+    throw new Error(
+      'editor milestones were not observed: ' +
+        (error instanceof Error ? error.message : String(error)) +
+        '; diagnostics=' +
+        diagnostics
+    )
+  }
+
+  const timestamps = (await milestoneHandle.jsonValue()) as EditorMilestoneTimestamps
+  await milestoneHandle.dispose()
 
   return { timestamps, durations: measureEditorMilestones(timestamps) }
 }
@@ -561,6 +630,7 @@ const collectDiagramSamples = async(
       const launched = await launchCaptured([fixtures.diagram], capture)
       app = launched.app
       const { page } = launched
+      await installFastGateProbe(page)
       await waitForEditor(page, 60_000)
       const editorMilestones = await readEditorMilestones(page)
 
@@ -653,6 +723,11 @@ const collectMemorySamples = async(
       page,
       firstPath: fixtures.memoryFirst,
       cyclePath: fixtures.memoryCycle,
+      cycleCount: FAST_MEMORY_CYCLE_COUNT,
+      evaluationOptions: {
+        shortWindowSize: FAST_MEMORY_WINDOW_SIZE,
+        longWindowSize: FAST_MEMORY_WINDOW_SIZE
+      },
       recordSample: (metric, unit, value) => recordSample(page, metric, unit, value, 'memory')
     })
     await recordStability(app, page)

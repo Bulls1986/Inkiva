@@ -3,7 +3,8 @@ import {
   evaluateMemoryLeakSeries,
   MEMORY_LEAK_LONG_WINDOW_SIZE,
   MEMORY_LEAK_SAMPLE_COUNT,
-  type MemoryLeakSeriesEvaluation
+  type MemoryLeakSeriesEvaluation,
+  type MemoryLeakSeriesOptions
 } from '../../../../perf/gate/memory'
 import { placeCaretInEditor, sendIpcToRenderer } from './helpers'
 
@@ -21,6 +22,10 @@ export interface MemoryLeakCycleOptions {
   firstPath: string
   cyclePath: string
   recordSample: MemoryLeakSampleRecorder
+  /** Override the number of open/edit/switch/close cycles for a bounded profile. */
+  cycleCount?: number
+  /** Override the evaluation windows while preserving the default long-gate profile. */
+  evaluationOptions?: MemoryLeakSeriesOptions
 }
 
 const waitForPaint = async(page: Page): Promise<void> => {
@@ -161,18 +166,31 @@ const openEditSwitchClose = async(
 export const collectMemoryLeakCycleSamples = async(
   options: MemoryLeakCycleOptions
 ): Promise<MemoryLeakSeriesEvaluation> => {
-  const { app, page, firstPath, cyclePath, recordSample } = options
+  const {
+    app,
+    page,
+    firstPath,
+    cyclePath,
+    recordSample,
+    evaluationOptions = {}
+  } = options
   const heapSamples: number[] = []
   const sampler = await createRendererHeapSampler(page)
 
   try {
-    const cycleCount = MEMORY_LEAK_LONG_WINDOW_SIZE + MEMORY_LEAK_SAMPLE_COUNT - 1
+    const longWindowSize = Math.floor(
+      evaluationOptions.longWindowSize ?? MEMORY_LEAK_LONG_WINDOW_SIZE
+    )
+    const cycleCount = options.cycleCount ?? longWindowSize + MEMORY_LEAK_SAMPLE_COUNT - 1
+    if (!Number.isInteger(cycleCount) || cycleCount < longWindowSize) {
+      throw new Error('memory leak cycle count must cover the evaluation window')
+    }
     for (let index = 0; index < cycleCount; index += 1) {
       await openEditSwitchClose(app, page, firstPath, cyclePath, index)
       heapSamples.push(await sampler.sample())
 
-      if (heapSamples.length < MEMORY_LEAK_LONG_WINDOW_SIZE) continue
-      const evaluation = evaluateMemoryLeakSeries(heapSamples)
+      if (heapSamples.length < longWindowSize) continue
+      const evaluation = evaluateMemoryLeakSeries(heapSamples, evaluationOptions)
       await recordSample(
         'memory.heapGrowth50',
         'ratio',
@@ -190,7 +208,7 @@ export const collectMemoryLeakCycleSamples = async(
       )
     }
 
-    return evaluateMemoryLeakSeries(heapSamples)
+    return evaluateMemoryLeakSeries(heapSamples, evaluationOptions)
   } finally {
     await sampler.dispose()
   }
