@@ -88,7 +88,7 @@ export default function image(
             'contenteditable': 'false',
             'empty-text': i18n.t('Click to add an image'),
             'fail-text': i18n.t('Load image failed'),
-        },
+        } as Record<string, string>,
         dataset: {
             raw: token.raw,
         },
@@ -98,7 +98,7 @@ export default function image(
     let naturalWidth: number | undefined;
     let naturalHeight: number | undefined;
     let resolvedUrl: string | undefined;
-    let isViewportLazy = false;
+    let isViewportLazy: boolean | undefined;
     // `src` stays the plain path — it is the key the `urlMap`/cache lookups use.
     const src = imageSrc.src;
     const alt = token.attrs.alt;
