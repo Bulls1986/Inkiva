@@ -332,7 +332,8 @@ const runSoak = async(
   await expect(page.locator(treeRowSelector).first()).toBeVisible({ timeout: 60000 })
 
   fs.writeFileSync(workspace.watchedPath, '# watcher start\n', 'utf8')
-  await waitForTreePath(page, workspace.watchedPath)
+  const watcherMtimeMs = fs.statSync(workspace.watchedPath).mtimeMs
+  await waitForTreePath(page, workspace.watchedPath, watcherMtimeMs)
 
   const initialOutline = await exerciseOutline(app, page)
   await recordSample(page, 'soak.outline', 'ms', initialOutline, 'document-open')
