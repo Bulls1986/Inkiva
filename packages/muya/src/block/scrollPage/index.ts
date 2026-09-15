@@ -16,9 +16,55 @@ interface IBlurFocus {
     focus: Nullable<Content>;
 }
 
+// Constructing and parsing every inline content node before the browser gets a
+// paint makes a large document look frozen even though the first screen only
+// needs a small prefix. Keep ordinary documents on the existing synchronous
+// path and progressively mount larger documents after the first paint.
+export const PROGRESSIVE_RENDER_THRESHOLD = 200;
+export const PROGRESSIVE_RENDER_INITIAL_BLOCKS = 32;
+const PROGRESSIVE_RENDER_CHUNK_BUDGET_MS = 8;
+const PROGRESSIVE_RENDER_LINE_HEIGHT_PX = 24;
+
+function estimateStateHeight(state: TState): number {
+    if ('text' in state) {
+        const text = state.text || '';
+        const lines = Math.max(1, text.split('\n').length, Math.ceil(text.length / 88));
+
+        if (state.name === 'diagram')
+            return 192;
+        if (state.name === 'code-block' || state.name === 'math-block')
+            return Math.max(PROGRESSIVE_RENDER_LINE_HEIGHT_PX, lines * 20 + 16);
+
+        return lines * PROGRESSIVE_RENDER_LINE_HEIGHT_PX;
+    }
+
+    if ('children' in state && Array.isArray(state.children)) {
+        const childrenHeight = state.children.reduce(
+            (height, child) => height + estimateStateHeight(child),
+            0,
+        );
+        return Math.max(PROGRESSIVE_RENDER_LINE_HEIGHT_PX, childrenHeight);
+    }
+
+    return PROGRESSIVE_RENDER_LINE_HEIGHT_PX;
+}
+
+function estimateStatesHeight(states: TState[]): number {
+    return states.reduce((height, state) => height + estimateStateHeight(state), 0);
+}
+
 export class ScrollPage extends Parent {
     private _blurFocus: IBlurFocus = { blur: null, focus: null };
     private _activeStatusFrames = new Set<number>();
+    private _progressiveStates: TState[] | null = null;
+    private _progressiveIndex = 0;
+    private _progressiveFrameId: number | null = null;
+    private _progressiveTimerId: ReturnType<typeof setTimeout> | null = null;
+    private _progressiveSpacer: HTMLElement | null = null;
+    private _progressiveRemainingHeight = 0;
+    private _progressiveGeneration = 0;
+    private _progressiveCompletion: Promise<void> | null = null;
+    private _resolveProgressiveCompletion: (() => void) | null = null;
 
     static override blockName = 'scrollpage';
 
@@ -51,17 +97,7 @@ export class ScrollPage extends Parent {
 
     static create(muya: Muya, state: TState[]) {
         const scrollPage = new ScrollPage(muya);
-        const blocks = state.map((block) => {
-            return this.loadBlock(block.name).create(muya, block);
-        });
-        const fragment = document.createDocumentFragment();
-
-        blocks.forEach((block) => {
-            block.parent = scrollPage;
-            fragment.appendChild(block.domNode!);
-        });
-        scrollPage.children.append(...blocks);
-        scrollPage.domNode!.appendChild(fragment);
+        scrollPage._mountState(state);
 
         scrollPage.parent!.domNode!.appendChild(scrollPage.domNode!);
 
@@ -86,6 +122,14 @@ export class ScrollPage extends Parent {
         this._listenDomEvent();
     }
 
+    isProgressiveRenderPending(): boolean {
+        return this._progressiveStates !== null;
+    }
+
+    whenRenderComplete(): Promise<void> {
+        return this._progressiveCompletion ?? Promise.resolve();
+    }
+
     override getState() {
         debug.warn('You can never call `getState` in scrollPage');
 
@@ -99,24 +143,159 @@ export class ScrollPage extends Parent {
         eventCenter.attachDOMEvent(domNode!, 'click', this._clickHandler.bind(this));
     }
 
-    updateState(state: TState[]) {
-        const { muya } = this;
-        // Empty scrollPage dom
-        this.empty();
-        const blocks = state.map((block) => {
-            return ScrollPage.loadBlock(block.name).create(muya, block);
+    private _createBlocks(state: TState[]): Parent[] {
+        return state.map((block) => {
+            return ScrollPage.loadBlock(block.name).create(this.muya, block);
         });
+    }
 
-        // Build the block tree while detached, then mount it with one DOM
-        // insertion. This keeps the linked-list state and the DOM in sync
-        // without forcing a layout opportunity for every block.
+    private _mountBlocks(state: TState[], beforeSpacer = false): void {
+        if (state.length === 0)
+            return;
+
+        const blocks = this._createBlocks(state);
         const fragment = document.createDocumentFragment();
+
         blocks.forEach((block) => {
             block.parent = this;
             fragment.appendChild(block.domNode!);
         });
         this.children.append(...blocks);
-        this.domNode!.appendChild(fragment);
+
+        if (beforeSpacer && this._progressiveSpacer)
+            this.domNode!.insertBefore(fragment, this._progressiveSpacer);
+        else
+            this.domNode!.appendChild(fragment);
+    }
+
+    private _mountState(state: TState[]): void {
+        if (state.length <= PROGRESSIVE_RENDER_THRESHOLD) {
+            this._mountBlocks(state);
+            return;
+        }
+
+        this._progressiveStates = state;
+        this._progressiveIndex = Math.min(PROGRESSIVE_RENDER_INITIAL_BLOCKS, state.length);
+        this._progressiveRemainingHeight = estimateStatesHeight(
+            state.slice(this._progressiveIndex),
+        );
+        this._progressiveCompletion = new Promise((resolve) => {
+            this._resolveProgressiveCompletion = resolve;
+        });
+
+        this._mountBlocks(state.slice(0, this._progressiveIndex));
+
+        const spacer = document.createElement('div');
+        spacer.className = 'mu-progressive-render-placeholder';
+        spacer.setAttribute('aria-hidden', 'true');
+        spacer.style.height = `${this._progressiveRemainingHeight}px`;
+        spacer.style.pointerEvents = 'none';
+        spacer.style.userSelect = 'none';
+        this._progressiveSpacer = spacer;
+        this.domNode!.appendChild(spacer);
+
+        const generation = this._progressiveGeneration;
+        // Leave two paint boundaries for the visible prefix and editor focus
+        // before the first background chunk starts doing DOM work.
+        this._progressiveFrameId = requestAnimationFrame(() => {
+            if (generation !== this._progressiveGeneration)
+                return;
+
+            this._progressiveFrameId = requestAnimationFrame(() => {
+                if (generation !== this._progressiveGeneration)
+                    return;
+
+                this._progressiveTimerId = setTimeout(() => {
+                    this._progressiveTimerId = null;
+                    this._renderProgressiveChunk(generation);
+                }, 0);
+            });
+        });
+    }
+
+    private _renderProgressiveChunk(generation: number): void {
+        if (generation !== this._progressiveGeneration)
+            return;
+
+        const states = this._progressiveStates;
+        if (!states) {
+            this._finishProgressiveRender();
+            return;
+        }
+
+        const startedAt = performance.now();
+        const startIndex = this._progressiveIndex;
+        while (
+            this._progressiveIndex < states.length
+            && (this._progressiveIndex === startIndex
+                || performance.now() - startedAt < PROGRESSIVE_RENDER_CHUNK_BUDGET_MS)
+        ) {
+            this._progressiveIndex += 1;
+        }
+
+        this._mountBlocks(
+            states.slice(startIndex, this._progressiveIndex),
+            true,
+        );
+        this._progressiveRemainingHeight = estimateStatesHeight(
+            states.slice(this._progressiveIndex),
+        );
+        if (this._progressiveSpacer)
+            this._progressiveSpacer.style.height = `${this._progressiveRemainingHeight}px`;
+
+        if (this._progressiveIndex >= states.length) {
+            this._finishProgressiveRender();
+            return;
+        }
+
+        this._progressiveFrameId = requestAnimationFrame(() => {
+            this._progressiveFrameId = null;
+            this._renderProgressiveChunk(generation);
+        });
+    }
+
+    private _finishProgressiveRender(): void {
+        this._progressiveSpacer?.remove();
+        this._progressiveSpacer = null;
+        this._progressiveStates = null;
+        this._progressiveIndex = 0;
+        this._progressiveRemainingHeight = 0;
+
+        const resolve = this._resolveProgressiveCompletion;
+        this._resolveProgressiveCompletion = null;
+        this._progressiveCompletion = null;
+        resolve?.();
+    }
+
+    private _cancelProgressiveRender(): void {
+        this._progressiveGeneration += 1;
+        if (this._progressiveFrameId !== null)
+            cancelAnimationFrame(this._progressiveFrameId);
+        if (this._progressiveTimerId !== null)
+            clearTimeout(this._progressiveTimerId);
+
+        this._progressiveFrameId = null;
+        this._progressiveTimerId = null;
+        this._progressiveSpacer?.remove();
+        this._progressiveSpacer = null;
+        this._progressiveStates = null;
+        this._progressiveIndex = 0;
+        this._progressiveRemainingHeight = 0;
+
+        const resolve = this._resolveProgressiveCompletion;
+        this._resolveProgressiveCompletion = null;
+        this._progressiveCompletion = null;
+        resolve?.();
+    }
+
+    updateState(state: TState[], progressive = true) {
+        this._cancelProgressiveRender();
+        // Empty scrollPage dom
+        this.empty();
+        if (progressive)
+            this._mountState(state);
+        else
+            this._mountBlocks(state);
     }
 
     /**
@@ -160,6 +339,7 @@ export class ScrollPage extends Parent {
     }
 
     override dispose(): void {
+        this._cancelProgressiveRender();
         this._activeStatusFrames.forEach(frameId => cancelAnimationFrame(frameId));
         this._activeStatusFrames.clear();
         this._blurFocus = { blur: null, focus: null };

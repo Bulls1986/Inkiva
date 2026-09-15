@@ -256,11 +256,15 @@ export class Search {
             return Promise.resolve(this);
         }
 
-        const stack: TreeNode[] = [root];
-        let firstBatchPublished = false;
-        let settled = false;
+        // Search highlights live Content nodes, so it must not traverse the
+        // partial tree while a large document is still being progressively
+        // mounted. Waiting here keeps the async API complete without forcing
+        // the initial editor paint to construct every block.
+        return root.whenRenderComplete().then(() => new Promise<this>((resolve) => {
+            const stack: TreeNode[] = [root];
+            let firstBatchPublished = false;
+            let settled = false;
 
-        return new Promise<this>((resolve) => {
             const finish = () => {
                 if (settled)
                     return;
@@ -364,6 +368,6 @@ export class Search {
             };
 
             schedule();
-        });
+        }));
     }
 }
