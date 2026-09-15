@@ -93,14 +93,14 @@ export const evaluateMemoryLeakSeries = (
     throw new Error('memory leak window sizes and thresholds are invalid')
   }
 
+  if (samples.some((sample) => !isFiniteNonNegative(sample))) {
+    throw new Error('memory leak samples must be finite non-negative numbers')
+  }
+
   if (samples.length < longWindowSize) {
     throw new Error(
       'memory leak evaluation requires ' + String(longWindowSize) + ' samples'
     )
-  }
-
-  if (samples.some((sample) => !isFiniteNonNegative(sample))) {
-    throw new Error('memory leak samples must be finite non-negative numbers')
   }
 
   const shortSamples = samples.slice(-shortWindowSize)
