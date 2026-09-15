@@ -22,6 +22,18 @@ import {
 } from './report-store'
 
 const MAX_RENDERER_EVENTS = 10_000
+const MAX_LATE_RENDERER_METRICS = 256
+const REQUIRED_LATE_RENDERER_METRICS = new Set([
+  'soak.durationMs',
+  'soak.cycles',
+  'memory.heapGrowth50',
+  'memory.heapLinearGrowth',
+  'stability.crash',
+  'stability.rendererCrash',
+  'stability.oom',
+  'stability.cpuRunaway',
+  'stability.rendererHang'
+])
 
 export interface MainPerformanceCoordinatorOptions extends MainPerformanceRecorderOptions {
   reportDirectory?: string | null
@@ -64,6 +76,7 @@ class MainPerformanceCoordinatorImpl implements MainPerformanceCoordinator {
   private readonly recorder: MainPerformanceRecorder
   private readonly reportStore: PerformanceReportStore
   private readonly maxRendererEvents: number
+  private readonly lateRendererMetricKeys = new Set<string>()
   private rendererEventCount = 0
 
   constructor(options: MainPerformanceCoordinatorOptions = {}) {
@@ -119,7 +132,7 @@ class MainPerformanceCoordinatorImpl implements MainPerformanceCoordinator {
   }
 
   recordRendererEvent(event: unknown): boolean {
-    if (!this.enabled || this.rendererEventCount >= this.maxRendererEvents) return false
+    if (!this.enabled) return false
 
     const normalizedEvent = normalizePerformanceEvent(event, {
       expectedProcess: 'renderer',
@@ -127,9 +140,25 @@ class MainPerformanceCoordinatorImpl implements MainPerformanceCoordinator {
     })
     if (!normalizedEvent) return false
 
-    this.reportStore.recordEvent(normalizedEvent)
-    this.rendererEventCount += 1
-    return true
+    if (this.rendererEventCount < this.maxRendererEvents) {
+      this.reportStore.recordEvent(normalizedEvent)
+      this.rendererEventCount += 1
+      return true
+    }
+
+    const metric = normalizedEvent.metadata?.metric
+    if (normalizedEvent.name !== 'metric_sample' || typeof metric !== 'string') return false
+
+    const isRequiredMetric = REQUIRED_LATE_RENDERER_METRICS.has(metric)
+    if (
+      !isRequiredMetric &&
+      !this.lateRendererMetricKeys.has(metric) &&
+      this.lateRendererMetricKeys.size >= MAX_LATE_RENDERER_METRICS
+    ) {
+      return false
+    }
+    this.lateRendererMetricKeys.add(metric)
+    return this.reportStore.recordLatestMetricSample(normalizedEvent)
   }
 
   getBootInfo(): PerformanceBootInfo {

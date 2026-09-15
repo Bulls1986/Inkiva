@@ -28,6 +28,10 @@ describe('workspace search primitives', () => {
     index.remove(['/workspace/b.md'])
     expect(index.values()).toEqual(['/workspace/a.md', '/workspace/c.md'])
 
+    index.add(['/workspace/notes/guide.md', '/workspace/notes/deep/topic.md'])
+    index.removePathAndDescendants('/workspace/notes')
+    expect(index.values()).toEqual(['/workspace/a.md', '/workspace/c.md'])
+
     index.clear()
     expect(index.values()).toEqual([])
   })

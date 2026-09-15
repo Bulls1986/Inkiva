@@ -10,6 +10,7 @@ Contract rules:
 - Missing metrics, invalid units, insufficient samples, missing baselines, and incomplete reports fail closed.
 - The P2 and P3 degradation contract compares core interaction metrics against a P0 baseline and permits at most 25% relative increase.
 - The reference runner is Windows 11 64-bit, 4-core low-voltage x86, 8 GB RAM, SATA SSD or entry NVMe, integrated graphics, 1920x1080 at 60Hz, Balanced power, and offline networking.
+- Official reference jobs require a self-hosted runner with the labels `windows`, `x64`, and `reference-low-end`; a GitHub-hosted `windows-latest` runner is not an accepted substitute because its OS and hardware are not the product baseline.
 - Vue 3 commit time is represented by the equivalent renderer commit metric; the renderer must continue to expose it through the runtime trace when that probe is available.
 
 The contract is now wired to opt-in real Electron collectors: P0 uses the regular mixed Markdown scenario, while P1/P2 use the large-document, heading-storm, workspace, multi-tab, diagram/image, and combination collectors. The official workflow requires raw traces, validates the reference environment, evaluates P1/P2, and blocks release on any missing sample or failed gate. A developer-machine result is never release qualification.

@@ -53,6 +53,16 @@ const rendererEvent = (overrides: Partial<PerformanceEvent> = {}): PerformanceEv
   ...overrides
 })
 
+const rendererMetric = (
+  metric: string,
+  unit: 'ms' | 'count' | 'bytes' | 'ratio',
+  value: number
+): PerformanceEvent => rendererEvent({
+  name: 'metric_sample',
+  phase: 'memory',
+  metadata: { metric, unit, value }
+})
+
 describe('MainPerformanceCoordinator', () => {
   it('exposes a stable boot context and correlates main and renderer events', () => {
     const { coordinator, clock } = createCoordinator()
@@ -109,6 +119,52 @@ describe('MainPerformanceCoordinator', () => {
 
     const { coordinator: invalidCoordinator } = createCoordinator()
     expect(invalidCoordinator.recordRendererEvent(rendererEvent({ durationMs: -1 }))).toBe(false)
+  })
+
+  it('retains bounded renderer metric updates after the event intake limit', () => {
+    const { coordinator } = createCoordinator({ maxRendererEvents: 1 })
+
+    expect(coordinator.recordRendererEvent(rendererEvent())).toBe(true)
+    expect(
+      coordinator.recordRendererEvent(rendererMetric('memory.heapLinearGrowth', 'count', 1))
+    ).toBe(true)
+    expect(
+      coordinator.recordRendererEvent(rendererMetric('memory.heapLinearGrowth', 'count', 0))
+    ).toBe(true)
+    expect(
+      coordinator.recordRendererEvent(rendererMetric('soak.durationMs', 'ms', 600_000))
+    ).toBe(true)
+    expect(coordinator.recordRendererEvent(rendererEvent())).toBe(false)
+
+    const events = coordinator.snapshot().traces[0]?.events ?? []
+    const metrics = events.filter((event) => event.name === 'metric_sample')
+    expect(metrics).toHaveLength(2)
+    expect(metrics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          metric: 'memory.heapLinearGrowth',
+          value: 1
+        })
+      }),
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          metric: 'soak.durationMs',
+          value: 600_000
+        })
+      })
+    ]))
+  })
+
+  it('bounds late renderer metric cardinality', () => {
+    const { coordinator } = createCoordinator({ maxRendererEvents: 1 })
+    expect(coordinator.recordRendererEvent(rendererEvent())).toBe(true)
+
+    const accepted = Array.from({ length: 300 }, (_, index) => coordinator.recordRendererEvent(
+      rendererMetric('late.metric.' + String(index), 'ms', index + 1)
+    ))
+
+    expect(accepted.filter(Boolean)).toHaveLength(256)
+    expect(coordinator.snapshot().traces[0]?.events).toHaveLength(257)
   })
 
   it('flushes once through the injected report writer and remains side-effect free when disabled', async() => {

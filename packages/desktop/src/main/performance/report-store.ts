@@ -2,8 +2,10 @@ import { mkdir as createDirectory, writeFile as writeTextFile } from 'node:fs/pr
 import { join } from 'node:path'
 import {
   PERFORMANCE_TRACE_SCHEMA_VERSION,
+  isPerformanceSampleUnit,
   type PerformanceEvent,
   type PerformanceReport,
+  type PerformanceSampleUnit,
   type PerformanceTrace
 } from '@shared/types/performance'
 
@@ -89,6 +91,13 @@ export type PerformanceReportFlushResult =
 export interface PerformanceReportStoreOptions extends PerformanceReportWriterOptions {
   now?: () => number
   writer?: Pick<PerformanceReportWriter, 'write'>
+}
+
+interface LatestMetricEvent {
+  traceId: string
+  eventIndex: number
+  unit: PerformanceSampleUnit
+  value: number
 }
 
 const defaultFileSystem: PerformanceReportFileSystem = {
@@ -316,6 +325,7 @@ export class PerformanceReportStore {
   private readonly now: () => number
   private readonly writer: Pick<PerformanceReportWriter, 'write'>
   private readonly traces = new Map<string, PerformanceTraceInput>()
+  private readonly latestMetricEvents = new Map<string, LatestMetricEvent>()
   private revision = 0
   private flushedRevision = -1
   private flushPromise: Promise<PerformanceReportFlushResult> | undefined
@@ -333,6 +343,7 @@ export class PerformanceReportStore {
 
   recordTrace(trace: PerformanceTraceInput): void {
     this.traces.set(trace.traceId, cloneTrace(trace))
+    this.latestMetricEvents.clear()
     this.revision += 1
   }
 
@@ -359,6 +370,74 @@ export class PerformanceReportStore {
 
   addEvent(event: PerformanceEventInput): void {
     this.recordEvent(event)
+  }
+
+  /**
+   * Keep one bounded aggregate slot for a renderer metric that arrives after
+   * the ordinary event intake limit. Timing/ratio samples use the latest
+   * observation; count samples use the maximum so a later zero cannot erase
+   * a failure observed earlier in the run.
+   */
+  recordLatestMetricSample(event: PerformanceEventInput): boolean {
+    if (event.name !== 'metric_sample') return false
+
+    const metric = event.metadata?.metric
+    const unit = event.metadata?.unit
+    const value = event.metadata?.value
+    if (
+      typeof metric !== 'string' ||
+      !isPerformanceSampleUnit(unit) ||
+      typeof value !== 'number' ||
+      !Number.isFinite(value) ||
+      value < 0
+    ) {
+      return false
+    }
+
+    const key = event.traceId + '\u0000' + metric
+    const existing = this.latestMetricEvents.get(key)
+    if (existing) {
+      if (existing.unit !== unit) return false
+      if (unit === 'count' && value <= existing.value) return true
+
+      const trace = this.traces.get(existing.traceId)
+      if (!trace || trace.events[existing.eventIndex] === undefined) {
+        this.latestMetricEvents.delete(key)
+      } else {
+        trace.events[existing.eventIndex] = cloneEvent(event)
+        this.latestMetricEvents.set(key, {
+          ...existing,
+          unit,
+          value
+        })
+        this.revision += 1
+        return true
+      }
+    }
+
+    const trace = this.traces.get(event.traceId)
+    if (trace) {
+      const eventIndex = trace.events.length
+      trace.events.push(cloneEvent(event))
+      this.latestMetricEvents.set(key, { traceId: event.traceId, eventIndex, unit, value })
+    } else {
+      this.traces.set(event.traceId, {
+        schemaVersion: PERFORMANCE_TRACE_SCHEMA_VERSION,
+        traceId: event.traceId,
+        process: event.process,
+        startedAtEpochMs: event.timestampEpochMs,
+        timeOriginEpochMs: event.timestampEpochMs,
+        events: [cloneEvent(event)]
+      })
+      this.latestMetricEvents.set(key, {
+        traceId: event.traceId,
+        eventIndex: 0,
+        unit,
+        value
+      })
+    }
+    this.revision += 1
+    return true
   }
 
   snapshot(): PerformanceReportInput {

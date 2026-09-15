@@ -57,6 +57,16 @@ export class SearchPathIndex {
     }
   }
 
+  removePathAndDescendants(pathname: string): void {
+    const normalizedPath = getPathKey(pathname).replace(/\/+$/, '')
+    const prefix = normalizedPath + '/'
+    for (const [key, value] of this.entries) {
+      if (key === normalizedPath || getPathKey(value).startsWith(prefix)) {
+        this.entries.delete(key)
+      }
+    }
+  }
+
   values(): string[] {
     return Array.from(this.entries.values())
   }

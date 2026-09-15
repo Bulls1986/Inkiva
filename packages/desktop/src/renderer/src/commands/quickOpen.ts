@@ -113,6 +113,7 @@ class QuickOpenCommand {
   private _indexPromise: Promise<string[]> | null
   private _indexRootPath: string | null
   private _pathIndex: SearchPathIndex
+  private _buildingIndex: SearchPathIndex | null
   private _searchGeneration: number
   private _indexTaskCancellers: Array<() => void>
 
@@ -136,6 +137,7 @@ class QuickOpenCommand {
     this._indexPromise = null
     this._indexRootPath = null
     this._pathIndex = new SearchPathIndex()
+    this._buildingIndex = null
     this._searchGeneration = 0
     this._indexTaskCancellers = []
 
@@ -261,12 +263,37 @@ class QuickOpenCommand {
     })
 
   private _handleProjectTreeChanged = (payload: unknown): void => {
-    const type =
-      payload && typeof payload === 'object' && 'type' in payload
-        ? String((payload as { type?: unknown }).type)
-        : ''
-    if (type === 'add' || type === 'unlink' || type === 'addDir' || type === 'unlinkDir') {
-      this._invalidateIndex()
+    if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return
+    const event = payload as {
+      type?: unknown
+      change?: { pathname?: unknown }
+    }
+    const type = typeof event.type === 'string' ? event.type : ''
+    const pathname = typeof event.change?.pathname === 'string' ? event.change.pathname : ''
+    if (!pathname || !this._isPathInIndexRoot(pathname)) return
+
+    if (type === 'add' && isMarkdownQuickOpenPath(pathname)) {
+      this._pathIndex.add([pathname])
+      this._buildingIndex?.add([pathname])
+    } else if (type === 'unlink') {
+      this._pathIndex.remove([pathname])
+      this._buildingIndex?.remove([pathname])
+    } else if (type === 'unlinkDir') {
+      this._pathIndex.removePathAndDescendants(pathname)
+      this._buildingIndex?.removePathAndDescendants(pathname)
+    }
+  }
+
+  private _isPathInIndexRoot = (pathname: string): boolean => {
+    const rootPath = this._indexRootPath
+    if (!rootPath) return false
+    if (sameQuickOpenPath(rootPath, pathname)) return true
+    try {
+      return window.fileUtils.isChildOfDirectory(rootPath, pathname)
+    } catch {
+      const normalizedRoot = rootPath.replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase()
+      const normalizedPath = pathname.replace(/\\/g, '/').toLowerCase()
+      return normalizedPath.startsWith(normalizedRoot + '/')
     }
   }
 
@@ -278,6 +305,7 @@ class QuickOpenCommand {
     this._indexPromise = null
     this._indexRootPath = null
     this._pathIndex.clear()
+    this._buildingIndex = null
   }
 
   private _ensureIndex = (rootPath: string): Promise<string[]> => {
@@ -288,6 +316,7 @@ class QuickOpenCommand {
     this._invalidateIndex()
     this._indexRootPath = rootPath
     const index = new SearchPathIndex()
+    this._buildingIndex = index
     const indexWork: Promise<void>[] = []
     const search = this._directorySearcher.search([rootPath], '', {
       didMatch: (payload: unknown) => {
@@ -322,6 +351,7 @@ class QuickOpenCommand {
         if (this._indexSearch === search) {
           this._indexSearch = null
           this._indexTaskCancellers = []
+          this._buildingIndex = null
         }
       })
     return this._indexPromise
