@@ -76,3 +76,13 @@ test('workflow is PR-only and invokes the fast hard gate', () => {
   assert.match(workflow, /thresholds-fast\.json/)
   assert.doesNotMatch(workflow, /::warning::/)
 })
+
+test('legacy reference performance gate is not an automatic PR gate', () => {
+  const workflow = readFileSync(
+    new URL('../../.github/workflows/performance-gate.yml', import.meta.url),
+    'utf8'
+  )
+
+  assert.doesNotMatch(workflow, /^  pull_request:/m)
+  assert.match(workflow, /^  workflow_dispatch:/m)
+})
