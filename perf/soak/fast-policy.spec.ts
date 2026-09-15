@@ -74,6 +74,8 @@ test('workflow is PR-only and invokes the fast hard gate', () => {
   assert.match(workflow, /timeout-minutes:\s*15/)
   assert.match(workflow, /test:e2e:perf:fast/)
   assert.match(workflow, /thresholds-fast\.json/)
+  assert.match(workflow, /--input packages\/desktop\/test-results\/perf-results\/fast\/fast\.raw\.json/)
+  assert.match(workflow, /INKIVA_PERF_MAX_RENDERER_EVENTS:\s*['"]50000['"]?/)
   assert.doesNotMatch(workflow, /::warning::/)
 })
 

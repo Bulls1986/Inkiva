@@ -62,13 +62,14 @@ jobs:
           INKIVA_PERF_OFFLINE: 'true'
           INKIVA_PERF_RUNNER_LABEL: 'fast-pr-smoke'
           INKIVA_PERF_SAMPLE_INTERVAL_MS: '250'
+          INKIVA_PERF_MAX_RENDERER_EVENTS: '50000'
           INKIVA_PERF_REPORT_DIR: ${{ github.workspace }}/packages/desktop/test-results/perf-results/fast
 
       - name: Evaluate fast hard thresholds
         if: always()
         run: >-
           pnpm exec tsx perf/soak/fast-runner.ts
-          --input packages/desktop/test-results/perf-results/fast
+          --input packages/desktop/test-results/perf-results/fast/fast.raw.json
           --thresholds perf/soak/thresholds-fast.json
           --output perf-results/fast-evaluation.json
           --report-output perf-results/fast-report.json

@@ -112,6 +112,7 @@ const captureEnvironment = (directory: string): Record<string, string> => ({
   INKIVA_PERF_MODE: FAST_GATE_MODE,
   INKIVA_PERF_REPORT_DIR: directory,
   INKIVA_PERF_SAMPLE_INTERVAL_MS: '250',
+  INKIVA_PERF_MAX_RENDERER_EVENTS: '50000',
   INKIVA_PERF_OFFLINE: 'true',
   INKIVA_PERF_RUNNER_LABEL: 'fast-pr-smoke'
 })
