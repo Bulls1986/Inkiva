@@ -29,10 +29,11 @@ export default function referenceImage(
     const { src } = imageSrc;
     let id;
     let isSuccess;
+    let isViewportLazy;
     let resolvedSrc: string | undefined;
     let selector;
     if (src) {
-        ({ id, isSuccess, url: resolvedSrc } = this.loadImageAsync(
+        ({ id, isSuccess, url: resolvedSrc, isViewportLazy } = this.loadImageAsync(
             imageSrc,
             { alt },
             className,
@@ -52,6 +53,8 @@ export default function referenceImage(
     selector += `.${CLASS_NAMES.MU_OUTPUT_REMOVE}`;
     if (isSuccess)
         selector += `.${className}`;
+    else if (isViewportLazy)
+        selector += `.${CLASS_NAMES.MU_IMAGE_LOADING}`;
     else
         selector += `.${CLASS_NAMES.MU_IMAGE_FAIL}`;
 

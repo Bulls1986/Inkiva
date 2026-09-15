@@ -20,7 +20,7 @@ vi.mock('../../../utils/dom', () => ({
 }));
 
 interface IFakeRenderer {
-    loadImageMap: Map<string, { id: string; isSuccess: boolean; width?: number; height?: number }>;
+    loadImageMap: Map<string, { id: string; isSuccess: boolean; url?: string; width?: number; height?: number }>;
     urlMap: Map<string, string>;
 }
 
@@ -187,6 +187,48 @@ describe('loadImageAsync — viewport lazy loading', () => {
             'https://example.com/lazy.png',
             false,
         );
+    });
+
+    it('keeps cached duplicate images lazy until they intersect the viewport', async () => {
+        vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const { loadImage } = await import('../../../utils/image');
+        const r = makeRenderer();
+        r.loadImageMap.set('https://example.com/cached.png', {
+            id: 'cached-image',
+            isSuccess: true,
+            url: 'data:image/png;base64,cached',
+            width: 10,
+            height: 10,
+        });
+
+        const out = loadImageAsync.call(
+            asRenderer(r),
+            { isUnknownType: false, src: 'https://example.com/cached.png' },
+            {},
+        );
+
+        expect(out.isSuccess).toBeUndefined();
+        expect(out.isViewportLazy).toBe(true);
+
+        const wrapper = document.createElement('span');
+        wrapper.id = out.id;
+        wrapper.classList.add('mu-inline-image', 'mu-image-loading');
+        const container = document.createElement('span');
+        container.classList.add('mu-image-container');
+        wrapper.appendChild(container);
+        document.body.appendChild(wrapper);
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+        const observer = TestIntersectionObserver.instances[0];
+        observer.trigger(false);
+        expect(container.querySelector('img')).toBeNull();
+
+        observer.trigger(true);
+        expect(loadImage).not.toHaveBeenCalled();
+        expect(container.querySelector('img')?.getAttribute('src')).toBe(
+            'data:image/png;base64,cached',
+        );
+        expect(wrapper.classList.contains('mu-image-success')).toBe(true);
     });
 });
 describe('loadImageAsync — local file cache-busting', () => {
