@@ -28,7 +28,12 @@ const PROGRESSIVE_RENDER_LINE_HEIGHT_PX = 24;
 function estimateStateHeight(state: TState): number {
     if ('text' in state) {
         const text = state.text || '';
-        const lines = Math.max(1, text.split('\n').length, Math.ceil(text.length / 88));
+        let explicitLines = 1;
+        for (const character of text) {
+            if (character === '\n')
+                explicitLines += 1;
+        }
+        const lines = Math.max(1, explicitLines, Math.ceil(text.length / 88));
 
         if (state.name === 'diagram')
             return 192;
@@ -49,8 +54,12 @@ function estimateStateHeight(state: TState): number {
     return PROGRESSIVE_RENDER_LINE_HEIGHT_PX;
 }
 
-function estimateStatesHeight(states: TState[]): number {
-    return states.reduce((height, state) => height + estimateStateHeight(state), 0);
+function estimateStatesHeight(states: TState[], startIndex = 0): number {
+    let height = 0;
+    for (let index = startIndex; index < states.length; index += 1)
+        height += estimateStateHeight(states[index]);
+
+    return height;
 }
 
 export class ScrollPage extends Parent {
@@ -126,6 +135,10 @@ export class ScrollPage extends Parent {
         return this._progressiveStates !== null;
     }
 
+    protected override get domInsertionAnchor(): Nullable<Node> {
+        return this._progressiveSpacer;
+    }
+
     whenRenderComplete(): Promise<void> {
         return this._progressiveCompletion ?? Promise.resolve();
     }
@@ -179,9 +192,7 @@ export class ScrollPage extends Parent {
 
         this._progressiveStates = state;
         this._progressiveIndex = Math.min(PROGRESSIVE_RENDER_INITIAL_BLOCKS, state.length);
-        this._progressiveRemainingHeight = estimateStatesHeight(
-            state.slice(this._progressiveIndex),
-        );
+        this._progressiveRemainingHeight = estimateStatesHeight(state, this._progressiveIndex);
         this._progressiveCompletion = new Promise((resolve) => {
             this._resolveProgressiveCompletion = resolve;
         });
@@ -237,6 +248,7 @@ export class ScrollPage extends Parent {
                 break;
 
             blocks.push(ScrollPage.loadBlock(state.name).create(this.muya, state));
+            this._progressiveRemainingHeight -= estimateStateHeight(state);
             this._progressiveIndex += 1;
         }
         while (
@@ -245,9 +257,7 @@ export class ScrollPage extends Parent {
         );
 
         this._appendBlocks(blocks, true);
-        this._progressiveRemainingHeight = estimateStatesHeight(
-            states.slice(this._progressiveIndex),
-        );
+        this._progressiveRemainingHeight = Math.max(0, this._progressiveRemainingHeight);
         if (this._progressiveSpacer)
             this._progressiveSpacer.style.height = `${this._progressiveRemainingHeight}px`;
 

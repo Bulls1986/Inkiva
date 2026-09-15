@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
 
+import type Parent from '../../base/parent';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Muya } from '../../../muya';
 import {
     PROGRESSIVE_RENDER_INITIAL_BLOCKS,
     PROGRESSIVE_RENDER_THRESHOLD,
+    ScrollPage,
 } from '../index';
 
 const mountedEditors: Muya[] = [];
@@ -81,5 +83,32 @@ describe('scrollPage progressive rendering', () => {
         expect(muya.editor.selection.getSelection()!.anchor.block.text).toBe(
             `paragraph ${targetIndex}`,
         );
+    });
+
+    it('keeps a user-inserted top-level block before the progressive tail', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, { markdown: paragraphs(PROGRESSIVE_RENDER_THRESHOLD + 20) });
+        mountedEditors.push(muya);
+
+        muya.init();
+
+        const inserted = ScrollPage.loadBlock('paragraph').create(muya, {
+            name: 'paragraph',
+            text: 'inserted while rendering',
+        });
+        muya.editor.scrollPage!.append(inserted, 'user');
+
+        await muya.whenRenderComplete();
+        muya.flush();
+
+        const texts = Array.from(muya.editor.scrollPage!.children.iterator())
+            .map(block => (block as Parent).firstContentInDescendant()?.text);
+        expect(texts[PROGRESSIVE_RENDER_INITIAL_BLOCKS]).toBe('inserted while rendering');
+        expect(texts[PROGRESSIVE_RENDER_INITIAL_BLOCKS + 1]).toBe('paragraph 32');
+        expect(Array.from(muya.editor.scrollPage!.domNode!.children)
+            .map(node => node.textContent)
+            .filter(text => text === 'inserted while rendering' || text === 'paragraph 32'))
+            .toEqual(['inserted while rendering', 'paragraph 32']);
     });
 });
