@@ -19,8 +19,49 @@ export interface MemoryLeakSeriesEvaluation {
   linearGrowth200: boolean
 }
 
-const isFiniteNonNegative = (value: number): boolean =>
-  Number.isFinite(value) && value >= 0
+export interface MemoryLeakCyclePlanOptions {
+  longWindowSize?: number
+  cycleCount?: number
+  warmupCycleCount?: number
+}
+
+export interface MemoryLeakCyclePlan {
+  warmupCycleCount: number
+  measuredCycleCount: number
+  totalCycleCount: number
+}
+
+/**
+ * Keep setup churn out of the measured leak series without reducing the
+ * number of post-warmup samples evaluated by the gate.
+ */
+export const createMemoryLeakCyclePlan = (
+  options: MemoryLeakCyclePlanOptions = {}
+): MemoryLeakCyclePlan => {
+  const longWindowSize = Math.floor(options.longWindowSize ?? MEMORY_LEAK_LONG_WINDOW_SIZE)
+  const measuredCycleCount = Math.floor(
+    options.cycleCount ?? longWindowSize + MEMORY_LEAK_SAMPLE_COUNT - 1
+  )
+  const warmupCycleCount = Math.floor(options.warmupCycleCount ?? 0)
+
+  if (!Number.isInteger(longWindowSize) || longWindowSize < 2) {
+    throw new Error('memory leak window size must be at least two')
+  }
+  if (!Number.isInteger(measuredCycleCount) || measuredCycleCount < longWindowSize) {
+    throw new Error('memory leak cycle count must cover the evaluation window')
+  }
+  if (!Number.isInteger(warmupCycleCount) || warmupCycleCount < 0) {
+    throw new Error('memory leak warmup cycle count must be non-negative')
+  }
+
+  return {
+    warmupCycleCount,
+    measuredCycleCount,
+    totalCycleCount: warmupCycleCount + measuredCycleCount
+  }
+}
+
+const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0
 
 /**
  * Converts an idle-baseline and post-load heap reading into a non-negative
@@ -93,14 +134,12 @@ export const evaluateMemoryLeakSeries = (
     throw new Error('memory leak window sizes and thresholds are invalid')
   }
 
-  if (samples.length < longWindowSize) {
-    throw new Error(
-      'memory leak evaluation requires ' + String(longWindowSize) + ' samples'
-    )
-  }
-
   if (samples.some((sample) => !isFiniteNonNegative(sample))) {
     throw new Error('memory leak samples must be finite non-negative numbers')
+  }
+
+  if (samples.length < longWindowSize) {
+    throw new Error('memory leak evaluation requires ' + String(longWindowSize) + ' samples')
   }
 
   const shortSamples = samples.slice(-shortWindowSize)
@@ -111,15 +150,7 @@ export const evaluateMemoryLeakSeries = (
     longWindowSize,
     growth50Ratio: calculateGrowthRatio(shortSamples),
     growth200Ratio: calculateGrowthRatio(longSamples),
-    linearGrowth50: hasLinearGrowth(
-      shortSamples,
-      linearGrowthRatio,
-      linearGrowthRSquared
-    ),
-    linearGrowth200: hasLinearGrowth(
-      longSamples,
-      linearGrowthRatio,
-      linearGrowthRSquared
-    )
+    linearGrowth50: hasLinearGrowth(shortSamples, linearGrowthRatio, linearGrowthRSquared),
+    linearGrowth200: hasLinearGrowth(longSamples, linearGrowthRatio, linearGrowthRSquared)
   }
 }

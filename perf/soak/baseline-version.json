@@ -1,5 +1,0 @@
-{
-  "version": 2,
-  "reason": "Invalidate cached Soak baselines when the collected metric set changes.",
-  "updatedFor": "Inkiva v0.3.0 performance gate"
-}

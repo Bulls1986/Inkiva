@@ -1,20 +1,6 @@
 name: Performance Gate
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - 'packages/desktop/src/**'
-      - 'packages/desktop/test/e2e/performance-gate.spec.ts'
-      - 'packages/desktop/test/e2e/performance-large-gate.spec.ts'
-      - 'packages/desktop/test/performance/**'
-      - 'perf/gate/**'
-      - 'scripts/verifyPerformanceEnvironment.ts'
-      - 'scripts/writePerformanceGateMetadata.ts'
-      - 'package.json'
-      - 'packages/desktop/package.json'
-      - 'pnpm-lock.yaml'
-      - '.github/workflows/performance-gate.yml'
   workflow_dispatch:
     inputs:
       run_p3:

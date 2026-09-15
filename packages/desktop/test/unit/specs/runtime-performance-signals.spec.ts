@@ -56,6 +56,16 @@ describe('ScrollFpsTracker', () => {
 
     expect(tracker.end()).toBeCloseTo(60, 3)
   })
+
+  it('normalizes sub-frame timestamp noise at a 60Hz boundary', () => {
+    const tracker = new ScrollFpsTracker()
+    tracker.begin(0)
+    for (let index = 1; index <= 60; index += 1) {
+      tracker.frame(index * 16.668)
+    }
+
+    expect(tracker.end(1_000.08)).toBe(60)
+  })
 })
 
 describe('LayoutPerformanceTracker', () => {

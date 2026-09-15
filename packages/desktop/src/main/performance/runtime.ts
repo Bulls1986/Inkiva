@@ -12,7 +12,8 @@ const captureConfig = resolvePerformanceCaptureConfig(process.env)
  */
 export const mainPerformance = createMainPerformanceCoordinator({
   enabled: captureConfig.enabled,
-  reportDirectory: captureConfig.reportDirectory
+  reportDirectory: captureConfig.reportDirectory,
+  maxRendererEvents: captureConfig.maxRendererEvents
 })
 
 mainPerformance.mark('process_entry', {

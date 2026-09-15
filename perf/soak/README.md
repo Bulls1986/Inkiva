@@ -1,23 +1,19 @@
-# Performance soak reports
+# Performance fast gate
 
-The soak workflow turns the existing desktop and Muya `@perf` lanes into
-reporting jobs. `schema.json` is the stable input contract; `thresholds.json`
-contains the only comparison policy used by CI.
+The pull-request performance workflow runs one bounded `pr-smoke` lane. It
+collects real desktop actions and evaluates hard thresholds for 50k documents,
+editing, scrolling, folder search, saving, diagrams, deferred images, memory,
+and stability.
 
-A metric is a regression warning when its current value is strictly greater
-than `baseline * 1.10`. The comparison never exits non-zero for a regression,
-and `absoluteGates` is deliberately empty. Missing baselines and metrics are
-reported as unavailable rather than treated as failures.
+The lane requires twenty samples for every declared metric and fails closed
+when a metric, sample, or threshold is missing. It has no scheduled run,
+manual long-run mode, or warning-only comparison path.
 
-The workflow keeps the latest complete, non-empty report per suite in the
-GitHub Actions cache. A new branch can therefore start with no baseline, while
-later runs on the same cache scope compare like-for-like runner and suite
-reports. Failed or incomplete samples never replace the previous baseline. The
-raw reports remain attached separately so a warning can be audited against the
-original lane output.
-
-Run the policy tests locally with:
+Run the fast policy and evaluator tests locally with:
 
 ```sh
-pnpm test:perf:soak
+pnpm test:perf:fast
 ```
+
+The workflow stores the raw trace capture and the evaluated report as build
+artifacts. The canonical fast thresholds are in `thresholds-fast.json`.

@@ -1750,6 +1750,24 @@ const refreshEditorToc = (force = true): void => {
   editorStore.UPDATE_TOC(editor.value.getTOC(), force)
 }
 
+const runWhenEditorRenderComplete = (id: string | undefined, callback: (instance: MuyaInstance) => void): void => {
+  const instance = editor.value
+  if (!instance) return
+
+  instance.whenRenderComplete().then(() => {
+    if (editor.value !== instance || (id && currentFile.value?.id !== id)) return
+    callback(instance)
+  })
+}
+
+const refreshEditorTocWhenReady = (id?: string): void => {
+  // Large documents now mount their block tree progressively. Reading the TOC
+  // before that completes would publish a truncated outline and make the
+  // sidebar disagree with the authoritative JSON state. Small documents keep
+  // the same behavior because their completion promise is already resolved.
+  runWhenEditorRenderComplete(id, () => refreshEditorToc())
+}
+
 const scheduleTocRefresh = (id: string): void => {
   recordTocMetric('scheduledRefreshes')
   tocRefreshScheduler.schedule(id, () => {
@@ -1766,9 +1784,14 @@ const scheduleTocRefresh = (id: string): void => {
 const editorPerformanceOperationId = (documentId?: string): string =>
   documentId ? `document-${documentId}` : 'document-initial'
 
+// Muya replaces the Vue mount container with its own DOM root during init.
+// Read the live root after init so post-paint milestones remain observable.
+const getEditorPerformanceElement = (): HTMLElement | null =>
+  (editor.value?.domNode as HTMLElement | undefined) ?? editorRef.value
+
 const beginEditorPerformanceOperation = (documentId?: string): void => {
   editorPerformanceGeneration += 1
-  const element = editorRef.value
+  const element = getEditorPerformanceElement()
   if (element) {
     element.dataset.editorOpenStartAt = String(performance.now())
     delete element.dataset.editorFirstScreenAt
@@ -1784,7 +1807,7 @@ const beginEditorPerformanceOperation = (documentId?: string): void => {
 }
 
 const markEditorFirstScreen = (documentId?: string): void => {
-  const element = editorRef.value
+  const element = getEditorPerformanceElement()
   if (element) {
     element.dataset.editorFirstScreenAt = String(performance.now())
   }
@@ -1797,7 +1820,7 @@ const markEditorFirstScreen = (documentId?: string): void => {
 }
 
 const markEditorInteractive = (documentId?: string): void => {
-  const element = editorRef.value
+  const element = getEditorPerformanceElement()
   if (element) {
     element.dataset.editorInteractiveAt = String(performance.now())
   }
@@ -1819,7 +1842,7 @@ const scheduleEditorMilestones = (documentId?: string, notifyMainProcess = false
     markFirstScreen: () => markEditorFirstScreen(documentId),
     markInteractive: () => markEditorInteractive(documentId),
     markEditable: () => {
-      const element = editorRef.value
+      const element = getEditorPerformanceElement()
       if (element) {
         element.dataset.editorEditableAt = String(performance.now())
       }
@@ -1872,17 +1895,19 @@ const setMarkdownToEditor = (payload: unknown) => {
       resetSyntheticHistory(id, editor.value.getMarkdown())
     }
     if (newCursor) {
-      applyCursor(editor.value, newCursor)
-      // A folder-search jump carries an index cursor; a freshly opened file
-      // starts scrolled to the top, so reveal the resolved caret.
-      if (isIndexCursor(newCursor)) {
-        scrollToCursor()
-      }
+      runWhenEditorRenderComplete(id, (instance) => {
+        applyCursor(instance, newCursor)
+        // A folder-search jump carries an index cursor; a freshly opened file
+        // starts scrolled to the top, so reveal the resolved caret.
+        if (isIndexCursor(newCursor)) {
+          scrollToCursor()
+        }
+      })
     }
-    // `setContent` rebuilds the block tree synchronously but fires no
-    // `json-change`, so seed the TOC explicitly (otherwise it stays empty until
-    // the first edit, and a file switch keeps the previous file's TOC).
-    refreshEditorToc()
+    // `setContent` fires no `json-change`, so seed the TOC explicitly after any
+    // progressive block rendering completes (otherwise a large file would
+    // publish a partial outline while its tail is still mounting).
+    refreshEditorTocWhenReady(id)
     // A freshly created/opened tab should be ready to type into.
     focusFreshEditor()
     scheduleEditorMilestones(id)
@@ -1956,7 +1981,7 @@ const handleFileChange = (payload: unknown) => {
       // remapping below.
       editor.value.replaceContent(newMarkdown, preSourceModeSelection)
       preSourceModeSelection = null
-      refreshEditorToc()
+      refreshEditorTocWhenReady(id)
       // Map the CodeMirror `{ line, ch }` cursor onto a block-key cursor so the
       // WYSIWYG caret lands where the source-mode cursor was (PG2).
       editor.value.setCursorByOffset(muyaIndexCursor)
@@ -1978,7 +2003,7 @@ const handleFileChange = (payload: unknown) => {
         resetSyntheticHistory(id, newMarkdown)
       }
       editor.value.replaceContent(newMarkdown)
-      refreshEditorToc()
+      refreshEditorTocWhenReady(id)
       if (newCursor) {
         applyCursor(editor.value, newCursor)
       }
@@ -2005,15 +2030,19 @@ const handleFileChange = (payload: unknown) => {
       }
       // Tab switch swaps content without firing `json-change`, so re-seed the
       // TOC (otherwise returning to an open tab keeps the other tab's TOC).
-      refreshEditorToc()
-      if (newCursor) {
-        applyCursor(editor.value, newCursor)
-      } else if (isIndexCursor(muyaIndexCursor)) {
-        // Source-mode handoff for a tab the engine has no history for (e.g.
-        // first interaction after load): fall back to a caret-only remap. The
-        // engine runs its own setContent dance internally, so restore the
-        // history after.
-        editor.value.setCursorByOffset(muyaIndexCursor)
+      refreshEditorTocWhenReady(id)
+      if (newCursor || isIndexCursor(muyaIndexCursor)) {
+        runWhenEditorRenderComplete(id, (instance) => {
+          if (newCursor) {
+            applyCursor(instance, newCursor)
+          } else {
+            // Source-mode handoff for a tab the engine has no history for
+            // (e.g. first interaction after load): fall back to a caret-only
+            // remap. The engine runs its own synchronous setContent dance
+            // internally, so restore the history after.
+            instance.setCursorByOffset(muyaIndexCursor)
+          }
+        })
       }
       const savedEngineHistory = id ? engineHistoryByTab.get(id) : undefined
       if (savedEngineHistory) {
@@ -2224,7 +2253,7 @@ onMounted(() => {
   editor.value = muya
   // The first document's content is set via constructor options, so no
   // `file-loaded` / `setMarkdownToEditor` runs for it — seed its TOC here.
-  refreshEditorToc()
+  refreshEditorTocWhenReady(currentFile.value?.id)
 
   // Seed the save-tracking baseline for the mount-loaded document (from the
   // engine's OWN serialization, same reason as setMarkdownToEditor). Without

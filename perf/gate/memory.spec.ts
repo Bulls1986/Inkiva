@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { evaluateMemoryLeakSeries } from './memory.js'
+import { createMemoryLeakCyclePlan, evaluateMemoryLeakSeries } from './memory.js'
 
 const stableSamples = (): number[] =>
   Array.from({ length: 200 }, (_, index) => 100_000 + (index % 2) * 20)
@@ -28,10 +28,7 @@ test('sustained heap growth is visible in both leak windows', () => {
 })
 
 test('memory leak evaluation rejects invalid samples and invalid window contracts', () => {
-  assert.throws(
-    () => evaluateMemoryLeakSeries([100, Number.NaN]),
-    /finite non-negative/
-  )
+  assert.throws(() => evaluateMemoryLeakSeries([100, Number.NaN]), /finite non-negative/)
   assert.throws(
     () => evaluateMemoryLeakSeries(stableSamples(), { shortWindowSize: 1 }),
     /window sizes/
@@ -39,5 +36,31 @@ test('memory leak evaluation rejects invalid samples and invalid window contract
   assert.throws(
     () => evaluateMemoryLeakSeries(stableSamples(), { shortWindowSize: 60, longWindowSize: 50 }),
     /window sizes/
+  )
+})
+
+test('memory cycle planning keeps warmup separate from measured samples', () => {
+  assert.deepEqual(
+    createMemoryLeakCyclePlan({
+      longWindowSize: 20,
+      cycleCount: 39,
+      warmupCycleCount: 20
+    }),
+    {
+      warmupCycleCount: 20,
+      measuredCycleCount: 39,
+      totalCycleCount: 59
+    }
+  )
+})
+
+test('memory cycle planning rejects invalid warmup and measurement counts', () => {
+  assert.throws(
+    () => createMemoryLeakCyclePlan({ longWindowSize: 20, cycleCount: 19 }),
+    /cover the evaluation window/
+  )
+  assert.throws(
+    () => createMemoryLeakCyclePlan({ longWindowSize: 20, cycleCount: 20, warmupCycleCount: -1 }),
+    /warmup cycle count/
   )
 })
