@@ -20,7 +20,7 @@ import {
 
 type SoakUnit = PerformanceSampleUnit
 
-const runSoak = process.env.INKIVA_RUN_PERF_SOAK === 'true'
+const runSoakLane = process.env.INKIVA_RUN_PERF_SOAK === 'true'
 const soakDurationMs = resolveSoakDurationMs()
 const tabSelector = '.tabs-container > li'
 const treeRowSelector = '.tree-virtual-viewport .virtual-tree-row'
@@ -364,7 +364,7 @@ const runSoak = async(
 }
 
 test.describe('@perf-soak eight-hour desktop stability gate', () => {
-  test.skip(!runSoak, 'Run with INKIVA_RUN_PERF_SOAK=true')
+  test.skip(!runSoakLane, 'Run with INKIVA_RUN_PERF_SOAK=true')
   test.describe.configure({ mode: 'serial' })
   test.setTimeout(soakDurationMs + 30 * 60 * 1000)
 
