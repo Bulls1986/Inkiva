@@ -16,7 +16,22 @@ interface IHeadingBlock extends Parent {
     meta: { level: number };
 }
 
+interface IHeadingRenderCache {
+    source: string;
+    superSubScript: boolean;
+    footnote: boolean;
+    content: string;
+    githubSlug: string;
+}
+
 const slugCache = new WeakMap<Parent, string>();
+const headingRenderCache = new WeakMap<Parent, IHeadingRenderCache>();
+
+// When none of these characters can start an inline construct, the tokenizer
+// would produce one plain-text token whose visible text is exactly `source`.
+// Keep this conservative: a false negative only costs a tokenizer pass, while
+// a false positive could change the displayed heading or its anchor slug.
+const HEADING_INLINE_SYNTAX = /[\\*_`![<>&~$^:\n#]/;
 
 export function stableSlug(block: Parent): string {
     let slug = slugCache.get(block);
@@ -33,6 +48,7 @@ export function getTOC(muya: Muya): ITocItem[] {
         return [];
 
     const items: ITocItem[] = [];
+    const { superSubScript, footnote } = muya.options;
 
     for (const node of scrollPage.children.iterator()) {
         const { blockName } = node;
@@ -52,19 +68,40 @@ export function getTOC(muya: Muya): ITocItem[] {
         // instead of the raw source (#4811). Slugging the same plain text keeps
         // `githubSlug` in step with the anchor id the HTML export injects from
         // `heading.textContent` (state/markdownToHtml.ts).
-        const { superSubScript, footnote } = muya.options;
-        const content = tokensToPlainText(
-            tokenizer(source, {
-                hasBeginRules: false,
-                options: { superSubScript, footnote },
-            }),
-        ).trim();
+        //
+        // Heading blocks survive incremental text edits, while the surrounding
+        // document can contain thousands of them. Reuse the rendered result for
+        // an unchanged block so a live TOC refresh only tokenizes headings whose
+        // source or rendering options actually changed.
+        let rendered = headingRenderCache.get(block);
+        if (
+            rendered?.source !== source
+            || rendered.superSubScript !== superSubScript
+            || rendered.footnote !== footnote
+        ) {
+            const content = HEADING_INLINE_SYNTAX.test(source)
+                ? tokensToPlainText(
+                        tokenizer(source, {
+                            hasBeginRules: false,
+                            options: { superSubScript, footnote },
+                        }),
+                    ).trim()
+                : source;
+            rendered = {
+                source,
+                superSubScript,
+                footnote,
+                content,
+                githubSlug: generateGithubSlug(content),
+            };
+            headingRenderCache.set(block, rendered);
+        }
 
         items.push({
-            content,
+            content: rendered.content,
             lvl: block.meta.level,
             slug: stableSlug(block),
-            githubSlug: generateGithubSlug(content),
+            githubSlug: rendered.githubSlug,
         });
     }
 
