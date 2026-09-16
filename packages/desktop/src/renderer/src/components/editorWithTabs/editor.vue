@@ -137,6 +137,7 @@ import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { getApplicationAppearance } from 'common/theme'
 import { SyntheticHistory, type IFileHistoryLike } from './syntheticHistory'
+import { isStaleEditorEvent } from './editorEventGuard'
 import {
   EditorSnapshotScheduler,
   getEditorMutationPolicy
@@ -325,9 +326,8 @@ const flushActiveEditor = () => {
 
 // A tab switch must persist the last queued edit before replacing the Muya
 // document, but it does not need to deep-clone the whole block tree in the
-// click handler. The existing cached blocks are invalidated and the Markdown
-// snapshot remains authoritative; a later idle snapshot can repopulate blocks
-// when the user stays on the tab.
+// switch handler. Keep the Markdown/history snapshot and invalidate the
+// reusable blocks cache; an idle snapshot can repopulate blocks later.
 const flushActiveEditorForTabSwitch = () => {
   const id = currentFile.value?.id
   editor.value?.flush()
@@ -373,6 +373,29 @@ const resetSyntheticHistory = (id: string, baselineContent: string): void => {
 }
 const makeSyntheticHistory = (id: string, content: string): IFileHistoryLike => {
   return getSyntheticHistory(id, content).build(content)
+}
+
+const recordEditorMarkdownSerialization = (): void => {
+  if (window.electron?.process?.env?.PERF_TESTING !== 'true') return
+
+  const globalState = globalThis as typeof globalThis & {
+    __inkiva_e2e_editor_metrics__?: {
+      setContentCalls: number
+      setContentSources: EditorSetContentSource[]
+      markdownSerializationCalls: number
+    }
+  }
+  const metrics = (globalState.__inkiva_e2e_editor_metrics__ ??= {
+    setContentCalls: 0,
+    setContentSources: [],
+    markdownSerializationCalls: 0
+  })
+  metrics.markdownSerializationCalls = (metrics.markdownSerializationCalls ?? 0) + 1
+}
+
+const serializeEditorMarkdown = (instance: MuyaInstance): string => {
+  recordEditorMarkdownSerialization()
+  return instance.getMarkdown()
 }
 
 const captureEditorSnapshot = (
@@ -1763,29 +1786,6 @@ const recordEditorSetContent = (source: EditorSetContentSource): void => {
   metrics.setContentSources.push(source)
 }
 
-const recordEditorMarkdownSerialization = (): void => {
-  if (window.electron?.process?.env?.PERF_TESTING !== 'true') return
-
-  const globalState = globalThis as typeof globalThis & {
-    __inkiva_e2e_editor_metrics__?: {
-      setContentCalls: number
-      setContentSources: EditorSetContentSource[]
-      markdownSerializationCalls: number
-    }
-  }
-  const metrics = (globalState.__inkiva_e2e_editor_metrics__ ??= {
-    setContentCalls: 0,
-    setContentSources: [],
-    markdownSerializationCalls: 0
-  })
-  metrics.markdownSerializationCalls = (metrics.markdownSerializationCalls ?? 0) + 1
-}
-
-const serializeEditorMarkdown = (instance: MuyaInstance): string => {
-  recordEditorMarkdownSerialization()
-  return instance.getMarkdown()
-}
-
 type TocMetric = 'scheduledRefreshes' | 'refreshCalls'
 
 const recordTocMetric = (metric: TocMetric): void => {
@@ -1925,10 +1925,7 @@ const setMarkdownToEditor = (payload: unknown) => {
     cursor: newCursor,
     contentAlreadyLoaded
   } = (payload ?? {}) as FileLoadedPayload
-  // `file-loaded` is normally emitted immediately after the matching
-  // `file-changed`, but it can be delayed by an IPC/open flow. Never let a
-  // late load event rebuild whichever tab the user selected in the meantime.
-  if (id && currentFile.value && currentFile.value.id !== id) return
+  if (isStaleEditorEvent(id, currentFile.value?.id)) return
   if (editor.value) {
     if (!contentAlreadyLoaded) {
       beginEditorPerformanceOperation(id)
@@ -2010,11 +2007,7 @@ const handleFileChange = (payload: unknown) => {
     isReload
   } = (payload ?? {}) as FileChangePayload
   if (!editor.value) return
-  // Bus events from file-open/reload flows can arrive after a newer tab has
-  // become active. A stale rebuild is especially harmful here: it can cancel
-  // the current progressive render and leave the renderer doing expensive work
-  // for a document the user no longer selected.
-  if (id && currentFile.value && currentFile.value.id !== id) return
+  if (isStaleEditorEvent(id, currentFile.value?.id)) return
   const container = getScrollContainer()
   if (!container) return
 
@@ -2710,11 +2703,24 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   cursor: default;
   overflow-anchor: none !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  background: var(--surface-editor);
 }
 
 .editor-component .mu-container {
   padding-top: var(--editorContentTopPadding, 40px);
   padding-bottom: 100vh;
+}
+
+.editor-component .mu-editor {
+  color: var(--markdown-text-primary);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.editor-component .mu-container > h1:first-child {
+  margin-top: 0;
 }
 
 .typewriter .editor-component {

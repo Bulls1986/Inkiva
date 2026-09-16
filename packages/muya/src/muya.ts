@@ -220,7 +220,7 @@ export class Muya {
     // Flush queued edits synchronously; call before swapping the document out
     // (e.g. a tab switch) so a same-frame keystroke isn't lost (#2938).
     flush() {
-        this.editor.jsonState.flush();
+        this.editor.flush();
     }
 
     whenRenderComplete(): Promise<void> {

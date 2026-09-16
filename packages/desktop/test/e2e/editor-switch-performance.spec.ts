@@ -44,6 +44,9 @@ const typeAtCommittedCaret = async(page: Page, text: string): Promise<void> => {
 const readEditorText = (page: Page): Promise<string> =>
   page.evaluate(() => document.querySelector('.editor-component')?.textContent ?? '')
 
+const createLargeDocument = (prefix: string): string =>
+  `${Array.from({ length: 240 }, (_, index) => `${prefix} paragraph ${index}`).join('\n\n')}\n`
+
 test.describe('editor switch rebuild performance', () => {
   test('opening a new document mounts its content only once', async() => {
     const { app, page } = await launchWithMarkdown('# Base\n')
@@ -141,6 +144,55 @@ test.describe('editor switch rebuild performance', () => {
       await expect
         .poll(() => readEditorText(page), { timeout: 10000 })
         .toContain('edited')
+    } finally {
+      await app.close()
+    }
+  })
+
+  test('reuses the warm render tree when switching a large document back', async() => {
+    const { app, page } = await launchWithMarkdown(createLargeDocument('A'))
+
+    try {
+      await expect
+        .poll(() => page.locator('.mu-progressive-render-placeholder').count(), { timeout: 10000 })
+        .toBe(0)
+
+      await sendIpcToRenderer(app, 'mt::new-untitled-tab', true, createLargeDocument('B'))
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('B paragraph 0')
+      await expect
+        .poll(() => page.locator('.mu-progressive-render-placeholder').count(), { timeout: 10000 })
+        .toBe(0)
+
+      await page.evaluate(() => {
+        const container = document.querySelector('.editor-component .mu-container')
+        ;(
+          window as typeof window & { __inkiva_warm_first_block__?: Element }
+        ).__inkiva_warm_first_block__ = container?.firstElementChild ?? undefined
+      })
+
+      await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 0)
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('A paragraph 0')
+
+      await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 1)
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('B paragraph 0')
+
+      const reused = await page.evaluate(() => {
+        const container = document.querySelector('.editor-component .mu-container')
+        const firstBlock = container?.firstElementChild
+        const previous = (
+          window as typeof window & {
+            __inkiva_warm_first_block__?: Element
+          }
+        ).__inkiva_warm_first_block__
+        return !!previous && previous === firstBlock
+      })
+      expect(reused).toBe(true)
     } finally {
       await app.close()
     }

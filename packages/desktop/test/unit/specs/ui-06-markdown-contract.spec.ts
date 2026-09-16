@@ -44,7 +44,7 @@ describe('Inkiva UI-06 Markdown typography contract', () => {
     const block = read(markdownStyles, 'blockSyntax.css')
     const inline = read(markdownStyles, 'inlineSyntax.css')
 
-    expect(block).toContain('background: var(--markdown-accent-soft')
+    expect(block).toContain('background: var(--markdown-quote-surface')
     expect(block).toContain('background: var(--markdown-accent-muted')
     expect(block).toContain('background: var(--markdown-surface-code')
     expect(block).toContain('border: 1px solid var(--markdown-border-subtle')

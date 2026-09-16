@@ -27,6 +27,9 @@ test.describe('Theme switching', () => {
       .poll(() => page.locator('html').getAttribute('data-inkiva-appearance'))
       .toBe('paper')
     await expect(page.locator('body')).not.toHaveClass(/(^|\s)dark(\s|$)/)
+    await expect
+      .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--surface-editor').trim()))
+      .toBe('#F8F8F6')
   })
 
   test('Switch to a light theme removes body.dark', async() => {

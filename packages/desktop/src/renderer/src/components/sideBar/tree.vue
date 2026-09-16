@@ -1,9 +1,5 @@
 <template>
   <div class="tree-view">
-    <div class="title">
-      <!-- Placeholder -->
-    </div>
-
     <!-- Opened tabs -->
     <div
       v-if="openedFilesInSidebar"
@@ -208,9 +204,9 @@ const isVirtualizedTree = computed(() =>
   props.projectTree !== null && hasMoreThanTreeRows(props.projectTree, 300)
 )
 // Persist the section collapse state (#2421). The tree is rendered under a
-// v-if and is destroyed when the sidebar collapses to its icon strip, so local
-// refs reset to expanded on re-open. Back them with localStorage (like the
-// sidebar width) so the state survives a re-mount and app restart.
+// v-if and is destroyed when the sidebar is closed, so local refs reset to
+// expanded on re-open. Back them with localStorage (like the sidebar width)
+// so the state survives a re-mount and app restart.
 const SHOW_DIRECTORIES_KEY = 'side-bar-show-directories'
 const SHOW_OPENED_FILES_KEY = 'side-bar-show-opened-files'
 const readSectionExpanded = (key: string): boolean => localStorage.getItem(key) !== 'false'
@@ -521,7 +517,7 @@ onBeforeUnmount(() => {
   color: var(--text-primary);
   border: 1px solid var(--border-default);
   background: var(--surface-editor);
-  width: calc(100% - 45px);
+  width: calc(100% - 20px);
   border-radius: var(--radius-sm);
   transition: border-color var(--motion-fast), background-color var(--motion-fast);
 }

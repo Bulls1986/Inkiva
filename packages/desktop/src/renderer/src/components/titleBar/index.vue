@@ -64,6 +64,18 @@
           {{ item.label }}
         </button>
       </nav>
+      <button
+        v-if="showCustomTitleBar"
+        type="button"
+        class="command-launcher title-no-drag"
+        data-testid="command-launcher"
+        :aria-label="t('commandPalette.placeholder')"
+        @click.stop="openCommandPalette"
+      >
+        <Search aria-hidden="true" />
+        <span>{{ t('commandPalette.placeholder') }}</span>
+        <kbd>{{ isOsx ? '⌘ K' : 'Ctrl K' }}</kbd>
+      </button>
       <div
         class="word-count-toolbar"
         :class="{ custom: showCustomTitleBar }"
@@ -169,8 +181,9 @@ import { isOsx as isOsxPlatform } from '@/util'
 import { shouldShowInAppTitleBar } from './visibility'
 import { useEditorStore } from '@/store/editor'
 import { useI18n } from 'vue-i18n'
-import { ArrowRight } from '@element-plus/icons-vue'
+import { ArrowRight, Search } from '@element-plus/icons-vue'
 import type { FileWordCount } from '@shared/types/files'
+import bus from '../../bus'
 
 interface ProjectInfo {
   name?: string
@@ -287,6 +300,10 @@ const handleWordClick = () => {
   show.value = ITEMS[index]!
 }
 
+const openCommandPalette = (): void => {
+  bus.emit('show-command-palette')
+}
+
 const handleCloseClick = () => {
   window.electron.windowControl.close()
 }
@@ -377,7 +394,7 @@ onBeforeUnmount(() => {
 .title-bar {
   -webkit-app-region: drag;
   user-select: none;
-  background: transparent;
+  background: var(--surface-chrome);
   height: var(--titleBarHeight);
   box-sizing: border-box;
   color: var(--editorColor50);
@@ -429,8 +446,8 @@ img {
 
 .title-bar.frameless:not(.isOsx) {
   display: grid;
-  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 138px;
-  grid-template-areas: 'menu document stats controls';
+  grid-template-columns: minmax(0, max-content) minmax(120px, 1fr) minmax(260px, min(420px, 34vw)) auto 138px;
+  grid-template-areas: 'menu document search stats controls';
 }
 
 .title-bar.frameless:not(.isOsx) .menu-bar {
@@ -528,6 +545,66 @@ div.title > span {
 .menu-bar-item:focus-visible {
   outline: 2px solid var(--color-accent-focus);
   outline-offset: -2px;
+}
+
+.command-launcher {
+  -webkit-app-region: no-drag;
+  position: static;
+  grid-area: search;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: min(420px, 100%);
+  height: 28px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  color: var(--text-tertiary);
+  background: var(--surface-editor);
+  border: 1px solid var(--border-default);
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-secondary);
+  text-align: left;
+  transition: color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast);
+}
+
+.command-launcher:hover {
+  color: var(--text-secondary);
+  background: var(--surface-elevated);
+  border-color: var(--border-focus);
+}
+
+.command-launcher:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.command-launcher > svg {
+  flex: 0 0 auto;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+}
+
+.command-launcher > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-launcher > kbd {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  color: var(--text-tertiary);
+  font-family: inherit;
+  font-size: var(--font-size-metadata);
+  line-height: 16px;
+  background: var(--surface-chrome);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
 }
 
 .word-count-toolbar {
@@ -632,6 +709,17 @@ div.title > span {
   line-height: normal;
 }
 
+@media (max-width: 1100px) {
+  .title-bar.frameless:not(.isOsx) {
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 138px;
+    grid-template-areas: 'menu document stats controls';
+  }
+
+  .command-launcher {
+    display: none;
+  }
+}
+
 @media (max-width: 1000px) {
   .title-bar.frameless:not(.isOsx) .title > span > span:not(.filename):not(.save-dot) {
     display: none;
@@ -655,6 +743,10 @@ div.title > span {
   .menu-bar-item {
     padding-left: 7px;
     padding-right: 7px;
+  }
+
+  .command-launcher {
+    display: none;
   }
 }
 

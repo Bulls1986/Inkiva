@@ -54,8 +54,19 @@ describe('Inkiva reference visual layout contract', () => {
     expect(tabs).toContain('padding: 0 0 0 16px;')
     expect(layout).toContain('DEFAULT_SIDE_BAR_WIDTH = 288')
     expect(sidebar).toContain('DEFAULT_SIDE_BAR_WIDTH = 288')
-    expect(markdown).toContain('font-weight: var(--font-weight-normal, 400);')
+    expect(markdown).toContain(
+      'font-weight: var(--markdown-heading-weight, var(--font-weight-normal, 400));'
+    )
+    expect(markdown).toContain('padding: 0 var(--markdown-content-side-padding, 50px) 100px;')
     expect(markdown).toContain('font-size: 2em;')
+  })
+
+  it('exposes the command palette as a writing-oriented titlebar search surface', () => {
+    const titleBar = readRenderer('components/titleBar/index.vue')
+
+    expect(titleBar).toContain('data-testid="command-launcher"')
+    expect(titleBar).toContain("bus.emit('show-command-palette')")
+    expect(titleBar).toContain("t('commandPalette.placeholder')")
   })
 
   it('keeps application controls on one border and one focus-ring contract', () => {

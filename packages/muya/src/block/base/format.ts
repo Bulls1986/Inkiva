@@ -216,6 +216,18 @@ function checkTokenIsInlineFormat(token: Token) {
 class Format extends Content {
     static override blockName = 'format';
 
+    // Rendered math/ruby nodes expose their display text through textContent,
+    // which is not the Markdown source held by the block. Keep the pending-input
+    // reconciliation on the same source-text projection as inputHandler().
+    protected override getDomText(): string | null {
+        return this.domNode
+            ? getTextContent(this.domNode, [
+                    CLASS_NAMES.MU_MATH_RENDER,
+                    CLASS_NAMES.MU_RUBY_RENDER,
+                ])
+            : null;
+    }
+
     protected override get autoPairType() {
         return 'format';
     }

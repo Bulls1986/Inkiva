@@ -117,7 +117,7 @@
       "sourceCodeMode": "Source Code Mode",
       "typewriterMode": "Typewriter Mode",
       "focusMode": "Focus Mode",
-      "toggleTableOfContents": "Toggle Table of Contents",
+      "toggleTableOfContents": "Toggle Outline",
       "reloadImages": "Reload Images",
       "showDeveloperTools": "Show Developer Tools",
       "reloadWindow": "Reload Window"
@@ -213,7 +213,7 @@
       "openFolder": "Open Folder"
     },
     "toc": {
-      "title": "Table Of Contents",
+      "title": "Outline",
       "search": "Search headings...",
       "expandAll": "Expand all",
       "collapseAll": "Collapse all",
@@ -256,7 +256,7 @@
     "icons": {
       "files": "Files",
       "search": "Search",
-      "toc": "Table of Contents",
+      "toc": "Outline",
       "documentIntelligence": "Backlinks and Local History",
       "settings": "Settings"
     }

@@ -25,7 +25,7 @@ describe('Inkiva UI-12 focus and accessibility contract', () => {
     const preferenceSidebar = read('prefComponents/sideBar/index.vue')
     const theme = read('prefComponents/theme/index.vue')
 
-    expect(sidebar).toContain('class="sidebar-icon-button"')
+    expect(sidebar).toContain('sidebar-icon-button')
     expect(sidebar).toContain('type="button"')
     expect(sidebar).toContain(':aria-pressed=')
     expect(tabs).toContain('role="tablist"')

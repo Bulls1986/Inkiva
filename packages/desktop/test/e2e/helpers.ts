@@ -339,10 +339,7 @@ export const showSidebarPanel = async(
   const selector = sidebarPanelSelectors[panel]
   const panelLocator = page.locator(selector)
   if (!(await panelLocator.isVisible())) {
-    await page
-      .locator('.side-bar .left-column > ul')
-      .first()
-      .locator('li')
+    await page.locator('[data-testid="sidebar-panel-button"]')
       .nth(sidebarPanelIndexes[panel])
       .click()
   }

@@ -15,6 +15,7 @@ import {
   MacIcon,
   MenuIcon,
   SearchIcon,
+  SettingsIcon,
   TargetIcon,
   WindowsIcon
 } from './Icons'
@@ -52,7 +53,16 @@ type Copy = {
   editorChanged: string
   editorNext: string
   editorChecklist: string[]
-  editorStatus: string
+  editorSearch: string
+  editorOutline: string
+  editorSettings: string
+  editorSaved: string
+  editorWords: string
+  editorArticleTitle: string
+  editorArticleLead: string
+  editorArticleSection: string
+  editorArticleBody: string
+  editorArticleQuote: string
   quietStamp: string
   sectionKicker: string
   sectionTitle: string
@@ -98,15 +108,24 @@ const COPY: Record<Locale, Copy> = {
     heroDownload: 'Download for Windows x64',
     heroDocs: 'View docs',
     heroNote: 'No account. No subscription. Just a better writing space.',
-    editorTitle: 'Shipping Notes.md',
+    editorTitle: 'The Art of Enough.md',
     editorDocuments: 'Documents',
     editorRecent: 'Recent documents',
     editorFolder: 'Writing',
-    editorIntro: 'A living document, written entirely in Markdown.',
-    editorChanged: 'What changed',
-    editorNext: 'Next steps',
-    editorChecklist: ['Polish the release notes', 'Prepare screenshots', 'Publish the release'],
-    editorStatus: 'Markdown · 237 words',
+    editorIntro: 'A calmer way to move through a full day.',
+    editorChanged: 'The measure of enough',
+    editorNext: 'A quieter way forward',
+    editorChecklist: ['Leave room for the unfinished', 'Notice what already works', 'Return to what matters'],
+    editorSearch: 'Search documents, headings, or commands…',
+    editorOutline: 'Outline',
+    editorSettings: 'Settings',
+    editorSaved: 'Saved',
+    editorWords: '237 words',
+    editorArticleTitle: 'The Art of Enough',
+    editorArticleLead: 'A calmer way to move through a full day.',
+    editorArticleSection: 'The measure of enough',
+    editorArticleBody: 'Enough is not a smaller life. It is the clear edge around the life you want to notice, keep, and make room for.',
+    editorArticleQuote: 'A quiet surface keeps attention on the words.',
     quietStamp: 'A quieter, more focused way to write',
     sectionKicker: 'More than a Markdown editor',
     sectionTitle: 'Everything around the file stays lightweight.',
@@ -174,15 +193,24 @@ const COPY: Record<Locale, Copy> = {
     heroDownload: '下载 Windows x64 版',
     heroDocs: '查看文档',
     heroNote: '无需账号，无需订阅，只为让写作更舒服。',
-    editorTitle: '发版记录.md',
+    editorTitle: '恰到好处.md',
     editorDocuments: '文档',
     editorRecent: '最近文档',
     editorFolder: '写作',
-    editorIntro: '一份完全使用 Markdown 编写的动态文档。',
-    editorChanged: '本次变化',
-    editorNext: '下一步',
-    editorChecklist: ['完善发版记录', '准备产品截图', '发布当前版本'],
-    editorStatus: 'Markdown · 237 字',
+    editorIntro: '一种更从容地度过一天的方式。',
+    editorChanged: '刚刚好的分寸',
+    editorNext: '更安静地向前',
+    editorChecklist: ['给未完成留一点空间', '看见已经拥有的部分', '回到真正重要的事'],
+    editorSearch: '搜索文档、标题或命令…',
+    editorOutline: '大纲',
+    editorSettings: '设置',
+    editorSaved: '已保存',
+    editorWords: '237 字',
+    editorArticleTitle: '恰到好处',
+    editorArticleLead: '一种更从容地度过一天的方式。',
+    editorArticleSection: '刚刚好的分寸',
+    editorArticleBody: '刚刚好不是把生活缩小，而是给想要看见、保留和创造的部分，留出清晰的边界。',
+    editorArticleQuote: '安静的表面，会把注意力留给文字。',
     quietStamp: '一种更安静、更专注的写作方式',
     sectionKicker: '不止是一款 Markdown 编辑器',
     sectionTitle: '文件之外的能力，始终保持轻量。',
@@ -311,91 +339,103 @@ function FileGlyph() {
 
 function QuietEditor({ copy }: { copy: Copy }) {
   return (
-    <div className="quiet-editor" aria-label="Inkiva editor preview">
+    <div className="quiet-editor" aria-label="Inkiva editor preview" data-preview="writing-surface">
       <div className="quiet-editor-bar">
-        <div className="quiet-traffic" aria-hidden="true">
-          <i />
-          <i />
-          <i />
+        <div className="quiet-editor-product">
+          <img src="/assets/inkiva-logo.svg" alt="" width={20} height={20} />
+          <span>Inkiva</span>
         </div>
-        <span className="quiet-editor-title">{copy.editorTitle}</span>
-        <div className="quiet-editor-actions" aria-hidden="true">
-          <GridSmallIcon />
-          <TargetIcon />
+        <div className="quiet-editor-menu" aria-hidden="true">
+          <span>{localeText(copy, 'File', '文件')}</span>
+          <span>{localeText(copy, 'Edit', '编辑')}</span>
+          <span>{localeText(copy, 'View', '视图')}</span>
+          <span>{localeText(copy, 'Format', '格式')}</span>
+        </div>
+        <div className="quiet-editor-search" aria-hidden="true">
+          <SearchIcon />
+          <span>{copy.editorSearch}</span>
+          <kbd>⌘ K</kbd>
+        </div>
+        <div className="quiet-editor-actions">
+          <span className="quiet-editor-saved">
+            <CheckIcon aria-hidden="true" />
+            {copy.editorSaved}
+          </span>
+          <span className="quiet-editor-words">{copy.editorWords}</span>
           <MenuIcon />
         </div>
       </div>
+      <div className="quiet-editor-tabs" aria-hidden="true">
+        <div className="quiet-editor-tab is-active">
+          <FileGlyph />
+          <span>{copy.editorTitle}</span>
+          <i>×</i>
+        </div>
+        <span className="quiet-editor-new-tab">+</span>
+      </div>
       <div className="quiet-editor-body">
         <aside className="quiet-editor-sidebar">
-          <div className="quiet-editor-sidebar-title">
-            <span>{copy.editorDocuments}</span>
-            <SearchIcon aria-hidden="true" />
+          <nav className="quiet-editor-sidebar-nav" aria-label={copy.editorDocuments}>
+            <button type="button" className="is-active" aria-pressed="true">
+              <FileGlyph aria-hidden="true" />
+              <span>{copy.editorDocuments}</span>
+            </button>
+            <button type="button" aria-pressed="false">
+              <SearchIcon aria-hidden="true" />
+              <span>{localeText(copy, 'Search', '搜索')}</span>
+            </button>
+            <button type="button" aria-pressed="false">
+              <GridSmallIcon aria-hidden="true" />
+              <span>{copy.editorOutline}</span>
+            </button>
+            <button type="button" className="quiet-editor-more" aria-label={localeText(copy, 'More', '更多')}>
+              <MenuIcon aria-hidden="true" />
+            </button>
+          </nav>
+          <div className="quiet-editor-sidebar-content">
+            <div className="quiet-editor-sidebar-title">{copy.editorDocuments}</div>
+            <div className="quiet-folder">
+              <span className="quiet-folder-mark">▾</span>
+              <FolderGlyph />
+              <span>{copy.editorFolder}</span>
+            </div>
+            <div className="quiet-file">
+              <FileGlyph />
+              <span>Ideas.md</span>
+            </div>
+            <div className="quiet-file is-selected">
+              <FileGlyph />
+              <span>{copy.editorTitle}</span>
+            </div>
+            <div className="quiet-file">
+              <FileGlyph />
+              <span>Roadmap.md</span>
+            </div>
+            <div className="quiet-folder quiet-folder--muted">
+              <span className="quiet-folder-mark">▸</span>
+              <FolderGlyph />
+              <span>{copy.editorFolder === 'Writing' ? 'Personal' : '个人'}</span>
+            </div>
+            <div className="quiet-folder quiet-folder--muted">
+              <span className="quiet-folder-mark">▸</span>
+              <FolderGlyph />
+              <span>{copy.editorFolder === 'Writing' ? 'Archive' : '归档'}</span>
+            </div>
           </div>
-          <div className="quiet-folder">
-            <span className="quiet-folder-mark">▾</span>
-            <FolderGlyph />
-            <span>{copy.editorFolder}</span>
-          </div>
-          <div className="quiet-file"><FileGlyph /><span>Ideas.md</span></div>
-          <div className="quiet-file is-selected"><FileGlyph /><span>{copy.editorTitle}</span></div>
-          <div className="quiet-file"><FileGlyph /><span>Roadmap.md</span></div>
-          <div className="quiet-folder quiet-folder--muted">
-            <span className="quiet-folder-mark">▸</span>
-            <FolderGlyph />
-            <span>{copy.editorFolder === 'Writing' ? 'Personal' : '个人'}</span>
-          </div>
-          <div className="quiet-folder quiet-folder--muted">
-            <span className="quiet-folder-mark">▸</span>
-            <FolderGlyph />
-            <span>{copy.editorFolder === 'Writing' ? 'Archive' : '归档'}</span>
+          <div className="quiet-editor-sidebar-settings">
+            <SettingsIcon aria-hidden="true" />
+            <span>{copy.editorSettings}</span>
           </div>
         </aside>
-        <div className="quiet-editor-source" aria-label="Markdown source">
-          <div className="quiet-editor-lines" aria-hidden="true">
-            {Array.from({ length: 18 }, (_, index) => (
-              <span key={index}>{index + 1}</span>
-            ))}
-          </div>
-          <div className="quiet-source-content">
-            <p className="quiet-code-heading"># {copy.editorTitle.replace('.md', '')}</p>
-            <p>A living document, written entirely</p>
-            <p>in Markdown.</p>
-            <br />
-            <p className="quiet-code-heading">## {copy.editorChanged}</p>
-            <p>- Seamless real-time rendering</p>
-            <p>- Three focused appearances</p>
-            <p>- Tables, math, footnotes &amp; diagrams</p>
-            <br />
-            <p className="quiet-code-heading">## {copy.editorNext}</p>
-            {copy.editorChecklist.map((item) => (
-              <p key={item}>- [ ] {item}</p>
-            ))}
-            <div className="quiet-code-block">```bash\nbrew install --cask inkiva\n```</div>
-          </div>
-        </div>
         <article className="quiet-editor-rendered">
-          <h2>{copy.editorTitle.replace('.md', '')}</h2>
-          <p className="quiet-rendered-intro">{copy.editorIntro}</p>
-          <h3>{copy.editorChanged}</h3>
-          <ul>
-            <li>Seamless real-time rendering</li>
-            <li>Three focused appearances</li>
-            <li>Tables, math, footnotes &amp; diagrams</li>
-          </ul>
-          <h3>{copy.editorNext}</h3>
-          <ul className="quiet-checklist">
-            {copy.editorChecklist.map((item) => (
-              <li key={item}>
-                <span aria-hidden="true" /> {item}
-              </li>
-            ))}
-          </ul>
-          <div className="quiet-rendered-code">brew install --cask inkiva</div>
+          <h1>{copy.editorArticleTitle}</h1>
+          <p className="quiet-rendered-intro">{copy.editorArticleLead}</p>
+          <blockquote>{copy.editorArticleQuote}</blockquote>
+          <h2>{copy.editorArticleSection}</h2>
+          <p>{copy.editorArticleBody}</p>
+          <h2>{copy.editorNext}</h2>
+          <p>{copy.editorIntro}</p>
         </article>
-      </div>
-      <div className="quiet-editor-status">
-        <span>{copy.editorStatus}</span>
-        <span>Ln 14, Col 1</span>
       </div>
     </div>
   )

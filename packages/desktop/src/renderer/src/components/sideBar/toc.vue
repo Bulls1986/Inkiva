@@ -205,7 +205,7 @@ const handleClick = (data: { slug?: unknown }): void => {
 
 <style>
 .side-bar-toc {
-  height: calc(100% - 35px);
+  height: 100%;
   margin: 0;
   padding: 0;
   list-style: none;

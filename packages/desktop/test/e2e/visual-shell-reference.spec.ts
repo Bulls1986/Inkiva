@@ -64,4 +64,10 @@ test.describe('reference application shell', () => {
     expect(sidebar.top).toBeGreaterThanOrEqual(workspace.top - 1)
     expect(editorMiddle.top).toBeGreaterThanOrEqual(workspace.top - 1)
   })
+
+  test('keeps the writing surface free of a permanent code-editor status frame', async() => {
+    await expect(page.locator('[data-testid="command-launcher"]')).toBeVisible()
+    await expect(page.locator('.editor-component .mu-container')).toBeVisible()
+    expect(await page.locator('.status-bar, [data-testid="status-bar"]').count()).toBe(0)
+  })
 })
