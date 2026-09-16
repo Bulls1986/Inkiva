@@ -9,6 +9,7 @@ import {
 type EditorMetrics = {
   setContentCalls: number
   setContentSources: string[]
+  markdownSerializationCalls: number
 }
 
 const readEditorMetrics = (page: Page): Promise<EditorMetrics> =>
@@ -18,7 +19,7 @@ const readEditorMetrics = (page: Page): Promise<EditorMetrics> =>
         __inkiva_e2e_editor_metrics__?: EditorMetrics
       }
     ).__inkiva_e2e_editor_metrics__
-    return state ?? { setContentCalls: 0, setContentSources: [] }
+    return state ?? { setContentCalls: 0, setContentSources: [], markdownSerializationCalls: 0 }
   })
 
 const resetEditorMetrics = (page: Page): Promise<void> =>
@@ -31,6 +32,7 @@ const resetEditorMetrics = (page: Page): Promise<void> =>
     if (state) {
       state.setContentCalls = 0
       state.setContentSources = []
+      state.markdownSerializationCalls = 0
     }
   })
 
@@ -111,6 +113,34 @@ test.describe('editor switch rebuild performance', () => {
       const metrics = await readEditorMetrics(page)
       expect(metrics.setContentCalls).toBe(1)
       expect(metrics.setContentSources).toEqual(['blocks'])
+      expect(metrics.markdownSerializationCalls).toBe(0)
+    } finally {
+      await app.close()
+    }
+  })
+
+  test('preserves an edit when the tab switch races the deferred snapshot', async() => {
+    const { app, page } = await launchWithMarkdown('# Base\n')
+
+    try {
+      await sendIpcToRenderer(app, 'mt::new-untitled-tab', true, 'tab B\n')
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('tab B')
+
+      await placeCaretInEditor(page)
+      // Do not wait for the normal 80ms snapshot debounce. The switch must
+      // flush the queued edit into tab B before replacing the live document.
+      await page.keyboard.type(' edited', { delay: 0 })
+      await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 0)
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('Base')
+
+      await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 1)
+      await expect
+        .poll(() => readEditorText(page), { timeout: 10000 })
+        .toContain('edited')
     } finally {
       await app.close()
     }

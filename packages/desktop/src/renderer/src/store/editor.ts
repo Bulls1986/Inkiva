@@ -625,6 +625,14 @@ export const useEditorStore = defineStore('editor', {
       bus.emit('flush-active-editor')
     },
 
+    // A tab switch still needs the outgoing rAF edit to become durable, but a
+    // full block snapshot would put Markdown serialization, history cloning,
+    // and AST cloning on the click's synchronous path. The editor clears the
+    // stale block cache and keeps the lightweight Markdown/history snapshot.
+    flushActiveEditorForTabSwitch(): void {
+      bus.emit('flush-active-editor-for-tab-switch')
+    },
+
     GET_UNSAVED_FILES(): UnsavedFile[] {
       const projectStore = useProjectStore()
       const defaultPath = getRootFolderFromState(projectStore)
@@ -973,7 +981,7 @@ export const useEditorStore = defineStore('editor', {
         // Must run while `currentFile` still points at the outgoing tab, so its
         // flushed edit is attributed to that tab and not lost on switch (#2938).
         if (oldCurrentFile) {
-          this.flushActiveEditor()
+          this.flushActiveEditorForTabSwitch()
         }
         window.DIRNAME = pathname ? window.path.dirname(pathname) : ''
         this.currentFile = currentFile
@@ -1148,7 +1156,7 @@ export const useEditorStore = defineStore('editor', {
       // in editor.vue. Flush it while the outgoing tab is still current;
       // captureEditorSnapshot intentionally rejects a stale currentFile id.
       if (currentFile?.id === file.id) {
-        this.flushActiveEditor()
+        this.flushActiveEditorForTabSwitch()
       }
       const index = tabs.findIndex((t) => t.id === file.id)
       if (index > -1) {
@@ -1305,7 +1313,7 @@ export const useEditorStore = defineStore('editor', {
       // UPDATE_CURRENT_FILE, so preserve the same outgoing-tab flush boundary
       // before removing the active tab from the store.
       if (this.currentFile && tabIdList.includes(this.currentFile.id)) {
-        this.flushActiveEditor()
+        this.flushActiveEditorForTabSwitch()
       }
 
       let tabIndex = 0
@@ -1692,7 +1700,7 @@ export const useEditorStore = defineStore('editor', {
       if (cursor) tab.cursor = cursor
       if (muyaIndexCursor) tab.muyaIndexCursor = muyaIndexCursor
       if (history) tab.history = history
-      if (blocks) tab.blocks = blocks
+      if (blocks !== undefined) tab.blocks = blocks
 
       // Only update TOC if it's the current file
       if (id === this.currentFile?.id && toc) {

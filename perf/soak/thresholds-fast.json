@@ -50,7 +50,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 60
+          "limit": 45
         },
         {
           "id": "fast-diagram-placeholder-p95",
@@ -99,6 +99,46 @@
           "statistic": "p95",
           "operator": "lt",
           "limit": 100
+        },
+        {
+          "id": "fast-tabs-8-warm-switch-p95",
+          "metric": "tabs.8.warmSwitch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 120
+        },
+        {
+          "id": "fast-tabs-8-cold-switch-p95",
+          "metric": "tabs.8.coldSwitch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 110
+        },
+        {
+          "id": "fast-tabs-8-switch-p95",
+          "metric": "tabs.8.switch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 110
+        },
+        {
+          "id": "fast-tabs-8-switch-p99",
+          "metric": "tabs.8.switch",
+          "unit": "ms",
+          "statistic": "p99",
+          "operator": "lt",
+          "limit": 120
+        },
+        {
+          "id": "fast-tabs-8-freeze-count",
+          "metric": "tabs.8.freeze",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
         },
         {
           "id": "fast-memory-heap-growth-50-max",
@@ -206,7 +246,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 60
+          "limit": 45
         },
         {
           "id": "fast-diagram-placeholder-p95",
@@ -255,6 +295,46 @@
           "statistic": "p95",
           "operator": "lt",
           "limit": 100
+        },
+        {
+          "id": "fast-tabs-8-warm-switch-p95",
+          "metric": "tabs.8.warmSwitch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 120
+        },
+        {
+          "id": "fast-tabs-8-cold-switch-p95",
+          "metric": "tabs.8.coldSwitch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 110
+        },
+        {
+          "id": "fast-tabs-8-switch-p95",
+          "metric": "tabs.8.switch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 110
+        },
+        {
+          "id": "fast-tabs-8-switch-p99",
+          "metric": "tabs.8.switch",
+          "unit": "ms",
+          "statistic": "p99",
+          "operator": "lt",
+          "limit": 120
+        },
+        {
+          "id": "fast-tabs-8-freeze-count",
+          "metric": "tabs.8.freeze",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
         },
         {
           "id": "fast-memory-heap-growth-50-max",
@@ -362,7 +442,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 60
+          "limit": 45
         },
         {
           "id": "fast-diagram-placeholder-p95",
@@ -411,6 +491,46 @@
           "statistic": "p95",
           "operator": "lt",
           "limit": 100
+        },
+        {
+          "id": "fast-tabs-8-warm-switch-p95",
+          "metric": "tabs.8.warmSwitch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 120
+        },
+        {
+          "id": "fast-tabs-8-cold-switch-p95",
+          "metric": "tabs.8.coldSwitch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 110
+        },
+        {
+          "id": "fast-tabs-8-switch-p95",
+          "metric": "tabs.8.switch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 110
+        },
+        {
+          "id": "fast-tabs-8-switch-p99",
+          "metric": "tabs.8.switch",
+          "unit": "ms",
+          "statistic": "p99",
+          "operator": "lt",
+          "limit": 120
+        },
+        {
+          "id": "fast-tabs-8-freeze-count",
+          "metric": "tabs.8.freeze",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
         },
         {
           "id": "fast-memory-heap-growth-50-max",
@@ -518,7 +638,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 60
+          "limit": 45
         },
         {
           "id": "fast-diagram-placeholder-p95",
@@ -567,6 +687,46 @@
           "statistic": "p95",
           "operator": "lt",
           "limit": 100
+        },
+        {
+          "id": "fast-tabs-8-warm-switch-p95",
+          "metric": "tabs.8.warmSwitch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 120
+        },
+        {
+          "id": "fast-tabs-8-cold-switch-p95",
+          "metric": "tabs.8.coldSwitch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 110
+        },
+        {
+          "id": "fast-tabs-8-switch-p95",
+          "metric": "tabs.8.switch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 110
+        },
+        {
+          "id": "fast-tabs-8-switch-p99",
+          "metric": "tabs.8.switch",
+          "unit": "ms",
+          "statistic": "p99",
+          "operator": "lt",
+          "limit": 120
+        },
+        {
+          "id": "fast-tabs-8-freeze-count",
+          "metric": "tabs.8.freeze",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
         },
         {
           "id": "fast-memory-heap-growth-50-max",
