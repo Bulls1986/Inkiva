@@ -1,12 +1,14 @@
 import {
   isPerformanceEventName,
   isPerformancePhase,
+  isPerformanceSampleUnit,
   PERFORMANCE_TRACE_SCHEMA_VERSION,
   sanitizePerformanceIdentifier,
   sanitizePerformanceMetadata,
   type PerformanceEvent,
   type PerformanceEventName,
-  type PerformancePhase
+  type PerformancePhase,
+  type PerformanceSampleUnit
 } from '@shared/types/performance'
 
 /**
@@ -193,6 +195,36 @@ export class RendererPerformanceRecorder {
     return this.deliver(event)
   }
 
+  recordSample(
+    metric: string,
+    unit: PerformanceSampleUnit,
+    value: number,
+    context: RendererPerformanceContext
+  ): PerformanceEvent | undefined {
+    const metricName = sanitizePerformanceIdentifier(metric)
+    if (!this.canCollect() || !metricName || !isPerformanceSampleUnit(unit)) return undefined
+    if (!isFiniteNumber(value) || value < 0) return undefined
+
+    const timestampNow = this.readClockNow()
+    if (timestampNow === undefined) return undefined
+    const timestampEpochMs = this.toEpochMs(timestampNow)
+    if (timestampEpochMs === undefined) return undefined
+
+    const metadata = {
+      ...(context.metadata ?? {}),
+      metric: metricName,
+      unit,
+      value
+    }
+    const event = this.createEvent(
+      'metric_sample',
+      { ...context, metadata },
+      timestampNow,
+      timestampEpochMs
+    )
+    return this.deliver(event)
+  }
+
   measure(
     name: PerformanceEventName,
     options: RendererPerformanceMeasureOptions
@@ -293,6 +325,10 @@ export class RendererPerformanceRecorder {
     }
     if (second === undefined) return undefined
     return this.measure(name, first, second)
+  }
+
+  get longTaskObserverAvailable(): boolean {
+    return this.observer !== undefined
   }
 
   dispose(): void {
@@ -397,6 +433,9 @@ export class RendererPerformanceRecorder {
           entry.duration
         )
         this.deliver(event)
+        if (entry.duration > 50) {
+          this.recordSample('core.interactive.longTask', 'count', 1, context)
+        }
       }
     } catch {
       // A malformed observer entry must not interrupt the remaining renderer

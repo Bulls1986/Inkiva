@@ -88,7 +88,7 @@
       class="search-result"
     >
       <search-result-item
-        v-for="(item, index) of searchResult"
+        v-for="(item, index) of renderedSearchResult"
         :key="index"
         :search-result="item"
       />
@@ -129,6 +129,8 @@ import FindRegexIcon from '@/assets/icons/searchIcons/iconRegex.svg'
 import { VideoPause } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import type { SearchResult } from './types'
+import { limitSearchResults } from '@/util/searchResultLimit'
+import { FOLDER_SEARCH_DEBOUNCE_MS } from './searchTiming'
 
 const { t } = useI18n()
 const layoutStore = useLayoutStore()
@@ -170,6 +172,8 @@ const searchRootPath = computed(() => {
   return currentPath ? window.path.dirname(currentPath) : ''
 })
 
+const renderedSearchResult = computed(() => limitSearchResults(searchResult.value))
+
 const searchResultInfo = computed(() => {
   const fileCount = searchResult.value.length
   const matchCount = searchResult.value.reduce((acc, item) => {
@@ -205,10 +209,7 @@ const cancelActiveSearch = (): void => {
   stopShowSearchCancelAreaTimer()
 }
 
-const finishSearch = (
-  generation: number,
-  resultMap: Map<string, SearchResult>
-): void => {
+const finishSearch = (generation: number, resultMap: Map<string, SearchResult>): void => {
   if (generation !== searchGeneration) return
   searchResult.value = Array.from(resultMap.values())
   searcherRunning.value = false
@@ -312,7 +313,7 @@ const scheduleSearch = (immediate = false): void => {
   if (immediate) {
     performSearch(generation)
   } else {
-    searchTimer = setTimeout(() => performSearch(generation), 180)
+    searchTimer = setTimeout(() => performSearch(generation), FOLDER_SEARCH_DEBOUNCE_MS)
   }
 }
 
@@ -448,7 +449,10 @@ onBeforeUnmount(() => {
   background: var(--surface-editor);
   box-sizing: border-box;
   align-items: center;
-  transition: border-color var(--motion-fast), background-color var(--motion-fast), box-shadow var(--motion-fast);
+  transition:
+    border-color var(--motion-fast),
+    background-color var(--motion-fast),
+    box-shadow var(--motion-fast);
   &:focus-within {
     border-color: var(--border-focus);
     box-shadow: 0 0 0 1px var(--border-focus) inset;
@@ -559,7 +563,9 @@ onBeforeUnmount(() => {
     color: var(--buttonPrimaryFontColor);
     border-color: transparent;
     box-shadow: none;
-    transition: background-color var(--motion-fast), color var(--motion-fast);
+    transition:
+      background-color var(--motion-fast),
+      color var(--motion-fast);
   }
   & .no-data .el-button.is-text.is-has-bg:hover,
   & .no-data .el-button.is-text.is-has-bg:focus-visible {

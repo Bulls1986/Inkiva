@@ -335,6 +335,27 @@ describe('RendererPerformanceRecorder', () => {
     ).toBeUndefined()
   })
 
+  it('records bounded metric samples with their unit and value', () => {
+    const { recorder, clock, sink } = createRecorder()
+    setClockNow(clock, 42)
+
+    recorder.recordSample('core.input.latency', 'ms', 7, {
+      phase: 'editor',
+      metadata: { source: 'event-timing' }
+    })
+
+    expect(eventAt(sink)).toMatchObject({
+      name: 'metric_sample',
+      process: 'renderer',
+      phase: 'editor',
+      metadata: {
+        metric: 'core.input.latency',
+        unit: 'ms',
+        value: 7,
+        source: 'event-timing'
+      }
+    })
+  })
   it('keeps the event catalog type-safe at the recorder boundary', () => {
     const { recorder, sink } = createRecorder()
     const name: PerformanceEventName = 'document_open_start'
@@ -342,5 +363,18 @@ describe('RendererPerformanceRecorder', () => {
     recorder.mark(name, { phase: 'document-open' })
 
     expect(eventAt(sink).name).toBe('document_open_start')
+  })
+  it('accepts separate document screen milestones in the performance event catalog', () => {
+    const { recorder, sink } = createRecorder()
+
+    recorder.mark('document_open_start', { phase: 'document-open' })
+    recorder.mark('document_first_screen', { phase: 'document-open' })
+    recorder.mark('document_editable', { phase: 'document-open' })
+
+    expect(sink.mock.calls.map(([event]) => event.name)).toEqual([
+      'document_open_start',
+      'document_first_screen',
+      'document_editable'
+    ])
   })
 })

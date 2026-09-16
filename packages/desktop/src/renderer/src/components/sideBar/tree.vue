@@ -105,6 +105,11 @@
         id="project-tree-content"
         class="tree-wrapper"
       >
+        <virtualized-tree
+          v-if="isVirtualizedTree"
+          :project-tree="projectTree"
+        />
+        <template v-else>
         <folder
           v-for="folder of projectTree.folders"
           :key="folder.id"
@@ -145,6 +150,8 @@
             </button>
           </div>
         </div>
+
+        </template>
       </div>
     </div>
     <div
@@ -166,19 +173,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useProjectStore } from '@/store/project'
 import { useEditorStore } from '@/store/editor'
 import { usePreferencesStore } from '@/store/preferences'
 import Folder from './treeFolder.vue'
 import File from './treeFile.vue'
+import VirtualizedTree from './treeVirtualized.vue'
 import OpenedFile from './treeOpenedTab.vue'
 import bus from '../../bus'
 import { showContextMenu } from '../../contextMenu/sideBar'
 import { useI18n } from 'vue-i18n'
 import { ArrowRight } from '@element-plus/icons-vue'
+import { hasMoreThanTreeRows } from '@/util/treeVirtualization'
 import type { TreeNode, TabDescriptor } from './types'
+import { attachSidebarGlobalListeners } from './globalListeners'
 
 const { t } = useI18n()
 
@@ -193,6 +203,10 @@ const props = defineProps<{
 }>()
 
 const depth = 0
+
+const isVirtualizedTree = computed(() =>
+  props.projectTree !== null && hasMoreThanTreeRows(props.projectTree, 300)
+)
 // Persist the section collapse state (#2421). The tree is rendered under a
 // v-if and is destroyed when the sidebar collapses to its icon strip, so local
 // refs reset to expanded on re-open. Back them with localStorage (like the
@@ -204,6 +218,7 @@ const showDirectories = ref(readSectionExpanded(SHOW_DIRECTORIES_KEY))
 const showOpenedFiles = ref(readSectionExpanded(SHOW_OPENED_FILES_KEY))
 const createName = ref('')
 const input = ref<HTMLInputElement | null>(null)
+let removeGlobalListeners: (() => void) | null = null
 
 const projectStore = useProjectStore()
 const editorStore = useEditorStore()
@@ -265,34 +280,43 @@ const handleInputEnter = (): void => {
   projectStore.CREATE_FILE_DIRECTORY(createName.value)
 }
 
+const handleDocumentClick = (event: Event): void => {
+  const target = event.target as HTMLElement | null
+  if (target && target.tagName !== 'INPUT') {
+    projectStore.CHANGE_ACTIVE_ITEM({})
+    projectStore.createCache = {}
+    projectStore.renameCache = null
+  }
+}
+
+const handleDocumentContextMenu = (event: Event): void => {
+  const target = event.target as HTMLElement | null
+  if (target && target.tagName !== 'INPUT') {
+    projectStore.createCache = {}
+    projectStore.renameCache = null
+  }
+}
+
+const handleDocumentKeydown = (event: Event): void => {
+  if ((event as KeyboardEvent).key === 'Escape') {
+    projectStore.createCache = {}
+    projectStore.renameCache = null
+  }
+}
+
 onMounted(() => {
   bus.on('SIDEBAR::show-new-input', handleInputFocus)
-
-  // Hide rename / create inputs on outside clicks. Buttons that open these
-  // inputs must use @click.stop so their click never reaches this listener.
-  document.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement | null
-    if (target && target.tagName !== 'INPUT') {
-      projectStore.CHANGE_ACTIVE_ITEM({})
-      projectStore.createCache = {}
-      projectStore.renameCache = null
-    }
+  removeGlobalListeners = attachSidebarGlobalListeners(document, {
+    click: handleDocumentClick,
+    contextmenu: handleDocumentContextMenu,
+    keydown: handleDocumentKeydown
   })
+})
 
-  document.addEventListener('contextmenu', (event) => {
-    const target = event.target as HTMLElement | null
-    if (target && target.tagName !== 'INPUT') {
-      projectStore.createCache = {}
-      projectStore.renameCache = null
-    }
-  })
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      projectStore.createCache = {}
-      projectStore.renameCache = null
-    }
-  })
+onBeforeUnmount(() => {
+  bus.off('SIDEBAR::show-new-input', handleInputFocus)
+  removeGlobalListeners?.()
+  removeGlobalListeners = null
 })
 </script>
 

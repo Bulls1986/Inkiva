@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import type Renderer from '../index';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import loadImageAsync from '../loadImageAsync';
 
 // Narrow cast for the fake renderer used in every test below — it only
@@ -17,10 +17,20 @@ vi.mock('../../../utils/image', () => ({
 vi.mock('../../../utils/dom', () => ({
     insertAfter: vi.fn(),
     operateClassName: vi.fn(),
+    findScrollContainer: (node: HTMLElement) => {
+        let current: HTMLElement | null = node;
+        while (current && current !== document.body && current !== document.documentElement) {
+            if (current.style.overflowY === 'auto' || current.style.overflowY === 'scroll')
+                return current;
+            current = current.parentElement;
+        }
+
+        return node;
+    },
 }));
 
 interface IFakeRenderer {
-    loadImageMap: Map<string, { id: string; isSuccess: boolean; width?: number; height?: number }>;
+    loadImageMap: Map<string, { id: string; isSuccess: boolean; url?: string; width?: number; height?: number }>;
     urlMap: Map<string, string>;
 }
 
@@ -30,6 +40,59 @@ function makeRenderer(): IFakeRenderer {
         urlMap: new Map(),
     };
 }
+
+class TestIntersectionObserver {
+    static instances: TestIntersectionObserver[] = [];
+    private readonly _callback: IntersectionObserverCallback;
+    private _target: Element | null = null;
+    readonly options: IntersectionObserverInit;
+
+    constructor(callback: IntersectionObserverCallback, options: IntersectionObserverInit = {}) {
+        this._callback = callback;
+        this.options = options;
+        TestIntersectionObserver.instances.push(this);
+    }
+
+    observe(target: Element) {
+        this._target = target;
+    }
+
+    disconnect() {
+        this._target = null;
+    }
+
+    trigger(isIntersecting: boolean) {
+        if (!this._target) {
+            return;
+        }
+
+        this._callback([
+            {
+                target: this._target,
+                isIntersecting,
+                intersectionRatio: isIntersecting ? 1 : 0,
+            } as IntersectionObserverEntry,
+        ], this as unknown as IntersectionObserver);
+    }
+}
+
+async function waitForLazyObserver(): Promise<void> {
+    await new Promise<void>(resolve => setTimeout(resolve, 250));
+    if (typeof requestAnimationFrame === 'function') {
+        await new Promise<void>(resolve =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    }
+}
+
+beforeEach(() => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+});
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.innerHTML = '';
+    TestIntersectionObserver.instances = [];
+});
 
 // Regression for marktext commit bca2ed62 (#3001 / #3010):
 // "Internal image cache isn't reset if failed to load".
@@ -108,6 +171,157 @@ describe('loadImageAsync — failed cache should retry', () => {
 // serves from its in-memory image cache, keeping the stale bitmap. Each load
 // of a `file://` source must therefore hit a unique URL so the browser
 // re-reads the file. Remote (http/https) URLs are left untouched.
+describe('loadImageAsync — viewport lazy loading', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('does not call loadImage until the image intersects the viewport', async () => {
+        vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const { loadImage } = await import('../../../utils/image');
+        const r = makeRenderer();
+        const out = loadImageAsync.call(
+            asRenderer(r),
+            { isUnknownType: false, src: 'https://example.com/lazy.png' },
+            {},
+        );
+
+        const wrapper = document.createElement('span');
+        wrapper.id = out.id;
+        document.body.appendChild(wrapper);
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        expect(wrapper.getAttribute('data-image-lazy')).toBe('pending');
+        expect(TestIntersectionObserver.instances).toHaveLength(0);
+
+        await waitForLazyObserver();
+
+        expect(TestIntersectionObserver.instances).toHaveLength(1);
+        expect(loadImage).not.toHaveBeenCalled();
+
+        const observer = TestIntersectionObserver.instances[0];
+        observer.trigger(false);
+        await Promise.resolve();
+        expect(loadImage).not.toHaveBeenCalled();
+
+        observer.trigger(true);
+        expect(loadImage).toHaveBeenCalledTimes(1);
+        expect(document.getElementById(out.id)?.getAttribute('data-image-load-start'))
+            .toMatch(/^\d+(\.\d+)?$/);
+        expect(loadImage).toHaveBeenCalledWith(
+            'https://example.com/lazy.png',
+            false,
+        );
+    });
+
+    it('uses the nearest editor scroll container as the observer root', async () => {
+        vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const r = makeRenderer();
+        const out = loadImageAsync.call(
+            asRenderer(r),
+            { isUnknownType: false, src: 'https://example.com/scroll-root.png' },
+            {},
+        );
+
+        const scrollContainer = document.createElement('div');
+        scrollContainer.style.overflowY = 'auto';
+        const wrapper = document.createElement('span');
+        wrapper.id = out.id;
+        scrollContainer.appendChild(wrapper);
+        document.body.appendChild(scrollContainer);
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        expect(wrapper.getAttribute('data-image-lazy')).toBe('pending');
+
+        await waitForLazyObserver();
+
+        expect(TestIntersectionObserver.instances[0]?.options.root).toBe(scrollContainer);
+    });
+
+    it('does not start a load when the observer reports a transient offscreen hit', async () => {
+        vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const { loadImage } = await import('../../../utils/image');
+        const r = makeRenderer();
+        const out = loadImageAsync.call(
+            asRenderer(r),
+            { isUnknownType: false, src: 'https://example.com/transient.png' },
+            {},
+        );
+
+        const scrollContainer = document.createElement('div');
+        scrollContainer.style.overflowY = 'auto';
+        Object.defineProperty(scrollContainer, 'getBoundingClientRect', {
+            value: () => ({
+                top: 0,
+                bottom: 720,
+                left: 0,
+                right: 1280,
+                width: 1280,
+                height: 720,
+            } as DOMRect),
+        });
+        const wrapper = document.createElement('span');
+        wrapper.id = out.id;
+        wrapper.classList.add('mu-inline-image', 'mu-image-loading');
+        Object.defineProperty(wrapper, 'getBoundingClientRect', {
+            value: () => ({
+                top: 900,
+                bottom: 1150,
+                left: 0,
+                right: 400,
+                width: 400,
+                height: 250,
+            } as DOMRect),
+        });
+        scrollContainer.appendChild(wrapper);
+        document.body.appendChild(scrollContainer);
+        await waitForLazyObserver();
+
+        TestIntersectionObserver.instances[0]?.trigger(true);
+        expect(loadImage).not.toHaveBeenCalled();
+        expect(wrapper.getAttribute('data-image-lazy')).toBe('pending');
+    });
+
+    it('keeps cached duplicate images lazy until they intersect the viewport', async () => {
+        vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const { loadImage } = await import('../../../utils/image');
+        const r = makeRenderer();
+        r.loadImageMap.set('https://example.com/cached.png', {
+            id: 'cached-image',
+            isSuccess: true,
+            url: 'data:image/png;base64,cached',
+            width: 10,
+            height: 10,
+        });
+
+        const out = loadImageAsync.call(
+            asRenderer(r),
+            { isUnknownType: false, src: 'https://example.com/cached.png' },
+            {},
+        );
+
+        expect(out.isSuccess).toBeUndefined();
+        expect(out.isViewportLazy).toBe(true);
+
+        const wrapper = document.createElement('span');
+        wrapper.id = out.id;
+        wrapper.classList.add('mu-inline-image', 'mu-image-loading');
+        const container = document.createElement('span');
+        container.classList.add('mu-image-container');
+        wrapper.appendChild(container);
+        document.body.appendChild(wrapper);
+        await waitForLazyObserver();
+
+        const observer = TestIntersectionObserver.instances[0];
+        observer.trigger(false);
+        expect(container.querySelector('img')).toBeNull();
+
+        observer.trigger(true);
+        expect(loadImage).not.toHaveBeenCalled();
+        expect(container.querySelector('img')?.getAttribute('src')).toBe(
+            'data:image/png;base64,cached',
+        );
+        expect(wrapper.classList.contains('mu-image-success')).toBe(true);
+    });
+});
 describe('loadImageAsync — local file cache-busting', () => {
     beforeEach(() => {
         vi.clearAllMocks();

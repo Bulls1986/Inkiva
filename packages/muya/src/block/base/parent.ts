@@ -22,6 +22,15 @@ class Parent extends TreeNode {
     private _active: boolean = false;
     private _childrenDisposed = false;
 
+    /**
+     * Optional DOM anchor for children appended without an explicit sibling.
+     * The progressive ScrollPage uses this to keep live inserts ahead of its
+     * temporary tail placeholder; ordinary parents have no anchor.
+     */
+    protected get domInsertionAnchor(): Nullable<Node> {
+        return null;
+    }
+
     get active() {
         return this._active;
     }
@@ -125,7 +134,11 @@ class Parent extends TreeNode {
         (args as Parent[]).forEach((node) => {
             node.parent = this;
             const { domNode } = node;
-            this.domNode!.appendChild(domNode!);
+            const anchor = this.domInsertionAnchor;
+            if (anchor)
+                this.domNode!.insertBefore(domNode!, anchor);
+            else
+                this.domNode!.appendChild(domNode!);
         });
 
         this.children.append(...(args as Parent[]));
@@ -202,9 +215,10 @@ class Parent extends TreeNode {
     ) {
         newNode.parent = this;
         this.children.insertBefore(newNode, refNode);
+        const domRef = refNode?.domNode ?? this.domInsertionAnchor;
         this.domNode!.insertBefore(
             newNode.domNode!,
-            refNode ? refNode.domNode! : null,
+            domRef ?? null,
         );
 
         if (source === 'user') {
@@ -282,9 +296,13 @@ class Parent extends TreeNode {
 
     breadthFirstTraverse(this: Parent, callback: (node: TreeNode) => void) {
         const queue: TreeNode[] = [this];
+        let nextIndex = 0;
 
-        while (queue.length) {
-            const node = queue.shift()!;
+        while (nextIndex < queue.length) {
+            const node = queue[nextIndex++];
+            if (!node) {
+                continue;
+            }
 
             callback(node);
 
@@ -297,13 +315,22 @@ class Parent extends TreeNode {
         const stack: TreeNode[] = [this];
 
         while (stack.length) {
-            const node = stack.shift()!;
+            const node = stack.pop();
+            if (!node) {
+                continue;
+            }
 
             callback(node);
 
             if (node.isParent()) {
-                // Use splice ot make sure the first block in document is process first.
-                node.children.forEach((child, i) => stack.splice(i, 0, child));
+                const children: TreeNode[] = [];
+                node.children.forEach(child => children.push(child));
+                for (let i = children.length - 1; i >= 0; i--) {
+                    const child = children[i];
+                    if (child) {
+                        stack.push(child);
+                    }
+                }
             }
         }
     }

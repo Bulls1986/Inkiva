@@ -11,18 +11,39 @@
       <div
         class="primary-editor-pane"
         data-testid="primary-editor-pane"
+        :data-tab-lifecycle="currentFile ? tabLifecycle[currentFile.id] ?? 'active' : 'none'"
       >
         <editor
-          :markdown="markdown"
-          :cursor="cursor"
-          :text-direction="textDirection"
-          :platform="platform"
+          v-if="!isExtremeDocument"
+          :markdown="props.markdown"
+          :cursor="props.cursor"
+          :text-direction="props.textDirection"
+          :platform="props.platform"
         />
+        <div
+          v-else
+          ref="degradedEditorRef"
+          class="editor-component degraded-editor-component"
+          data-editor-mode="bounded-source"
+        >
+          <div
+            class="degraded-editor-notice"
+            role="status"
+          >
+            Large document mode keeps the full text editable while rendering only visible lines.
+          </div>
+          <source-code
+            :markdown="props.markdown"
+            :muya-index-cursor="props.muyaIndexCursor"
+            :text-direction="props.textDirection"
+            :degraded="true"
+          />
+        </div>
         <source-code
-          v-if="sourceCode"
-          :markdown="markdown"
-          :muya-index-cursor="muyaIndexCursor"
-          :text-direction="textDirection"
+          v-if="sourceCode && !isExtremeDocument"
+          :markdown="props.markdown"
+          :muya-index-cursor="props.muyaIndexCursor"
+          :text-direction="props.textDirection"
         />
       </div>
       <split-document-pane
@@ -37,7 +58,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { shouldUseDegradedLargeDocumentMode } from '@/util/largeDocumentMode'
+import { rendererPerformance } from '@/services/performance/runtime'
+import bus from '../../bus'
+import { scheduleDegradedEditorPerformanceMilestones } from './degradedEditorPerformance'
 import Editor from './editor.vue'
 import TabNotifications from './notifications.vue'
 import SplitDocumentPane from './splitDocumentPane.vue'
@@ -51,7 +76,7 @@ import type { IFileState } from '@shared/types/files'
 // language/runtime dependencies out of the WYSIWYG first-paint path.
 const SourceCode = defineAsyncComponent(() => import('./sourceCode.vue'))
 
-defineProps<{
+const props = defineProps<{
   markdown: string
   cursor: unknown
   muyaIndexCursor?: unknown
@@ -62,8 +87,93 @@ defineProps<{
 
 const editorStore = useEditorStore()
 const layoutStore = useLayoutStore()
-const { currentFile, tabs } = storeToRefs(editorStore)
+const { currentFile, tabs, tabLifecycle } = storeToRefs(editorStore)
 const { splitEditor, splitTabId } = storeToRefs(layoutStore)
+
+const isExtremeDocument = computed(() => shouldUseDegradedLargeDocumentMode(props.markdown))
+const degradedEditorRef = ref<HTMLElement | null>(null)
+let degradedPerformanceGeneration = 0
+
+const degradedOperationId = (documentId?: string): string =>
+  documentId ? `document-${documentId}` : 'document-initial'
+
+const markDegradedFirstScreen = (documentId?: string): void => {
+  const element = degradedEditorRef.value
+  if (element) element.dataset.editorFirstScreenAt = String(performance.now())
+  rendererPerformance.mark('document_first_screen', {
+    phase: 'document-open',
+    operationId: degradedOperationId(documentId),
+    documentId
+  })
+}
+
+const markDegradedInteractive = (documentId?: string): void => {
+  const element = degradedEditorRef.value
+  if (element) element.dataset.editorInteractiveAt = String(performance.now())
+  rendererPerformance.mark('first_editor_interactive', {
+    phase: 'editor',
+    operationId: degradedOperationId(documentId),
+    documentId
+  })
+}
+
+const markDegradedEditable = (documentId?: string): void => {
+  const element = degradedEditorRef.value
+  if (element) element.dataset.editorEditableAt = String(performance.now())
+  rendererPerformance.mark('document_editable', {
+    phase: 'startup',
+    operationId: degradedOperationId(documentId),
+    documentId
+  })
+}
+
+const beginDegradedEditorPerformance = (): void => {
+  const generation = ++degradedPerformanceGeneration
+  const element = degradedEditorRef.value
+  if (!element) return
+  const documentId = currentFile.value?.id ?? undefined
+  element.dataset.editorOpenStartAt = String(performance.now())
+  delete element.dataset.editorFirstScreenAt
+  delete element.dataset.editorInteractiveAt
+  delete element.dataset.editorEditableAt
+  rendererPerformance.mark('document_open_start', {
+    phase: 'document-open',
+    operationId: degradedOperationId(documentId),
+    documentId
+  })
+  scheduleDegradedEditorPerformanceMilestones({
+    requestFrame: (callback) => window.requestAnimationFrame(callback),
+    isCurrent: () => generation === degradedPerformanceGeneration && isExtremeDocument.value,
+    hasEditorSurface: () => !!degradedEditorRef.value?.querySelector('.CodeMirror'),
+    markFirstScreen: () => markDegradedFirstScreen(documentId),
+    markInteractive: () => markDegradedInteractive(documentId),
+    markEditable: () => markDegradedEditable(documentId),
+    notifyMainProcess: () => window.electron.ipcRenderer.send('mt::document-editable')
+  })
+}
+
+watch(
+  [isExtremeDocument, () => currentFile.value?.id],
+  ([isDegraded]) => {
+    if (isDegraded) beginDegradedEditorPerformance()
+    else degradedPerformanceGeneration += 1
+  },
+  { immediate: true, flush: 'post' }
+)
+
+const handleFileLoaded = (): void => {
+  if (isExtremeDocument.value) beginDegradedEditorPerformance()
+}
+
+onMounted(() => {
+  bus.on('file-loaded', handleFileLoaded)
+  if (isExtremeDocument.value) beginDegradedEditorPerformance()
+})
+
+onBeforeUnmount(() => {
+  degradedPerformanceGeneration += 1
+  bus.off('file-loaded', handleFileLoaded)
+})
 
 const splitActive = computed(() => splitEditor.value && !!currentFile.value)
 const secondaryFile = computed<IFileState | null>(() => {
@@ -130,9 +240,33 @@ const activateSecondary = (): void => {
 }
 
 .primary-editor-pane > :deep(.editor-wrapper),
-.primary-editor-pane > :deep(.source-code) {
+.primary-editor-pane > :deep(.source-code),
+.primary-editor-pane > .degraded-editor-component {
   min-width: 0;
   min-height: 0;
+}
+
+.degraded-editor-component {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.degraded-editor-component > :deep(.source-code) {
+  flex: 1;
+  min-height: 0;
+}
+
+.degraded-editor-notice {
+  flex: 0 0 auto;
+  padding: var(--space-2) var(--space-4);
+  color: var(--text-tertiary);
+  background: var(--surface-chrome);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-size-shortcut);
 }
 
 .is-split .primary-editor-pane {

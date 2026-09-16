@@ -9,7 +9,10 @@ import type { Nullable } from '../types';
 import * as otText from 'ot-text-unicode';
 import { fromEvent, merge } from 'rxjs';
 import { registerBlocks } from '../block';
-import { ScrollPage } from '../block/scrollPage';
+import {
+    INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS,
+    ScrollPage,
+} from '../block/scrollPage';
 import Clipboard from '../clipboard';
 import { CLASS_NAMES, isFirefox } from '../config';
 import History from '../history';
@@ -279,9 +282,15 @@ export class Editor {
         registerBlocks();
 
         const muya = this._muya;
-        const state = this.jsonState.getState();
+        // Keep the authoritative JSON state isolated from block instances, but
+        // defer cloning the progressive tail until its background render chunk
+        // is mounted. This removes a full-document clone from the cold path.
+        const state = this.jsonState.getStateForRender();
 
-        this.scrollPage = ScrollPage.create(muya, state);
+        this.scrollPage = ScrollPage.create(muya, state, {
+            cloneBlocksOnMount: true,
+            progressiveStartDelayMs: INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS,
+        });
 
         this._dispatchEvents();
         // Hovering a rendered link wrapper dispatches `muya-link-tools` so the
@@ -408,6 +417,10 @@ export class Editor {
         firstLeafBlock.setCursor(0, 0, needUpdated);
     }
 
+    whenRenderComplete(): Promise<void> {
+        return this.scrollPage?.whenRenderComplete() ?? Promise.resolve();
+    }
+
     updateContents(operations: JSONOp, selection: Nullable<IHistorySelection>, source: string) {
         const muya = this._muya;
         // ot-json1 no-op (`null`) is forwarded to dispatch — JSONState
@@ -431,7 +444,7 @@ export class Editor {
             // blocks drop never re-inserted). The json state is authoritative and
             // already up to date — rebuild from it instead of leaving an empty doc.
             debug.error(`updateContents incremental apply failed; rebuilding from state: ${String(error)}`);
-            this.scrollPage!.updateState(this.jsonState.getState());
+            this.scrollPage!.updateState(this.jsonState.getState(), false);
             this._restoreSelection(selection, true);
         }
     }
@@ -498,18 +511,20 @@ export class Editor {
         this.jsonState.dispatch(operations, source);
 
         const state = this.jsonState.getState();
-        this.scrollPage!.updateState(state);
+        this.inlineRenderer.invalidateReferenceDefinitions();
+        this.scrollPage!.updateState(state, false);
 
         // The tree was rebuilt wholesale, so the selection's cached block
         // references are stale — resolve the caret from paths instead.
         this._restoreSelection(selection, true);
     }
 
-    setContent(content: TState[] | string, autoFocus = false) {
+    setContent(content: TState[] | string, autoFocus = false, progressive = true) {
         this.jsonState.setContent(content);
         const state = this.jsonState.getState();
 
-        this.scrollPage!.updateState(state);
+        this.inlineRenderer.invalidateReferenceDefinitions();
+        this.scrollPage!.updateState(state, progressive);
         this.history.clear();
         this.searchModule.reset();
 

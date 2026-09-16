@@ -1,6 +1,27 @@
+export const DEFAULT_PERFORMANCE_SAMPLE_INTERVAL_MS = 1_000
+export const MIN_PERFORMANCE_SAMPLE_INTERVAL_MS = 250
+export const DEFAULT_MAX_RENDERER_EVENTS = 10_000
+export const MAX_MAX_RENDERER_EVENTS = 100_000
+
 export interface PerformanceCaptureConfig {
   enabled: boolean
   reportDirectory: string | null
+  sampleIntervalMs: number
+  maxRendererEvents: number
+}
+
+const parseSampleInterval = (value: string | undefined): number => {
+  if (value === undefined || value.trim() === '') return DEFAULT_PERFORMANCE_SAMPLE_INTERVAL_MS
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_PERFORMANCE_SAMPLE_INTERVAL_MS
+  return Math.max(MIN_PERFORMANCE_SAMPLE_INTERVAL_MS, Math.floor(parsed))
+}
+
+const parseMaxRendererEvents = (value: string | undefined): number => {
+  if (value === undefined || value.trim() === '') return DEFAULT_MAX_RENDERER_EVENTS
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_MAX_RENDERER_EVENTS
+  return Math.min(MAX_MAX_RENDERER_EVENTS, Math.max(1, Math.floor(parsed)))
 }
 
 /**
@@ -20,5 +41,10 @@ export const resolvePerformanceCaptureConfig = (
   const reportDirectory =
     enabled && env.INKIVA_PERF_REPORT_DIR?.trim() ? env.INKIVA_PERF_REPORT_DIR.trim() : null
 
-  return { enabled, reportDirectory }
+  return {
+    enabled,
+    reportDirectory,
+    sampleIntervalMs: parseSampleInterval(env.INKIVA_PERF_SAMPLE_INTERVAL_MS),
+    maxRendererEvents: parseMaxRendererEvents(env.INKIVA_PERF_MAX_RENDERER_EVENTS)
+  }
 }

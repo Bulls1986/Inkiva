@@ -1,5 +1,4 @@
 import type Format from '../block/base/format';
-import type ParagraphContent from '../block/content/paragraphContent';
 import type { Muya } from '../muya';
 import type { IRenderCursor } from '../selection/types';
 import type { IParagraphState, TContainerState, TState } from '../state/types';
@@ -14,6 +13,12 @@ const debug = logger('inlineRenderer:');
 class InlineRenderer {
     public labels: Labels = new Map();
     public renderer: Renderer;
+
+    private _referenceDefinitionsDirty = true;
+
+    invalidateReferenceDefinitions() {
+        this._referenceDefinitionsDirty = true;
+    }
 
     constructor(public muya: Muya) {
         this.renderer = new Renderer(muya, this);
@@ -75,30 +80,53 @@ class InlineRenderer {
     }
 
     private _collectReferenceDefinitions() {
-        const state = this.muya.editor.jsonState.getState();
-        const labels = new Map();
+        if (!this._referenceDefinitionsDirty)
+            return;
 
-        const travel = (sts: TState[]) => {
-            if (Array.isArray(sts) && sts.length) {
-                for (const st of sts) {
-                    if (st.name === 'paragraph') {
-                        const { label, info } = this.getLabelInfo(st);
-                        if (label && info)
-                            labels.set(label, info);
-                    }
-                    else if ((st as TContainerState).children) {
-                        travel((st as TContainerState).children);
+        const labels = new Map();
+        const collect = (block: Pick<IParagraphState, 'text'>) => {
+            const { label, info } = this.getLabelInfo(block);
+            if (label && info)
+                labels.set(label, info);
+        };
+        const scrollPage = this.muya.editor.scrollPage;
+
+        // Once a live tree exists, read its current content directly. This
+        // avoids cloning the full JSON AST and also observes a definition whose
+        // edit is still waiting for JSONState's animation-frame flush.
+        if (scrollPage?.firstChild) {
+            scrollPage.breadthFirstTraverse((node) => {
+                if (node.isContent() && node.blockName === 'paragraph.content')
+                    collect(node);
+            });
+        }
+        else {
+            // During the initial detached build/updateState the live tree is
+            // empty. The authoritative JSON state is complete at this point,
+            // so use it once to seed the cache.
+            // The reference-definition scan is read-only. During the initial
+            // progressive mount, use the authoritative source directly so
+            // this cold-path fallback does not clone the complete document
+            // before the first block window is painted.
+            const state = this.muya.editor.jsonState.getStateForRender();
+            const travel = (sts: TState[]) => {
+                if (Array.isArray(sts) && sts.length) {
+                    for (const st of sts) {
+                        if (st.name === 'paragraph')
+                            collect(st);
+                        else if ((st as TContainerState).children)
+                            travel((st as TContainerState).children);
                     }
                 }
-            }
-        };
-
-        travel(state);
+            };
+            travel(state);
+        }
 
         this.labels = labels;
+        this._referenceDefinitionsDirty = false;
     }
 
-    getLabelInfo(blockOrState: ParagraphContent | IParagraphState) {
+    getLabelInfo(blockOrState: Pick<IParagraphState, 'text'>) {
         const { text } = blockOrState;
         const tokens = beginRules.reference_definition.exec(text);
         let label = null;

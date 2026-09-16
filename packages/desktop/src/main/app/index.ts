@@ -34,6 +34,7 @@ import { WindowsUpdateProvider } from '../update/WindowsUpdateProvider'
 import { ElectronUpdateCheckStore } from '../update/store'
 import type { UpdateStatus } from '../update/types'
 import OpenRequestCoordinator, { type OpenRequest } from '../session/openRequestCoordinator'
+import { routeStartupOpenRequest } from '../session/startupOpenTarget'
 import { canonicalPathKey } from '../session/pathCanonicalizer'
 import { createBlankRestorePlan, type RestorePlan } from '../session/restorePlan'
 import { SafeRestoreGuard } from '../session/safeRestoreGuard'
@@ -86,6 +87,7 @@ class App {
   private _accessor: Accessor
   private _args: CliArgs
   private _openRequestCoordinator: OpenRequestCoordinator
+  private _startupOpenTarget: EditorWindow | null
   private _windowManager: WindowManager
   private _themeListenerRegistered: boolean
   private _updateManager: UpdateManager
@@ -109,11 +111,17 @@ class App {
     this._openRequestCoordinator = new OpenRequestCoordinator({
       dispatch: (request) => this._dispatchOpenRequest(request)
     })
+    this._startupOpenTarget = null
     this._updatePreflight = new RendererUpdatePreflight()
     this._backgroundUpdateCheckScheduled = false
     this._startupStarted = false
     this._startupCompleted = false
-    this._startupCoordinator = new StartupPhaseCoordinator()
+    this._startupCoordinator = new StartupPhaseCoordinator({
+      documentEditableTimeoutMs: 10000,
+      onDocumentEditableTimeout: () => {
+        log.error('First document did not become editable within the startup budget')
+      }
+    })
     this._safeRestoreGuard = new SafeRestoreGuard(
       createSafeRestoreStore(this._accessor.paths.userDataPath)
     )
@@ -488,10 +496,20 @@ class App {
           // from being overwritten by the eventual `load-state` message.
           await restoreEditor.applyRestorePlan(restorePlan)
         } else if (this._openRequestCoordinator.hasPendingPaths()) {
-          // An explicit startup/open-file request takes precedence over
-          // recovery. Remove only fully-saved stale recovery files so a later
-          // launch cannot unexpectedly restore the old session again.
-          editorBufferStore.clearBufferStoresWithAllSaved()
+          // Explicit startup/open-file request takes precedence over recovery.
+          // Create the shell before clearing stale recovery files so cleanup
+          // cannot delay first paint.
+          const startupRequest = this._openRequestCoordinator.getFirstPendingRequest()
+          const startupDirectory =
+            startupRequest?.paths.find(({ isDir }) => isDir)?.path ?? null
+          const startupFiles = (startupRequest?.paths ?? [])
+            .filter(({ isDir }) => !isDir)
+            .map(({ path: pathname }) => pathname)
+          const editor = this._createEditorWindow(startupDirectory, startupFiles)
+          this._startupOpenTarget = editor
+          editor.once('window-shell-visible', () => {
+            editorBufferStore.clearBufferStoresWithAllSaved()
+          })
         } else {
           this._createEditorWindow()
         }
@@ -576,6 +594,13 @@ class App {
   }
 
   private _dispatchOpenRequest(request: OpenRequest): void {
+    const startupTarget = this._startupOpenTarget
+    if (startupTarget) {
+      this._startupOpenTarget = null
+      routeStartupOpenRequest(startupTarget, request)
+      return
+    }
+
     this._openPathList(
       request.paths.map(({ isDir, path: pathname }) => ({ isDir, path: pathname })),
       request.newWindow
@@ -604,8 +629,11 @@ class App {
     editor.on('window-shell-visible', () => {
       this._startupCoordinator.markShellVisible()
     })
+    editor.once('window-renderer-ready', () => {
+      this._startupCoordinator.markRendererReady()
+    })
     editor.once('window-interactive', () => {
-      this._startupCoordinator.markEditorInteractive()
+      this._startupCoordinator.markDocumentEditable()
       markSafeRestoreStartupReady(this._safeRestoreGuard, safeRestoreAttemptSessionId)
     })
     if (rootDirectory) {

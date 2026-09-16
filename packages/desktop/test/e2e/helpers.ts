@@ -3,6 +3,7 @@ import { _electron, type ElectronApplication, type Page } from 'playwright'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type { IpcSendChannels } from '../../src/shared/types/ipc'
 
 const projectRoot = path.resolve(__dirname, '../..')
 
@@ -583,6 +584,19 @@ export const sendIpcToRenderer = async(
     ({ BrowserWindow }, payload) => {
       const win = BrowserWindow.getAllWindows()[0]
       win.webContents.send(payload.channel, ...payload.args)
+    },
+    { channel, args }
+  )
+}
+
+export const sendIpcFromRenderer = async<K extends keyof IpcSendChannels>(
+  page: Page,
+  channel: K,
+  ...args: IpcSendChannels[K]
+): Promise<void> => {
+  await page.evaluate(
+    ({ channel: channelName, args: channelArgs }) => {
+      window.electron.ipcRenderer.send(channelName, ...(channelArgs as never))
     },
     { channel, args }
   )

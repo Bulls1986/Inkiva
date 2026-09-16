@@ -140,7 +140,12 @@ import {
   EditorSnapshotScheduler,
   getEditorMutationPolicy
 } from './editorHotPath'
-import { rendererPerformance } from '@/services/performance/runtime'
+import {
+  rendererPerformance,
+  rendererPerformanceMonitor
+} from '@/services/performance/runtime'
+import { createInputParseProbe } from '@/services/performance/inputParse'
+import { scheduleEditorPerformanceMilestones } from './editorPerformanceMilestones'
 
 // Importing the engine entrypoint auto-injects its editor CSS (the muya.ts
 // module imports its stylesheets at load time). Inkiva owns the application
@@ -293,12 +298,23 @@ let printer: Printer | null = null
 let spellchecker: any = null
 let switchLanguageCommand: SpellcheckerLanguageCommand | null = null
 let imageViewer: SimpleImageViewer | null = null
+let editorPerformanceGeneration = 0
 // The engine has no `scroll` event; we listen on the scroll container directly.
 let scrollHandler: ((e: Event) => void) | null = null
+let scrollPerformanceEndTimer: ReturnType<typeof setTimeout> | null = null
 let tocScrollSync: ReturnType<typeof createTocScrollSync> | null = null
 let editorLayoutReconciler: ReturnType<typeof createEditorLayoutReconciler> | null = null
 const tocRefreshScheduler = createTocRefreshScheduler()
 const editorSnapshotScheduler = new EditorSnapshotScheduler()
+const inputParseProbe = createInputParseProbe({
+  enabled: rendererPerformance.enabled,
+  now: () => performance.now(),
+  record: (duration) => {
+    rendererPerformance.recordSample('parse.inputSync', 'ms', duration, {
+      phase: 'editor'
+    })
+  }
+})
 
 const flushActiveEditor = () => {
   const id = currentFile.value?.id
@@ -1212,13 +1228,28 @@ const toSearchMatches = (result: unknown) => {
   }
 }
 
+let searchRequestGeneration = 0
+
 const handleSearch = (payload: unknown) => {
   const { value, opt } = payload as { value: string; opt: unknown }
-  editorStore.SEARCH(toSearchMatches(editor.value.search(value, opt)))
-  scrollToHighlight()
+  const requestGeneration = ++searchRequestGeneration
+  let revealedFirstMatch = false
+
+  editor.value.searchAsync(value, opt, (result: ReturnType<typeof toSearchMatches>) => {
+    if (requestGeneration !== searchRequestGeneration) return
+    editorStore.SEARCH(toSearchMatches(result))
+    if (!revealedFirstMatch && result.matches.length > 0) {
+      revealedFirstMatch = true
+      scrollToHighlight()
+    }
+  }).catch(() => {
+    if (requestGeneration !== searchRequestGeneration) return
+    editorStore.SEARCH({ index: -1, matches: [], value })
+  })
 }
 
 const handReplace = (payload: unknown) => {
+  searchRequestGeneration += 1
   const { value, opt } = payload as { value: string; opt: unknown }
   editorStore.SEARCH(toSearchMatches(editor.value.replace(value, opt)))
 }
@@ -1719,6 +1750,24 @@ const refreshEditorToc = (force = true): void => {
   editorStore.UPDATE_TOC(editor.value.getTOC(), force)
 }
 
+const runWhenEditorRenderComplete = (id: string | undefined, callback: (instance: MuyaInstance) => void): void => {
+  const instance = editor.value
+  if (!instance) return
+
+  instance.whenRenderComplete().then(() => {
+    if (editor.value !== instance || (id && currentFile.value?.id !== id)) return
+    callback(instance)
+  })
+}
+
+const refreshEditorTocWhenReady = (id?: string): void => {
+  // Large documents now mount their block tree progressively. Reading the TOC
+  // before that completes would publish a truncated outline and make the
+  // sidebar disagree with the authoritative JSON state. Small documents keep
+  // the same behavior because their completion promise is already resolved.
+  runWhenEditorRenderComplete(id, () => refreshEditorToc())
+}
+
 const scheduleTocRefresh = (id: string): void => {
   recordTocMetric('scheduledRefreshes')
   tocRefreshScheduler.schedule(id, () => {
@@ -1732,6 +1781,84 @@ const scheduleTocRefresh = (id: string): void => {
 }
 
 // listen for `open-single-file` event, it will call this method only when open a new file.
+const editorPerformanceOperationId = (documentId?: string): string =>
+  documentId ? `document-${documentId}` : 'document-initial'
+
+// Muya replaces the Vue mount container with its own DOM root during init.
+// Read the live root after init so post-paint milestones remain observable.
+const getEditorPerformanceElement = (): HTMLElement | null =>
+  (editor.value?.domNode as HTMLElement | undefined) ?? editorRef.value
+
+const beginEditorPerformanceOperation = (documentId?: string): void => {
+  editorPerformanceGeneration += 1
+  const element = getEditorPerformanceElement()
+  if (element) {
+    element.dataset.editorOpenStartAt = String(performance.now())
+    delete element.dataset.editorFirstScreenAt
+    delete element.dataset.editorInteractiveAt
+    delete element.dataset.editorEditableAt
+  }
+
+  rendererPerformance.mark('document_open_start', {
+    phase: 'document-open',
+    operationId: editorPerformanceOperationId(documentId),
+    documentId
+  })
+}
+
+const markEditorFirstScreen = (documentId?: string): void => {
+  const element = getEditorPerformanceElement()
+  if (element) {
+    element.dataset.editorFirstScreenAt = String(performance.now())
+  }
+
+  rendererPerformance.mark('document_first_screen', {
+    phase: 'document-open',
+    operationId: editorPerformanceOperationId(documentId),
+    documentId
+  })
+}
+
+const markEditorInteractive = (documentId?: string): void => {
+  const element = getEditorPerformanceElement()
+  if (element) {
+    element.dataset.editorInteractiveAt = String(performance.now())
+  }
+
+  rendererPerformance.mark('first_editor_interactive', {
+    phase: 'editor',
+    operationId: editorPerformanceOperationId(documentId),
+    documentId
+  })
+}
+
+const scheduleEditorMilestones = (documentId?: string, notifyMainProcess = false): void => {
+  const generation = editorPerformanceGeneration
+  scheduleEditorPerformanceMilestones({
+    requestFrame: (callback) => {
+      window.requestAnimationFrame(callback)
+    },
+    isCurrent: () => generation === editorPerformanceGeneration,
+    markFirstScreen: () => markEditorFirstScreen(documentId),
+    markInteractive: () => markEditorInteractive(documentId),
+    markEditable: () => {
+      const element = getEditorPerformanceElement()
+      if (element) {
+        element.dataset.editorEditableAt = String(performance.now())
+      }
+
+      rendererPerformance.mark('document_editable', {
+        phase: 'startup',
+        operationId: editorPerformanceOperationId(documentId),
+        documentId
+      })
+    },
+    notifyMainProcess: notifyMainProcess
+      ? () => window.electron.ipcRenderer.send('mt::document-editable')
+      : undefined
+  })
+}
+
 const setMarkdownToEditor = (payload: unknown) => {
   const {
     id,
@@ -1740,6 +1867,9 @@ const setMarkdownToEditor = (payload: unknown) => {
     contentAlreadyLoaded
   } = (payload ?? {}) as FileLoadedPayload
   if (editor.value) {
+    if (!contentAlreadyLoaded) {
+      beginEditorPerformanceOperation(id)
+    }
     // `NEW_UNTITLED_TAB` emits `file-changed` first (which starts the
     // scroll-to-zero restore) and then emits `file-loaded` only to seed the
     // already-mounted document's baseline/focus. Do not cancel that pending
@@ -1765,19 +1895,22 @@ const setMarkdownToEditor = (payload: unknown) => {
       resetSyntheticHistory(id, editor.value.getMarkdown())
     }
     if (newCursor) {
-      applyCursor(editor.value, newCursor)
-      // A folder-search jump carries an index cursor; a freshly opened file
-      // starts scrolled to the top, so reveal the resolved caret.
-      if (isIndexCursor(newCursor)) {
-        scrollToCursor()
-      }
+      runWhenEditorRenderComplete(id, (instance) => {
+        applyCursor(instance, newCursor)
+        // A folder-search jump carries an index cursor; a freshly opened file
+        // starts scrolled to the top, so reveal the resolved caret.
+        if (isIndexCursor(newCursor)) {
+          scrollToCursor()
+        }
+      })
     }
-    // `setContent` rebuilds the block tree synchronously but fires no
-    // `json-change`, so seed the TOC explicitly (otherwise it stays empty until
-    // the first edit, and a file switch keeps the previous file's TOC).
-    refreshEditorToc()
+    // `setContent` fires no `json-change`, so seed the TOC explicitly after any
+    // progressive block rendering completes (otherwise a large file would
+    // publish a partial outline while its tail is still mounting).
+    refreshEditorTocWhenReady(id)
     // A freshly created/opened tab should be ready to type into.
     focusFreshEditor()
+    scheduleEditorMilestones(id)
   }
 }
 
@@ -1819,7 +1952,10 @@ const handleFileChange = (payload: unknown) => {
 
   clearPendingScrollRestore()
 
+  const isSourceModeHandoff =
+    isIndexCursor(muyaIndexCursor) && !newCursor && payloadHistory == null
   if (typeof newMarkdown === 'string') {
+    beginEditorPerformanceOperation(id)
     // Returning from source-code mode: the WYSIWYG engine is never unmounted
     // while source mode is up (index.vue overlays it via `v-if`), so it still
     // holds the PRE-source-mode document and undo history. Record the bulk
@@ -1837,8 +1973,6 @@ const handleFileChange = (payload: unknown) => {
     // editor.ts carries both `cursor` and `history` alongside, so requiring
     // those absent reliably isolates the WYSIWYG<-source handoff from a tab
     // activation that merely replays a tab's persisted `muyaIndexCursor`.
-    const isSourceModeHandoff =
-      isIndexCursor(muyaIndexCursor) && !newCursor && payloadHistory == null
 
     if (isSourceModeHandoff) {
       // Record the bulk source-mode edit as a single undo boundary. When the
@@ -1847,7 +1981,7 @@ const handleFileChange = (payload: unknown) => {
       // remapping below.
       editor.value.replaceContent(newMarkdown, preSourceModeSelection)
       preSourceModeSelection = null
-      refreshEditorToc()
+      refreshEditorTocWhenReady(id)
       // Map the CodeMirror `{ line, ch }` cursor onto a block-key cursor so the
       // WYSIWYG caret lands where the source-mode cursor was (PG2).
       editor.value.setCursorByOffset(muyaIndexCursor)
@@ -1869,7 +2003,7 @@ const handleFileChange = (payload: unknown) => {
         resetSyntheticHistory(id, newMarkdown)
       }
       editor.value.replaceContent(newMarkdown)
-      refreshEditorToc()
+      refreshEditorTocWhenReady(id)
       if (newCursor) {
         applyCursor(editor.value, newCursor)
       }
@@ -1896,15 +2030,19 @@ const handleFileChange = (payload: unknown) => {
       }
       // Tab switch swaps content without firing `json-change`, so re-seed the
       // TOC (otherwise returning to an open tab keeps the other tab's TOC).
-      refreshEditorToc()
-      if (newCursor) {
-        applyCursor(editor.value, newCursor)
-      } else if (isIndexCursor(muyaIndexCursor)) {
-        // Source-mode handoff for a tab the engine has no history for (e.g.
-        // first interaction after load): fall back to a caret-only remap. The
-        // engine runs its own setContent dance internally, so restore the
-        // history after.
-        editor.value.setCursorByOffset(muyaIndexCursor)
+      refreshEditorTocWhenReady(id)
+      if (newCursor || isIndexCursor(muyaIndexCursor)) {
+        runWhenEditorRenderComplete(id, (instance) => {
+          if (newCursor) {
+            applyCursor(instance, newCursor)
+          } else {
+            // Source-mode handoff for a tab the engine has no history for
+            // (e.g. first interaction after load): fall back to a caret-only
+            // remap. The engine runs its own synchronous setContent dance
+            // internally, so restore the history after.
+            instance.setCursorByOffset(muyaIndexCursor)
+          }
+        })
       }
       const savedEngineHistory = id ? engineHistoryByTab.get(id) : undefined
       if (savedEngineHistory) {
@@ -1931,6 +2069,10 @@ const handleFileChange = (payload: unknown) => {
     container.style.visibility = 'visible'
     container.style.pointerEvents = 'auto'
     scrollToCursor(0)
+  }
+
+  if (typeof newMarkdown === 'string') {
+    scheduleEditorMilestones(id)
   }
 }
 
@@ -1997,15 +2139,11 @@ onMounted(() => {
   const performanceOperationId = performanceDocumentId
     ? `document-${performanceDocumentId}`
     : 'document-initial'
-  rendererPerformance.mark('document_open_start', {
-    phase: 'document-open',
-    operationId: performanceOperationId,
-    documentId: performanceDocumentId
-  })
 
   printer = new Printer()
   const ele = editorRef.value
   if (!ele) return
+  beginEditorPerformanceOperation(performanceDocumentId)
 
   // Register the engine UI plugins once per renderer process (see
   // `muyaPluginsRegistered`). The image-edit tool receives the desktop's image
@@ -2115,7 +2253,7 @@ onMounted(() => {
   editor.value = muya
   // The first document's content is set via constructor options, so no
   // `file-loaded` / `setMarkdownToEditor` runs for it — seed its TOC here.
-  refreshEditorToc()
+  refreshEditorTocWhenReady(currentFile.value?.id)
 
   // Seed the save-tracking baseline for the mount-loaded document (from the
   // engine's OWN serialization, same reason as setMarkdownToEditor). Without
@@ -2127,6 +2265,11 @@ onMounted(() => {
   }
 
   const container = getScrollContainer()!
+
+  const inputParseStartEvents = ['beforeinput', 'compositionend', 'paste'] as const
+  for (const eventName of inputParseStartEvents) {
+    container.addEventListener(eventName, inputParseProbe.begin, true)
+  }
 
   // Cache top-level heading positions for active-TOC highlighting. The sync
   // reads layout only during outline/DOM rebuilds; scroll events use a binary
@@ -2207,6 +2350,11 @@ onMounted(() => {
   // input and only flushed synchronously for structural work or an explicit
   // boundary such as save/tab switch.
   editor.value.on('json-change', (change: MuyaChange = {}) => {
+    // Muya emits json-change synchronously while handling beforeinput. This
+    // probe records the actual synchronous input-to-model boundary; it never
+    // estimates parsing from a timer or a test-side constant.
+    inputParseProbe.finish()
+
     // There is a chance that this event is fired AFTER the tab is switched. If we purely rely on this.currentFile later on
     // it can cause invalid updates. Hence, we need the id to identify changes as part of each tab
     if (!currentFile.value || !editor.value) return
@@ -2236,6 +2384,15 @@ onMounted(() => {
     }
     if (currentFile.value) {
       editorStore.updateScrollPosition(currentFile.value.id, container.scrollTop)
+    }
+
+    if (rendererPerformance.enabled) {
+      rendererPerformanceMonitor.beginScroll()
+      if (scrollPerformanceEndTimer !== null) clearTimeout(scrollPerformanceEndTimer)
+      scrollPerformanceEndTimer = setTimeout(() => {
+        scrollPerformanceEndTimer = null
+        rendererPerformanceMonitor.endScroll()
+      }, 120)
     }
   }
   container.addEventListener('scroll', scrollHandler, { passive: true })
@@ -2316,14 +2473,15 @@ onMounted(() => {
   document.addEventListener('keyup', keyup)
 
   setEditorWidth(editorLineWidth.value)
-  rendererPerformance.mark('first_editor_interactive', {
-    phase: 'editor',
-    operationId: performanceOperationId,
-    documentId: performanceDocumentId
-  })
+  // The main process uses this milestone—not the earlier bootstrap handshake—
+  // to release deferred startup work and safe-restore state. The scheduler
+  // crosses a paint boundary before first-screen, then publishes interactive
+  // and editable in order.
+  scheduleEditorMilestones(performanceDocumentId, true)
 })
 
 onBeforeUnmount(() => {
+  editorPerformanceGeneration += 1
   flushActiveEditor()
   editorSnapshotScheduler.dispose()
 
@@ -2367,11 +2525,25 @@ onBeforeUnmount(() => {
 
   // Remove the manual scroll listener; engine `on(...)` listeners are torn down
   // by `destroy()` → `eventCenter.unsubscribeAll()`.
+  const inputContainer = getScrollContainer()
+  if (inputContainer) {
+    for (const eventName of ['beforeinput', 'compositionend', 'paste'] as const) {
+      inputContainer.removeEventListener(eventName, inputParseProbe.begin, true)
+    }
+  }
+  inputParseProbe.cancel()
+
   if (scrollHandler && editor.value) {
     const container = getScrollContainer()
     container?.removeEventListener('scroll', scrollHandler)
   }
   scrollHandler = null
+
+  if (scrollPerformanceEndTimer !== null) {
+    clearTimeout(scrollPerformanceEndTimer)
+    scrollPerformanceEndTimer = null
+  }
+  rendererPerformanceMonitor.endScroll()
 
   tocRefreshScheduler.cancel()
   editorLayoutReconciler?.destroy()

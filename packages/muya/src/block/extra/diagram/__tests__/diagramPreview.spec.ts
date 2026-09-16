@@ -1,12 +1,13 @@
 // @vitest-environment happy-dom
 import type { Muya } from '../../../../muya';
 import type { IDiagramMeta, IDiagramState } from '../../../../state/types';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLASS_NAMES } from '../../../../config';
 import I18n from '../../../../i18n';
 import { en } from '../../../../locales/en';
 import { zhCN } from '../../../../locales/zh-CN';
-import DiagramPreview from '../diagramPreview';
+import { DEFAULT_DIAGRAM_HEIGHT_HINT } from '../diagramHeightHint';
+import DiagramPreview, { DIAGRAM_RENDER_DEBOUNCE_MS } from '../diagramPreview';
 import DiagramBlock from '../index';
 
 // The diagram renderer (`utils/diagram` default export) dynamically imports
@@ -21,8 +22,47 @@ vi.mock('../../../../utils/diagram', () => ({
 
 const bootedHosts: HTMLElement[] = [];
 
+beforeEach(() => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+});
+
+class TestIntersectionObserver {
+    static instances: TestIntersectionObserver[] = [];
+    private readonly _callback: IntersectionObserverCallback;
+    private _target: Element | null = null;
+
+    constructor(callback: IntersectionObserverCallback) {
+        this._callback = callback;
+        TestIntersectionObserver.instances.push(this);
+    }
+
+    observe(target: Element) {
+        this._target = target;
+    }
+
+    disconnect() {
+        this._target = null;
+    }
+
+    trigger(isIntersecting: boolean) {
+        if (!this._target) {
+            return;
+        }
+
+        this._callback([
+            {
+                target: this._target,
+                isIntersecting,
+                intersectionRatio: isIntersecting ? 1 : 0,
+            } as IntersectionObserverEntry,
+        ], this as unknown as IntersectionObserver);
+    }
+}
+
 afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+    TestIntersectionObserver.instances = [];
     while (bootedHosts.length) bootedHosts.pop()!.remove();
     loadRendererMock.mockReset();
 });
@@ -94,6 +134,40 @@ describe('diagramPreview — empty state', () => {
     });
 });
 
+describe('diagramPreview — lazy height restoration', () => {
+    it('reserves a baseline height before the first render is ready', () => {
+        const { preview } = makePreview('graph TD\n  A --> B');
+
+        expect(preview.domNode!.style.minHeight).toBe(`${DEFAULT_DIAGRAM_HEIGHT_HINT}px`);
+    });
+
+    it('reuses the last successful rendered height as a lazy placeholder', async () => {
+        loadRendererMock.mockResolvedValue({
+            initialize: vi.fn(),
+            registerIconPacks: vi.fn(),
+            render: vi.fn().mockResolvedValue({
+                svg: '<svg data-rendered="height-hint"></svg>',
+            }),
+        });
+
+        const first = makePreview('graph TD\n  A --> B');
+        await first.preview.update('graph TD\n  A --> B');
+        Object.defineProperty(first.preview.domNode!, 'offsetHeight', {
+            configurable: true,
+            value: 640,
+        });
+        vi.spyOn(first.preview.domNode!, 'getBoundingClientRect').mockReturnValue({
+            height: 640,
+        } as DOMRect);
+        first.preview.dispose();
+
+        const second = makePreview('graph TD\n  A --> B');
+
+        expect(second.preview.domNode!.style.minHeight).toBe('640px');
+        expect(second.preview.domNode!.getAttribute('data-diagram-height-hint')).toBe('640');
+    });
+});
+
 describe('diagramPreview — invalid / error state', () => {
     it('renders the error class + localized "Invalid Diagram Code" when the renderer throws', async () => {
         loadRendererMock.mockRejectedValue(new Error('Unknown diagram name mermaid'));
@@ -129,6 +203,18 @@ describe('diagramPreview — invalid / error state', () => {
         const html = preview.domNode!.innerHTML;
         expect(html).toContain('class="mu-diagram-error"');
         expect(html).toContain('图表渲染失败');
+    });
+
+    it('exposes one render attempt and never retries a failed diagram', async () => {
+        vi.useFakeTimers();
+        loadRendererMock.mockRejectedValue(new Error('invalid diagram'));
+        const { preview } = makePreview('invalid diagram');
+
+        const pending = preview.update('invalid diagram');
+        await vi.advanceTimersByTimeAsync(200);
+        await pending;
+
+        expect(preview.domNode!.getAttribute('data-diagram-render-attempts')).toBe('1');
     });
 });
 
@@ -280,6 +366,38 @@ describe('diagramPreview — Mermaid auto-rendering', () => {
     });
 });
 
+describe('diagramPreview — viewport lazy rendering', () => {
+    it('does not start the renderer until the preview intersects the viewport', async () => {
+        vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const render = vi.fn().mockResolvedValue({
+            svg: '<svg data-rendered="lazy"></svg>',
+        });
+        loadRendererMock.mockResolvedValue({
+            initialize: vi.fn(),
+            registerIconPacks: vi.fn(),
+            render,
+        });
+
+        const { preview } = makePreview('graph TD\n  A --> B');
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+        expect(loadRendererMock).not.toHaveBeenCalled();
+        expect(preview.domNode!.getAttribute('data-diagram-lazy')).toBe('pending');
+        expect(TestIntersectionObserver.instances).toHaveLength(1);
+
+        const observer = TestIntersectionObserver.instances[0];
+        observer.trigger(false);
+        await Promise.resolve();
+        expect(loadRendererMock).not.toHaveBeenCalled();
+
+        observer.trigger(true);
+        await new Promise<void>(resolve =>
+            setTimeout(resolve, DIAGRAM_RENDER_DEBOUNCE_MS + 50));
+
+        expect(render).toHaveBeenCalledTimes(1);
+        expect(preview.domNode!.getAttribute('data-diagram-lazy')).toBeNull();
+    });
+});
 describe('diagramBlock — focus lifecycle', () => {
     it('reveals the prepared preview only on the active block blur transition', async () => {
         const { muya } = makeFakeMuya();

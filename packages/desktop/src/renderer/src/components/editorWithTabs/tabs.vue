@@ -19,6 +19,7 @@
           :title="file.pathname"
           :class="{ active: currentFile?.id === file.id, unsaved: !file.isSaved, pinned: pinnedTabIds.includes(file.id) }"
           :data-id="file.id"
+          :data-tab-lifecycle="tabLifecycles[file.id] ?? 'cold'"
           :data-pinned="pinnedTabIds.includes(file.id)"
           role="tab"
           :aria-selected="currentFile?.id === file.id"
@@ -82,7 +83,7 @@ const editorStore = useEditorStore()
 const layoutStore = useLayoutStore()
 const { t } = useI18n()
 
-const { currentFile, tabs, pinnedTabIds, closedTabs } = storeToRefs(editorStore)
+const { currentFile, tabs, tabLifecycle: tabLifecycles, pinnedTabIds, closedTabs } = storeToRefs(editorStore)
 
 interface AutoScroller {
   readonly down: boolean

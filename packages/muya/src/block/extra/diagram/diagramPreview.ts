@@ -8,6 +8,10 @@ import { sanitize } from '../../../utils';
 import { getDiagramRenderCoordinator } from '../../../utils/diagram/coordinator';
 import logger from '../../../utils/logger';
 import Parent from '../../base/parent';
+import {
+    getDiagramHeightHint,
+    rememberDiagramHeight,
+} from './diagramHeightHint';
 
 const debug = logger('diagramPreview:');
 export const DIAGRAM_RENDER_DEBOUNCE_MS = 200;
@@ -34,6 +38,45 @@ class DiagramPreview extends Parent {
     private _disposed = false;
     private _activeRenderHandle: IDiagramRenderCoordinatorHandle | null = null;
     private _clickSubscription: Subscription | null = null;
+    private _viewportObserver: IntersectionObserver | null = null;
+    private _viewportObserveTimer: ReturnType<typeof setTimeout> | null = null;
+    private _isViewportReady = false;
+    private _renderAttempts = 0;
+    private _applyHeightHint() {
+        const node = this.domNode;
+        if (!node)
+            return;
+
+        const height = getDiagramHeightHint(this._type, this._code);
+        if (height == null) {
+            node.style.removeProperty('min-height');
+            node.removeAttribute('data-diagram-height-hint');
+            return;
+        }
+
+        node.style.minHeight = `${height}px`;
+        node.setAttribute('data-diagram-height-hint', String(height));
+    }
+
+    private _rememberRenderedHeight() {
+        const node = this.domNode;
+        if (!node)
+            return;
+
+        const previousMinHeight = node.style.minHeight;
+        node.style.removeProperty('min-height');
+        const rectHeight = node.getBoundingClientRect().height;
+        const height = Math.max(rectHeight, node.offsetHeight);
+        if (height > 0) {
+            rememberDiagramHeight(this._type, this._code, height);
+            node.removeAttribute('data-diagram-height-hint');
+            return;
+        }
+
+        if (previousMinHeight)
+            node.style.minHeight = previousMinHeight;
+    }
+
     static override blockName = 'diagram-preview';
 
     static create(muya: Muya, state: IDiagramState) {
@@ -58,7 +101,9 @@ class DiagramPreview extends Parent {
             contenteditable: 'false',
         };
         this.createDomNode();
+        this._applyHeightHint();
         this._attachDOMEvents();
+        this._installViewportObserver();
         this.update();
     }
 
@@ -70,6 +115,42 @@ class DiagramPreview extends Parent {
     private _attachDOMEvents() {
         const clickObservable = fromEvent(this.domNode!, 'click');
         this._clickSubscription = clickObservable.subscribe(this.clickHandler.bind(this));
+    }
+
+    private _installViewportObserver() {
+        if (typeof IntersectionObserver === 'undefined') {
+            this._isViewportReady = true;
+            return;
+        }
+
+        this.domNode?.setAttribute('data-diagram-lazy', 'pending');
+        this._viewportObserver = new IntersectionObserver((entries) => {
+            if (this._disposed || !entries.some(entry =>
+                entry.isIntersecting || entry.intersectionRatio > 0)) {
+                return;
+            }
+
+            this._isViewportReady = true;
+            this.domNode?.removeAttribute('data-diagram-lazy');
+            this._viewportObserver?.disconnect();
+            this._viewportObserver = null;
+            // Keep the first visible frame cheap. The editor's editable
+            // milestone and the placeholder measurement both happen across
+            // the first paint boundaries; starting Mermaid/Vega here would
+            // block them. `update()` uses the normal 200 ms render scheduler,
+            // while an explicit focus/blur action still calls the immediate
+            // path and remains responsive.
+            void this.update();
+        }, { rootMargin: '0px' });
+
+        this._viewportObserveTimer = setTimeout(() => {
+            this._viewportObserveTimer = null;
+            if (this._disposed || !this.domNode) {
+                return;
+            }
+
+            this._viewportObserver?.observe(this.domNode);
+        }, 0);
     }
 
     /**
@@ -155,6 +236,17 @@ class DiagramPreview extends Parent {
         if (this._disposed || generation !== this._renderGeneration)
             return;
 
+        const renderStartedAt = performance.now();
+        const node = this.domNode;
+        if (node) {
+            node.setAttribute('data-diagram-render-start', String(renderStartedAt));
+            if (!node.hasAttribute('data-diagram-first-render-start')) {
+                node.setAttribute('data-diagram-first-render-start', String(renderStartedAt));
+            }
+        }
+        this._renderAttempts += 1;
+        this.domNode?.setAttribute('data-diagram-render-attempts', String(this._renderAttempts));
+
         if (!code) {
             this._hasRenderedResult = false;
             this._lastValidatedCode = code;
@@ -214,6 +306,8 @@ class DiagramPreview extends Parent {
                 this._setPresentationMode('preview');
             else
                 this._setPresentationMode('source');
+
+            this._rememberRenderedHeight();
         }
         catch (error) {
             if (this._disposed || generation !== this._renderGeneration)
@@ -255,6 +349,7 @@ class DiagramPreview extends Parent {
     private _prepareRender(code: string): number {
         const generation = ++this._renderGeneration;
         this._code = code;
+        this._applyHeightHint();
 
         if (this._renderTimer !== null)
             clearTimeout(this._renderTimer);
@@ -269,6 +364,11 @@ class DiagramPreview extends Parent {
     private _renderImmediately(): Promise<void> {
         if (this._disposed)
             return Promise.resolve();
+
+        if (!this._isViewportReady) {
+            this._prepareRender(this._code);
+            return Promise.resolve();
+        }
 
         const generation = this._prepareRender(this._code);
 
@@ -298,6 +398,9 @@ class DiagramPreview extends Parent {
         if (sourceChanged || !this._hasRenderedResult || this._presentationMode === 'error')
             this.showSource();
 
+        if (!this._isViewportReady)
+            return Promise.resolve();
+
         return new Promise((resolve) => {
             this._renderWaiters.set(generation, resolve);
             this._renderTimer = setTimeout(() => {
@@ -322,11 +425,17 @@ class DiagramPreview extends Parent {
         if (this._disposed)
             return;
 
+        this._rememberRenderedHeight();
         this._disposed = true;
         this._renderGeneration++;
         if (this._renderTimer !== null)
             clearTimeout(this._renderTimer);
         this._renderTimer = null;
+        if (this._viewportObserveTimer !== null)
+            clearTimeout(this._viewportObserveTimer);
+        this._viewportObserveTimer = null;
+        this._viewportObserver?.disconnect();
+        this._viewportObserver = null;
         this._activeRenderHandle?.dispose();
         this._activeRenderHandle = null;
         getDiagramRenderCoordinator(this.muya).dispose(this._renderBlockId);

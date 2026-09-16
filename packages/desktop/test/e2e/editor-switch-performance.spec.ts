@@ -58,6 +58,30 @@ test.describe('editor switch rebuild performance', () => {
     }
   })
 
+  test('keeps one full editor and bounds warm tab resources', async() => {
+    const { app, page } = await launchWithMarkdown('# Base\n')
+
+    try {
+      for (let index = 1; index <= 4; index += 1) {
+        await sendIpcToRenderer(app, 'mt::new-untitled-tab', true, `tab ${index}\n`)
+      }
+
+      await expect.poll(async() => {
+        const lifecycles = await page.locator('.tabs-container > li').evaluateAll((tabs) =>
+          tabs.map((tab) => tab.getAttribute('data-tab-lifecycle'))
+        )
+        return {
+          active: lifecycles.filter((value) => value === 'active').length,
+          warm: lifecycles.filter((value) => value === 'warm').length,
+          cold: lifecycles.filter((value) => value === 'cold').length
+        }
+      }, { timeout: 10000 }).toEqual({ active: 1, warm: 2, cold: 2 })
+      expect(page.locator('.primary-editor-pane > .editor-wrapper')).toHaveCount(1)
+    } finally {
+      await app.close()
+    }
+  })
+
   test('switching back to an edited tab reuses its blocks snapshot', async() => {
     const { app, page } = await launchWithMarkdown('# Base\n')
 

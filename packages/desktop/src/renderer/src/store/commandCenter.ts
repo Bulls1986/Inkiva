@@ -2,6 +2,8 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import log from 'electron-log'
 import bus from '../bus'
+import { installCommandCenterRuntimeListeners } from './commandCenterRuntime'
+import type { CommandCenterRuntimeBus } from './commandCenterRuntime'
 import { isOsx } from '@/util'
 import { acceleratorToTokens } from '@/util/accelerator'
 
@@ -68,16 +70,20 @@ export const useCommandCenterStore = defineStore('commandCenter', () => {
       SORT_COMMANDS()
     }
 
-    await refreshCommands()
-
-    // Listen for language changes and update command descriptions.
+    // Install every runtime listener before the translated command catalogue is
+    // awaited. Cold startup may emit Quick Open registration during this await.
     bus.on('language-changed', async() => {
       await refreshCommands()
     })
 
-    bus.on('cmd::sort-commands', () => {
-      SORT_COMMANDS()
-    })
+    installCommandCenterRuntimeListeners(
+      bus as unknown as CommandCenterRuntimeBus,
+      {
+        register: (command) => REGISTER_COMMAND(command as Command),
+        sort: SORT_COMMANDS,
+        execute: (commandId) => executeCommand(rootCommand.value, String(commandId))
+      }
+    )
 
     window.electron.ipcRenderer.on('mt::keybindings-response', (_e, keybindingMap) => {
       const map = keybindingMap as Record<string, string>
@@ -90,18 +96,11 @@ export const useCommandCenterStore = defineStore('commandCenter', () => {
       }
     })
 
-    // Register commands that are created at runtime.
-    bus.on('cmd::register-command', (command: unknown) => {
-      REGISTER_COMMAND(command as Command)
-    })
-
-    // Allow other components to execute commands with predefined values.
-    bus.on('cmd::execute', (commandId: unknown) => {
-      executeCommand(rootCommand.value, String(commandId))
-    })
     window.electron.ipcRenderer.on('mt::execute-command-by-id', (_e, commandId) => {
       executeCommand(rootCommand.value, String(commandId))
     })
+
+    await refreshCommands()
   }
 
   return {

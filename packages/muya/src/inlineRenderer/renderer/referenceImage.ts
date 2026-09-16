@@ -29,10 +29,11 @@ export default function referenceImage(
     const { src } = imageSrc;
     let id;
     let isSuccess;
+    let isViewportLazy;
     let resolvedSrc: string | undefined;
     let selector;
     if (src) {
-        ({ id, isSuccess, url: resolvedSrc } = this.loadImageAsync(
+        ({ id, isSuccess, url: resolvedSrc, isViewportLazy } = this.loadImageAsync(
             imageSrc,
             { alt },
             className,
@@ -50,18 +51,23 @@ export default function referenceImage(
         ? `span#${isSuccess ? `${id}_${token.range.start}` : id}.${imageClass}`
         : `span.${imageClass}`;
     selector += `.${CLASS_NAMES.MU_OUTPUT_REMOVE}`;
+    const wrapperData = isViewportLazy
+        ? { attrs: { 'data-image-lazy': 'pending' } }
+        : {};
     if (isSuccess)
         selector += `.${className}`;
+    else if (isViewportLazy)
+        selector += `.${CLASS_NAMES.MU_IMAGE_LOADING}`;
     else
         selector += `.${CLASS_NAMES.MU_IMAGE_FAIL}`;
 
     return isSuccess
         ? [
-                h(selector, tag),
+                h(selector, wrapperData, tag),
                 // Prefer the resolved URL from the loadImageAsync cache; fall
                 // back to the raw src if the cache hasn't been populated for
                 // some reason.
                 h(`img.${CLASS_NAMES.MU_COPY_REMOVE}`, { props: { alt, src: resolvedSrc ?? src, title } }),
             ]
-        : [h(selector, tag)];
+        : [h(selector, wrapperData, tag)];
 }

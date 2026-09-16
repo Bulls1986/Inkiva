@@ -11,9 +11,27 @@ import type { EditorState } from '@/store/editor'
 import { useRecentDocumentsStore } from '@/store/recentDocuments'
 import getCommandDescriptionById from './descriptions'
 import { t } from '../i18n'
+import { rendererPerformance } from '@/services/performance/runtime'
+import {
+  BACKGROUND_PRIORITY,
+  BackgroundTaskScheduler
+} from '../util/backgroundScheduler'
 
 const SEARCH_DEBOUNCE_MS = 220
 const QUICK_OPEN_RESULT_LIMIT = 100
+
+const quickOpenBackgroundScheduler = new BackgroundTaskScheduler({
+  onSlice: (task, durationMs) => {
+    if (!rendererPerformance.enabled) return
+    rendererPerformance.recordSample('background.taskSlice', 'ms', durationMs, {
+      phase: 'search',
+      metadata: {
+        taskId: task.id,
+        priority: task.priority
+      }
+    })
+  }
+})
 
 interface QuickOpenSubcommand {
   id: string
@@ -96,6 +114,7 @@ class QuickOpenCommand {
   private _indexRootPath: string | null
   private _pathIndex: SearchPathIndex
   private _searchGeneration: number
+  private _indexTaskCancellers: Array<() => void>
 
   constructor(rootState: RootState) {
     this.id = 'file.quick-open'
@@ -118,6 +137,7 @@ class QuickOpenCommand {
     this._indexRootPath = null
     this._pathIndex = new SearchPathIndex()
     this._searchGeneration = 0
+    this._indexTaskCancellers = []
 
     bus.on('project-tree-changed', this._handleProjectTreeChanged)
   }
@@ -241,17 +261,43 @@ class QuickOpenCommand {
     })
 
   private _handleProjectTreeChanged = (payload: unknown): void => {
-    const type =
-      payload && typeof payload === 'object' && 'type' in payload
-        ? String((payload as { type?: unknown }).type)
-        : ''
-    if (type === 'add' || type === 'unlink' || type === 'addDir' || type === 'unlinkDir') {
-      this._invalidateIndex()
+    if (!payload || typeof payload !== 'object') return
+
+    const { type, change } = payload as {
+      type?: unknown
+      change?: { pathname?: unknown }
+    }
+    const pathname = typeof change?.pathname === 'string' ? change.pathname : ''
+    const rootPath = this._indexRootPath
+    if (!rootPath || !pathname || !window.fileUtils.isChildOfDirectory(rootPath, pathname)) return
+
+    // The directory watcher emits the initial tree as a burst of add events.
+    // Cancelling the in-flight full index for every one of those events can
+    // starve a large workspace: the query then observes whichever partial
+    // index happened to win the cancellation race. Keep one scan in flight and
+    // apply live changes to the same index instead.
+    if (type === 'add') {
+      this._pathIndex.add([pathname])
+      return
+    }
+
+    if (type === 'unlink') {
+      this._pathIndex.remove([pathname])
+      return
+    }
+
+    if (type === 'unlinkDir') {
+      const descendants = this._pathIndex.values().filter((candidate) =>
+        window.fileUtils.isChildOfDirectory(pathname, candidate)
+      )
+      this._pathIndex.remove(descendants)
     }
   }
 
   private _invalidateIndex = (): void => {
     this._indexSearch?.cancel()
+    for (const cancel of this._indexTaskCancellers) cancel()
+    this._indexTaskCancellers = []
     this._indexSearch = null
     this._indexPromise = null
     this._indexRootPath = null
@@ -266,6 +312,10 @@ class QuickOpenCommand {
     this._invalidateIndex()
     this._indexRootPath = rootPath
     const index = new SearchPathIndex()
+    // Make the in-flight index visible to watcher updates immediately. The
+    // final assignment below still protects against a root change race.
+    this._pathIndex = index
+    const indexWork: Promise<void>[] = []
     const search = this._directorySearcher.search([rootPath], '', {
       didMatch: (payload: unknown) => {
         const paths = Array.isArray(payload)
@@ -273,20 +323,33 @@ class QuickOpenCommand {
           : typeof payload === 'string'
             ? [payload]
             : []
-        index.add(paths)
+        if (this._indexRootPath !== rootPath) return
+        const task = quickOpenBackgroundScheduler.enqueueAndWait({
+          id: 'quick-open-index:' + rootPath + ':' + String(indexWork.length),
+          priority: BACKGROUND_PRIORITY.backgroundIndexing,
+          run: () => {
+            index.add(paths)
+          }
+        })
+        this._indexTaskCancellers.push(task.cancel)
+        indexWork.push(task.promise.catch(() => {}))
       },
       inclusions: window.fileUtils.MARKDOWN_INCLUSIONS
     })
     this._indexSearch = search
     this._indexPromise = search
-      .then(() => {
+      .then(async() => {
+        await Promise.all(indexWork)
         if (this._indexRootPath === rootPath) {
           this._pathIndex = index
         }
         return index.values()
       })
       .finally(() => {
-        if (this._indexSearch === search) this._indexSearch = null
+        if (this._indexSearch === search) {
+          this._indexSearch = null
+          this._indexTaskCancellers = []
+        }
       })
     return this._indexPromise
   }

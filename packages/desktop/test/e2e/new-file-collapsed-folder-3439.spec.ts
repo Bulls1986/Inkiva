@@ -3,7 +3,12 @@ import type { ElectronApplication, Page } from 'playwright'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { launchElectron, showSidebarPanel, waitForMenuReady } from './helpers'
+import {
+  launchElectron,
+  showSidebarPanel,
+  waitForMenuReady,
+  waitForWorkspaceReady
+} from './helpers'
 
 // #3439 — invoking "New File" (sidebar context menu) on a COLLAPSED folder did
 // nothing: the create <input> only renders inside the folder's expanded
@@ -37,6 +42,7 @@ test.describe('New File on a collapsed folder (#3439)', () => {
     const launched = await launchElectron([projectPath])
     app = launched.app
     page = launched.page
+    await waitForWorkspaceReady(page)
     await waitForMenuReady(app)
     await showSidebarPanel(app, page, 'files')
     await page.waitForSelector('.side-bar-folder .folder-name', { timeout: 10000 })

@@ -16,6 +16,8 @@ import { wordCount as getWordCount } from '@muyajs/core'
 import { adjustCursor } from '../../util'
 import bus from '../../bus'
 import { getApplicationAppearance } from 'common/theme'
+import { EXTREME_DOCUMENT_VIEWPORT_MARGIN } from '@/util/largeDocumentMode'
+import { SourceSnapshotScheduler } from './sourceCodeHotPath'
 
 // CodeMirror 5 ships no first-party types; the wrapper in src/renderer/src/
 // codeMirror/index.ts also keeps the surface intentionally loose.
@@ -31,6 +33,7 @@ const props = defineProps<{
   markdown?: string
   muyaIndexCursor?: unknown
   textDirection: string
+  degraded?: boolean
 }>()
 
 const editorStore = useEditorStore()
@@ -43,8 +46,13 @@ const commitTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const viewDestroyed = ref(false)
 const tabId = ref<string | null>(null)
 let applyingFileChange = false
+const sourceSnapshotScheduler = new SourceSnapshotScheduler()
+let latestMarkdown = props.markdown ?? ''
+let latestWordCount: ReturnType<typeof getWordCount> | undefined
 
 const { theme, sourceCode } = storeToRefs(preferencesStore)
+
+const isSourceSurface = (): boolean => sourceCode.value || props.degraded === true
 const { currentFile: currentTab } = storeToRefs(editorStore)
 
 const isValidMuyaIndexCursor = (cursor: unknown): cursor is MuyaIndexCursorLike => {
@@ -95,15 +103,33 @@ const getCursor = (cm: CMInstance) => {
 }
 
 const getMarkdownAndCursor = (cm: CMInstance) => {
-  return { cursor: getCursor(cm), markdown: cm.getValue() as string }
+  return { cursor: getCursor(cm), markdown: latestMarkdown }
 }
 
 const commitWordCount = (id: string, markdown: string): void => {
+  const wordCount = getWordCount(markdown)
+  latestWordCount = wordCount
   editorStore.LISTEN_FOR_CONTENT_CHANGE({
     id,
     markdown,
-    wordCount: getWordCount(markdown)
+    wordCount
   })
+}
+
+const captureSourceSnapshot = (id: string, revision: number, cm: CMInstance): void => {
+  if (viewDestroyed.value || tabId.value !== id) return
+  const markdown = cm.getValue() as string
+  latestMarkdown = markdown
+  editorStore.LISTEN_FOR_CONTENT_CHANGE({
+    id,
+    markdown,
+    revision,
+    muyaIndexCursor: getCursor(cm)
+  })
+}
+
+const flushSourceSnapshot = (): void => {
+  if (tabId.value) sourceSnapshotScheduler.flush(tabId.value)
 }
 
 /**
@@ -116,17 +142,17 @@ const prepareTabSwitch = () => {
     commitTimer.value = null
   }
   if (tabId.value) {
+    const id = tabId.value
+    flushSourceSnapshot()
     const { cursor, markdown: newMarkdown } = getMarkdownAndCursor(editor.value)
     editorStore.LISTEN_FOR_CONTENT_CHANGE({
-      id: tabId.value,
+      id,
       markdown: newMarkdown,
       muyaIndexCursor: cursor,
-      // The timer is metadata-only and is cancelled at a tab boundary. Publish
-      // the final count here so switching tabs cannot leave stale derived
-      // state; this does not allocate a new dirty revision or duplicate the
-      // content autosave because the markdown was already committed by
-      // `change`.
-      wordCount: getWordCount(newMarkdown)
+      // The word-count timer is metadata-only. Reuse the last completed value
+      // at a tab boundary so a large source document does not pay another full
+      // text scan in the tab-switch critical path.
+      wordCount: latestWordCount
     })
     tabId.value = null
   }
@@ -181,6 +207,7 @@ const handleFileChange = (payload: unknown) => {
   }
 
   if (typeof newMarkdown === 'string') {
+    latestMarkdown = newMarkdown
     applyingFileChange = true
     try {
       editor.value.setValue(newMarkdown)
@@ -213,7 +240,7 @@ const handleInvalidateImageCache = () => {
 }
 
 const handleSelectAll = () => {
-  if (!sourceCode.value) {
+  if (!isSourceSurface()) {
     return
   }
 
@@ -232,7 +259,7 @@ const handleSelectAll = () => {
 }
 
 const handleUndo = () => {
-  if (!sourceCode.value) {
+  if (!isSourceSurface()) {
     return
   }
 
@@ -242,7 +269,7 @@ const handleUndo = () => {
 }
 
 const handleRedo = () => {
-  if (!sourceCode.value) {
+  if (!isSourceSurface()) {
     return
   }
 
@@ -308,27 +335,29 @@ const handleImageAction = (payload: unknown) => {
 }
 
 const saveContent = (cm: CMInstance) => {
-  const { cursor, markdown: newMarkdown } = getMarkdownAndCursor(cm)
-  // See "beforeDestroy" note
+  // The CodeMirror change event is the P0 input boundary. Mark the tab dirty
+  // and persist the caret synchronously, but defer the O(document-size)
+  // `getValue()` snapshot until the coalesced idle timer or a hard boundary.
   if (!viewDestroyed.value) {
     if (tabId.value) {
       const id = tabId.value
       const revision = editorStore.MARK_CONTENT_DIRTY(id)
-      editorStore.LISTEN_FOR_CONTENT_CHANGE({
+      editorStore.PERSIST_MUYA_INDEX_CURSOR(id, getCursor(cm))
+      sourceSnapshotScheduler.request(
         id,
-        markdown: newMarkdown,
         revision,
-        muyaIndexCursor: cursor
-      })
+        (latestRevision) => captureSourceSnapshot(id, latestRevision, cm)
+      )
 
       // Word counting scans the whole source text. Keep it out of the
-      // CodeMirror change callback and publish it once the user pauses.
+      // CodeMirror change callback and publish it once the user pauses. Flush
+      // the pending snapshot first so this timer never performs a second full
+      // document read.
       if (commitTimer.value) clearTimeout(commitTimer.value)
       commitTimer.value = setTimeout(() => {
         commitTimer.value = null
         if (viewDestroyed.value || tabId.value !== id) return
-        const latestMarkdown = editor.value?.getValue()
-        if (typeof latestMarkdown !== 'string') return
+        sourceSnapshotScheduler.flush(id)
         commitWordCount(id, latestMarkdown)
       }, 120)
     } else {
@@ -377,15 +406,18 @@ onMounted(() => {
   currentTab.value.cursor = undefined
 
   const { markdown, muyaIndexCursor, textDirection } = props
+  latestMarkdown = markdown ?? ''
+  latestWordCount = currentTab.value.wordCount
   const container = sourceCodeContainer.value
+  const degraded = props.degraded === true
   const codeMirrorConfig: Record<string, unknown> = {
     value: markdown,
     lineNumbers: true,
     autofocus: true,
-    lineWrapping: true,
+    lineWrapping: !degraded,
     styleActiveLine: true,
     direction: textDirection,
-    viewportMargin: Infinity,
+    viewportMargin: degraded ? EXTREME_DOCUMENT_VIEWPORT_MARGIN : Infinity,
     lineNumberFormatter (line: number) {
       if (line % 10 === 0 || line === 1) {
         return line
@@ -405,6 +437,7 @@ onMounted(() => {
   bus.on('redo', handleRedo)
   bus.on('image-action', handleImageAction)
   bus.on('scroll-to-header', handleScrollToHeader)
+  bus.on('flush-active-editor', flushSourceSnapshot)
 
   // For some reason, code mirror does not seem to play well with Vue's refs if we reference editor.value directly.
   // See https://github.com/codemirror/codemirror5/issues/6886 - hence, we need to use a local variable first.
@@ -434,7 +467,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  viewDestroyed.value = true
   if (commitTimer.value) clearTimeout(commitTimer.value)
 
   bus.off('file-loaded', handleFileChange)
@@ -445,11 +477,18 @@ onBeforeUnmount(() => {
   bus.off('redo', handleRedo)
   bus.off('image-action', handleImageAction)
   bus.off('scroll-to-header', handleScrollToHeader)
+  bus.off('flush-active-editor', flushSourceSnapshot)
 
+  const id = tabId.value
+  // Flush while the component is still current; the callback is guarded by
+  // tabId/viewDestroyed and would otherwise reject the last edit.
+  if (id) sourceSnapshotScheduler.flush(id)
+  viewDestroyed.value = true
   const { cursor, markdown: newMarkdown } = getMarkdownAndCursor(editor.value)
-  if (tabId.value) commitWordCount(tabId.value, newMarkdown)
+  if (id) commitWordCount(id, newMarkdown)
+  sourceSnapshotScheduler.dispose()
   bus.emit('file-changed', {
-    id: tabId.value,
+    id,
     markdown: newMarkdown,
     muyaIndexCursor: cursor,
     renderCursor: true

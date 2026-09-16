@@ -1,0 +1,1 @@
+export const FOLDER_SEARCH_DEBOUNCE_MS = 50

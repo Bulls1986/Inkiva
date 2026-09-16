@@ -22,7 +22,20 @@
       </button>
     </header>
     <div
-      v-if="html"
+      v-if="isDegradedPreview"
+      class="split-document-bounded-preview"
+      data-split-preview-mode="bounded-source"
+    >
+      <div
+        class="split-document-degraded-notice"
+        role="status"
+      >
+        Extreme documents use a bounded secondary preview. Activate the tab to edit the full source.
+      </div>
+      <pre class="split-document-source-preview">{{ preview }}</pre>
+    </div>
+    <div
+      v-else-if="html"
       class="split-document-content markdown-body"
       v-html="html"
     />
@@ -36,8 +49,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { MarkdownToHtml } from '@muyajs/core'
+import {
+  getBoundedDocumentPreview,
+  shouldUseDegradedLargeDocumentMode
+} from '@/util/largeDocumentMode'
 import type { IFileState } from '@shared/types/files'
 
 const props = defineProps<{
@@ -50,6 +67,10 @@ defineEmits<{
 }>()
 
 const html = ref('')
+const isDegradedPreview = computed(() =>
+  shouldUseDegradedLargeDocumentMode(props.file.markdown)
+)
+const preview = computed(() => getBoundedDocumentPreview(props.file.markdown))
 let renderGeneration = 0
 
 const rewriteLocalImages = (value: string, pathname: string): string => {
@@ -65,8 +86,12 @@ const rewriteLocalImages = (value: string, pathname: string): string => {
 
 const render = async (): Promise<void> => {
   const generation = ++renderGeneration
+  if (isDegradedPreview.value) {
+    html.value = ''
+    return
+  }
   const rendered = await new MarkdownToHtml(props.file.markdown).renderHtml()
-  if (generation !== renderGeneration) return
+  if (generation !== renderGeneration || isDegradedPreview.value) return
   html.value = rewriteLocalImages(rendered, props.file.pathname)
 }
 
@@ -136,6 +161,36 @@ watch(
 .split-document-activate:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
+}
+
+.split-document-bounded-preview {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: auto;
+  background: var(--surface-editor);
+}
+
+.split-document-degraded-notice {
+  flex: 0 0 auto;
+  padding: var(--space-2) var(--space-4);
+  color: var(--text-tertiary);
+  background: var(--surface-chrome);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-size-shortcut);
+}
+
+.split-document-source-preview {
+  flex: 0 0 auto;
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-6) clamp(var(--space-4), 5vw, var(--space-10));
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
 }
 
 .split-document-content {

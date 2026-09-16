@@ -31,14 +31,18 @@
     "test:lifecycle": "pnpm --filter @muyajs/core test:lifecycle && pnpm --filter inkiva test:lifecycle",
     "test:e2e": "pnpm --filter inkiva test:e2e",
     "test:e2e:perf": "pnpm --filter inkiva test:e2e:perf",
-    "test:perf:soak": "node --import tsx --test perf/soak/*.spec.ts",
+    "test:e2e:perf:fast": "pnpm --filter inkiva test:e2e:perf:fast",
+    "test:perf:fast": "node --import tsx --test perf/soak/fast-policy.spec.ts perf/soak/fast-runner.spec.ts",
     "test:release": "node --import tsx --test scripts/verifyUpdateArtifacts.test.ts",
     "typecheck": "pnpm --filter inkiva typecheck",
     "typecheck:watch": "pnpm --filter inkiva typecheck:watch",
     "check": "pnpm lint && pnpm typecheck",
     "gen-third-party": "tsx scripts/generateThirdPartyLicense.ts",
     "validate-licenses": "tsx scripts/validateLicenses.ts",
-    "verify-update-artifacts": "tsx scripts/verifyUpdateArtifacts.ts"
+    "verify-update-artifacts": "tsx scripts/verifyUpdateArtifacts.ts",
+    "test:perf:gate": "node --import tsx --test perf/gate/*.spec.ts",
+    "test:e2e:gate": "pnpm --filter inkiva test:e2e:gate",
+    "test:e2e:gate:large": "pnpm --filter inkiva test:e2e:gate:large"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.29.7",

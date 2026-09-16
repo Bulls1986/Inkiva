@@ -1,0 +1,90 @@
+name: Performance Fast Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'packages/desktop/src/**'
+      - 'packages/desktop/test/e2e/performance-fast-gate.spec.ts'
+      - 'packages/desktop/test/performance/**'
+      - 'packages/muya/src/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'perf/soak/**'
+      - 'perf/gate/**'
+      - '.github/workflows/performance-fast-gate.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  desktop-fast:
+    name: Desktop PR fast hard gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4.3.1
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libx11-dev libxkbfile-dev libsecret-1-dev libfontconfig-dev \
+            xvfb libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+            libdrm2 libgtk-3-0 libgbm1 libasound2t64
+
+      - uses: ./.github/actions/setup
+
+      - name: Validate fast performance contracts
+        run: pnpm test:perf:fast
+
+      - name: Run postinstall
+        run: pnpm tsx scripts/postinstall.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm_config_user_agent: pnpm
+          USE_ELECTRON_CLANG: '0'
+
+      - name: Build app
+        run: pnpm build
+
+      - name: Run desktop fast performance gate
+        id: fast-gate
+        run: xvfb-run --auto-servernum pnpm test:e2e:perf:fast
+        env:
+          INKIVA_PERF_MODE: 'pr-smoke'
+          INKIVA_RUN_PERF_FAST_GATE: 'true'
+          INKIVA_PERF_CAPTURE: 'true'
+          INKIVA_PERF_OFFLINE: 'true'
+          INKIVA_PERF_RUNNER_LABEL: 'fast-pr-smoke'
+          INKIVA_PERF_SAMPLE_INTERVAL_MS: '250'
+          INKIVA_PERF_MAX_RENDERER_EVENTS: '50000'
+          INKIVA_PERF_REPORT_DIR: ${{ github.workspace }}/packages/desktop/test-results/perf-results/fast
+
+      - name: Evaluate fast hard thresholds
+        if: always()
+        run: >-
+          pnpm exec tsx perf/soak/fast-runner.ts
+          --input packages/desktop/test-results/perf-results/fast/fast.raw.json
+          --thresholds perf/soak/thresholds-fast.json
+          --output perf-results/fast-evaluation.json
+          --report-output perf-results/fast-report.json
+        env:
+          INKIVA_PERF_MODE: 'pr-smoke'
+          INKIVA_PERF_RUNNER_LABEL: 'fast-pr-smoke'
+
+      - name: Upload fast performance reports
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: desktop-performance-fast-gate
+          path: |
+            perf-results/fast-evaluation.json
+            perf-results/fast-report.json
+            packages/desktop/test-results/perf-results/fast/
+          if-no-files-found: error
+          retention-days: 14

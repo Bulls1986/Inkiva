@@ -12,7 +12,7 @@ import { showEditorContextMenu } from '../contextMenu/editor'
 import { loadMarkdownFile } from '../filesystem/markdown'
 import { switchLanguage } from '../spellchecker'
 import type { BufferStoreState } from '../editorBufferStore/restore'
-import { mainPerformance } from '../performance/runtime'
+import { mainPerformance, mainProcessPerformanceMonitor } from '../performance/runtime'
 import { canonicalPathKey } from '../session/pathCanonicalizer'
 import type { RestorePlan } from '../session/restorePlan'
 
@@ -146,17 +146,18 @@ class EditorWindow extends BaseWindow {
     let rendererInitialized = false
     let editorInteractive = false
 
-    // A renderer that has not completed the bootstrap handshake cannot have
-    // unsaved editor state. Allow the native close to continue in that phase;
-    // otherwise app.quit() can be held indefinitely by the close-confirmation
-    // IPC round trip while Vue is still mounting.
+    // The bootstrap handshake only means the renderer can receive state. The
+    // editor is interactive only after the first Muya document has mounted,
+    // painted, and reported the document-editable milestone.
     const onRendererIpcMessage = (event: IpcMainEvent, channel: string): void => {
-      if (event.sender === rendererWebContents && channel === 'mt::window-initialized') {
+      if (event.sender !== rendererWebContents) return
+
+      if (channel === 'mt::window-initialized') {
         rendererInitialized = true
-        if (!editorInteractive) {
-          editorInteractive = true
-          this.emit('window-interactive')
-        }
+        this.emit('window-renderer-ready')
+      } else if (channel === 'mt::document-editable' && !editorInteractive) {
+        editorInteractive = true
+        this.emit('window-interactive')
       }
     }
     rendererWebContents.on('ipc-message', onRendererIpcMessage)
@@ -258,6 +259,7 @@ class EditorWindow extends BaseWindow {
       // window instead of waiting forever for a response that cannot arrive.
       rendererInitialized = false
       if (reason === 'clean-exit') return
+      mainProcessPerformanceMonitor.recordRendererCrash(reason === 'oom')
 
       const msg = `The renderer process has crashed unexpected or is killed (${reason}).`
       log.error(msg)
@@ -278,6 +280,10 @@ class EditorWindow extends BaseWindow {
             return this.reload()
         }
       }
+    })
+
+    win.webContents.on('unresponsive', () => {
+      mainProcessPerformanceMonitor.recordRendererHang()
     })
 
     win.on('focus', () => {

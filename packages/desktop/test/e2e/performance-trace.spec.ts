@@ -28,9 +28,12 @@ const createReportDirectory = (): { directory: string; cleanup: () => void } => 
 test('@perf writes a correlated startup report when performance capture is enabled', async() => {
   const { directory, cleanup } = createReportDirectory()
   let launched: Awaited<ReturnType<typeof launchElectron>> | undefined
+  const fixtureDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-perf-trace-'))
+  const fixturePath = path.join(fixtureDirectory, 'startup.md')
+  fs.writeFileSync(fixturePath, ['# Startup trace', '', 'A document-backed shell.', ''].join('\n'), 'utf8')
 
   try {
-    launched = await launchElectron([], {
+    launched = await launchElectron([fixturePath], {
       env: {
         INKIVA_PERF_CAPTURE: 'true',
         INKIVA_PERF_REPORT_DIR: directory
@@ -39,6 +42,7 @@ test('@perf writes a correlated startup report when performance capture is enabl
     await expect(launched.page.locator('.editor-container')).toBeVisible()
   } finally {
     if (launched) await closeElectron(launched.app)
+    fs.rmSync(fixtureDirectory, { recursive: true, force: true })
   }
 
   try {
@@ -57,7 +61,8 @@ test('@perf writes a correlated startup report when performance capture is enabl
         'electron_ready',
         'browser_window_created',
         'renderer_bootstrap_start',
-        'app_shell_mounted'
+        'app_shell_mounted',
+        'document_editable'
       ])
     )
     expect(events.every((event) => typeof event.timestampEpochMs === 'number')).toBe(true)

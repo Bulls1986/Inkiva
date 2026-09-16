@@ -258,6 +258,14 @@ class JSONState {
         return deepClone(this._state);
     }
 
+    // The initial ScrollPage can render a large document progressively. Give it
+    // the authoritative state as a read-only source so it can clone only the
+    // blocks entering the DOM; public callers must continue to use getState(),
+    // which returns an isolated snapshot.
+    getStateForRender(): TState[] {
+        return this._state;
+    }
+
     getMarkdown() {
         // StateToMarkdown is read-only with respect to the document tree (it
         // only clones list meta before applying output-only marker overrides),

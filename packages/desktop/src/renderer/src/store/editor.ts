@@ -25,6 +25,7 @@ import { t } from '../i18n'
 import { debouncedSendBufferedState, sendBufferedState } from './bufferedState'
 import { AutosaveQueue, type AutosaveRequest } from './autosaveQueue'
 import { getTabIdsToCloseRight, pushClosedTab } from './tabsWorkflow'
+import { buildTabLifecycle, type TabLifecycle } from './tabLifecycle'
 import type {
   IFileState,
   FileNotification,
@@ -152,6 +153,8 @@ export interface EditorState {
   currentFile: IFileState | null
   tabs: IFileState[]
   tabIdToIndex: Record<string, number>
+  tabLifecycle: Record<string, TabLifecycle>
+  tabActivationOrder: string[]
   pinnedTabIds: string[]
   closedTabs: ClosedTabState[]
   listToc: TocItem[]
@@ -216,6 +219,8 @@ export const useEditorStore = defineStore('editor', {
     currentFile: null,
     tabs: [],
     tabIdToIndex: {},
+    tabLifecycle: {},
+    tabActivationOrder: [],
     pinnedTabIds: [],
     closedTabs: [],
     listToc: [], // Used for equal check and for searching for the correct github-slug to jump to
@@ -229,6 +234,16 @@ export const useEditorStore = defineStore('editor', {
         map[tab.id] = index
         return map
       }, {})
+    },
+
+    SYNC_TAB_LIFECYCLE(): void {
+      const snapshot = buildTabLifecycle({
+        tabIds: this.tabs.map((tab) => tab.id),
+        activeId: this.currentFile?.id ?? null,
+        activationOrder: this.tabActivationOrder
+      })
+      this.tabActivationOrder = snapshot.activationOrder
+      this.tabLifecycle = snapshot.byId
     },
 
     _recordClosedTab(file: IFileState): void {
@@ -283,6 +298,8 @@ export const useEditorStore = defineStore('editor', {
         s.tabs = tabs
         s.currentFile = currentFile
         s.tabIdToIndex = {}
+        s.tabLifecycle = {}
+        s.tabActivationOrder = []
         s.pinnedTabIds = bufferedEditorState.pinnedPathnames.reduce<string[]>((ids, pathname) => {
           const tab = tabs.find((candidate) => window.fileUtils.isSamePathSync(candidate.pathname, pathname))
           if (tab) ids.push(tab.id)
@@ -295,6 +312,7 @@ export const useEditorStore = defineStore('editor', {
       })
 
       this.updateTabIdToIndex()
+      this.SYNC_TAB_LIFECYCLE()
       window.DIRNAME = currentFile?.pathname ? window.path.dirname(currentFile.pathname) : ''
       this.UPDATE_LINE_ENDING_MENU()
       const recentDocumentsStore = useRecentDocumentsStore()
@@ -965,6 +983,7 @@ export const useEditorStore = defineStore('editor', {
           this.tabs.push(currentFile)
           this.updateTabIdToIndex()
         }
+        this.SYNC_TAB_LIFECYCLE()
 
         bus.emit('file-changed', {
           id,
@@ -1180,6 +1199,7 @@ export const useEditorStore = defineStore('editor', {
       if (pathname) {
         window.electron.ipcRenderer.send('mt::window-tab-closed', pathname)
       }
+      this.SYNC_TAB_LIFECYCLE()
       debouncedSendBufferedState()
     },
 
@@ -1339,6 +1359,7 @@ export const useEditorStore = defineStore('editor', {
         this.toc = []
         this.activeTocSlug = null
       }
+      this.SYNC_TAB_LIFECYCLE()
       debouncedSendBufferedState()
     },
 
@@ -1481,6 +1502,7 @@ export const useEditorStore = defineStore('editor', {
       } else {
         this.tabs.push(fileState)
         this.updateTabIdToIndex()
+        this.SYNC_TAB_LIFECYCLE()
         debouncedSendBufferedState()
       }
     },
@@ -1551,6 +1573,7 @@ export const useEditorStore = defineStore('editor', {
       } else {
         this.tabs.push(docState)
         this.updateTabIdToIndex()
+        this.SYNC_TAB_LIFECYCLE()
         debouncedSendBufferedState()
       }
 
@@ -1672,7 +1695,7 @@ export const useEditorStore = defineStore('editor', {
       if (blocks) tab.blocks = blocks
 
       // Only update TOC if it's the current file
-      if (id === this.currentFile?.id && toc && !equal(toc, this.listToc)) {
+      if (id === this.currentFile?.id && toc) {
         this.UPDATE_TOC(toc, false)
       }
 

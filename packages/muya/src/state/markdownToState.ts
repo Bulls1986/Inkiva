@@ -14,6 +14,7 @@ import { firstWordOfInfo } from '../utils';
 import { getDiagramType } from '../utils/diagram/languages';
 import logger from '../utils/logger';
 import { lexBlock } from '../utils/marked';
+import { TokenWorklist } from './tokenWorklist';
 
 const debug = logger('import markdown: ');
 
@@ -63,19 +64,22 @@ export class MarkdownToState {
         // markdownToState injects synthetic `block-end` markers (see the
         // blockquote/list/list_item/footnote cases below) to pop the parent
         // stack, so the working stream is wider than what `lexBlock` returns.
-        const tokens: TBlockToken[] = lexBlock(markdown, {
+        const tokens = new TokenWorklist(lexBlock(markdown, {
             footnote,
             math,
             frontMatter,
             isGitlabCompatibilityEnabled,
-        });
+        }));
 
         const states: TState[] = [];
         let token: TBlockToken | undefined;
+        // Keep the active parent at the end of the stack so entering and
+        // leaving deeply nested containers stays O(1). The old front-based
+        // shift/unshift stack moved every ancestor on each container boundary.
         const parentList: TState[][] = [states];
 
         // eslint-disable-next-line no-cond-assign
-        while ((token = tokens.shift())) {
+        while ((token = tokens.take())) {
             if (CONTAINER_TOKEN_TYPES.has(token.type))
                 this._handleContainerToken(token, parentList, tokens);
             else
@@ -88,8 +92,10 @@ export class MarkdownToState {
     private _handleContainerToken(
         token: TBlockToken,
         parentList: TState[][],
-        tokens: TBlockToken[],
+        tokens: TokenWorklist<TBlockToken>,
     ) {
+        const currentParent = parentList[parentList.length - 1]!;
+
         let state: TState;
         switch (token.type) {
             // Marks the end of the children's traversal and a return to the previous level
@@ -98,16 +104,16 @@ export class MarkdownToState {
                 // >
                 // bar
                 if (
-                    parentList[0].length === 0
+                    currentParent.length === 0
                     && (token.tokenType === 'blockquote' || token.tokenType === 'list-item')
                 ) {
                     state = {
                         name: 'paragraph' as const,
                         text: '',
                     };
-                    parentList[0].push(state);
+                    currentParent.push(state);
                 }
-                parentList.shift();
+                parentList.pop();
                 break;
             }
 
@@ -116,10 +122,10 @@ export class MarkdownToState {
                     name: 'block-quote' as const,
                     children: [],
                 };
-                parentList[0].push(state);
-                parentList.unshift(state.children);
-                tokens.unshift({ type: 'block-end', tokenType: 'blockquote' });
-                tokens.unshift(...(token.tokens as TBlockToken[]));
+                currentParent.push(state);
+                parentList.push(state.children);
+                tokens.prepend([{ type: 'block-end', tokenType: 'blockquote' }]);
+                tokens.prepend(token.tokens as TBlockToken[]);
                 break;
             }
 
@@ -162,10 +168,10 @@ export class MarkdownToState {
                 }
 
                 state = listState;
-                parentList[0].push(state);
-                parentList.unshift(state.children);
-                tokens.unshift({ type: 'block-end', tokenType: 'list' });
-                tokens.unshift(...(token.items as TBlockToken[]));
+                currentParent.push(state);
+                parentList.push(state.children);
+                tokens.prepend([{ type: 'block-end', tokenType: 'list' }]);
+                tokens.prepend(token.items as TBlockToken[]);
                 break;
             }
 
@@ -187,10 +193,10 @@ export class MarkdownToState {
                 }
 
                 state = itemState;
-                parentList[0].push(state);
-                parentList.unshift(state.children);
-                tokens.unshift({ type: 'block-end', tokenType: 'list-item' });
-                tokens.unshift(...(token.tokens as TBlockToken[]));
+                currentParent.push(state);
+                parentList.push(state.children);
+                tokens.prepend([{ type: 'block-end', tokenType: 'list-item' }]);
+                tokens.prepend(token.tokens as TBlockToken[]);
                 break;
             }
 
@@ -198,17 +204,17 @@ export class MarkdownToState {
                 // The footnote extension (utils/marked/extensions/footnote.ts)
                 // emits a parent token whose `tokens` array holds nested
                 // block tokens. Mirror that into a `footnote` container
-                // state and recurse via tokens.unshift / block-end.
+                // state and recurse via the worklist / block-end marker.
                 const { identifier } = token;
                 state = {
                     name: 'footnote' as const,
                     meta: { identifier },
                     children: [],
                 };
-                parentList[0].push(state);
-                parentList.unshift(state.children);
-                tokens.unshift({ type: 'block-end', tokenType: 'footnote' });
-                tokens.unshift(...(token.tokens as TBlockToken[]));
+                currentParent.push(state);
+                parentList.push(state.children);
+                tokens.prepend([{ type: 'block-end', tokenType: 'footnote' }]);
+                tokens.prepend(token.tokens as TBlockToken[]);
                 break;
             }
         }
@@ -217,9 +223,11 @@ export class MarkdownToState {
     private _handleLeafToken(
         token: TBlockToken,
         parentList: TState[][],
-        tokens: TBlockToken[],
+        tokens: TokenWorklist<TBlockToken>,
         trimUnnecessaryCodeBlockEmptyLines: boolean,
     ) {
+        const currentParent = parentList[parentList.length - 1]!;
+
         let state: TState;
         let value: string;
         switch (token.type) {
@@ -236,7 +244,7 @@ export class MarkdownToState {
                     text: value,
                 };
 
-                parentList[0].push(state);
+                currentParent.push(state);
                 break;
             }
 
@@ -246,7 +254,7 @@ export class MarkdownToState {
                     text: token.raw.replace(/\n+$/, ''),
                 };
 
-                parentList[0].push(state);
+                currentParent.push(state);
                 break;
             }
 
@@ -273,7 +281,7 @@ export class MarkdownToState {
                     state = setextState;
                 }
 
-                parentList[0].push(state);
+                currentParent.push(state);
                 break;
             }
 
@@ -283,7 +291,7 @@ export class MarkdownToState {
                 // (fenced text has none); strip it so indented blocks round-trip.
                 const codeText = codeBlockStyle === 'indented' ? text.replace(/\n$/, '') : text;
                 const fenceLength = /^ {0,3}([`~]{3,})/.exec(raw)?.[1].length;
-                parentList[0].push(
+                currentParent.push(
                     this._buildCodeState(codeText, infoString, codeBlockStyle, trimUnnecessaryCodeBlockEmptyLines, fenceLength),
                 );
                 break;
@@ -322,7 +330,7 @@ export class MarkdownToState {
                 );
 
                 state = tableState;
-                parentList[0].push(state);
+                currentParent.push(state);
                 break;
             }
 
@@ -335,14 +343,14 @@ export class MarkdownToState {
                         name: 'paragraph' as const,
                         text,
                     };
-                    parentList[0].push(state);
+                    currentParent.push(state);
                 }
                 else {
                     state = {
                         name: 'html-block' as const,
                         text,
                     };
-                    parentList[0].push(state);
+                    currentParent.push(state);
                 }
                 break;
             }
@@ -355,21 +363,21 @@ export class MarkdownToState {
                     text,
                     meta: { mathStyle },
                 };
-                parentList[0].push(state);
+                currentParent.push(state);
                 break;
             }
 
             case 'text': {
                 value = token.text;
-                while (tokens[0]?.type === 'text') {
-                    const next = tokens.shift() as Extract<TBlockToken, { type: 'text' }>;
+                while (tokens.peek()?.type === 'text') {
+                    const next = tokens.take() as Extract<TBlockToken, { type: 'text' }>;
                     value += `\n${next.text}`;
                 }
                 state = {
                     name: 'paragraph',
                     text: value,
                 };
-                parentList[0].push(state);
+                currentParent.push(state);
                 break;
             }
 
@@ -379,7 +387,7 @@ export class MarkdownToState {
                     name: 'paragraph' as const,
                     text: value,
                 };
-                parentList[0].push(state);
+                currentParent.push(state);
                 break;
             }
 
@@ -400,7 +408,7 @@ export class MarkdownToState {
                     name: 'paragraph' as const,
                     text: token.raw.replace(/\n+$/, ''),
                 };
-                parentList[0].push(state);
+                currentParent.push(state);
                 break;
             }
 

@@ -188,6 +188,18 @@ function parseTableHeader(text: string) {
 class ParagraphContent extends Format {
     public override parent: Nullable<Paragraph> = null;
 
+    private _referenceDefinitionKey: string | null = null;
+
+    private _syncReferenceDefinition(): string | null {
+        const { label, info } = this.inlineRenderer.getLabelInfo(this);
+        const key = label && info ? JSON.stringify({ label, info }) : null;
+        if (key !== this._referenceDefinitionKey) {
+            this.inlineRenderer.invalidateReferenceDefinitions();
+            this._referenceDefinitionKey = key;
+        }
+        return label;
+    }
+
     static override blockName = 'paragraph.content';
 
     static create(muya: Muya, text: string) {
@@ -209,11 +221,19 @@ class ParagraphContent extends Format {
     }
 
     override update(cursor?: IRenderCursor, highlights = []) {
+        const label = this._syncReferenceDefinition();
         this.inlineRenderer.patch(this, cursor, highlights);
-        const { label } = this.inlineRenderer.getLabelInfo(this);
 
         if (this.scrollPage && label)
             this.scrollPage.updateRefLinkAndImage(label);
+    }
+
+    override dispose(): void {
+        if (this._referenceDefinitionKey !== null) {
+            this.inlineRenderer.invalidateReferenceDefinitions();
+            this._referenceDefinitionKey = null;
+        }
+        super.dispose();
     }
 
     override backspaceHandler(event: Event) {

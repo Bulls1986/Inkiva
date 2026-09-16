@@ -1,4 +1,6 @@
+import { app } from 'electron'
 import { createMainPerformanceCoordinator } from './index'
+import { MainProcessPerformanceMonitor } from './processMonitor'
 import { resolvePerformanceCaptureConfig } from './config'
 
 const captureConfig = resolvePerformanceCaptureConfig(process.env)
@@ -10,7 +12,8 @@ const captureConfig = resolvePerformanceCaptureConfig(process.env)
  */
 export const mainPerformance = createMainPerformanceCoordinator({
   enabled: captureConfig.enabled,
-  reportDirectory: captureConfig.reportDirectory
+  reportDirectory: captureConfig.reportDirectory,
+  maxRendererEvents: captureConfig.maxRendererEvents
 })
 
 mainPerformance.mark('process_entry', {
@@ -23,3 +26,21 @@ mainPerformance.mark('process_entry', {
 })
 
 export { captureConfig }
+
+export const mainProcessPerformanceMonitor = new MainProcessPerformanceMonitor({
+  recorder: mainPerformance,
+  sampleIntervalMs: captureConfig.sampleIntervalMs,
+  source: {
+    getAppMetrics: () => app.getAppMetrics(),
+    getProcessMemoryInfo: () => {
+      const electronProcess = process as typeof process & {
+        getProcessMemoryInfo?: () => Promise<{ privateBytes?: number; workingSetSize?: number }>
+      }
+      return electronProcess.getProcessMemoryInfo
+        ? electronProcess.getProcessMemoryInfo()
+        : Promise.resolve({})
+    }
+  }
+})
+
+mainProcessPerformanceMonitor.start()

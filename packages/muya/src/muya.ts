@@ -3,6 +3,7 @@ import type Parent from './block/base/parent';
 import type { TBlockPath } from './block/types';
 import type { Listener } from './event/types';
 import type { ILocale } from './i18n/types';
+import type { Search as SearchModule } from './search';
 import type { IIndexCursor } from './selection/offsetCursor';
 import type { IHistorySelection, IPublicCursorInput } from './selection/types';
 import type { ITocItem } from './state/getTOC';
@@ -222,6 +223,10 @@ export class Muya {
         this.editor.jsonState.flush();
     }
 
+    whenRenderComplete(): Promise<void> {
+        return this.editor.whenRenderComplete();
+    }
+
     getTOC(): ITocItem[] {
         return this.editor.jsonState.getTOC();
     }
@@ -258,6 +263,14 @@ export class Muya {
         return this.editor.searchModule.search(value, opts);
     }
 
+    searchAsync(
+        value: string,
+        opts = {},
+        onUpdate?: (search: SearchModule) => void,
+    ) {
+        return this.editor.searchModule.searchAsync(value, opts, onUpdate);
+    }
+
     /**
      * Find preview or next value, and highlight it.
      * @param {string} action : previous or next.
@@ -270,8 +283,8 @@ export class Muya {
         return this.editor.searchModule.replace(replaceValue, opt);
     }
 
-    setContent(content: TState[] | string, autoFocus = false) {
-        this.editor.setContent(content, autoFocus);
+    setContent(content: TState[] | string, autoFocus = false, progressive = true) {
+        this.editor.setContent(content, autoFocus, progressive);
     }
 
     /**
@@ -354,7 +367,7 @@ export class Muya {
 
     private _forceRender() {
         const selection = this.editor.selection.getSelection();
-        this.editor.scrollPage?.updateState(this.getState());
+        this.editor.scrollPage?.updateState(this.getState(), false);
 
         if (selection && selection.isSelectionInSameBlock) {
             const begin = Math.min(selection.anchor.offset, selection.focus.offset);
@@ -1127,9 +1140,9 @@ export class Muya {
         // (setContent clears it) so this stays a caret-only operation.
         const savedHistory = this.getHistory();
 
-        this.editor.setContent(sentinelMarkdown);
+        this.editor.setContent(sentinelMarkdown, false, false);
         const cursor = resolveSentinelCursor(this.editor.scrollPage!);
-        this.editor.setContent(cleanMarkdown);
+        this.editor.setContent(cleanMarkdown, false, false);
         this.setHistory(savedHistory);
 
         if (!cursor)
