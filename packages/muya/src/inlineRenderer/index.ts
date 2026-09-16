@@ -19,16 +19,18 @@ const debug = logger('inlineRenderer:');
 const INLINE_SYNTAX_HINT = /[\\*_`![<>&~$^:#\n]/;
 const BARE_AUTOLINK_HINT = /@|(?:^|\s)(?:www\.|https?:\/\/)/i;
 
-const canRenderAsPlainText = (
+function canRenderAsPlainText(
     text: string,
     cursor: IRenderCursor | undefined,
     highlights: IHighlight[],
-): boolean => (
-    !cursor?.block
-    && highlights.length === 0
-    && !INLINE_SYNTAX_HINT.test(text)
-    && !BARE_AUTOLINK_HINT.test(text)
-);
+): boolean {
+    return (
+        !cursor?.block
+        && highlights.length === 0
+        && !INLINE_SYNTAX_HINT.test(text)
+        && !BARE_AUTOLINK_HINT.test(text)
+    );
+}
 
 class InlineRenderer {
     public labels: Labels = new Map();
