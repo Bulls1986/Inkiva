@@ -78,6 +78,48 @@ describe('scrollPage progressive rendering', () => {
             .toBe(sourceLevel);
     });
 
+    it('keeps a cached state isolated after a zero-copy content switch', () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, { markdown: 'cached content\n' });
+        mountedEditors.push(muya);
+
+        muya.init();
+        const cachedState = muya.getState();
+        muya.setContent(cachedState);
+
+        const firstContent = muya.editor.scrollPage!.firstContentInDescendant() as unknown as {
+            text: string;
+        };
+        firstContent.text = 'edited after switch';
+        muya.flush();
+
+        expect((cachedState[0] as unknown as { text: string }).text).toBe('cached content');
+        expect(muya.getMarkdown()).toContain('edited after switch');
+    });
+
+    it('reuses parsed Markdown state without sharing later edits', () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, { markdown: 'cached markdown\n' });
+        mountedEditors.push(muya);
+
+        muya.init();
+        const cachedState = muya.editor.jsonState.getStateForRender();
+        muya.setContent('cached markdown\n');
+
+        expect(muya.editor.jsonState.getStateForRender()).toBe(cachedState);
+
+        muya.focus();
+        muya.insertParagraph('after', 'changed markdown');
+        muya.flush();
+        muya.setContent('cached markdown\n');
+
+        expect(muya.getMarkdown()).toContain('cached markdown');
+        expect(muya.getMarkdown()).not.toContain('changed markdown');
+        expect((cachedState[0] as unknown as { text: string }).text).toBe('cached markdown');
+    });
+
     it('mounts only the initial block window before completing in the background', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);

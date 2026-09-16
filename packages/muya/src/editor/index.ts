@@ -521,10 +521,14 @@ export class Editor {
 
     setContent(content: TState[] | string, autoFocus = false, progressive = true) {
         this.jsonState.setContent(content);
-        const state = this.jsonState.getState();
+        // The ScrollPage clones each block as it enters the render tree. Using
+        // the authoritative state directly here avoids a full-document clone
+        // on every tab switch while keeping DOM block instances isolated from
+        // JSONState and its cached tab snapshot.
+        const state = this.jsonState.getStateForRender();
 
         this.inlineRenderer.invalidateReferenceDefinitions();
-        this.scrollPage!.updateState(state, progressive);
+        this.scrollPage!.updateState(state, progressive, true);
         this.history.clear();
         this.searchModule.reset();
 

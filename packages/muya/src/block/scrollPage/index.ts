@@ -339,17 +339,14 @@ export class ScrollPage extends Parent {
         resolve?.();
     }
 
-    updateState(state: TState[], progressive = true) {
+    updateState(state: TState[], progressive = true, cloneBlocks = false) {
         this._cancelProgressiveRender();
         // Empty scrollPage dom
         this.empty();
         if (progressive)
-            // `Editor.setContent` and rebuild paths already provide an
-            // isolated state snapshot. Keep lazy cloning limited to the
-            // initial cold-start source state.
-            this._mountState(state, false);
+            this._mountState(state, cloneBlocks);
         else
-            this._mountBlocks(state, false, false);
+            this._mountBlocks(state, false, cloneBlocks);
     }
 
     /**

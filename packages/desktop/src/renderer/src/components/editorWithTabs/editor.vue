@@ -322,6 +322,17 @@ const flushActiveEditor = () => {
   if (id) editorSnapshotScheduler.flush(id)
 }
 
+// A tab switch must persist the last queued edit before replacing the Muya
+// document, but it does not need to deep-clone the whole block tree in the
+// click handler. The existing cached blocks are invalidated and the Markdown
+// snapshot remains authoritative; a later idle snapshot can repopulate blocks
+// when the user stays on the tab.
+const flushActiveEditorForTabSwitch = () => {
+  const id = currentFile.value?.id
+  editor.value?.flush()
+  if (id) editorSnapshotScheduler.flush(id, false)
+}
+
 // The engine's undo/redo history (`getHistory()`) has a different shape than
 // the desktop store's `tab.history` (which drives the save/dirty tracking and
 // is migrated separately). We therefore keep the real engine history in a
@@ -363,10 +374,14 @@ const makeSyntheticHistory = (id: string, content: string): IFileHistoryLike => 
   return getSyntheticHistory(id, content).build(content)
 }
 
-const captureEditorSnapshot = (id: string, revision: number): void => {
+const captureEditorSnapshot = (
+  id: string,
+  revision: number,
+  includeBlocks = true
+): void => {
   if (!currentFile.value || currentFile.value.id !== id || !editor.value) return
 
-  const markdown = editor.value.getMarkdown()
+  const markdown = serializeEditorMarkdown(editor.value)
   const engineHistory = editor.value.getHistory()
   engineHistoryByTab.set(id, engineHistory)
   editorStore.LISTEN_FOR_CONTENT_CHANGE({
@@ -378,7 +393,10 @@ const captureEditorSnapshot = (id: string, revision: number): void => {
     // Synthetic, desktop-shaped history so the store's save/dirty tracking
     // keeps working (the engine history shape is incompatible).
     history: makeSyntheticHistory(id, markdown),
-    blocks: editor.value.getState()
+    // A switch-boundary flush only needs Markdown/history/caret. Clear the
+    // reusable block cache so a subsequent activation cannot reuse a stale
+    // state that predates the last edit.
+    blocks: includeBlocks ? editor.value.getState() : null
   })
 }
 // Drop per-tab bookkeeping for tabs that no longer exist. Tab ids are unique
@@ -1516,7 +1534,7 @@ const handleExport = async (options: unknown) => {
 
   const extraCss = await getCssForOptions(opts as unknown as PdfCssOptions)
   const htmlToc = getHtmlToc(editor.value.getTOC(), opts as unknown as HtmlTocOptions)
-  const markdown = editor.value.getMarkdown()
+  const markdown = serializeEditorMarkdown(editor.value)
   const header = (opts.header ?? null) as HeaderFooterPart | null
   const footer = (opts.footer ?? null) as HeaderFooterPart | null
 
@@ -1717,14 +1735,40 @@ const recordEditorSetContent = (source: EditorSetContentSource): void => {
     __inkiva_e2e_editor_metrics__?: {
       setContentCalls: number
       setContentSources: EditorSetContentSource[]
+      markdownSerializationCalls: number
     }
   }
   const metrics = (globalState.__inkiva_e2e_editor_metrics__ ??= {
     setContentCalls: 0,
-    setContentSources: []
+    setContentSources: [],
+    markdownSerializationCalls: 0
   })
+  metrics.markdownSerializationCalls ??= 0
   metrics.setContentCalls += 1
   metrics.setContentSources.push(source)
+}
+
+const recordEditorMarkdownSerialization = (): void => {
+  if (window.electron?.process?.env?.PERF_TESTING !== 'true') return
+
+  const globalState = globalThis as typeof globalThis & {
+    __inkiva_e2e_editor_metrics__?: {
+      setContentCalls: number
+      setContentSources: EditorSetContentSource[]
+      markdownSerializationCalls: number
+    }
+  }
+  const metrics = (globalState.__inkiva_e2e_editor_metrics__ ??= {
+    setContentCalls: 0,
+    setContentSources: [],
+    markdownSerializationCalls: 0
+  })
+  metrics.markdownSerializationCalls = (metrics.markdownSerializationCalls ?? 0) + 1
+}
+
+const serializeEditorMarkdown = (instance: MuyaInstance): string => {
+  recordEditorMarkdownSerialization()
+  return instance.getMarkdown()
 }
 
 type TocMetric = 'scheduledRefreshes' | 'refreshCalls'
@@ -1866,6 +1910,10 @@ const setMarkdownToEditor = (payload: unknown) => {
     cursor: newCursor,
     contentAlreadyLoaded
   } = (payload ?? {}) as FileLoadedPayload
+  // `file-loaded` is normally emitted immediately after the matching
+  // `file-changed`, but it can be delayed by an IPC/open flow. Never let a
+  // late load event rebuild whichever tab the user selected in the meantime.
+  if (id && currentFile.value && currentFile.value.id !== id) return
   if (editor.value) {
     if (!contentAlreadyLoaded) {
       beginEditorPerformanceOperation(id)
@@ -1892,7 +1940,7 @@ const setMarkdownToEditor = (payload: unknown) => {
     // raw payload) so it matches the markdown later emitted on `json-change`
     // — the engine may normalize trailing newlines / whitespace on round-trip.
     if (id) {
-      resetSyntheticHistory(id, editor.value.getMarkdown())
+      resetSyntheticHistory(id, serializeEditorMarkdown(editor.value))
     }
     if (newCursor) {
       runWhenEditorRenderComplete(id, (instance) => {
@@ -1947,6 +1995,11 @@ const handleFileChange = (payload: unknown) => {
     isReload
   } = (payload ?? {}) as FileChangePayload
   if (!editor.value) return
+  // Bus events from file-open/reload flows can arrive after a newer tab has
+  // become active. A stale rebuild is especially harmful here: it can cancel
+  // the current progressive render and leave the renderer doing expensive work
+  // for a document the user no longer selected.
+  if (id && currentFile.value && currentFile.value.id !== id) return
   const container = getScrollContainer()
   if (!container) return
 
@@ -2049,11 +2102,12 @@ const handleFileChange = (payload: unknown) => {
         editor.value.setHistory(savedEngineHistory)
       }
       // First activation of a tab the save-tracking allocator has never seen:
-      // seed its clean baseline from the engine's serialization now, before
-      // any edit. For a tab that already has a tracker this is a no-op —
-      // switching back must keep the existing content -> id map.
-      if (id) {
-        getSyntheticHistory(id, editor.value.getMarkdown())
+      // seed its clean baseline from the payload already held by the store.
+      // For a tab that already has a tracker this is a no-op — switching back
+      // must keep the existing content -> id map and must not serialize the
+      // whole document just to discover that no seed is needed.
+      if (id && !syntheticHistoryByTab.has(id)) {
+        getSyntheticHistory(id, newMarkdown)
       }
     }
     editorLayoutReconciler?.reset()
@@ -2261,7 +2315,7 @@ onMounted(() => {
   // after the first edit — so the pristine content never maps to id 0 and
   // undoing back to the on-disk content can never read as clean again (PG15).
   if (currentFile.value?.id) {
-    getSyntheticHistory(currentFile.value.id, muya.getMarkdown())
+    getSyntheticHistory(currentFile.value.id, serializeEditorMarkdown(muya))
   }
 
   const container = getScrollContainer()!
@@ -2326,6 +2380,7 @@ onMounted(() => {
   bus.on('image-uploaded', handleUploadedImage)
   bus.on('file-changed', handleFileChange)
   bus.on('flush-active-editor', flushActiveEditor)
+  bus.on('flush-active-editor-for-tab-switch', flushActiveEditorForTabSwitch)
   bus.on('editor-blur', blurEditor)
   bus.on('editor-focus', focusEditor)
   bus.on('copyAsRich', handleCopyPaste)
@@ -2364,7 +2419,7 @@ onMounted(() => {
     const revision = editorStore.MARK_CONTENT_DIRTY(id)
     editorSnapshotScheduler.request(
       id,
-      () => captureEditorSnapshot(id, revision),
+      (includeBlocks) => captureEditorSnapshot(id, revision, includeBlocks),
       policy.snapshot === 'immediate'
     )
 
@@ -2502,6 +2557,7 @@ onBeforeUnmount(() => {
   bus.off('image-uploaded', handleUploadedImage)
   bus.off('file-changed', handleFileChange)
   bus.off('flush-active-editor', flushActiveEditor)
+  bus.off('flush-active-editor-for-tab-switch', flushActiveEditorForTabSwitch)
   bus.off('editor-blur', blurEditor)
   bus.off('editor-focus', focusEditor)
   bus.off('copyAsRich', handleCopyPaste)
