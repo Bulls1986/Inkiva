@@ -322,6 +322,16 @@ const flushActiveEditor = () => {
   if (id) editorSnapshotScheduler.flush(id)
 }
 
+// A tab switch must persist the last queued edit before replacing the Muya
+// document, but it does not need to deep-clone the whole block tree in the
+// switch handler. Keep the Markdown/history snapshot and invalidate the
+// reusable blocks cache; an idle snapshot can repopulate blocks later.
+const flushActiveEditorForTabSwitch = () => {
+  const id = currentFile.value?.id
+  editor.value?.flush()
+  if (id) editorSnapshotScheduler.flush(id, false)
+}
+
 // The engine's undo/redo history (`getHistory()`) has a different shape than
 // the desktop store's `tab.history` (which drives the save/dirty tracking and
 // is migrated separately). We therefore keep the real engine history in a
@@ -363,10 +373,37 @@ const makeSyntheticHistory = (id: string, content: string): IFileHistoryLike => 
   return getSyntheticHistory(id, content).build(content)
 }
 
-const captureEditorSnapshot = (id: string, revision: number): void => {
+const recordEditorMarkdownSerialization = (): void => {
+  if (window.electron?.process?.env?.PERF_TESTING !== 'true') return
+
+  const globalState = globalThis as typeof globalThis & {
+    __inkiva_e2e_editor_metrics__?: {
+      setContentCalls: number
+      setContentSources: EditorSetContentSource[]
+      markdownSerializationCalls: number
+    }
+  }
+  const metrics = (globalState.__inkiva_e2e_editor_metrics__ ??= {
+    setContentCalls: 0,
+    setContentSources: [],
+    markdownSerializationCalls: 0
+  })
+  metrics.markdownSerializationCalls = (metrics.markdownSerializationCalls ?? 0) + 1
+}
+
+const serializeEditorMarkdown = (instance: MuyaInstance): string => {
+  recordEditorMarkdownSerialization()
+  return instance.getMarkdown()
+}
+
+const captureEditorSnapshot = (
+  id: string,
+  revision: number,
+  includeBlocks = true
+): void => {
   if (!currentFile.value || currentFile.value.id !== id || !editor.value) return
 
-  const markdown = editor.value.getMarkdown()
+  const markdown = serializeEditorMarkdown(editor.value)
   const engineHistory = editor.value.getHistory()
   engineHistoryByTab.set(id, engineHistory)
   editorStore.LISTEN_FOR_CONTENT_CHANGE({
@@ -378,7 +415,10 @@ const captureEditorSnapshot = (id: string, revision: number): void => {
     // Synthetic, desktop-shaped history so the store's save/dirty tracking
     // keeps working (the engine history shape is incompatible).
     history: makeSyntheticHistory(id, markdown),
-    blocks: editor.value.getState()
+    // A switch-boundary flush only needs Markdown/history/caret. Clear the
+    // reusable block cache so a subsequent activation cannot reuse a stale
+    // state that predates the last edit.
+    blocks: includeBlocks ? editor.value.getState() : null
   })
 }
 // Drop per-tab bookkeeping for tabs that no longer exist. Tab ids are unique
@@ -2326,7 +2366,7 @@ onMounted(() => {
   bus.on('image-uploaded', handleUploadedImage)
   bus.on('file-changed', handleFileChange)
   bus.on('flush-active-editor', flushActiveEditor)
-  bus.on('flush-active-editor-for-tab-switch', flushActiveEditor)
+  bus.on('flush-active-editor-for-tab-switch', flushActiveEditorForTabSwitch)
   bus.on('editor-blur', blurEditor)
   bus.on('editor-focus', focusEditor)
   bus.on('copyAsRich', handleCopyPaste)
@@ -2365,7 +2405,7 @@ onMounted(() => {
     const revision = editorStore.MARK_CONTENT_DIRTY(id)
     editorSnapshotScheduler.request(
       id,
-      () => captureEditorSnapshot(id, revision),
+      (includeBlocks) => captureEditorSnapshot(id, revision, includeBlocks),
       policy.snapshot === 'immediate'
     )
 
@@ -2503,7 +2543,7 @@ onBeforeUnmount(() => {
   bus.off('image-uploaded', handleUploadedImage)
   bus.off('file-changed', handleFileChange)
   bus.off('flush-active-editor', flushActiveEditor)
-  bus.off('flush-active-editor-for-tab-switch', flushActiveEditor)
+  bus.off('flush-active-editor-for-tab-switch', flushActiveEditorForTabSwitch)
   bus.off('editor-blur', blurEditor)
   bus.off('editor-focus', focusEditor)
   bus.off('copyAsRich', handleCopyPaste)
