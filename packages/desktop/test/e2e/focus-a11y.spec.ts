@@ -19,15 +19,15 @@ test.describe('Inkiva keyboard focus and accessibility', () => {
   test('keeps sidebar and tab controls reachable by keyboard', async() => {
     await showSidebarPanel(app, page, 'files')
 
-    const rail = page.locator('.side-bar .sidebar-icon-button')
-    await expect(rail).toHaveCount(5)
-    await expect(rail.first()).toHaveAttribute('aria-label', /.+/)
+    const controls = page.locator('.side-bar .sidebar-control')
+    await expect(controls).toHaveCount(5)
+    await expect(controls.first()).toHaveAttribute('aria-label', /.+/)
 
-    await rail.first().focus()
+    await controls.first().focus()
     await page.keyboard.press('Tab')
-    await expect(rail.nth(1)).toBeFocused()
+    await expect(controls.nth(1)).toBeFocused()
 
-    const ring = await rail.nth(1).evaluate((element) => {
+    const ring = await controls.nth(1).evaluate((element) => {
       const styles = getComputedStyle(element)
       return {
         outlineStyle: styles.outlineStyle,

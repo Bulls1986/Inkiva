@@ -36,7 +36,11 @@
      the reference layout. Keep the outer column fixed and centered so the
      document does not stretch with a large window. */
   --markdown-content-width: 924px;
+  --markdown-content-side-padding: 50px;
   --editorContentTopPadding: 40px;
+  --markdown-heading-weight: 600;
+  --markdown-heading-letter-spacing: -0.025em;
+  --markdown-quote-surface: rgb(11 99 229 / 4%);
   --markdown-text-primary: var(--text-primary);
   --markdown-text-secondary: var(--text-secondary);
   --markdown-text-muted: var(--text-tertiary);
@@ -99,6 +103,7 @@
   --control-height-sm: 28px;
   --control-height-md: 32px;
   --control-height-lg: 36px;
+  --sidebar-navigation-height: 58px;
   --documentTabsHeight: 34px;
 
   /* Motion and elevation */
@@ -139,6 +144,7 @@
 
   --markdown-accent-soft: rgb(91 156 255 / 8%);
   --markdown-accent-muted: rgb(91 156 255 / 55%);
+  --markdown-quote-surface: rgb(91 156 255 / 8%);
   --markdown-selection: rgb(45 128 255 / 20%);
 
   --border-subtle: #2B2F36;
@@ -171,6 +177,7 @@
 
   --markdown-accent-soft: rgb(11 99 229 / 4%);
   --markdown-accent-muted: rgb(11 99 229 / 50%);
+  --markdown-quote-surface: rgb(11 99 229 / 4%);
   --markdown-selection: rgb(11 99 229 / 12%);
 
   --border-subtle: #DFE1DE;

@@ -68,7 +68,10 @@ export const useLayoutStore = defineStore('layout', () => {
 
   const effectiveSideBarWidth = computed<number>(() => {
     if (!showSideBar.value) return 0
-    if (!rightColumn.value) return 45
+    // The writing layout no longer reserves a permanent icon rail when a
+    // panel is closed. Reopening is handled by the explicit View > Sidebar
+    // action, so the editor can reclaim the full width.
+    if (!rightColumn.value) return 0
     return Number(sideBarWidth.value)
   })
 

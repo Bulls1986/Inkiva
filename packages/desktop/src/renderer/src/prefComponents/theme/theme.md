@@ -1,3 +1,7 @@
-### {theme}
+# A quiet page
 
-**Lorem Ipsum** is simply [dummy](http://marktext.app) text of the printing and typesetting industry.
+The best ideas need room to arrive.
+
+### {theme} appearance
+
+Write clearly, keep the surface calm, and let the words lead.

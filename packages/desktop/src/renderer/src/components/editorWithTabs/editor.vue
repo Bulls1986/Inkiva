@@ -2619,11 +2619,24 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   cursor: default;
   overflow-anchor: none !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  background: var(--surface-editor);
 }
 
 .editor-component .mu-container {
   padding-top: var(--editorContentTopPadding, 40px);
   padding-bottom: 100vh;
+}
+
+.editor-component .mu-editor {
+  color: var(--markdown-text-primary);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.editor-component .mu-container > h1:first-child {
+  margin-top: 0;
 }
 
 .typewriter .editor-component {

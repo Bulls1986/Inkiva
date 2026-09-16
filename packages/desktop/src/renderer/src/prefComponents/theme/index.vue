@@ -141,7 +141,7 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
   width: 100%;
   height: 110px;
   margin: 0;
-  padding: var(--space-4) 18px var(--space-4) 32px;
+  padding: var(--space-4) 18px var(--space-4) 28px;
   overflow: hidden;
   cursor: pointer;
   color: var(--text-secondary);
@@ -222,14 +222,16 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
 
 .official-themes h3::before {
   position: absolute;
-  top: 4px;
-  left: -20px;
+  top: 50%;
+  left: -14px;
   display: block;
-  width: 10px;
-  height: 10px;
+  width: 4px;
+  height: 4px;
   color: currentColor;
-  content: 'h3';
-  font-size: var(--font-ui-sm);
+  content: '';
+  background: currentColor;
+  border-radius: 50%;
+  transform: translateY(-50%);
   opacity: 0.5;
 }
 

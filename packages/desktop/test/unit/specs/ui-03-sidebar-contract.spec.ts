@@ -10,15 +10,17 @@ const read = (relativePath: string): string =>
   readFileSync(resolve(sidebar, relativePath), 'utf8')
 
 describe('Inkiva UI-03 sidebar contract', () => {
-  it('keeps the icon rail quiet and gives it a usable 45px hit area', () => {
-    const css = read('index.vue')
+  it('uses one labeled, frameless navigation surface for the writing workflow', () => {
+    const source = read('index.vue')
 
-    expect(css).toContain('width: var(--hit-target-sidebar);')
-    expect(css).toContain('height: var(--hit-target-sidebar);')
-    expect(css).toContain('color: var(--icon-secondary);')
-    expect(css).toContain('color: var(--color-accent);')
-    expect(css).not.toContain('background: var(--surface-selected);')
-    expect(css).not.toContain('transition: all')
+    expect(source).toContain('class="sidebar-navigation"')
+    expect(source).toContain('sidebar-nav-button')
+    expect(source).toContain('sidebar-settings-button')
+    expect(source).toContain('data-testid="sidebar-document-info-button"')
+    expect(source).not.toContain('class="left-column"')
+    expect(source).not.toContain('width: var(--hit-target-sidebar);')
+    expect(source).not.toContain('background: var(--surface-selected);')
+    expect(source).not.toContain('transition: all')
   })
 
   it('uses a subtle current-file surface instead of a blue rail and blue label', () => {
@@ -47,5 +49,6 @@ describe('Inkiva UI-03 sidebar contract', () => {
     expect(source).toContain('NARROW_SIDE_BAR_WIDTH = 240')
     expect(source).toContain('OVERLAY_WINDOW_BREAKPOINT = 590')
     expect(source).toContain("'side-bar--overlay'")
+    expect(source).toContain("if (rightColumn.value === '') return 0")
   })
 })

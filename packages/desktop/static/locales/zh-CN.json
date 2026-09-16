@@ -116,7 +116,7 @@
       "sourceCodeMode": "源码模式",
       "typewriterMode": "打字机模式",
       "focusMode": "专注模式",
-      "toggleTableOfContents": "切换目录",
+      "toggleTableOfContents": "切换大纲",
       "reloadImages": "重新加载图片",
       "showDeveloperTools": "显示开发者工具",
       "reloadWindow": "重新加载窗口"
@@ -212,7 +212,7 @@
       "openFolder": "打开文件夹"
     },
     "toc": {
-      "title": "目录",
+      "title": "大纲",
       "search": "搜索标题…",
       "expandAll": "展开全部",
       "collapseAll": "折叠全部",
@@ -222,7 +222,7 @@
     "icons": {
       "files": "文件",
       "search": "搜索",
-      "toc": "目录",
+      "toc": "大纲",
       "settings": "设置"
     }
   },

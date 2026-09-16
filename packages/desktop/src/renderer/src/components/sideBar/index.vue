@@ -4,55 +4,76 @@
     ref="sideBar"
     class="side-bar"
     :class="{ 'side-bar--overlay': isOverlayWindow }"
-    :style="[!rightColumn ? { 'min-width': '45px' } : {}, { width: `${finalSideBarWidth}px` }]"
+    :style="[!rightColumn ? { 'min-width': '0' } : {}, { width: `${finalSideBarWidth}px` }]"
   >
-    <div class="left-column">
-      <ul>
-        <li
-          v-for="(c, index) of sideBarIcons"
-          :key="index"
-          :class="{ active: c.id === rightColumn }"
-        >
+    <div class="sidebar-panel">
+      <nav
+        class="sidebar-navigation"
+        aria-label="Sidebar navigation"
+      >
+        <div class="sidebar-primary-navigation">
           <button
+            v-for="(c, index) of primarySideBarIcons"
+            :key="index"
             type="button"
-            class="sidebar-icon-button"
+            class="sidebar-control sidebar-icon-button sidebar-nav-button"
+            :class="{ active: c.id === rightColumn }"
             :aria-label="c.name()"
             :aria-pressed="c.id === rightColumn"
-            @click="handleLeftIconClick(c.id)"
+            data-testid="sidebar-panel-button"
+            @click="handlePanelClick(c.id)"
           >
-            <component :is="c.icon" />
+            <component
+              :is="c.icon"
+              aria-hidden="true"
+            />
+            <span>{{ c.name() }}</span>
           </button>
-        </li>
-      </ul>
-      <ul class="bottom">
-        <li
+        </div>
+        <button
+          type="button"
+          class="sidebar-control sidebar-more-button"
+          :class="{ active: rightColumn === documentIntelligencePanel.id }"
+          :aria-label="documentIntelligencePanel.name()"
+          :aria-pressed="rightColumn === documentIntelligencePanel.id"
+          :title="documentIntelligencePanel.name()"
+          data-testid="sidebar-document-info-button"
+          @click="handlePanelClick(documentIntelligencePanel.id)"
+        >
+          <MoreFilled aria-hidden="true" />
+        </button>
+      </nav>
+      <div
+        v-show="rightColumn"
+        class="right-column"
+      >
+        <tree
+          v-if="rightColumn === 'files'"
+          :project-tree="projectTree"
+          :opened-files="openedFiles"
+          :tabs="tabs"
+        />
+        <side-bar-search v-else-if="rightColumn === 'search'" />
+        <toc v-else-if="rightColumn === 'toc'" />
+        <document-intelligence v-else-if="rightColumn === 'document-intelligence'" />
+      </div>
+      <div class="sidebar-footer">
+        <button
           v-for="(c, index) of sideBarBottomIcons"
           :key="index"
+          type="button"
+          class="sidebar-control sidebar-settings-button"
+          :aria-label="c.name()"
+          data-testid="sidebar-settings-button"
+          @click="handleBottomClick(c.id)"
         >
-          <button
-            type="button"
-            class="sidebar-icon-button"
-            :aria-label="c.name()"
-            @click="handleLeftBottomClick(c.id)"
-          >
-            <component :is="c.icon" />
-          </button>
-        </li>
-      </ul>
-    </div>
-    <div
-      v-show="rightColumn"
-      class="right-column"
-    >
-      <tree
-        v-if="rightColumn === 'files'"
-        :project-tree="projectTree"
-        :opened-files="openedFiles"
-        :tabs="tabs"
-      />
-      <side-bar-search v-else-if="rightColumn === 'search'" />
-      <toc v-else-if="rightColumn === 'toc'" />
-      <document-intelligence v-else-if="rightColumn === 'document-intelligence'" />
+          <component
+            :is="c.icon"
+            aria-hidden="true"
+          />
+          <span>{{ c.name() }}</span>
+        </button>
+      </div>
     </div>
     <div
       v-show="rightColumn"
@@ -64,6 +85,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { MoreFilled } from '@element-plus/icons-vue'
 import { useLayoutStore } from '@/store/layout'
 import { useProjectStore } from '@/store/project'
 import { useEditorStore } from '@/store/editor'
@@ -98,6 +120,9 @@ const { rightColumn, showSideBar, sideBarWidth } = storeToRefs(layoutStore)
 const { projectTree } = storeToRefs(projectStore)
 const { tabs } = storeToRefs(editorStore)
 
+const primarySideBarIcons = sideBarIcons.filter((entry) => entry.id !== 'document-intelligence')
+const documentIntelligencePanel = sideBarIcons.find((entry) => entry.id === 'document-intelligence')!
+
 const isNarrowWindow = computed<boolean>(() => windowWidth.value <= NARROW_WINDOW_BREAKPOINT)
 const isOverlayWindow = computed<boolean>(() => windowWidth.value <= OVERLAY_WINDOW_BREAKPOINT)
 
@@ -110,7 +135,7 @@ const clampSideBarWidthForViewport = (width: number): number => {
 
 const finalSideBarWidth = computed<number>(() => {
   if (!showSideBar.value) return 0
-  if (rightColumn.value === '') return 45
+  if (rightColumn.value === '') return 0
   return clampSideBarWidthForViewport(sideBarViewWidth.value)
 })
 
@@ -167,25 +192,19 @@ onBeforeUnmount(() => {
   removeDragBarListener?.()
 })
 
-const handleLeftIconClick = (name: string): void => {
-  if (rightColumn.value === name) {
-    // Capture the expanded width BEFORE collapsing: once rightColumn is '',
-    // finalSideBarWidth evaluates to the 45px icon strip and would overwrite
-    // the user's real width with the clamped minimum (#2421).
-    const widthToPersist = +sideBarWidth.value
-    layoutStore.SET_LAYOUT({ rightColumn: '' })
-    layoutStore.CHANGE_SIDE_BAR_WIDTH(widthToPersist)
-  } else {
-    const needDispatch = rightColumn.value === ''
-    layoutStore.SET_LAYOUT({ rightColumn: name })
-    sideBarViewWidth.value = +sideBarWidth.value
-    if (needDispatch) {
-      layoutStore.CHANGE_SIDE_BAR_WIDTH(sideBarWidth.value)
-    }
-  }
+const handlePanelClick = (name: string): void => {
+  // Panel navigation is persistent while the sidebar is open. Closing the
+  // sidebar is an explicit View action, so a second click never strands the
+  // user in an unlabeled icon strip.
+  if (rightColumn.value === name && showSideBar.value) return
+
+  const needDispatch = rightColumn.value === '' || !showSideBar.value
+  layoutStore.SET_LAYOUT({ rightColumn: name, showSideBar: true })
+  sideBarViewWidth.value = +sideBarWidth.value
+  if (needDispatch) layoutStore.CHANGE_SIDE_BAR_WIDTH(sideBarWidth.value)
 }
 
-const handleLeftBottomClick = (name: string): void => {
+const handleBottomClick = (name: string): void => {
   if (name === 'settings') {
     projectStore.OPEN_SETTING_WINDOW()
   }
@@ -222,89 +241,149 @@ const handleLeftBottomClick = (name: string): void => {
   z-index: 1;
 }
 
-.side-bar .left-column svg {
-  color: var(--icon-secondary);
+.sidebar-panel {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
 }
 
-.left-column {
-  height: 100%;
-  width: var(--hit-target-sidebar);
+.sidebar-navigation {
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding-top: 0;
+  flex: 0 0 var(--sidebar-navigation-height);
+  align-items: stretch;
+  min-width: 0;
+  padding: 0 var(--space-3);
   box-sizing: border-box;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.left-column > ul {
-  opacity: 1;
-}
-
-.left-column ul {
-  list-style: none;
+.sidebar-primary-navigation {
   display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
+  flex: 1;
+  min-width: 0;
 }
 
-.left-column ul > li {
-  width: var(--hit-target-sidebar);
-  height: var(--hit-target-sidebar);
-  margin: 0;
-  padding: 0;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-}
-
-.sidebar-icon-button {
+.sidebar-control {
   -webkit-app-region: no-drag;
   appearance: none;
   display: flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: var(--hit-target-sidebar);
-  height: var(--hit-target-sidebar);
+  min-height: var(--hit-target-md);
   padding: 0;
-  color: var(--icon-secondary);
+  color: var(--text-secondary);
   background: transparent;
   border: 0;
-  border-radius: var(--radius-sm);
   cursor: pointer;
+  font: inherit;
   transition: color var(--motion-fast), background-color var(--motion-fast), box-shadow var(--motion-fast);
 }
 
-.sidebar-icon-button:focus-visible {
+.sidebar-control:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
 
-.left-column ul > li > .sidebar-icon-button > svg {
-  width: var(--icon-size-lg);
-  height: var(--icon-size-lg);
-  color: var(--icon-secondary);
-  opacity: 1;
-  transition: color var(--motion-fast), opacity var(--motion-fast), transform var(--motion-fast);
+.sidebar-nav-button {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 7px;
+  padding: 0 8px;
+  white-space: nowrap;
 }
 
-.left-column ul > li.active > .sidebar-icon-button > svg {
+.sidebar-nav-button > span,
+.sidebar-settings-button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-nav-button > svg {
+  width: var(--icon-size-lg);
+  height: var(--icon-size-lg);
+  color: currentColor;
+  flex: 0 0 auto;
+  transition: color var(--motion-fast), transform var(--motion-fast);
+}
+
+.sidebar-nav-button::after {
+  content: '';
+  position: absolute;
+  right: var(--space-3);
+  bottom: -1px;
+  left: var(--space-3);
+  height: 2px;
+  background: transparent;
+  transition: background-color var(--motion-fast);
+}
+
+.sidebar-nav-button.active {
   color: var(--color-accent);
 }
 
-.left-column ul > li:hover > .sidebar-icon-button > svg,
-.sidebar-icon-button:hover > svg {
-  color: var(--icon-primary);
+.sidebar-nav-button.active::after {
+  background: var(--color-accent);
 }
 
-.side-bar:hover .left-column ul li .sidebar-icon-button > svg {
-  opacity: 1;
+.sidebar-nav-button:hover,
+.sidebar-nav-button:focus-visible,
+.sidebar-more-button:hover,
+.sidebar-more-button:focus-visible,
+.sidebar-settings-button:hover,
+.sidebar-settings-button:focus-visible {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.sidebar-more-button {
+  flex: 0 0 var(--hit-target-md);
+  width: var(--hit-target-md);
+  color: var(--icon-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.sidebar-more-button.active {
+  color: var(--color-accent);
+}
+
+.sidebar-more-button > svg {
+  width: var(--icon-size-lg);
+  height: var(--icon-size-lg);
+}
+
+.sidebar-footer {
+  display: flex;
+  flex: 0 0 auto;
+  padding: var(--space-3) var(--space-3) var(--space-4);
+}
+
+.sidebar-settings-button {
+  justify-content: flex-start;
+  width: 100%;
+  gap: 10px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+.sidebar-settings-button > svg {
+  width: var(--icon-size-lg);
+  height: var(--icon-size-lg);
+  flex: 0 0 auto;
 }
 
 .right-column {
   flex: 1;
-  width: calc(100% - var(--hit-target-sidebar));
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
