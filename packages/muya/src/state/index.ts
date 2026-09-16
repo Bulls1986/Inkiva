@@ -13,6 +13,19 @@ import { classifyDocumentMutation, isTopLevelTocChange } from './tocChange';
 
 const debug = logger('jsonState:');
 
+// Re-parsing the same clean document on every tab return is unnecessary, but
+// retaining every parsed AST would make memory grow with the number of tabs.
+// Keep a small, input-size-bounded LRU for the document-first tab workflow. Edited
+// documents leave this cache through immutable state application, while large
+// documents above the budget are parsed normally and never retained here.
+const MAX_MARKDOWN_STATE_CACHE_ENTRIES = 8;
+const MAX_MARKDOWN_STATE_CACHE_CHARS = 1_024 * 1_024;
+
+interface IMarkdownStateCacheEntry {
+    state: TState[];
+    chars: number;
+}
+
 // ot-json1 declares its document type as the opaque `Doc`. Muya treats the
 // document as `TState[]`; bridging the two requires `unknown` casts that
 // happen at every callsite. Concentrate them here so production code never
@@ -55,6 +68,12 @@ class JSONState {
 
     private _state: TState[] = [];
 
+    private _markdownStateCache = new Map<string, IMarkdownStateCacheEntry>();
+
+    private _markdownStateCacheChars = 0;
+
+    private _markdownStateCacheOptionsKey = '';
+
     constructor(private _muya: Muya, stateOrMarkdown: TState[] | string) {
         this.setContent(stateOrMarkdown);
     }
@@ -93,7 +112,63 @@ class JSONState {
     }
 
     private _setMarkdown(markdown: string) {
-        this._state = this.markdownToState(markdown);
+        this._syncMarkdownStateCacheOptions();
+
+        const cached = this._markdownStateCache.get(markdown);
+        if (cached) {
+            // Map insertion order is the LRU order. Touch a cache hit so a
+            // repeatedly toggled document remains available for later tabs.
+            this._markdownStateCache.delete(markdown);
+            this._markdownStateCache.set(markdown, cached);
+            this._state = cached.state;
+            return;
+        }
+
+        const state = this.markdownToState(markdown);
+        this._state = state;
+
+        const chars = markdown.length;
+        if (chars > MAX_MARKDOWN_STATE_CACHE_CHARS)
+            return;
+
+        this._markdownStateCache.set(markdown, { state, chars });
+        this._markdownStateCacheChars += chars;
+        while (
+            this._markdownStateCache.size > MAX_MARKDOWN_STATE_CACHE_ENTRIES
+            || this._markdownStateCacheChars > MAX_MARKDOWN_STATE_CACHE_CHARS
+        ) {
+            const oldestMarkdown = this._markdownStateCache.keys().next().value;
+            if (oldestMarkdown === undefined)
+                break;
+
+            const oldest = this._markdownStateCache.get(oldestMarkdown);
+            this._markdownStateCache.delete(oldestMarkdown);
+            this._markdownStateCacheChars -= oldest?.chars ?? 0;
+        }
+    }
+
+    private _syncMarkdownStateCacheOptions(): void {
+        const {
+            footnote,
+            isGitlabCompatibilityEnabled,
+            trimUnnecessaryCodeBlockEmptyLines,
+            frontMatter,
+            math,
+        } = this._muya.options;
+        const optionsKey = [
+            footnote,
+            isGitlabCompatibilityEnabled,
+            trimUnnecessaryCodeBlockEmptyLines,
+            frontMatter,
+            math,
+        ].join('|');
+
+        if (optionsKey === this._markdownStateCacheOptionsKey)
+            return;
+
+        this._markdownStateCache.clear();
+        this._markdownStateCacheChars = 0;
+        this._markdownStateCacheOptionsKey = optionsKey;
     }
 
     // Parse markdown into a block-state array with the editor's current
@@ -321,6 +396,8 @@ class JSONState {
             cancelAnimationFrame(this._rafId);
         this._rafId = null;
         this._operationCache = [];
+        this._markdownStateCache.clear();
+        this._markdownStateCacheChars = 0;
     }
 
     private _flushOperationCache() {
@@ -341,6 +418,7 @@ class JSONState {
         const tocChanged = isTopLevelTocChange(op, previousState);
         const mutationKind = classifyDocumentMutation(op, previousState, tocChanged);
         this._apply(op);
+        this._muya.editor?.scrollPage?.setRenderedState(this._state);
         const getDoc = () => this.getState();
         let previousSnapshot: TState[] | undefined;
         // Clear before emitting: a listener that edits synchronously then starts

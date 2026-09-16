@@ -33,6 +33,7 @@ const metricUnit = (metric: string): 'ms' | 'count' | 'ratio' => {
   if (metric === 'memory.heapGrowth50') return 'ratio'
   if (
     metric.startsWith('stability.') ||
+    metric === 'tabs.8.freeze' ||
     metric === 'document.50k.scrollFps' ||
     metric === 'diagram.firstScreenSyncRender' ||
     metric.startsWith('image.')
@@ -47,7 +48,8 @@ const passingValue = (metric: string): number => {
   if (
     metric.startsWith('stability.') ||
     metric.startsWith('image.') ||
-    metric === 'diagram.firstScreenSyncRender'
+    metric === 'diagram.firstScreenSyncRender' ||
+    metric === 'tabs.8.freeze'
   ) {
     return 0
   }

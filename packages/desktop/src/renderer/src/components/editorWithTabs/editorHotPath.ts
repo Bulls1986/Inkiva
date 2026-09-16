@@ -119,7 +119,7 @@ type SetTimer = (handler: () => void, timeout: number) => TimerHandle
 type ClearTimer = (timer: TimerHandle) => void
 
 interface SnapshotEntry {
-  capture: () => void
+  capture: (includeBlocks?: boolean) => void
   debounceTimer: TimerHandle | null
   maxWaitTimer: TimerHandle | null
 }
@@ -150,7 +150,7 @@ export class EditorSnapshotScheduler {
     this.clearTimer = options.clearTimeout ?? ((timer) => clearTimeout(timer))
   }
 
-  request(id: string, capture: () => void, immediate = false): void {
+  request(id: string, capture: (includeBlocks?: boolean) => void, immediate = false): void {
     if (!id) return
     let entry = this.entries.get(id)
     if (!entry) {
@@ -172,13 +172,13 @@ export class EditorSnapshotScheduler {
     }
   }
 
-  flush(id: string): void {
+  flush(id: string, includeBlocks = true): void {
     const entry = this.entries.get(id)
     if (!entry) return
     if (entry.debounceTimer !== null) this.clearTimer(entry.debounceTimer)
     if (entry.maxWaitTimer !== null) this.clearTimer(entry.maxWaitTimer)
     this.entries.delete(id)
-    entry.capture()
+    entry.capture(includeBlocks)
   }
 
   cancel(id?: string): void {

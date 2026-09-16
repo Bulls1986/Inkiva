@@ -190,14 +190,14 @@ describe('editor store — flush pending edits before saving (#3803)', () => {
       const id = store.currentFile?.id
       if (id) scheduler.flush(id)
     }
-    bus.on('flush-active-editor', flush)
+    bus.on('flush-active-editor-for-tab-switch', flush)
 
     try {
       store.UPDATE_CURRENT_FILE(
         nextTab as unknown as Parameters<typeof store.UPDATE_CURRENT_FILE>[0]
       )
     } finally {
-      bus.off('flush-active-editor', flush)
+      bus.off('flush-active-editor-for-tab-switch', flush)
       scheduler.dispose()
     }
 

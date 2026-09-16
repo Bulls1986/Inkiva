@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import type { ElectronApplication, Page } from 'playwright'
+import type { ElectronApplication, Locator, Page } from 'playwright'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -187,6 +187,82 @@ const measurePageAction = async(
   if (settleAfterAction) await waitForPaint(page)
   const endedAt = await page.evaluate(() => performance.now())
   return Math.max(0, endedAt - startedAt)
+}
+
+const measureTabClick = async(
+  page: Page,
+  target: Locator,
+  waitForActive = false
+): Promise<number> => {
+  const tabId = await target.getAttribute('data-id')
+  if (!tabId) throw new Error('tab click target is missing its data-id')
+
+  await page.evaluate((id) => {
+    const state = globalThis as typeof globalThis & {
+      __inkiva_tab_click_probe__?: {
+        startedAt?: number
+        target: HTMLElement
+        listener: (event: PointerEvent) => void
+      }
+    }
+    const previous = state.__inkiva_tab_click_probe__
+    if (previous) previous.target.removeEventListener('pointerdown', previous.listener, true)
+
+    const target = Array.from(document.querySelectorAll<HTMLElement>('.tabs-container > li')).find(
+      (element) => element.getAttribute('data-id') === id
+    )
+    if (!target) throw new Error('tab click target is no longer mounted')
+
+    const probe: {
+      startedAt?: number
+      target: HTMLElement
+      listener: (event: PointerEvent) => void
+    } = {
+      target,
+      listener: () => {
+        probe.startedAt = performance.now()
+        target.removeEventListener('pointerdown', probe.listener, true)
+      }
+    }
+    target.addEventListener('pointerdown', probe.listener, true)
+    state.__inkiva_tab_click_probe__ = probe
+  }, tabId)
+
+  try {
+    await target.click({ force: true })
+    if (waitForActive) await expect(target).toHaveClass(/active/)
+    await waitForPaint(page)
+    return await page.evaluate(() => {
+      const state = globalThis as typeof globalThis & {
+        __inkiva_tab_click_probe__?: {
+          startedAt?: number
+          target: HTMLElement
+          listener: (event: PointerEvent) => void
+        }
+      }
+      const probe = state.__inkiva_tab_click_probe__
+      if (!probe || typeof probe.startedAt !== 'number') {
+        throw new Error('tab pointerdown did not produce a timing sample')
+      }
+      return Math.max(0, performance.now() - probe.startedAt)
+    })
+  } finally {
+    await page.evaluate(() => {
+      const state = globalThis as typeof globalThis & {
+        __inkiva_tab_click_probe__?: {
+          startedAt?: number
+          target: HTMLElement
+          listener: (event: PointerEvent) => void
+        }
+      }
+      const probe = state.__inkiva_tab_click_probe__
+      if (!probe) return
+      probe.target.removeEventListener('pointerdown', probe.listener, true)
+      delete state.__inkiva_tab_click_probe__
+    }).catch(() => {
+      // Preserve the original action failure if the renderer closes.
+    })
+  }
 }
 
 const installFastGateProbe = async(page: Page): Promise<void> => {
@@ -631,6 +707,67 @@ const collectDocumentSamples = async(
   }
 }
 
+const collectTabSwitchSamples = async(
+  fixtures: FastFixtures,
+  capture: CaptureDirectory,
+  startedAt: number
+): Promise<void> => {
+  let app: ElectronApplication | undefined
+  const tabPaths = fixtures.documents.slice(0, 8)
+  try {
+    const launched = await launchCaptured([fixtures.root, tabPaths[0] as string], capture)
+    app = launched.app
+    const { page } = launched
+    await installFastGateProbe(page)
+    await waitForWorkspaceReady(page)
+    await waitForEditor(page, 60_000)
+
+    for (let index = 1; index < tabPaths.length; index += 1) {
+      const filePath = tabPaths[index] as string
+      await sendIpcFromRenderer(page, 'mt::open-file', filePath, {})
+      await waitForActiveFile(page, filePath)
+    }
+    await expect(page.locator('.tabs-container > li')).toHaveCount(8, { timeout: 60_000 })
+    await waitForPaint(page)
+
+    for (let index = 0; index < SAMPLE_COUNT; index += 1) {
+      const warm = page.locator('.tabs-container > li[data-tab-lifecycle="warm"]').first()
+      const cold = page.locator('.tabs-container > li[data-tab-lifecycle="cold"]').first()
+      const warmId = await warm.getAttribute('data-id')
+      const coldId = await cold.getAttribute('data-id')
+      if (!warmId || !coldId) {
+        throw new Error('8-tab fast gate did not expose warm and cold tabs')
+      }
+      // Lifecycle labels are intentionally recomputed after every activation.
+      // Keep the clicked tab stable by id; otherwise the locator can resolve
+      // to the next warm tab after the click and report a false failure.
+      const warmTarget = page.locator(`.tabs-container > li[data-id="${warmId}"]`)
+      const coldTarget = page.locator(`.tabs-container > li[data-id="${coldId}"]`)
+
+      const warmDuration = await measureTabClick(page, warmTarget, true)
+      await recordSample(page, 'tabs.8.warmSwitch', 'ms', warmDuration)
+
+      const coldDuration = await measureTabClick(page, coldTarget, true)
+      await recordSample(page, 'tabs.8.coldSwitch', 'ms', coldDuration)
+
+      const switchDuration = await measureTabClick(
+        page,
+        page.locator('.tabs-container > li').nth((index + 1) % 8)
+      )
+      await recordSample(page, 'tabs.8.switch', 'ms', switchDuration)
+      await recordSample(page, 'tabs.8.freeze', 'count', switchDuration > 100 ? 1 : 0)
+      assertWithinBudget(startedAt)
+    }
+
+    await expectNoRendererErrors(app)
+  } finally {
+    if (app) {
+      await closeElectron(app)
+      appendCapture(capture.directory)
+    }
+  }
+}
+
 const collectDiagramSamples = async(
   fixtures: FastFixtures,
   capture: CaptureDirectory,
@@ -763,6 +900,7 @@ test.describe('@perf-fast-gate PR smoke hard gate', () => {
     try {
       clearCaptureFiles(capture.directory)
       await collectDocumentSamples(fixtures, capture, startedAt)
+      await collectTabSwitchSamples(fixtures, capture, startedAt)
       await collectDiagramSamples(fixtures, capture, startedAt)
       await collectMemorySamples(fixtures, capture, startedAt)
       expect(fs.existsSync(path.join(capture.directory, 'fast.raw.json'))).toBe(true)

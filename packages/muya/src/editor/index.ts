@@ -9,10 +9,7 @@ import type { Nullable } from '../types';
 import * as otText from 'ot-text-unicode';
 import { fromEvent, merge } from 'rxjs';
 import { registerBlocks } from '../block';
-import {
-    INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS,
-    ScrollPage,
-} from '../block/scrollPage';
+import { INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS, ScrollPage } from '../block/scrollPage';
 import Clipboard from '../clipboard';
 import { CLASS_NAMES, isFirefox } from '../config';
 import History from '../history';
@@ -437,6 +434,8 @@ export class Editor {
 
             drop(snapshot, operations, muya);
 
+            this.scrollPage!.setRenderedState(this.jsonState.getStateForRender());
+
             this._restoreSelection(selection);
         }
         catch (error) {
@@ -519,12 +518,28 @@ export class Editor {
         this._restoreSelection(selection, true);
     }
 
-    setContent(content: TState[] | string, autoFocus = false, progressive = true) {
+    setContent(
+        content: TState[] | string,
+        autoFocus = false,
+        progressive = true,
+        progressiveStartDelayMs = 0,
+        renderCacheKey: string | null = null,
+    ) {
         this.jsonState.setContent(content);
-        const state = this.jsonState.getState();
+        // The ScrollPage clones each block as it enters the render tree. Using
+        // the authoritative state directly here avoids a full-document clone
+        // on every tab switch while keeping DOM block instances isolated from
+        // JSONState and its cached tab snapshot.
+        const state = this.jsonState.getStateForRender();
 
         this.inlineRenderer.invalidateReferenceDefinitions();
-        this.scrollPage!.updateState(state, progressive);
+        this.scrollPage!.updateState(
+            state,
+            progressive,
+            true,
+            progressiveStartDelayMs,
+            renderCacheKey,
+        );
         this.history.clear();
         this.searchModule.reset();
 

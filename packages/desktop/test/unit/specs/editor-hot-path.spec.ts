@@ -89,4 +89,18 @@ describe('EditorSnapshotScheduler', () => {
 
     scheduler.dispose()
   })
+
+  it('can flush a pending switch snapshot without cloning block state', () => {
+    const scheduler = new EditorSnapshotScheduler({ delayMs: 50, maxWaitMs: 200 })
+    const capture = vi.fn()
+
+    scheduler.request('doc-1', capture)
+    scheduler.flush('doc-1', false)
+
+    expect(capture).toHaveBeenCalledWith(false)
+    vi.runAllTimers()
+    expect(capture).toHaveBeenCalledTimes(1)
+
+    scheduler.dispose()
+  })
 })

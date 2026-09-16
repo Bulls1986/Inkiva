@@ -19,7 +19,7 @@ export interface EditorLayoutReconcilerOptions {
 
 export interface EditorLayoutReconciler {
   refresh(): void
-  reset(): void
+  reset(deferMeasurement?: boolean): void
   destroy(): void
 }
 
@@ -292,7 +292,7 @@ export function createEditorLayoutReconciler(
       for (const block of blockOrder) dirtyBlocks.add(block)
       schedule()
     },
-    reset() {
+    reset(deferMeasurement = false) {
       if (destroyed) return
       if (frame !== null) cancelFrame(frame)
       frame = null
@@ -309,6 +309,12 @@ export function createEditorLayoutReconciler(
       geometry.clear()
       dirtyBlocks.clear()
       removedBlocks.clear()
+      if (deferMeasurement) {
+        for (const block of blockOrder) dirtyBlocks.add(block)
+        installObservers()
+        schedule()
+        return
+      }
       for (const block of blockOrder) {
         geometry.set(block, measureBlock(block))
       }
