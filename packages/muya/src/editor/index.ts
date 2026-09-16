@@ -10,6 +10,7 @@ import * as otText from 'ot-text-unicode';
 import { fromEvent, merge } from 'rxjs';
 import { registerBlocks } from '../block';
 import {
+    CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
     INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS,
     ScrollPage,
 } from '../block/scrollPage';
@@ -535,7 +536,7 @@ export class Editor {
             state,
             progressive,
             true,
-            progressive ? INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS : 0,
+            progressive ? CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS : 0,
         );
         this.history.clear();
         this.searchModule.reset();

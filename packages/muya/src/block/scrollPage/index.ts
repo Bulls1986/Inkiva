@@ -30,6 +30,10 @@ export const PROGRESSIVE_RENDER_INITIAL_BLOCKS = 32;
 const PROGRESSIVE_RENDER_CHUNK_BUDGET_MS = 8;
 const DETACHED_BLOCK_DISPOSAL_BUDGET_MS = 4;
 export const INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS = 100;
+// A tab switch needs a longer quiet window than the initial document mount:
+// rapid tab changes should cancel the pending tail instead of competing with
+// the next click. Rendering still resumes when the user pauses on a tab.
+export const CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS = 500;
 const PROGRESSIVE_RENDER_LINE_HEIGHT_PX = 24;
 
 function estimateStateHeight(state: TState): number {
