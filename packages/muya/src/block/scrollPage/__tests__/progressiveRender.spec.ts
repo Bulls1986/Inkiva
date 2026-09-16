@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import type Parent from '../../base/parent';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Muya } from '../../../muya';
 import {
     PROGRESSIVE_RENDER_INITIAL_BLOCKS,
@@ -24,6 +24,60 @@ function paragraphs(count: number): string {
 }
 
 describe('scrollPage progressive rendering', () => {
+    it('does not clone the progressive tail before the initial render window', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + 20;
+        const originalStructuredClone = structuredClone;
+        const clonedSizes: number[] = [];
+
+        vi.stubGlobal('structuredClone', <T>(value: T): T => {
+            clonedSizes.push(Array.isArray(value) ? value.length : 1);
+            return originalStructuredClone(value);
+        });
+
+        try {
+            const muya = new Muya(host, { markdown: paragraphs(totalBlocks) });
+            mountedEditors.push(muya);
+            muya.init();
+
+            // A full AST clone makes the first paint pay for the progressive
+            // tail. The initial mount should only clone the visible window;
+            // the background tail clone happens only after this point.
+            expect(clonedSizes).not.toContain(totalBlocks);
+            expect(clonedSizes).toEqual([PROGRESSIVE_RENDER_INITIAL_BLOCKS]);
+
+            await muya.whenRenderComplete();
+
+            // Keep each deferred clone bounded so one large structuredClone
+            // cannot block the first scroll sample.
+            expect(clonedSizes).not.toContain(totalBlocks - PROGRESSIVE_RENDER_INITIAL_BLOCKS);
+            expect(clonedSizes.filter(size => size === 1).length).toBeGreaterThan(0);
+        }
+        finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps rendered block state isolated from the authoritative JSON state', () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, { markdown: '# heading\n' });
+        mountedEditors.push(muya);
+
+        muya.init();
+
+        const liveHeading = muya.editor.scrollPage!.firstChild as unknown as {
+            meta: { level: number };
+        };
+        const sourceState = muya.getState()[0] as unknown as { meta: { level: number } };
+        const sourceLevel = sourceState.meta.level;
+        liveHeading.meta.level = sourceLevel + 1;
+
+        expect((muya.getState()[0] as unknown as { meta: { level: number } }).meta.level)
+            .toBe(sourceLevel);
+    });
+
     it('mounts only the initial block window before completing in the background', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);

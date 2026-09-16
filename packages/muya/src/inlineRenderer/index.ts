@@ -104,7 +104,11 @@ class InlineRenderer {
             // During the initial detached build/updateState the live tree is
             // empty. The authoritative JSON state is complete at this point,
             // so use it once to seed the cache.
-            const state = this.muya.editor.jsonState.getState();
+            // The reference-definition scan is read-only. During the initial
+            // progressive mount, use the authoritative source directly so
+            // this cold-path fallback does not clone the complete document
+            // before the first block window is painted.
+            const state = this.muya.editor.jsonState.getStateForRender();
             const travel = (sts: TState[]) => {
                 if (Array.isArray(sts) && sts.length) {
                     for (const st of sts) {

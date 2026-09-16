@@ -5,7 +5,7 @@ import type Content from '../base/content';
 import type TreeNode from '../base/treeNode';
 import type { IConstructor, TBlockPath } from '../types';
 import { BLOCK_DOM_PROPERTY } from '../../config';
-import { isHTMLElement, isMouseEvent } from '../../utils';
+import { deepClone, isHTMLElement, isMouseEvent } from '../../utils';
 import logger from '../../utils/logger';
 import Parent from '../base/parent';
 
@@ -16,6 +16,11 @@ interface IBlurFocus {
     focus: Nullable<Content>;
 }
 
+interface IScrollPageCreateOptions {
+    cloneBlocksOnMount?: boolean;
+    progressiveStartDelayMs?: number;
+}
+
 // Constructing and parsing every inline content node before the browser gets a
 // paint makes a large document look frozen even though the first screen only
 // needs a small prefix. Keep ordinary documents on the existing synchronous
@@ -23,6 +28,7 @@ interface IBlurFocus {
 export const PROGRESSIVE_RENDER_THRESHOLD = 200;
 export const PROGRESSIVE_RENDER_INITIAL_BLOCKS = 32;
 const PROGRESSIVE_RENDER_CHUNK_BUDGET_MS = 8;
+export const INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS = 100;
 const PROGRESSIVE_RENDER_LINE_HEIGHT_PX = 24;
 
 function estimateStateHeight(state: TState): number {
@@ -74,6 +80,7 @@ export class ScrollPage extends Parent {
     private _progressiveGeneration = 0;
     private _progressiveCompletion: Promise<void> | null = null;
     private _resolveProgressiveCompletion: (() => void) | null = null;
+    private _cloneProgressiveBlocks = false;
 
     static override blockName = 'scrollpage';
 
@@ -104,9 +111,17 @@ export class ScrollPage extends Parent {
         return block as IConstructor<Parent>;
     }
 
-    static create(muya: Muya, state: TState[]) {
+    static create(
+        muya: Muya,
+        state: TState[],
+        options: IScrollPageCreateOptions = {},
+    ) {
         const scrollPage = new ScrollPage(muya);
-        scrollPage._mountState(state);
+        scrollPage._mountState(
+            state,
+            options.cloneBlocksOnMount === true,
+            options.progressiveStartDelayMs ?? 0,
+        );
 
         scrollPage.parent!.domNode!.appendChild(scrollPage.domNode!);
 
@@ -156,8 +171,12 @@ export class ScrollPage extends Parent {
         eventCenter.attachDOMEvent(domNode!, 'click', this._clickHandler.bind(this));
     }
 
-    private _createBlocks(state: TState[]): Parent[] {
-        return state.map((block) => {
+    private _createBlocks(state: TState[], cloneBlocks = false): Parent[] {
+        // Clone the visible window as one structured-clone operation. Calling
+        // structuredClone once per block adds avoidable overhead on the cold
+        // path while still cloning the same isolated state boundary.
+        const renderStates = cloneBlocks ? deepClone(state) : state;
+        return renderStates.map((block) => {
             return ScrollPage.loadBlock(block.name).create(this.muya, block);
         });
     }
@@ -180,13 +199,22 @@ export class ScrollPage extends Parent {
             this.domNode!.appendChild(fragment);
     }
 
-    private _mountBlocks(state: TState[], beforeSpacer = false): void {
-        this._appendBlocks(this._createBlocks(state), beforeSpacer);
+    private _mountBlocks(
+        state: TState[],
+        beforeSpacer = false,
+        cloneBlocks = false,
+    ): void {
+        this._appendBlocks(this._createBlocks(state, cloneBlocks), beforeSpacer);
     }
 
-    private _mountState(state: TState[]): void {
+    private _mountState(
+        state: TState[],
+        cloneBlocks = false,
+        progressiveStartDelayMs = 0,
+    ): void {
+        this._cloneProgressiveBlocks = cloneBlocks;
         if (state.length <= PROGRESSIVE_RENDER_THRESHOLD) {
-            this._mountBlocks(state);
+            this._mountBlocks(state, false, cloneBlocks);
             return;
         }
 
@@ -197,7 +225,7 @@ export class ScrollPage extends Parent {
             this._resolveProgressiveCompletion = resolve;
         });
 
-        this._mountBlocks(state.slice(0, this._progressiveIndex));
+        this._mountBlocks(state.slice(0, this._progressiveIndex), false, cloneBlocks);
 
         const spacer = document.createElement('div');
         spacer.className = 'mu-progressive-render-placeholder';
@@ -209,8 +237,10 @@ export class ScrollPage extends Parent {
         this.domNode!.appendChild(spacer);
 
         const generation = this._progressiveGeneration;
-        // Leave two paint boundaries for the visible prefix and editor focus
-        // before the first background chunk starts doing DOM work.
+        // Leave two paint boundaries before background work starts. The
+        // initial cold mount also supplies a longer quiet window so the host
+        // can finish its own first-document setup and milestones; normal
+        // setContent/updateState calls retain the existing zero-delay path.
         this._progressiveFrameId = requestAnimationFrame(() => {
             if (generation !== this._progressiveGeneration)
                 return;
@@ -222,7 +252,7 @@ export class ScrollPage extends Parent {
                 this._progressiveTimerId = setTimeout(() => {
                     this._progressiveTimerId = null;
                     this._renderProgressiveChunk(generation);
-                }, 0);
+                }, progressiveStartDelayMs);
             });
         });
     }
@@ -247,7 +277,8 @@ export class ScrollPage extends Parent {
             if (!state)
                 break;
 
-            blocks.push(ScrollPage.loadBlock(state.name).create(this.muya, state));
+            const renderState = this._cloneProgressiveBlocks ? deepClone(state) : state;
+            blocks.push(ScrollPage.loadBlock(renderState.name).create(this.muya, renderState));
             this._progressiveRemainingHeight -= estimateStateHeight(state);
             this._progressiveIndex += 1;
         }
@@ -278,6 +309,7 @@ export class ScrollPage extends Parent {
         this._progressiveStates = null;
         this._progressiveIndex = 0;
         this._progressiveRemainingHeight = 0;
+        this._cloneProgressiveBlocks = false;
 
         const resolve = this._resolveProgressiveCompletion;
         this._resolveProgressiveCompletion = null;
@@ -299,6 +331,7 @@ export class ScrollPage extends Parent {
         this._progressiveStates = null;
         this._progressiveIndex = 0;
         this._progressiveRemainingHeight = 0;
+        this._cloneProgressiveBlocks = false;
 
         const resolve = this._resolveProgressiveCompletion;
         this._resolveProgressiveCompletion = null;
@@ -311,9 +344,12 @@ export class ScrollPage extends Parent {
         // Empty scrollPage dom
         this.empty();
         if (progressive)
-            this._mountState(state);
+            // `Editor.setContent` and rebuild paths already provide an
+            // isolated state snapshot. Keep lazy cloning limited to the
+            // initial cold-start source state.
+            this._mountState(state, false);
         else
-            this._mountBlocks(state);
+            this._mountBlocks(state, false, false);
     }
 
     /**
