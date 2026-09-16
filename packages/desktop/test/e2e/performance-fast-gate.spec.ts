@@ -657,19 +657,26 @@ const collectTabSwitchSamples = async(
     for (let index = 0; index < SAMPLE_COUNT; index += 1) {
       const warm = page.locator('.tabs-container > li[data-tab-lifecycle="warm"]').first()
       const cold = page.locator('.tabs-container > li[data-tab-lifecycle="cold"]').first()
-      if (await warm.count() === 0 || await cold.count() === 0) {
+      const warmId = await warm.getAttribute('data-id')
+      const coldId = await cold.getAttribute('data-id')
+      if (!warmId || !coldId) {
         throw new Error('8-tab fast gate did not expose warm and cold tabs')
       }
+      // Lifecycle labels are intentionally recomputed after every activation.
+      // Keep the clicked tab stable by id; otherwise the locator can resolve
+      // to the next warm tab after the click and report a false failure.
+      const warmTarget = page.locator(`.tabs-container > li[data-id="${warmId}"]`)
+      const coldTarget = page.locator(`.tabs-container > li[data-id="${coldId}"]`)
 
       const warmDuration = await measurePageAction(page, async() => {
-        await warm.click()
-        await expect(warm).toHaveClass(/active/)
+        await warmTarget.click()
+        await expect(warmTarget).toHaveClass(/active/)
       })
       await recordSample(page, 'tabs.8.warmSwitch', 'ms', warmDuration)
 
       const coldDuration = await measurePageAction(page, async() => {
-        await cold.click()
-        await expect(cold).toHaveClass(/active/)
+        await coldTarget.click()
+        await expect(coldTarget).toHaveClass(/active/)
       })
       await recordSample(page, 'tabs.8.coldSwitch', 'ms', coldDuration)
 
