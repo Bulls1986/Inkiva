@@ -9,7 +9,10 @@ import type { Nullable } from '../types';
 import * as otText from 'ot-text-unicode';
 import { fromEvent, merge } from 'rxjs';
 import { registerBlocks } from '../block';
-import { ScrollPage } from '../block/scrollPage';
+import {
+    INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS,
+    ScrollPage,
+} from '../block/scrollPage';
 import Clipboard from '../clipboard';
 import { CLASS_NAMES, isFirefox } from '../config';
 import History from '../history';
@@ -279,9 +282,15 @@ export class Editor {
         registerBlocks();
 
         const muya = this._muya;
-        const state = this.jsonState.getState();
+        // Keep the authoritative JSON state isolated from block instances, but
+        // defer cloning the progressive tail until its background render chunk
+        // is mounted. This removes a full-document clone from the cold path.
+        const state = this.jsonState.getStateForRender();
 
-        this.scrollPage = ScrollPage.create(muya, state);
+        this.scrollPage = ScrollPage.create(muya, state, {
+            cloneBlocksOnMount: true,
+            progressiveStartDelayMs: INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS,
+        });
 
         this._dispatchEvents();
         // Hovering a rendered link wrapper dispatches `muya-link-tools` so the
