@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { fuzzySearchPaths, SearchPathIndex } from '@/node/workspaceSearch'
+import {
+  DEFAULT_FUZZY_SEARCH_CHUNK_SIZE,
+  fuzzySearchPaths,
+  SearchPathIndex
+} from '@/node/workspaceSearch'
 import { FOLDER_SEARCH_DEBOUNCE_MS } from '@/components/sideBar/searchTiming'
 
 describe('workspace search primitives', () => {
+  it('uses a large enough default chunk to bound timer scheduling overhead', () => {
+    expect(DEFAULT_FUZZY_SEARCH_CHUNK_SIZE).toBe(2048)
+  })
+
   it('keeps folder-search debounce within the responsive fast-path budget', () => {
     expect(FOLDER_SEARCH_DEBOUNCE_MS).toBe(50)
   })
