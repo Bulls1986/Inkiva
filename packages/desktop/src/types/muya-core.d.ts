@@ -18,6 +18,8 @@
  */
 
 declare module '@muyajs/core' {
+  export const CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS: number
+
   export interface ILocale {
     name: string
     resource: Record<string, string>
