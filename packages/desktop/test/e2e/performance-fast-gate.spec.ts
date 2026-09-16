@@ -631,6 +631,65 @@ const collectDocumentSamples = async(
   }
 }
 
+const collectTabSwitchSamples = async(
+  fixtures: FastFixtures,
+  capture: CaptureDirectory,
+  startedAt: number
+): Promise<void> => {
+  let app: ElectronApplication | undefined
+  const tabPaths = fixtures.documents.slice(0, 8)
+  try {
+    const launched = await launchCaptured([fixtures.root, tabPaths[0] as string], capture)
+    app = launched.app
+    const { page } = launched
+    await installFastGateProbe(page)
+    await waitForWorkspaceReady(page)
+    await waitForEditor(page, 60_000)
+
+    for (let index = 1; index < tabPaths.length; index += 1) {
+      const filePath = tabPaths[index] as string
+      await sendIpcFromRenderer(page, 'mt::open-file', filePath, {})
+      await waitForActiveFile(page, filePath)
+    }
+    await expect(page.locator('.tabs-container > li')).toHaveCount(8, { timeout: 60_000 })
+    await waitForPaint(page)
+
+    for (let index = 0; index < SAMPLE_COUNT; index += 1) {
+      const warm = page.locator('.tabs-container > li[data-tab-lifecycle="warm"]').first()
+      const cold = page.locator('.tabs-container > li[data-tab-lifecycle="cold"]').first()
+      if (await warm.count() === 0 || await cold.count() === 0) {
+        throw new Error('8-tab fast gate did not expose warm and cold tabs')
+      }
+
+      const warmDuration = await measurePageAction(page, async() => {
+        await warm.click()
+        await expect(warm).toHaveClass(/active/)
+      })
+      await recordSample(page, 'tabs.8.warmSwitch', 'ms', warmDuration)
+
+      const coldDuration = await measurePageAction(page, async() => {
+        await cold.click()
+        await expect(cold).toHaveClass(/active/)
+      })
+      await recordSample(page, 'tabs.8.coldSwitch', 'ms', coldDuration)
+
+      const switchDuration = await measurePageAction(page, async() => {
+        await page.locator('.tabs-container > li').nth((index + 1) % 8).click()
+      })
+      await recordSample(page, 'tabs.8.switch', 'ms', switchDuration)
+      await recordSample(page, 'tabs.8.freeze', 'count', switchDuration > 100 ? 1 : 0)
+      assertWithinBudget(startedAt)
+    }
+
+    await expectNoRendererErrors(app)
+  } finally {
+    if (app) {
+      await closeElectron(app)
+      appendCapture(capture.directory)
+    }
+  }
+}
+
 const collectDiagramSamples = async(
   fixtures: FastFixtures,
   capture: CaptureDirectory,
@@ -763,6 +822,7 @@ test.describe('@perf-fast-gate PR smoke hard gate', () => {
     try {
       clearCaptureFiles(capture.directory)
       await collectDocumentSamples(fixtures, capture, startedAt)
+      await collectTabSwitchSamples(fixtures, capture, startedAt)
       await collectDiagramSamples(fixtures, capture, startedAt)
       await collectMemorySamples(fixtures, capture, startedAt)
       expect(fs.existsSync(path.join(capture.directory, 'fast.raw.json'))).toBe(true)
