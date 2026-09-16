@@ -9,11 +9,7 @@ import type { Nullable } from '../types';
 import * as otText from 'ot-text-unicode';
 import { fromEvent, merge } from 'rxjs';
 import { registerBlocks } from '../block';
-import {
-    CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
-    INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS,
-    ScrollPage,
-} from '../block/scrollPage';
+import { INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS, ScrollPage } from '../block/scrollPage';
 import Clipboard from '../clipboard';
 import { CLASS_NAMES, isFirefox } from '../config';
 import History from '../history';

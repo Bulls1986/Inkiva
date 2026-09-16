@@ -1,8 +1,8 @@
 export type { ILocale } from './i18n/types';
 export { de, en, es, fr, ja, ko, pt, tr, zhCN, zhTW } from './locales';
 
-export { Muya } from './muya';
 export { CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS } from './block/scrollPage';
+export { Muya } from './muya';
 export type { ITocItem } from './state/getTOC';
 export { MarkdownToHtml } from './state/markdownToHtml';
 export { renderToStaticHTML } from './state/renderToStaticHTML';
