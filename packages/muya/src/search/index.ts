@@ -4,7 +4,7 @@ import type { IHighlight } from '../inlineRenderer/types';
 import type { Muya } from '../muya';
 import type { IMatch } from './types';
 import { DEFAULT_SEARCH_OPTIONS } from '../config';
-import { buildRegexValue, matchString } from '../utils/search';
+import { buildRegexValue, createSearchMatcher } from '../utils/search';
 
 const SEARCH_SLICE_BUDGET_MS = 4;
 
@@ -168,6 +168,7 @@ export class Search {
         const matches: IMatch[] = [];
         const options = Object.assign({}, DEFAULT_SEARCH_OPTIONS, opts);
         const { highlightIndex, selectHighlight } = options;
+        const matcher = value ? createSearchMatcher(value, options) : null;
         let index = -1;
 
         // The currently active match, captured before it is cleared below, so a
@@ -179,12 +180,12 @@ export class Search {
         this._updateMatches(true);
 
         // Highlight current search.
-        if (value) {
+        if (matcher) {
             this._scrollPage?.depthFirstTraverse((block: TreeNode) => {
                 if (block.isContent()) {
                     const { text } = block;
                     if (text && typeof text === 'string') {
-                        const strMatches = matchString(text, value, options);
+                        const strMatches = matcher(text);
                         matches.push(
                             ...strMatches.map(({ index, match, subMatches }) => {
                                 return {
@@ -243,6 +244,7 @@ export class Search {
         const generation = ++this._searchGeneration;
         const options = Object.assign({}, DEFAULT_SEARCH_OPTIONS, opts);
         const { highlightIndex, selectHighlight } = options;
+        const matcher = createSearchMatcher(value, options);
         const previousActiveMatch = this.matches[this.index];
 
         this._updateMatches(true);
@@ -252,6 +254,11 @@ export class Search {
 
         const root = this._scrollPage;
         if (!root) {
+            onUpdate?.(this);
+            return Promise.resolve(this);
+        }
+
+        if (!matcher) {
             onUpdate?.(this);
             return Promise.resolve(this);
         }
@@ -313,7 +320,7 @@ export class Search {
                     if (!text || typeof text !== 'string')
                         continue;
 
-                    const strMatches = matchString(text, value, options);
+                    const strMatches = matcher(text);
                     sliceMatches.push(
                         ...strMatches.map(({ index, match, subMatches }) => ({
                             block: node,
