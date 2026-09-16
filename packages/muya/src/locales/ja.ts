@@ -57,6 +57,7 @@ export const ja = {
         'Eliminate': '書式をクリアする',
         // Code block
         'Copy content': '内容をコピーする',
+        'Toggle task completion': 'タスクの完了状態を切り替え',
         'Input Language Identifier...': 'プログラム言語IDを入力する...',
         // emojiPicker
         'Smileys & Emotion': '笑顔 & 気持ち',

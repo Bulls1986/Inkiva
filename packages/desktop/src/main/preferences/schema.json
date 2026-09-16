@@ -80,7 +80,7 @@
     "description": "Editor--editor font family",
     "type": "string",
     "pattern": "^[^\\s]+((-|\\s)*[^\\s])*$",
-    "default": "system-ui"
+    "default": "Georgia"
   },
   "fontSize": {
     "description": "Editor--Font size in pixels",

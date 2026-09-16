@@ -142,6 +142,14 @@
       "followThemDisabled": "跟隨系統主題時無法選擇主題"
     }
   },
+  "titlebar": {
+    "saved": "已儲存",
+    "unsaved": "未儲存",
+    "untitled": "未命名文件",
+    "menu": "應用程式選單",
+    "maximize": "最大化視窗",
+    "restore": "還原視窗"
+  },
   "contextMenu": {
     "cut": "剪下",
     "copy": "複製",
@@ -195,6 +203,7 @@
     "searchLimited": "搜尋僅限前 {count} 個結果"
   },
   "sideBar": {
+    "navigation": "側邊欄導覽",
     "search": {
       "searchInFolder": "在資料夾中搜尋…",
       "noFolderOpen": "沒有開啟的資料夾",
@@ -227,9 +236,10 @@
     }
   },
   "commandPalette": {
-    "placeholder": "輸入要執行的命令",
+    "placeholder": "搜尋文件、標題或命令…",
     "sections": {
       "files": "檔案",
+      "headings": "標題",
       "commands": "命令"
     },
     "loading": "正在準備啟動器…",
@@ -671,6 +681,11 @@
     },
     "theme": {
       "title": "主題",
+      "options": {
+        "light": "淺色",
+        "dark": "深色",
+        "paper": "紙張"
+      },
       "followSystemTheme": "跟隨系統主題",
       "modeThemes": "主題選擇",
       "lightModeTheme": "淺色模式主題",

@@ -9,7 +9,7 @@
     <div class="sidebar-panel">
       <nav
         class="sidebar-navigation"
-        aria-label="Sidebar navigation"
+        :aria-label="t('sideBar.navigation')"
       >
         <div class="sidebar-primary-navigation">
           <button
@@ -89,6 +89,7 @@ import { MoreFilled } from '@element-plus/icons-vue'
 import { useLayoutStore } from '@/store/layout'
 import { useProjectStore } from '@/store/project'
 import { useEditorStore } from '@/store/editor'
+import { useI18n } from 'vue-i18n'
 
 import { sideBarIcons, sideBarBottomIcons } from './help'
 import Tree from './tree.vue'
@@ -107,6 +108,7 @@ const OVERLAY_WINDOW_BREAKPOINT = 590
 const layoutStore = useLayoutStore()
 const projectStore = useProjectStore()
 const editorStore = useEditorStore()
+const { t } = useI18n()
 
 const sideBar = ref<HTMLDivElement | null>(null)
 const dragBar = ref<HTMLDivElement | null>(null)
@@ -235,7 +237,7 @@ const handleBottomClick = (name: string): void => {
  */
 .side-bar--overlay {
   position: fixed;
-  top: calc(var(--titleBarHeight) + var(--documentTabsHeight));
+  top: var(--titleBarHeight);
   left: 0;
   bottom: 0;
   z-index: 1;

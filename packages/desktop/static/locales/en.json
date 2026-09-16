@@ -143,6 +143,14 @@
       "followThemDisabled": "Theme selection disabled when following system theme"
     }
   },
+  "titlebar": {
+    "saved": "Saved",
+    "unsaved": "Unsaved",
+    "untitled": "Untitled document",
+    "menu": "Application menu",
+    "maximize": "Maximize window",
+    "restore": "Restore window"
+  },
   "contextMenu": {
     "cut": "Cut",
     "copy": "Copy",
@@ -196,6 +204,7 @@
     "searchLimited": "Searched limited to first {count} results"
   },
   "sideBar": {
+    "navigation": "Sidebar navigation",
     "search": {
       "searchInFolder": "Search in folder...",
       "noFolderOpen": "No folder open",
@@ -262,9 +271,10 @@
     }
   },
   "commandPalette": {
-    "placeholder": "Type a command to execute",
+    "placeholder": "Search documents, headings or commands…",
     "sections": {
       "files": "Files",
+      "headings": "Headings",
       "commands": "Commands"
     },
     "loading": "Preparing launcher…",
@@ -707,6 +717,11 @@
     },
     "theme": {
       "title": "Theme",
+      "options": {
+        "light": "Light",
+        "dark": "Dark",
+        "paper": "Paper"
+      },
       "followSystemTheme": "Follow System Theme",
       "modeThemes": "Theme Selection",
       "lightModeTheme": "Light mode theme",

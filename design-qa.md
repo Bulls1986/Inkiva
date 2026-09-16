@@ -1,33 +1,42 @@
-# Design QA — Writing surface refresh
+# Inkiva Design QA
 
-Date: 2026-09-16
+Reference: `/workspace/scratch/cf38a48c9d4b/upload/01-1000029484.png`
 
-## Scope
+Scope: reference-aligned desktop shell, editor typography and Markdown rendering, command palette, Light/Dark/Paper previews, responsive title bar/sidebar behavior, motion and accessibility safeguards.
 
-- New1 layout retained as the application baseline.
-- Light, Dark, and Paper appearances use the same document-first writing shell.
+## Retained baseline notes
+
+- The existing New1 writing-surface baseline remains the application baseline across Light, Dark, and Paper.
 - Documents, Search, Outline, More (document intelligence), and Settings remain available without a permanent icon rail or boxed utility cards.
-- The main surface is an article-reading and writing canvas; code blocks remain supported by the editor but are not the visual language of the shell or website preview.
-- The website hero preview mirrors the approved writing surface and contains no source pane, line numbers, or bottom developer status frame.
+- The website writing-surface preview remains document-first: no source pane, line numbers, bottom developer status frame, or code-editor chrome.
+- Paper remains a neutral warm-gray writing surface rather than a yellow paper effect; Settings remains an unboxed lower-left sidebar action.
+- Earlier website checks and the managed-browser limitation remain documented in the preceding QA history from this branch; this file's current gate below applies to the desktop implementation in this change.
 
-## Verification
+## Static and contract verification
 
-| Area | Check | Result |
-| --- | --- | --- |
-| Desktop renderer | `pnpm --filter inkiva typecheck` | Pass |
-| Desktop renderer | `pnpm --filter inkiva build` | Pass |
-| Desktop UI contracts | 8 focused Vitest files, 50 tests | Pass |
-| Website | `pnpm --filter inkiva-website type-check` | Pass |
-| Website | `pnpm --filter inkiva-website lint` | Pass |
-| Website | `pnpm --filter inkiva-website exec next build` | Pass |
-| Website tests | `pnpm --filter inkiva-website test` | Blocked before test discovery by the same managed `tsx` IPC `EPERM` restriction |
-| Website preview content | English and Chinese static exports contain `data-preview="writing-surface"` and article content | Pass |
-| Browser visual capture | `http://terminal.local:4173/` | Blocked by managed browser with `ERR_BLOCKED_BY_CLIENT`; static export and production build were verified instead |
-| Electron E2E | Playwright launch | Blocked by managed Linux environment: missing native `ced` binding and X server/display |
+- The title bar now has the reference hierarchy: Inkiva mark, functional menu, centered command search, document/save/word status, and native window controls.
+- Sidebar navigation and the document tab strip share one 50px workspace header band; the tab strip no longer becomes a second full-width application toolbar.
+- The editor defaults to an editorial serif stack while preserving Markdown source mode and existing explicit user font preferences.
+- Blockquotes use the reference-like quiet surface, left accent rule, and restrained italic treatment.
+- Root command search combines files, headings, and commands; empty states no longer appear while results exist; clearing the query keeps Quick Open discoverable.
+- Theme previews have explicit Light/Dark/Paper labels and local contrast tokens instead of inheriting the active application theme.
+- Copy-code and task-list controls have button/checkbox semantics, localized accessible names, keyboard paths, and synchronized checked state.
+- Responsive CSS contracts cover the 550px minimum-window intent, 600/820/1000/1100px title-bar reductions, and the single-sidebar model.
 
-## Acceptance notes
+## Automated evidence
 
-- No `.status-bar`, line/column indicator, source-code pane, or code block is rendered in the main website preview.
-- Paper remains a neutral warm-gray writing surface rather than a yellow paper effect.
-- Settings is still present at the lower-left of the sidebar as an unboxed action.
-- The sidebar width is kept compact, with labels attached to the actual navigation functions so Outline remains discoverable.
+- Desktop unit suite: 139 files, 1112 tests passed.
+- Targeted reference/title-bar/command-palette tests: passed.
+- Desktop and Muya TypeScript checks: passed.
+- Desktop Electron-Vite build: passed.
+- Muya Vite build: passed with existing declaration-generation diagnostics in `dompurify.ts` and `utils/prism/index.ts`; direct typecheck passes.
+- Changed-file lint: passed with the existing `vue/no-v-html` warning in the theme preview, which is intentionally sanitized/controlled by the existing preview pipeline.
+- Locale contract validation and `git diff --check`: passed.
+
+## Runtime visual gate
+
+Real Electron launch was attempted after building. The container cannot complete the gate because the native `ced` binding is unavailable after dependency scripts were skipped/failed, and the environment has no X server/`$DISPLAY`. Chromium/Xvfb is also unavailable. Therefore post-change runtime screenshots were not captured here, and this is not a visual-pass claim.
+
+Required follow-up in a real desktop environment: capture Light, Dark, Paper, source mode, command palette with file/heading results, focused controls, and widths around 550/768/1000/1536px; verify native menus, window controls, overlay sidebar, tab alignment, caret/scroll behavior, and reduced-motion behavior.
+
+final result: blocked

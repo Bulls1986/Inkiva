@@ -21,7 +21,7 @@ describe('private build first-run defaults', () => {
       fontSize: 18,
       lineHeight: 1.7,
       paragraphSpacing: 0.75,
-      editorFontFamily: 'system-ui',
+      editorFontFamily: 'Georgia',
       editorLineWidth: '780px',
       sideBarVisibility: true,
       tabBarVisibility: true

@@ -15,14 +15,20 @@
         ]"
         role="button"
         tabindex="0"
-        :aria-label="themeItem.name"
+        :aria-label="themeLabel(themeItem.name)"
         :aria-pressed="themeItem.name === theme"
         :aria-disabled="followSystemTheme ? 'true' : undefined"
         @click="!followSystemTheme && onSelectChange('theme', themeItem.name)"
         @keydown="handleThemeKeydown($event, themeItem.name)"
       >
+        <div class="theme-preview-label">
+          {{ themeLabel(themeItem.name) }}
+        </div>
         <!-- eslint-disable-next-line vue/no-v-html -->
-        <div v-html="themeItem.html" />
+        <div
+          class="theme-preview-content"
+          v-html="themeItem.html"
+        />
       </div>
     </section>
     <separator />
@@ -49,7 +55,7 @@
         rows="14"
         spellcheck="false"
         autocomplete="off"
-        aria-label="Custom CSS"
+        :aria-label="t('preferences.theme.customCss')"
         placeholder=":root {\n  --color-accent: #0B63E5;\n}"
         :value="customCss"
         @change="
@@ -120,6 +126,8 @@ const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
   preferenceStore.SET_SINGLE_PREFERENCE({ type, value })
 }
 
+const themeLabel = (name: string): string => t(`preferences.theme.options.${name}`)
+
 const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
   if (event.target !== event.currentTarget) return
   if (event.key !== 'Enter' && event.key !== ' ') return
@@ -156,7 +164,6 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
 }
 
 .official-themes .theme:hover {
-  background: var(--surface-hover);
   border-color: var(--border-default);
 }
 
@@ -170,6 +177,10 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
   background: #fff;
 }
 
+.official-themes .theme.light :is(h1, h2, h3, h4, h5, h6) {
+  color: #1f2329;
+}
+
 .official-themes .theme.light a {
   color: #0b63e5;
 }
@@ -179,6 +190,10 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
   background: #1b1d21;
 }
 
+.official-themes .theme.dark :is(h1, h2, h3, h4, h5, h6) {
+  color: #e8ebf0;
+}
+
 .official-themes .theme.dark a {
   color: #5b9cff;
 }
@@ -186,6 +201,10 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
 .official-themes .theme.paper {
   color: #666a70;
   background: #f8f8f6;
+}
+
+.official-themes .theme.paper :is(h1, h2, h3, h4, h5, h6) {
+  color: #303236;
 }
 
 .official-themes .theme.paper a {
@@ -198,7 +217,6 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
 }
 
 .official-themes .theme.disabled:hover {
-  background: initial;
   border-color: var(--border-subtle);
 }
 
@@ -218,6 +236,25 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
   color: currentColor;
   cursor: pointer;
   font-size: var(--font-ui-lg);
+}
+
+.theme-preview-label {
+  margin-bottom: var(--space-2);
+  color: currentColor;
+  font-size: var(--font-size-secondary);
+  font-weight: var(--font-weight-medium);
+  line-height: 18px;
+}
+
+.theme-preview-content {
+  min-width: 0;
+}
+
+.theme-preview-content h1,
+.theme-preview-content h3 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .official-themes h3::before {

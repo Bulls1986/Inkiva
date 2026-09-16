@@ -142,6 +142,14 @@
       "followThemDisabled": "Sélection du thème désactivée lorsque le thème du système est suivi"
     }
   },
+  "titlebar": {
+    "saved": "Enregistré",
+    "unsaved": "Non enregistré",
+    "untitled": "Document sans titre",
+    "menu": "Menu de l’application",
+    "maximize": "Agrandir la fenêtre",
+    "restore": "Restaurer la fenêtre"
+  },
   "contextMenu": {
     "cut": "Couper",
     "copy": "Copier",
@@ -195,6 +203,7 @@
     "searchLimited": "Recherche limitée aux {count} premiers résultats"
   },
   "sideBar": {
+    "navigation": "Navigation de la barre latérale",
     "search": {
       "searchInFolder": "Rechercher dans le dossier...",
       "noFolderOpen": "Aucun dossier ouvert",
@@ -227,9 +236,10 @@
     }
   },
   "commandPalette": {
-    "placeholder": "Tapez une commande à exécuter",
+    "placeholder": "Rechercher des documents, titres ou commandes…",
     "sections": {
       "files": "Fichiers",
+      "headings": "Titres",
       "commands": "Commandes"
     },
     "loading": "Préparation du lanceur…",
@@ -671,6 +681,11 @@
     },
     "theme": {
       "title": "Thème",
+      "options": {
+        "light": "Clair",
+        "dark": "Sombre",
+        "paper": "Papier"
+      },
       "followSystemTheme": "Suivre le thème du système",
       "modeThemes": "Sélection du thème",
       "lightModeTheme": "Thème en mode clair",

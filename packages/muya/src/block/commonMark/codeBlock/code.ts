@@ -15,7 +15,7 @@ import { ScrollPage } from '../../scrollPage';
 const debug = logger('code:');
 
 function renderCopyButton(i18n: I18n) {
-    const selector = 'a.mu-code-copy';
+    const selector = 'button.mu-code-copy';
     const iconVnode = h(
         'i.icon',
         h(
@@ -34,8 +34,10 @@ function renderCopyButton(i18n: I18n) {
         selector,
         {
             attrs: {
-                title: i18n.t('Copy content'),
-                contenteditable: 'false',
+                'title': i18n.t('Copy content'),
+                'aria-label': i18n.t('Copy content'),
+                'type': 'button',
+                'contenteditable': 'false',
             },
         },
         iconVnode,

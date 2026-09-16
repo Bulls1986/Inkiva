@@ -19,6 +19,7 @@ describe('Inkiva UI-13 icon, typography, and density contract', () => {
 
     for (const token of [
       '--font-family-ui',
+      '--markdown-font-family',
       '--font-size-metadata',
       '--font-size-shortcut',
       '--font-size-secondary',
@@ -109,13 +110,13 @@ describe('Inkiva UI-13 icon, typography, and density contract', () => {
     expect(frontMenu).toContain('font-weight: var(--font-weight-medium')
   })
 
-  it('uses the system UI stack for the document fallback without removing user font options', () => {
+  it('uses the editorial document stack without removing user font options', () => {
     const styles = readMuya('assets/styles/index.css')
     const blockStyles = readMuya('assets/styles/blockSyntax.css')
 
     expect(styles).toMatch(/font-family:\s*var\(\s*--font-family-ui/)
     expect(blockStyles).toMatch(
-      /font-family:\s*var\(\s*--mu-font-family,\s*var\(\s*--font-family-ui/
+      /font-family:\s*var\(\s*--mu-font-family,\s*var\(\s*--markdown-font-family/
     )
     expect(blockStyles).toContain('--mu-font-family')
   })

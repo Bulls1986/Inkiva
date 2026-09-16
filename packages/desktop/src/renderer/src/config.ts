@@ -8,7 +8,7 @@ export const CUSTOM_STYLE_ID = 'custom-styles'
 export const APPLICATION_APPEARANCE_ATTRIBUTE = 'data-inkiva-appearance'
 
 export const DEFAULT_EDITOR_FONT_FAMILY =
-  'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", sans-serif, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji"'
+  'Georgia, "Times New Roman", "Noto Serif CJK SC", "Songti SC", SimSun, serif, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji"'
 export const DEFAULT_CODE_FONT_FAMILY =
   '"DejaVu Sans Mono", "Source Code Pro", "Droid Sans Mono", monospace'
 export const DEFAULT_STYLE = Object.freeze({

@@ -142,6 +142,14 @@
       "followThemDisabled": "Selección de tema desactivada al seguir el tema del sistema"
     }
   },
+  "titlebar": {
+    "saved": "Guardado",
+    "unsaved": "Sin guardar",
+    "untitled": "Documento sin título",
+    "menu": "Menú de la aplicación",
+    "maximize": "Maximizar ventana",
+    "restore": "Restaurar ventana"
+  },
   "contextMenu": {
     "cut": "Cortar",
     "copy": "Copiar",
@@ -195,6 +203,7 @@
     "searchLimited": "Búsqueda limitada a los primeros {count} resultados"
   },
   "sideBar": {
+    "navigation": "Navegación de la barra lateral",
     "search": {
       "searchInFolder": "Buscar en carpeta...",
       "noFolderOpen": "No hay carpeta abierta",
@@ -227,9 +236,10 @@
     }
   },
   "commandPalette": {
-    "placeholder": "Escriba un comando para ejecutar",
+    "placeholder": "Buscar documentos, encabezados o comandos…",
     "sections": {
       "files": "Archivos",
+      "headings": "Encabezados",
       "commands": "Comandos"
     },
     "loading": "Preparando el lanzador…",
@@ -671,6 +681,11 @@
     },
     "theme": {
       "title": "Tema",
+      "options": {
+        "light": "Claro",
+        "dark": "Oscuro",
+        "paper": "Papel"
+      },
       "followSystemTheme": "Seguir tema del sistema",
       "modeThemes": "Selección de Tema",
       "lightModeTheme": "Tema de modo claro",

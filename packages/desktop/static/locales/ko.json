@@ -142,6 +142,14 @@
       "followThemDisabled": "시스템 테마를 따를 때는 테마 선택이 비활성화됩니다"
     }
   },
+  "titlebar": {
+    "saved": "저장됨",
+    "unsaved": "저장되지 않음",
+    "untitled": "제목 없는 문서",
+    "menu": "애플리케이션 메뉴",
+    "maximize": "창 최대화",
+    "restore": "창 복원"
+  },
   "contextMenu": {
     "cut": "잘라내기",
     "copy": "복사",
@@ -195,6 +203,7 @@
     "searchLimited": "처음 {count}개의 결과까지만 검색"
   },
   "sideBar": {
+    "navigation": "사이드바 탐색",
     "search": {
       "searchInFolder": "폴더에서 검색...",
       "noFolderOpen": "열린 폴더 없음",
@@ -227,9 +236,10 @@
     }
   },
   "commandPalette": {
-    "placeholder": "실행할 명령을 입력하세요",
+    "placeholder": "문서, 제목 또는 명령 검색…",
     "sections": {
       "files": "파일",
+      "headings": "제목",
       "commands": "명령"
     },
     "loading": "런처 준비 중…",
@@ -671,6 +681,11 @@
     },
     "theme": {
       "title": "테마",
+      "options": {
+        "light": "라이트",
+        "dark": "다크",
+        "paper": "페이퍼"
+      },
       "followSystemTheme": "시스템 테마 따르기",
       "modeThemes": "테마 선택",
       "lightModeTheme": "라이트 모드 테마",

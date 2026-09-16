@@ -102,7 +102,6 @@
                 <span
                   v-if="shortcutTokens(item).length"
                   class="shortcut"
-                  aria-label="Shortcut"
                 >
                   <kbd
                     v-for="accelerator in shortcutTokens(item)"
@@ -115,7 +114,7 @@
         </div>
 
         <p
-          v-if="!isBusy"
+          v-if="!isBusy && !availableCommands.length"
           class="empty-state"
           role="status"
           aria-live="polite"
@@ -139,6 +138,7 @@ import {
   watch
 } from 'vue'
 import { useCommandCenterStore } from '@/store/commandCenter'
+import { useEditorStore } from '@/store/editor'
 import { Search } from '@element-plus/icons-vue'
 import log from 'electron-log'
 import bus from '../../bus'
@@ -149,6 +149,7 @@ interface CommandItem {
   id: string
   description?: string
   title?: string
+  kind?: 'file' | 'heading' | 'command'
   shortcut?: string[] | string | null
   execute?: () => void | Promise<void>
   run?: () => void | Promise<void>
@@ -173,6 +174,7 @@ let commandItems: HTMLElement[] = []
 
 const { t } = useI18n()
 const commandCenterStore = useCommandCenterStore()
+const editorStore = useEditorStore()
 const currentCommand = ref<CommandItem | null>(null)
 const showCommandPalette = ref(false)
 const commandInitializing = ref(false)
@@ -195,7 +197,11 @@ const emptyText = computed(() =>
 const isQuickOpen = computed(() => currentCommand.value?.id === 'file.quick-open')
 const isRootCommand = computed(() => currentCommand.value?.id === '#')
 const resultsLabel = computed(() =>
-  isQuickOpen.value ? t('commandPalette.sections.files') : t('commandPalette.sections.commands'))
+  isQuickOpen.value
+    ? t('commandPalette.sections.files')
+    : isRootCommand.value
+      ? t('commandPalette.placeholder')
+      : t('commandPalette.sections.commands'))
 
 watch(isBusy, (busy) => {
   if (loadingMessageTimer) {
@@ -223,11 +229,21 @@ const commandSections = computed<CommandSection[]>(() => {
     }]
   }
 
-  const fileCommands = items.filter((item) => item.id.startsWith('file.'))
-  const otherCommands = items.filter((item) => !item.id.startsWith('file.'))
+  const fileCommands = items.filter((item) =>
+    item.kind === 'file' || item.id.startsWith('file.'))
+  const headingCommands = items.filter((item) => item.kind === 'heading')
+  const otherCommands = items.filter((item) =>
+    item.kind !== 'file' && item.kind !== 'heading' && !item.id.startsWith('file.'))
   const sections: CommandSection[] = []
   if (fileCommands.length) {
     sections.push({ id: 'files', label: t('commandPalette.sections.files'), items: fileCommands })
+  }
+  if (headingCommands.length) {
+    sections.push({
+      id: 'headings',
+      label: t('commandPalette.sections.headings'),
+      items: headingCommands
+    })
   }
   if (otherCommands.length) {
     sections.push({
@@ -278,6 +294,27 @@ const setAvailableCommands = (commands: CommandItem[], preferredIndex = 0): void
   selectedCommandIndex.value = commands.length
     ? Math.min(Math.max(preferredIndex, 0), commands.length - 1)
     : -1
+}
+
+const headingSearchResults = (queryString: string): CommandItem[] => {
+  const normalizedQuery = queryString.toLowerCase()
+  if (!normalizedQuery) return []
+
+  return editorStore.listToc
+    .filter((item) =>
+      typeof item.content === 'string' &&
+      typeof item.slug === 'string' &&
+      item.content.toLowerCase().includes(normalizedQuery))
+    .map((item) => ({
+      id: `heading:${item.slug}`,
+      title: item.content,
+      kind: 'heading' as const,
+      execute: () => {
+        if (typeof item.slug !== 'string') return
+        editorStore.UPDATE_ACTIVE_TOC(item.slug)
+        bus.emit('scroll-to-header', item.slug)
+      }
+    }))
 }
 
 const focusSearchInput = (): void => {
@@ -400,6 +437,50 @@ const updateCommands = (): void => {
   const command = currentCommand.value
   if (!command) return
   const requestId = ++searchRequestId
+
+  if (isRootCommand.value) {
+    const normalizedQuery = queryString.toLowerCase()
+    const commands = command.subcommands ?? []
+    const quickOpen = commands.find((item) => item.id === 'file.quick-open')
+    const searchableCommands = normalizedQuery
+      ? commands.filter((item) => item.id !== 'file.quick-open')
+      : commands
+    const commandResults = normalizedQuery
+      ? searchableCommands.filter((item) =>
+        [item.description, item.title, item.id]
+          .filter((value): value is string => !!value)
+          .some((value) => value.toLowerCase().includes(normalizedQuery)))
+      : searchableCommands
+    const headingResults = headingSearchResults(queryString)
+
+    if (!quickOpen?.search) {
+      searcherBusy.value = false
+      setAvailableCommands([...headingResults, ...commandResults])
+      return
+    }
+
+    searcherBusy.value = true
+    quickOpen.search(queryString)
+      .then((result) => {
+        if (requestId !== searchRequestId) return
+        searcherBusy.value = false
+        const fileResults = (result || []).map((item) => ({
+          ...item,
+          kind: 'file' as const,
+          execute: () => quickOpen.executeSubcommand?.(item.id, item.value)
+        }))
+        setAvailableCommands([...fileResults, ...headingResults, ...commandResults])
+      })
+      .catch((error: unknown) => {
+        if (requestId !== searchRequestId) return
+        searcherBusy.value = false
+        const err = error as { message?: string; name?: string } | null | undefined
+        if (!err || !err.message || err.name === 'AbortError') return
+        setAvailableCommands([...headingResults, ...commandResults])
+        log.error(err)
+      })
+    return
+  }
 
   if (command.search) {
     searcherBusy.value = true

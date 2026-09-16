@@ -57,6 +57,7 @@ export const de = {
         'Eliminate': 'Formatierung entfernen',
         // Code block
         'Copy content': 'Inhalt kopieren',
+        'Toggle task completion': 'Aufgabenstatus umschalten',
         'Input Language Identifier...': 'Sprachkennung eingeben...',
         // emojiPicker
         'Smileys & Emotion': 'Smileys & Emotionen',

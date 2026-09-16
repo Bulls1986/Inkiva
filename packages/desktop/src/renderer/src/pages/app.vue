@@ -10,24 +10,24 @@
       :is-saved="isSaved"
     />
 
-    <!--
-      Tabs are application chrome, not editor content. Keeping this row beside
-      the workspace makes it span the sidebar and the writing surface, which is
-      the stable shell shown in the reference design.
-    -->
-    <div
-      v-if="hasCurrentFile && init"
-      v-show="showTabBar"
-      class="document-tabs-row"
-      data-testid="document-tabs-row"
-    >
-      <tabs />
-    </div>
-
     <div class="editor-workspace">
       <side-bar v-if="init" />
 
       <div class="editor-middle">
+        <!--
+          The sidebar navigation and document tabs share this workspace header
+          band. Keeping the tab strip inside the editor column preserves the
+          single-sidebar reading frame from the reference design instead of
+          making the tabs look like a second, full-width application toolbar.
+        -->
+        <div
+          v-if="hasCurrentFile && init"
+          v-show="showTabBar"
+          class="document-tabs-row"
+          data-testid="document-tabs-row"
+        >
+          <tabs />
+        </div>
         <div
           v-if="!init"
           class="editor-placeholder"
@@ -260,7 +260,6 @@ onBeforeUnmount(() => {
 .document-tabs-row {
   display: flex;
   flex: 0 0 var(--documentTabsHeight);
-  width: 100%;
   height: var(--documentTabsHeight);
   min-width: 0;
   box-sizing: border-box;

@@ -142,6 +142,14 @@
       "followThemDisabled": "跟随系统主题时无法选择主题"
     }
   },
+  "titlebar": {
+    "saved": "已保存",
+    "unsaved": "未保存",
+    "untitled": "未命名文档",
+    "menu": "应用菜单",
+    "maximize": "最大化窗口",
+    "restore": "还原窗口"
+  },
   "contextMenu": {
     "cut": "剪切",
     "copy": "复制",
@@ -195,6 +203,7 @@
     "searchLimited": "仅搜索前 {count} 个结果"
   },
   "sideBar": {
+    "navigation": "侧边栏导航",
     "search": {
       "searchInFolder": "在文件夹中搜索…",
       "noFolderOpen": "没有打开的文件夹",
@@ -219,17 +228,52 @@
       "noMatches": "没有匹配的标题",
       "empty": "文档中没有标题"
     },
+    "documentIntelligence": {
+      "title": "文档信息",
+      "refresh": "刷新文档信息",
+      "noDocument": "打开已保存的 Markdown 文件以查看文档信息。",
+      "loading": "正在加载文档信息…",
+      "backlinks": "反向链接",
+      "noBacklinks": "没有来自已打开文档的反向链接。",
+      "line": "第 {line} 行",
+      "localHistory": "本地历史",
+      "noHistory": "暂无本地历史。",
+      "saveBeforeRestore": "恢复历史前请先保存当前修改。",
+      "restore": "恢复",
+      "restoring": "正在恢复…",
+      "restoreEntry": "从 {date} 恢复快照",
+      "bytes": "{count} B",
+      "kilobytes": "{count} KB",
+      "historyReasons": {
+        "manual": "手动",
+        "before-save": "保存前",
+        "before-external-change": "外部变更",
+        "autosave": "编辑中",
+        "close": "关闭",
+        "import": "导入",
+        "unknown": "快照"
+      },
+      "errors": {
+        "load": "无法加载文档信息。",
+        "sync": "无法更新文档信息。",
+        "restore": "无法恢复此快照。",
+        "restore-unsaved": "恢复前请先保存当前修改。",
+        "restore-stale": "恢复完成前文件已发生变化，未覆盖任何内容。"
+      }
+    },
     "icons": {
       "files": "文件",
       "search": "搜索",
       "toc": "大纲",
+      "documentIntelligence": "文档信息",
       "settings": "设置"
     }
   },
   "commandPalette": {
-    "placeholder": "输入要执行的命令",
+    "placeholder": "搜索文档、标题或命令…",
     "sections": {
       "files": "文件",
+      "headings": "标题",
       "commands": "命令"
     },
     "loading": "正在准备启动器…",
@@ -672,6 +716,11 @@
     },
     "theme": {
       "title": "主题",
+      "options": {
+        "light": "浅色",
+        "dark": "深色",
+        "paper": "纸张"
+      },
       "followSystemTheme": "跟随系统主题",
       "modeThemes": "主题选择",
       "lightModeTheme": "浅色模式主题",

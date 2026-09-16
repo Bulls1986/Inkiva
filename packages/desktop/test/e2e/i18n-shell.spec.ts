@@ -72,14 +72,14 @@ test.describe('i18n shell — language switch re-translates the Vue shell', () =
         },
         { timeout: 8000, intervals: [300, 500, 800] }
       )
-      .toBe('Type a command to execute')
+      .toBe('Search documents, headings or commands…')
 
     // 1) Read the English shell label.
     await openPalette(app, page)
     const enPlaceholder = await readPlaceholder(page)
     expect(enPlaceholder).toBeTruthy()
     // The English string from static/locales/en.json.
-    expect(enPlaceholder).toBe('Type a command to execute')
+    expect(enPlaceholder).toBe('Search documents, headings or commands…')
     // Never the raw i18n key leaking through.
     expect(enPlaceholder).not.toMatch(/commandPalette\./)
     await closePalette(page)
@@ -102,7 +102,7 @@ test.describe('i18n shell — language switch re-translates the Vue shell', () =
         },
         { timeout: 8000, intervals: [300, 500, 800] }
       )
-      .toBe('输入要执行的命令')
+      .toBe('搜索文档、标题或命令…')
 
     // 3) Re-read once more and assert the post-switch invariants.
     await openPalette(app, page)

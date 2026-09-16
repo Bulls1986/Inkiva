@@ -74,6 +74,10 @@ describe('Inkiva UI-07 application theme scope contract', () => {
     expect(tokens).toContain(":root[data-inkiva-appearance='dark']")
     expect(tokens).toContain(":root[data-inkiva-appearance='paper']")
     expect(preview).toContain('official-themes')
+    expect(preview).toContain('theme-preview-label')
+    expect(preview).toContain('aria-pressed')
+    expect(preview).toContain('.official-themes .theme.dark')
+    expect(preview).toContain('.official-themes .theme.paper')
     expect(preview).toContain('transition:')
     const themePreviewStyles = preview.slice(
       preview.indexOf('<style>'),
