@@ -30,11 +30,25 @@ export const PROGRESSIVE_RENDER_INITIAL_BLOCKS = 32;
 const PROGRESSIVE_RENDER_CHUNK_BUDGET_MS = 8;
 const DETACHED_BLOCK_DISPOSAL_BUDGET_MS = 4;
 export const INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS = 100;
-// A tab switch needs a longer quiet window than the initial document mount:
-// rapid tab changes should cancel the pending tail instead of competing with
-// the next click. Rendering still resumes when the user pauses on a tab.
-export const CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS = 1000;
+// The progressive tail is idle-scheduled below, so a fixed tab-switch delay
+// only leaves useful work pending long enough to collide with the next action.
+// Keep the exported contract for the desktop caller, but let the scheduler
+// decide when the main thread is actually available.
+export const CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS = 0;
 const PROGRESSIVE_RENDER_LINE_HEIGHT_PX = 24;
+
+interface IIdleDeadline {
+    timeRemaining: () => number;
+}
+
+type TIdleCallback = (deadline?: IIdleDeadline) => void;
+
+interface IIdleScheduler {
+    requestIdleCallback?: (callback: TIdleCallback) => number;
+    cancelIdleCallback?: (handle: number) => void;
+}
+
+const idleScheduler = (): IIdleScheduler => globalThis as typeof globalThis & IIdleScheduler;
 
 function estimateStateHeight(state: TState): number {
     if ('text' in state) {
@@ -79,6 +93,7 @@ export class ScrollPage extends Parent {
     private _progressiveStates: TState[] | null = null;
     private _progressiveIndex = 0;
     private _progressiveFrameId: number | null = null;
+    private _progressiveIdleCallbackId: number | null = null;
     private _progressiveTimerId: ReturnType<typeof setTimeout> | null = null;
     private _progressiveSpacer: HTMLElement | null = null;
     private _progressiveRemainingHeight = 0;
@@ -88,11 +103,16 @@ export class ScrollPage extends Parent {
     private _cloneProgressiveBlocks = false;
 
     // Replacing a large rendered document must not synchronously call
-    // `remove()` for every block. Keep detached roots in a small background
-    // queue so the next document can mount before old resources are released.
-    private _detachedBlocks: Parent[] = [];
+    // `remove()` for every block. Keep detached roots in small background
+    // batches so the next document can mount before old resources are
+    // released. Batch cursors avoid shifting every remaining item on each
+    // disposal, which otherwise turns repeated tab switches into O(n²) work.
+    private _detachedBlockBatches: Parent[][] = [];
+    private _detachedBatchIndex = 0;
+    private _detachedBlockIndex = 0;
 
     private _detachedDisposalFrameId: number | null = null;
+    private _detachedDisposalIdleCallbackId: number | null = null;
 
     static override blockName = 'scrollpage';
 
@@ -250,9 +270,8 @@ export class ScrollPage extends Parent {
 
         const generation = this._progressiveGeneration;
         // Leave two paint boundaries before background work starts. The
-        // initial cold mount also supplies a longer quiet window so the host
-        // can finish its own first-document setup and milestones; normal
-        // setContent/updateState calls retain the existing zero-delay path.
+        // initial cold mount can still opt into its small startup delay, but
+        // tab switches use the idle scheduler instead of a fixed quiet window.
         this._progressiveFrameId = requestAnimationFrame(() => {
             if (generation !== this._progressiveGeneration)
                 return;
@@ -263,13 +282,38 @@ export class ScrollPage extends Parent {
 
                 this._progressiveTimerId = setTimeout(() => {
                     this._progressiveTimerId = null;
-                    this._renderProgressiveChunk(generation);
+                    this._scheduleProgressiveWork(generation);
                 }, progressiveStartDelayMs);
             });
         });
     }
 
-    private _renderProgressiveChunk(generation: number): void {
+    private _scheduleProgressiveWork(generation: number): void {
+        const scheduler = idleScheduler();
+        if (typeof scheduler.requestIdleCallback === 'function') {
+            this._progressiveIdleCallbackId = scheduler.requestIdleCallback((deadline) => {
+                this._progressiveIdleCallbackId = null;
+                const budgetMs = deadline
+                    ? Math.min(PROGRESSIVE_RENDER_CHUNK_BUDGET_MS, Math.max(0, deadline.timeRemaining()))
+                    : PROGRESSIVE_RENDER_CHUNK_BUDGET_MS;
+                if (budgetMs > 0)
+                    this._renderProgressiveChunk(generation, budgetMs);
+                else
+                    this._scheduleProgressiveWork(generation);
+            });
+            return;
+        }
+
+        this._progressiveFrameId = requestAnimationFrame(() => {
+            this._progressiveFrameId = null;
+            this._renderProgressiveChunk(generation);
+        });
+    }
+
+    private _renderProgressiveChunk(
+        generation: number,
+        budgetMs = PROGRESSIVE_RENDER_CHUNK_BUDGET_MS,
+    ): void {
         if (generation !== this._progressiveGeneration)
             return;
 
@@ -296,7 +340,7 @@ export class ScrollPage extends Parent {
         }
         while (
             this._progressiveIndex < states.length
-            && performance.now() - startedAt < PROGRESSIVE_RENDER_CHUNK_BUDGET_MS
+            && performance.now() - startedAt < budgetMs
         );
 
         this._appendBlocks(blocks, true);
@@ -309,10 +353,7 @@ export class ScrollPage extends Parent {
             return;
         }
 
-        this._progressiveFrameId = requestAnimationFrame(() => {
-            this._progressiveFrameId = null;
-            this._renderProgressiveChunk(generation);
-        });
+        this._scheduleProgressiveWork(generation);
     }
 
     private _finishProgressiveRender(): void {
@@ -361,11 +402,32 @@ export class ScrollPage extends Parent {
     }
 
     private _scheduleDetachedDisposal(): void {
-        if (this._detachedBlocks.length === 0 || this._detachedDisposalFrameId !== null)
+        const hasPendingBatches = this._detachedBatchIndex < this._detachedBlockBatches.length;
+        if (
+            !hasPendingBatches
+            || this._detachedDisposalFrameId !== null
+            || this._detachedDisposalIdleCallbackId !== null
+        ) {
             return;
+        }
 
-        // Give the replacement two paint opportunities before releasing the
-        // previous tree. This keeps cleanup out of the switch's critical path.
+        const scheduler = idleScheduler();
+        if (typeof scheduler.requestIdleCallback === 'function') {
+            this._detachedDisposalIdleCallbackId = scheduler.requestIdleCallback((deadline) => {
+                this._detachedDisposalIdleCallbackId = null;
+                const budgetMs = deadline
+                    ? Math.min(DETACHED_BLOCK_DISPOSAL_BUDGET_MS, Math.max(0, deadline.timeRemaining()))
+                    : DETACHED_BLOCK_DISPOSAL_BUDGET_MS;
+                if (budgetMs > 0)
+                    this._disposeDetachedBlocksChunk(budgetMs);
+                else
+                    this._scheduleDetachedDisposal();
+            });
+            return;
+        }
+
+        // Keep the fallback on two paint boundaries for browsers without an
+        // idle callback implementation.
         this._detachedDisposalFrameId = requestAnimationFrame(() => {
             this._detachedDisposalFrameId = requestAnimationFrame(() => {
                 this._detachedDisposalFrameId = null;
@@ -374,31 +436,58 @@ export class ScrollPage extends Parent {
         });
     }
 
-    private _disposeDetachedBlocksChunk(): void {
+    private _disposeDetachedBlocksChunk(
+        budgetMs = DETACHED_BLOCK_DISPOSAL_BUDGET_MS,
+    ): void {
         const startedAt = performance.now();
         while (
-            this._detachedBlocks.length > 0
-            && performance.now() - startedAt < DETACHED_BLOCK_DISPOSAL_BUDGET_MS
+            this._detachedBatchIndex < this._detachedBlockBatches.length
+            && performance.now() - startedAt < budgetMs
         ) {
-            this._detachedBlocks.shift()?.dispose();
+            const batch = this._detachedBlockBatches[this._detachedBatchIndex];
+            batch[this._detachedBlockIndex++]?.dispose();
+            if (this._detachedBlockIndex >= batch.length) {
+                this._detachedBatchIndex += 1;
+                this._detachedBlockIndex = 0;
+            }
         }
 
+        if (this._detachedBatchIndex >= this._detachedBlockBatches.length) {
+            this._detachedBlockBatches = [];
+            this._detachedBatchIndex = 0;
+            this._detachedBlockIndex = 0;
+        }
         this._scheduleDetachedDisposal();
     }
 
     private _disposeDetachedBlocksImmediately(): void {
-        const detached = this._detachedBlocks.splice(0);
-        detached.forEach(block => block.dispose());
+        for (let batchIndex = this._detachedBatchIndex; batchIndex < this._detachedBlockBatches.length; batchIndex += 1) {
+            const batch = this._detachedBlockBatches[batchIndex];
+            const blockIndex = batchIndex === this._detachedBatchIndex ? this._detachedBlockIndex : 0;
+            for (let index = blockIndex; index < batch.length; index += 1)
+                batch[index].dispose();
+        }
+        this._detachedBlockBatches = [];
+        this._detachedBatchIndex = 0;
+        this._detachedBlockIndex = 0;
     }
 
     private _cancelProgressiveRender(): void {
         this._progressiveGeneration += 1;
         if (this._progressiveFrameId !== null)
             cancelAnimationFrame(this._progressiveFrameId);
+        const scheduler = idleScheduler();
+        if (
+            this._progressiveIdleCallbackId !== null
+            && typeof scheduler.cancelIdleCallback === 'function'
+        ) {
+            scheduler.cancelIdleCallback(this._progressiveIdleCallbackId);
+        }
         if (this._progressiveTimerId !== null)
             clearTimeout(this._progressiveTimerId);
 
         this._progressiveFrameId = null;
+        this._progressiveIdleCallbackId = null;
         this._progressiveTimerId = null;
         this._progressiveSpacer?.remove();
         this._progressiveSpacer = null;
@@ -422,7 +511,7 @@ export class ScrollPage extends Parent {
         this._cancelProgressiveRender();
         const detached = this._detachRenderedBlocks();
         if (detached.length > 0)
-            this._detachedBlocks.push(...detached);
+            this._detachedBlockBatches.push(detached);
         this._scheduleDetachedDisposal();
         if (progressive)
             this._mountState(state, cloneBlocks, progressiveStartDelayMs);
@@ -474,7 +563,15 @@ export class ScrollPage extends Parent {
         this._cancelProgressiveRender();
         if (this._detachedDisposalFrameId !== null)
             cancelAnimationFrame(this._detachedDisposalFrameId);
+        const scheduler = idleScheduler();
+        if (
+            this._detachedDisposalIdleCallbackId !== null
+            && typeof scheduler.cancelIdleCallback === 'function'
+        ) {
+            scheduler.cancelIdleCallback(this._detachedDisposalIdleCallbackId);
+        }
         this._detachedDisposalFrameId = null;
+        this._detachedDisposalIdleCallbackId = null;
         this._disposeDetachedBlocksImmediately();
         this._activeStatusFrames.forEach(frameId => cancelAnimationFrame(frameId));
         this._activeStatusFrames.clear();

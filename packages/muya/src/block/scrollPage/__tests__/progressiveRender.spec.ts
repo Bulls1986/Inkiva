@@ -24,6 +24,49 @@ function paragraphs(count: number): string {
 }
 
 describe('scrollPage progressive rendering', () => {
+    it('defers the progressive tail to idle time and cancels stale work', async () => {
+        vi.useFakeTimers();
+        const idleCallbacks = new Map<number, () => void>();
+        let nextIdleCallbackId = 0;
+        const requestIdleCallback = vi.fn((callback: () => void) => {
+            const id = ++nextIdleCallbackId;
+            idleCallbacks.set(id, callback);
+            return id;
+        });
+        const cancelIdleCallback = vi.fn((id: number) => {
+            idleCallbacks.delete(id);
+        });
+        vi.stubGlobal('requestIdleCallback', requestIdleCallback);
+        vi.stubGlobal('cancelIdleCallback', cancelIdleCallback);
+
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, { markdown: paragraphs(PROGRESSIVE_RENDER_THRESHOLD + 20) });
+        mountedEditors.push(muya);
+
+        try {
+            muya.init();
+            await vi.runAllTimersAsync();
+
+            expect(requestIdleCallback).toHaveBeenCalledTimes(1);
+            const staleTail = idleCallbacks.values().next().value as (() => void) | undefined;
+            expect(staleTail).toBeDefined();
+
+            muya.setContent('replacement\n');
+
+            expect(cancelIdleCallback).toHaveBeenCalledTimes(1);
+            staleTail?.();
+            await muya.whenRenderComplete();
+
+            expect(muya.editor.scrollPage!.children.length).toBe(1);
+            expect(muya.getMarkdown()).toContain('replacement');
+        }
+        finally {
+            vi.unstubAllGlobals();
+            vi.useRealTimers();
+        }
+    });
+
     it('does not clone the progressive tail before the initial render window', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);
