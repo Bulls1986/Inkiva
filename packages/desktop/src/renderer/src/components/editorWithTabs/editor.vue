@@ -1946,7 +1946,7 @@ const setMarkdownToEditor = (payload: unknown) => {
       // a cursor afterwards (a freshly-opened file has no history to restore).
       recordEditorSetContent('markdown')
       editor.value.setContent(newMarkdown ?? '')
-      editorLayoutReconciler?.reset()
+      editorLayoutReconciler?.reset(true)
     }
     // The freshly loaded content is this tab's clean baseline (id 0). Re-seed
     // the monotonic save-tracking allocator so undoing an edit back to this
@@ -2149,7 +2149,7 @@ const handleFileChange = (payload: unknown) => {
         getSyntheticHistory(id, newMarkdown)
       }
     }
-    editorLayoutReconciler?.reset()
+    editorLayoutReconciler?.reset(true)
   } else if (newCursor) {
     applyCursor(editor.value, newCursor)
   }
