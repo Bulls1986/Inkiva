@@ -26,8 +26,8 @@ interface IScrollPageCreateOptions {
 // needs a small prefix. Keep ordinary documents on the existing synchronous
 // path and progressively mount larger documents after the first paint.
 export const PROGRESSIVE_RENDER_THRESHOLD = 200;
-export const PROGRESSIVE_RENDER_INITIAL_BLOCKS = 32;
-const PROGRESSIVE_RENDER_CHUNK_BUDGET_MS = 8;
+export const PROGRESSIVE_RENDER_INITIAL_BLOCKS = 16;
+const PROGRESSIVE_RENDER_CHUNK_BUDGET_MS = 2;
 const DETACHED_BLOCK_DISPOSAL_BUDGET_MS = 4;
 export const INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS = 100;
 // A tab switch needs a longer quiet window than the initial document mount:
