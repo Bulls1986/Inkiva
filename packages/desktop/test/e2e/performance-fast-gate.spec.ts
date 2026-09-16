@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import type { ElectronApplication, Page } from 'playwright'
+import type { ElectronApplication, Locator, Page } from 'playwright'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -187,6 +187,82 @@ const measurePageAction = async(
   if (settleAfterAction) await waitForPaint(page)
   const endedAt = await page.evaluate(() => performance.now())
   return Math.max(0, endedAt - startedAt)
+}
+
+const measureTabClick = async(
+  page: Page,
+  target: Locator,
+  waitForActive = false
+): Promise<number> => {
+  const tabId = await target.getAttribute('data-id')
+  if (!tabId) throw new Error('tab click target is missing its data-id')
+
+  await page.evaluate((id) => {
+    const state = globalThis as typeof globalThis & {
+      __inkiva_tab_click_probe__?: {
+        startedAt?: number
+        target: HTMLElement
+        listener: (event: PointerEvent) => void
+      }
+    }
+    const previous = state.__inkiva_tab_click_probe__
+    if (previous) previous.target.removeEventListener('pointerdown', previous.listener, true)
+
+    const target = Array.from(document.querySelectorAll<HTMLElement>('.tabs-container > li')).find(
+      (element) => element.getAttribute('data-id') === id
+    )
+    if (!target) throw new Error('tab click target is no longer mounted')
+
+    const probe: {
+      startedAt?: number
+      target: HTMLElement
+      listener: (event: PointerEvent) => void
+    } = {
+      target,
+      listener: () => {
+        probe.startedAt = performance.now()
+        target.removeEventListener('pointerdown', probe.listener, true)
+      }
+    }
+    target.addEventListener('pointerdown', probe.listener, true)
+    state.__inkiva_tab_click_probe__ = probe
+  }, tabId)
+
+  try {
+    await target.click({ force: true })
+    if (waitForActive) await expect(target).toHaveClass(/active/)
+    await waitForPaint(page)
+    return await page.evaluate(() => {
+      const state = globalThis as typeof globalThis & {
+        __inkiva_tab_click_probe__?: {
+          startedAt?: number
+          target: HTMLElement
+          listener: (event: PointerEvent) => void
+        }
+      }
+      const probe = state.__inkiva_tab_click_probe__
+      if (!probe || typeof probe.startedAt !== 'number') {
+        throw new Error('tab pointerdown did not produce a timing sample')
+      }
+      return Math.max(0, performance.now() - probe.startedAt)
+    })
+  } finally {
+    await page.evaluate(() => {
+      const state = globalThis as typeof globalThis & {
+        __inkiva_tab_click_probe__?: {
+          startedAt?: number
+          target: HTMLElement
+          listener: (event: PointerEvent) => void
+        }
+      }
+      const probe = state.__inkiva_tab_click_probe__
+      if (!probe) return
+      probe.target.removeEventListener('pointerdown', probe.listener, true)
+      delete state.__inkiva_tab_click_probe__
+    }).catch(() => {
+      // Preserve the original action failure if the renderer closes.
+    })
+  }
 }
 
 const installFastGateProbe = async(page: Page): Promise<void> => {
@@ -668,25 +744,16 @@ const collectTabSwitchSamples = async(
       const warmTarget = page.locator(`.tabs-container > li[data-id="${warmId}"]`)
       const coldTarget = page.locator(`.tabs-container > li[data-id="${coldId}"]`)
 
-      const warmDuration = await measurePageAction(page, async() => {
-        // The tab was resolved from the visible tab strip above. Skip
-        // Playwright's actionability polling so this metric starts at the
-        // actual pointer event instead of including the test driver's
-        // stability wait on a large, actively rendering document.
-        await warmTarget.click({ force: true })
-        await expect(warmTarget).toHaveClass(/active/)
-      })
+      const warmDuration = await measureTabClick(page, warmTarget, true)
       await recordSample(page, 'tabs.8.warmSwitch', 'ms', warmDuration)
 
-      const coldDuration = await measurePageAction(page, async() => {
-        await coldTarget.click({ force: true })
-        await expect(coldTarget).toHaveClass(/active/)
-      })
+      const coldDuration = await measureTabClick(page, coldTarget, true)
       await recordSample(page, 'tabs.8.coldSwitch', 'ms', coldDuration)
 
-      const switchDuration = await measurePageAction(page, async() => {
-        await page.locator('.tabs-container > li').nth((index + 1) % 8).click({ force: true })
-      })
+      const switchDuration = await measureTabClick(
+        page,
+        page.locator('.tabs-container > li').nth((index + 1) % 8)
+      )
       await recordSample(page, 'tabs.8.switch', 'ms', switchDuration)
       await recordSample(page, 'tabs.8.freeze', 'count', switchDuration > 100 ? 1 : 0)
       assertWithinBudget(startedAt)
