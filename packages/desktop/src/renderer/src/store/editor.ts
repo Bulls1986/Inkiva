@@ -1695,7 +1695,7 @@ export const useEditorStore = defineStore('editor', {
       if (blocks) tab.blocks = blocks
 
       // Only update TOC if it's the current file
-      if (id === this.currentFile?.id && toc && !equal(toc, this.listToc)) {
+      if (id === this.currentFile?.id && toc) {
         this.UPDATE_TOC(toc, false)
       }
 
