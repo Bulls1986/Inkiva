@@ -669,19 +669,23 @@ const collectTabSwitchSamples = async(
       const coldTarget = page.locator(`.tabs-container > li[data-id="${coldId}"]`)
 
       const warmDuration = await measurePageAction(page, async() => {
-        await warmTarget.click()
+        // The tab was resolved from the visible tab strip above. Skip
+        // Playwright's actionability polling so this metric starts at the
+        // actual pointer event instead of including the test driver's
+        // stability wait on a large, actively rendering document.
+        await warmTarget.click({ force: true })
         await expect(warmTarget).toHaveClass(/active/)
       })
       await recordSample(page, 'tabs.8.warmSwitch', 'ms', warmDuration)
 
       const coldDuration = await measurePageAction(page, async() => {
-        await coldTarget.click()
+        await coldTarget.click({ force: true })
         await expect(coldTarget).toHaveClass(/active/)
       })
       await recordSample(page, 'tabs.8.coldSwitch', 'ms', coldDuration)
 
       const switchDuration = await measurePageAction(page, async() => {
-        await page.locator('.tabs-container > li').nth((index + 1) % 8).click()
+        await page.locator('.tabs-container > li').nth((index + 1) % 8).click({ force: true })
       })
       await recordSample(page, 'tabs.8.switch', 'ms', switchDuration)
       await recordSample(page, 'tabs.8.freeze', 'count', switchDuration > 100 ? 1 : 0)
