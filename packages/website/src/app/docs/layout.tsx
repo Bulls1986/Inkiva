@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: '%s · Inkiva Docs'
   },
   description:
-    'Guides, reference and developer documentation for Inkiva — the WYSIWYG markdown editor.'
+    'Guides, reference and developer documentation for Inkiva — the document-first Markdown editor.'
 }
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {

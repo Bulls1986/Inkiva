@@ -17,9 +17,9 @@ const geistMono = Geist_Mono({
 })
 
 const SITE_URL = 'https://www.inkiva.net'
-const TITLE = 'Inkiva · 墨映 — WYSIWYG Markdown editor'
+const TITLE = 'Inkiva · 墨映 — document-first Markdown editor'
 const DESCRIPTION =
-  'A free, open-source WYSIWYG Markdown editor for Windows x64 and macOS Intel or Apple silicon. Write naturally and see the rendered document take shape in place.'
+  'Inkiva is a free, open-source, document-first Markdown editor for focused writing on Windows x64 and macOS Intel or Apple silicon.'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   applicationName: 'Inkiva',
   keywords: [
     'markdown editor',
-    'WYSIWYG markdown',
+    'document-first Markdown',
     'CommonMark',
     'GitHub Flavored Markdown',
     'GFM',

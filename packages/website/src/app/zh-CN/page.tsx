@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
-import ChineseHomePage from '@/components/ChineseHomePage'
+import QuietHomePage from '@/components/QuietHomePage'
 
-const TITLE = 'Inkiva · 墨映 — 所见即所得 Markdown 编辑器'
-const DESCRIPTION = 'Inkiva（墨映）是一款免费、开源的所见即所得 Markdown 编辑器，让你无需离开文档即可自然写作。'
+const TITLE = 'Inkiva · 墨映 — 文档优先的 Markdown 编辑器'
+const DESCRIPTION = 'Inkiva（墨映）是一款免费、开源、文档优先的 Markdown 编辑器，围绕普通文件提供专注写作体验。'
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -23,5 +23,5 @@ export const metadata: Metadata = {
 }
 
 export default function ChineseHome() {
-  return <ChineseHomePage />
+  return <QuietHomePage locale="zh-CN" />
 }
