@@ -1416,7 +1416,11 @@ const scrollToCords = (y: number) => {
     container,
     target,
     startedAt: Date.now(),
-    expectedScrollTop: Math.min(target, getMaxScrollTop(container)),
+    // The old document may still occupy a large DOM tree here. Defer the
+    // first scrollHeight read until the rAF after the new surface is mounted,
+    // when the container is hidden and the browser can calculate one final
+    // layout for the replacement document.
+    expectedScrollTop: target,
     lastMaxScrollTop: null,
     stableSince: null,
     timer: null,
@@ -2003,6 +2007,18 @@ const handleFileChange = (payload: unknown) => {
   const container = getScrollContainer()
   if (!container) return
 
+  // Hide the live editor before replacing a large rendered tree. Visibility
+  // alone keeps the layout box intact, while preventing the browser from
+  // laying out each detach/append operation on the switch's synchronous path.
+  const restoresScroll = typeof scrollTop === 'number'
+  if (restoresScroll) {
+    container.style.visibility = 'hidden'
+    container.style.pointerEvents = 'none'
+  } else {
+    container.style.visibility = 'visible'
+    container.style.pointerEvents = 'auto'
+  }
+
   clearPendingScrollRestore()
 
   const isSourceModeHandoff =
@@ -2116,12 +2132,8 @@ const handleFileChange = (payload: unknown) => {
   }
 
   if (typeof scrollTop === 'number') {
-    container.style.visibility = 'hidden'
-    container.style.pointerEvents = 'none'
     scrollToCords(scrollTop)
   } else {
-    container.style.visibility = 'visible'
-    container.style.pointerEvents = 'auto'
     scrollToCursor(0)
   }
 
