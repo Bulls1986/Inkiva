@@ -18,6 +18,7 @@ const debug = logger('inlineRenderer:');
 // while a false positive could change rendered Markdown.
 const INLINE_SYNTAX_HINT = /[\\*_`![<>&~$^:#\n]/;
 const BARE_AUTOLINK_HINT = /@|(?:^|\s)(?:www\.|https?:\/\/)/i;
+const PLAIN_TEXT_FAST_PATH_MIN_LENGTH = 1_024;
 
 function canRenderAsPlainText(
     text: string,
@@ -25,7 +26,8 @@ function canRenderAsPlainText(
     highlights: IHighlight[],
 ): boolean {
     return (
-        !cursor?.block
+        text.length >= PLAIN_TEXT_FAST_PATH_MIN_LENGTH
+        && !cursor?.block
         && highlights.length === 0
         && !INLINE_SYNTAX_HINT.test(text)
         && !BARE_AUTOLINK_HINT.test(text)
