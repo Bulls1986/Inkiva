@@ -1412,6 +1412,16 @@ const scrollToCords = (y: number) => {
   clearPendingScrollRestore()
 
   const target = Math.max(0, y)
+  if (target === 0) {
+    // Most tab activations restore the default top position. Avoid creating a
+    // pending restore and forcing a post-mount scrollHeight read for this
+    // common case; zero is valid regardless of the replacement document's
+    // eventual height.
+    container.scrollTop = 0
+    container.style.visibility = 'visible'
+    container.style.pointerEvents = 'auto'
+    return
+  }
   const pending: PendingScrollRestore = {
     container,
     target,
@@ -2010,7 +2020,7 @@ const handleFileChange = (payload: unknown) => {
   // Hide the live editor before replacing a large rendered tree. Visibility
   // alone keeps the layout box intact, while preventing the browser from
   // laying out each detach/append operation on the switch's synchronous path.
-  const restoresScroll = typeof scrollTop === 'number'
+  const restoresScroll = typeof scrollTop === 'number' && scrollTop > 0
   if (restoresScroll) {
     container.style.visibility = 'hidden'
     container.style.pointerEvents = 'none'
