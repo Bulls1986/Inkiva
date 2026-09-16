@@ -10,6 +10,26 @@ import { beginRules } from './rules';
 
 const debug = logger('inlineRenderer:');
 
+// The inline lexer is deliberately conservative and checks every character
+// against every rule. That is correct for Markdown, but it turns a large
+// paragraph containing only ordinary text into an avoidable O(n²) path because
+// the lexer advances one character at a time while growing its pending string.
+// Keep this hint conservative: a false negative only uses the normal lexer,
+// while a false positive could change rendered Markdown.
+const INLINE_SYNTAX_HINT = /[\\*_`![<>&~$^:#\n]/;
+const BARE_AUTOLINK_HINT = /@|(?:^|\s)(?:www\.|https?:\/\/)/i;
+
+const canRenderAsPlainText = (
+    text: string,
+    cursor: IRenderCursor | undefined,
+    highlights: IHighlight[],
+): boolean => (
+    !cursor?.block
+    && highlights.length === 0
+    && !INLINE_SYNTAX_HINT.test(text)
+    && !BARE_AUTOLINK_HINT.test(text)
+);
+
 class InlineRenderer {
     public labels: Labels = new Map();
     public renderer: Renderer;
@@ -65,8 +85,16 @@ class InlineRenderer {
     }
 
     patch(block: Format, cursor?: IRenderCursor, highlights: IHighlight[] = []) {
-        this._collectReferenceDefinitions();
         const { domNode } = block;
+        if (canRenderAsPlainText(block.text, cursor, highlights)) {
+            // No inline rule can match this text, so avoid the lexer and the
+            // renderer entirely. `textContent` also keeps the content safely
+            // escaped without paying the HTML parser cost for a huge string.
+            domNode!.textContent = block.text;
+            return;
+        }
+
+        this._collectReferenceDefinitions();
         if (block.isParent())
             debug.error('Patch can only handle content block');
 
