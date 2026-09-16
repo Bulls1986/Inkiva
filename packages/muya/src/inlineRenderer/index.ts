@@ -16,8 +16,9 @@ const debug = logger('inlineRenderer:');
 // the lexer advances one character at a time while growing its pending string.
 // Keep this hint conservative: a false negative only uses the normal lexer,
 // while a false positive could change rendered Markdown.
-const INLINE_SYNTAX_HINT = /[\\*_`![<>&~$^:#\n]/;
+const INLINE_SYNTAX_HINT = /[\\*_`![<>&~$^:#]/;
 const BARE_AUTOLINK_HINT = /@|(?:^|\s)(?:www\.|https?:\/\/)/i;
+const HARD_LINE_BREAK_HINT = / {2,}\n|\n{2,}/;
 const PLAIN_TEXT_FAST_PATH_MIN_LENGTH = 1_024;
 
 function canRenderAsPlainText(
@@ -31,6 +32,7 @@ function canRenderAsPlainText(
         && highlights.length === 0
         && !INLINE_SYNTAX_HINT.test(text)
         && !BARE_AUTOLINK_HINT.test(text)
+        && !HARD_LINE_BREAK_HINT.test(text)
     );
 }
 

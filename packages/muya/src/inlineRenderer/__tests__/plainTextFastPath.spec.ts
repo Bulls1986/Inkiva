@@ -21,7 +21,7 @@ describe('inline renderer plain-text fast path', () => {
         mountedEditors.push(muya);
 
         const output = vi.spyOn(muya.editor.inlineRenderer.renderer, 'output');
-        const text = 'x'.repeat(18_000);
+        const text = `Detail 299 keeps the paragraph plain.\n${'x'.repeat(18_000)}`;
         muya.setContent(text);
 
         expect(output).not.toHaveBeenCalled();
