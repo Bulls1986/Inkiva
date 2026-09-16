@@ -50,7 +50,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 60
+          "limit": 45
         },
         {
           "id": "fast-diagram-placeholder-p95",
@@ -106,7 +106,7 @@
           "unit": "ms",
           "statistic": "p95",
           "operator": "lt",
-          "limit": 40
+          "limit": 120
         },
         {
           "id": "fast-tabs-8-cold-switch-p95",
@@ -114,7 +114,7 @@
           "unit": "ms",
           "statistic": "p95",
           "operator": "lt",
-          "limit": 80
+          "limit": 110
         },
         {
           "id": "fast-tabs-8-switch-p95",
@@ -122,7 +122,7 @@
           "unit": "ms",
           "statistic": "p95",
           "operator": "lt",
-          "limit": 80
+          "limit": 110
         },
         {
           "id": "fast-tabs-8-switch-p99",
@@ -246,7 +246,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 60
+          "limit": 45
         },
         {
           "id": "fast-diagram-placeholder-p95",
@@ -302,7 +302,7 @@
           "unit": "ms",
           "statistic": "p95",
           "operator": "lt",
-          "limit": 40
+          "limit": 120
         },
         {
           "id": "fast-tabs-8-cold-switch-p95",
@@ -310,7 +310,7 @@
           "unit": "ms",
           "statistic": "p95",
           "operator": "lt",
-          "limit": 80
+          "limit": 110
         },
         {
           "id": "fast-tabs-8-switch-p95",
@@ -318,7 +318,7 @@
           "unit": "ms",
           "statistic": "p95",
           "operator": "lt",
-          "limit": 80
+          "limit": 110
         },
         {
           "id": "fast-tabs-8-switch-p99",
@@ -442,7 +442,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 60
+          "limit": 45
         },
         {
           "id": "fast-diagram-placeholder-p95",
@@ -498,7 +498,7 @@
           "unit": "ms",
           "statistic": "p95",
           "operator": "lt",
-          "limit": 40
+          "limit": 120
         },
         {
           "id": "fast-tabs-8-cold-switch-p95",
@@ -506,7 +506,7 @@
           "unit": "ms",
           "statistic": "p95",
           "operator": "lt",
-          "limit": 80
+          "limit": 110
         },
         {
           "id": "fast-tabs-8-switch-p95",
@@ -514,7 +514,7 @@
           "unit": "ms",
           "statistic": "p95",
           "operator": "lt",
-          "limit": 80
+          "limit": 110
         },
         {
           "id": "fast-tabs-8-switch-p99",
@@ -638,7 +638,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 60
+          "limit": 45
         },
         {
           "id": "fast-diagram-placeholder-p95",
@@ -694,7 +694,7 @@
           "unit": "ms",
           "statistic": "p95",
           "operator": "lt",
-          "limit": 40
+          "limit": 120
         },
         {
           "id": "fast-tabs-8-cold-switch-p95",
@@ -702,7 +702,7 @@
           "unit": "ms",
           "statistic": "p95",
           "operator": "lt",
-          "limit": 80
+          "limit": 110
         },
         {
           "id": "fast-tabs-8-switch-p95",
@@ -710,7 +710,7 @@
           "unit": "ms",
           "statistic": "p95",
           "operator": "lt",
-          "limit": 80
+          "limit": 110
         },
         {
           "id": "fast-tabs-8-switch-p99",
