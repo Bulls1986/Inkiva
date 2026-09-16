@@ -1,0 +1,630 @@
+{
+  "schemaVersion": 1,
+  "minimumSamples": 20,
+  "levels": {
+    "P0": {
+      "gates": [
+        {
+          "id": "fast-document-first-screen-p95",
+          "metric": "document.50k.firstScreen",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 200
+        },
+        {
+          "id": "fast-document-editable-p95",
+          "metric": "document.50k.editable",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 250
+        },
+        {
+          "id": "fast-input-p95",
+          "metric": "core.input.latency",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 8
+        },
+        {
+          "id": "fast-input-p99",
+          "metric": "core.input.latency",
+          "unit": "ms",
+          "statistic": "p99",
+          "operator": "lt",
+          "limit": 16
+        },
+        {
+          "id": "fast-input-max",
+          "metric": "core.input.latency",
+          "unit": "ms",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 32
+        },
+        {
+          "id": "fast-document-scroll-fps-min",
+          "metric": "document.50k.scrollFps",
+          "unit": "count",
+          "statistic": "min",
+          "operator": "gte",
+          "limit": 60
+        },
+        {
+          "id": "fast-diagram-placeholder-p95",
+          "metric": "diagram.placeholder",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 50
+        },
+        {
+          "id": "fast-diagram-first-screen-sync-count",
+          "metric": "diagram.firstScreenSyncRender",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-image-offscreen-request-count",
+          "metric": "image.offscreenRequest",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-image-offscreen-decode-count",
+          "metric": "image.offscreenDecode",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-folder-search-first-batch-p95",
+          "metric": "search.folder.firstBatch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 300
+        },
+        {
+          "id": "fast-save-50k-p95",
+          "metric": "save.50k",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 100
+        },
+        {
+          "id": "fast-memory-heap-growth-50-max",
+          "metric": "memory.heapGrowth50",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.15
+        },
+        {
+          "id": "fast-memory-heap-linear-growth-count",
+          "metric": "memory.heapLinearGrowth",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-crash-count",
+          "metric": "stability.crash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-renderer-crash-count",
+          "metric": "stability.rendererCrash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-oom-count",
+          "metric": "stability.oom",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-cpu-runaway-count",
+          "metric": "stability.cpuRunaway",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-renderer-hang-count",
+          "metric": "stability.rendererHang",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        }
+      ]
+    },
+    "P1": {
+      "gates": [
+        {
+          "id": "fast-document-first-screen-p95",
+          "metric": "document.50k.firstScreen",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 200
+        },
+        {
+          "id": "fast-document-editable-p95",
+          "metric": "document.50k.editable",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 250
+        },
+        {
+          "id": "fast-input-p95",
+          "metric": "core.input.latency",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 8
+        },
+        {
+          "id": "fast-input-p99",
+          "metric": "core.input.latency",
+          "unit": "ms",
+          "statistic": "p99",
+          "operator": "lt",
+          "limit": 16
+        },
+        {
+          "id": "fast-input-max",
+          "metric": "core.input.latency",
+          "unit": "ms",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 32
+        },
+        {
+          "id": "fast-document-scroll-fps-min",
+          "metric": "document.50k.scrollFps",
+          "unit": "count",
+          "statistic": "min",
+          "operator": "gte",
+          "limit": 60
+        },
+        {
+          "id": "fast-diagram-placeholder-p95",
+          "metric": "diagram.placeholder",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 50
+        },
+        {
+          "id": "fast-diagram-first-screen-sync-count",
+          "metric": "diagram.firstScreenSyncRender",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-image-offscreen-request-count",
+          "metric": "image.offscreenRequest",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-image-offscreen-decode-count",
+          "metric": "image.offscreenDecode",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-folder-search-first-batch-p95",
+          "metric": "search.folder.firstBatch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 300
+        },
+        {
+          "id": "fast-save-50k-p95",
+          "metric": "save.50k",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 100
+        },
+        {
+          "id": "fast-memory-heap-growth-50-max",
+          "metric": "memory.heapGrowth50",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.15
+        },
+        {
+          "id": "fast-memory-heap-linear-growth-count",
+          "metric": "memory.heapLinearGrowth",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-crash-count",
+          "metric": "stability.crash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-renderer-crash-count",
+          "metric": "stability.rendererCrash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-oom-count",
+          "metric": "stability.oom",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-cpu-runaway-count",
+          "metric": "stability.cpuRunaway",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-renderer-hang-count",
+          "metric": "stability.rendererHang",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        }
+      ]
+    },
+    "P2": {
+      "gates": [
+        {
+          "id": "fast-document-first-screen-p95",
+          "metric": "document.50k.firstScreen",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 200
+        },
+        {
+          "id": "fast-document-editable-p95",
+          "metric": "document.50k.editable",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 250
+        },
+        {
+          "id": "fast-input-p95",
+          "metric": "core.input.latency",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 8
+        },
+        {
+          "id": "fast-input-p99",
+          "metric": "core.input.latency",
+          "unit": "ms",
+          "statistic": "p99",
+          "operator": "lt",
+          "limit": 16
+        },
+        {
+          "id": "fast-input-max",
+          "metric": "core.input.latency",
+          "unit": "ms",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 32
+        },
+        {
+          "id": "fast-document-scroll-fps-min",
+          "metric": "document.50k.scrollFps",
+          "unit": "count",
+          "statistic": "min",
+          "operator": "gte",
+          "limit": 60
+        },
+        {
+          "id": "fast-diagram-placeholder-p95",
+          "metric": "diagram.placeholder",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 50
+        },
+        {
+          "id": "fast-diagram-first-screen-sync-count",
+          "metric": "diagram.firstScreenSyncRender",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-image-offscreen-request-count",
+          "metric": "image.offscreenRequest",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-image-offscreen-decode-count",
+          "metric": "image.offscreenDecode",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-folder-search-first-batch-p95",
+          "metric": "search.folder.firstBatch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 300
+        },
+        {
+          "id": "fast-save-50k-p95",
+          "metric": "save.50k",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 100
+        },
+        {
+          "id": "fast-memory-heap-growth-50-max",
+          "metric": "memory.heapGrowth50",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.15
+        },
+        {
+          "id": "fast-memory-heap-linear-growth-count",
+          "metric": "memory.heapLinearGrowth",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-crash-count",
+          "metric": "stability.crash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-renderer-crash-count",
+          "metric": "stability.rendererCrash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-oom-count",
+          "metric": "stability.oom",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-cpu-runaway-count",
+          "metric": "stability.cpuRunaway",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-renderer-hang-count",
+          "metric": "stability.rendererHang",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        }
+      ]
+    },
+    "P3": {
+      "gates": [
+        {
+          "id": "fast-document-first-screen-p95",
+          "metric": "document.50k.firstScreen",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 200
+        },
+        {
+          "id": "fast-document-editable-p95",
+          "metric": "document.50k.editable",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 250
+        },
+        {
+          "id": "fast-input-p95",
+          "metric": "core.input.latency",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 8
+        },
+        {
+          "id": "fast-input-p99",
+          "metric": "core.input.latency",
+          "unit": "ms",
+          "statistic": "p99",
+          "operator": "lt",
+          "limit": 16
+        },
+        {
+          "id": "fast-input-max",
+          "metric": "core.input.latency",
+          "unit": "ms",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 32
+        },
+        {
+          "id": "fast-document-scroll-fps-min",
+          "metric": "document.50k.scrollFps",
+          "unit": "count",
+          "statistic": "min",
+          "operator": "gte",
+          "limit": 60
+        },
+        {
+          "id": "fast-diagram-placeholder-p95",
+          "metric": "diagram.placeholder",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 50
+        },
+        {
+          "id": "fast-diagram-first-screen-sync-count",
+          "metric": "diagram.firstScreenSyncRender",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-image-offscreen-request-count",
+          "metric": "image.offscreenRequest",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-image-offscreen-decode-count",
+          "metric": "image.offscreenDecode",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-folder-search-first-batch-p95",
+          "metric": "search.folder.firstBatch",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 300
+        },
+        {
+          "id": "fast-save-50k-p95",
+          "metric": "save.50k",
+          "unit": "ms",
+          "statistic": "p95",
+          "operator": "lt",
+          "limit": 100
+        },
+        {
+          "id": "fast-memory-heap-growth-50-max",
+          "metric": "memory.heapGrowth50",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.15
+        },
+        {
+          "id": "fast-memory-heap-linear-growth-count",
+          "metric": "memory.heapLinearGrowth",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-crash-count",
+          "metric": "stability.crash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-renderer-crash-count",
+          "metric": "stability.rendererCrash",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-oom-count",
+          "metric": "stability.oom",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-cpu-runaway-count",
+          "metric": "stability.cpuRunaway",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "fast-stability-renderer-hang-count",
+          "metric": "stability.rendererHang",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        }
+      ]
+    }
+  }
+}

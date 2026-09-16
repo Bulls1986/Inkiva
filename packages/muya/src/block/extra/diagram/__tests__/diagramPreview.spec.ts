@@ -6,7 +6,8 @@ import { CLASS_NAMES } from '../../../../config';
 import I18n from '../../../../i18n';
 import { en } from '../../../../locales/en';
 import { zhCN } from '../../../../locales/zh-CN';
-import DiagramPreview from '../diagramPreview';
+import { DEFAULT_DIAGRAM_HEIGHT_HINT } from '../diagramHeightHint';
+import DiagramPreview, { DIAGRAM_RENDER_DEBOUNCE_MS } from '../diagramPreview';
 import DiagramBlock from '../index';
 
 // The diagram renderer (`utils/diagram` default export) dynamically imports
@@ -134,6 +135,12 @@ describe('diagramPreview — empty state', () => {
 });
 
 describe('diagramPreview — lazy height restoration', () => {
+    it('reserves a baseline height before the first render is ready', () => {
+        const { preview } = makePreview('graph TD\n  A --> B');
+
+        expect(preview.domNode!.style.minHeight).toBe(`${DEFAULT_DIAGRAM_HEIGHT_HINT}px`);
+    });
+
     it('reuses the last successful rendered height as a lazy placeholder', async () => {
         loadRendererMock.mockResolvedValue({
             initialize: vi.fn(),
@@ -384,8 +391,8 @@ describe('diagramPreview — viewport lazy rendering', () => {
         expect(loadRendererMock).not.toHaveBeenCalled();
 
         observer.trigger(true);
-        for (let attempt = 0; attempt < 10 && render.mock.calls.length === 0; attempt += 1)
-            await new Promise<void>(resolve => setTimeout(resolve, 0));
+        await new Promise<void>(resolve =>
+            setTimeout(resolve, DIAGRAM_RENDER_DEBOUNCE_MS + 50));
 
         expect(render).toHaveBeenCalledTimes(1);
         expect(preview.domNode!.getAttribute('data-diagram-lazy')).toBeNull();

@@ -57,6 +57,14 @@ const INPUT_EVENT_NAMES = new Set([
 const isFiniteNonNegative = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0
 
+const readInputLatency = (entry: PerformanceEntry): number | undefined => {
+  const timing = entry as PerformanceEntry & { processingStart?: unknown }
+  if (isFiniteNonNegative(timing.processingStart) && timing.processingStart >= entry.startTime) {
+    return timing.processingStart - entry.startTime
+  }
+  return isFiniteNonNegative(entry.duration) ? entry.duration : undefined
+}
+
 const getDefaultClock = (): RuntimePerformanceClock | undefined => {
   const candidate = (
     globalThis as typeof globalThis & {
@@ -73,12 +81,13 @@ const getDefaultObserver = (): RendererPerformanceObserverConstructor | undefine
     }
   ).PerformanceObserver
   return typeof candidate === 'function'
-    ? candidate as RendererPerformanceObserverConstructor
+    ? (candidate as RendererPerformanceObserverConstructor)
     : undefined
 }
 
 const getDefaultRequestAnimationFrame = ():
-  ((callback: (timestamp: number) => void) => number) | undefined => {
+  | ((callback: (timestamp: number) => void) => number)
+  | undefined => {
   const candidate = (
     globalThis as typeof globalThis & {
       requestAnimationFrame?: (callback: (timestamp: number) => void) => number
@@ -102,7 +111,11 @@ export class RuntimePerformanceMonitor {
   private readonly observerConstructor?: RendererPerformanceObserverConstructor
   private readonly requestAnimationFrame?: (callback: (timestamp: number) => void) => number
   private readonly cancelAnimationFrame?: (handle: number) => void
-  private readonly setInterval: (callback: () => void, delayMs: number) => ReturnType<typeof setInterval>
+  private readonly setInterval: (
+    callback: () => void,
+    delayMs: number
+  ) => ReturnType<typeof setInterval>
+
   private readonly clearInterval: (timer: ReturnType<typeof setInterval>) => void
 
   private readonly memorySampleIntervalMs: number
@@ -134,13 +147,14 @@ export class RuntimePerformanceMonitor {
     this.observerConstructor =
       options.performanceObserver === undefined
         ? getDefaultObserver()
-        : options.performanceObserver ?? undefined
+        : (options.performanceObserver ?? undefined)
     this.requestAnimationFrame = options.requestAnimationFrame ?? getDefaultRequestAnimationFrame()
     this.cancelAnimationFrame = options.cancelAnimationFrame ?? getDefaultCancelAnimationFrame()
-    this.setInterval = options.setInterval ?? ((callback, delayMs) => setInterval(callback, delayMs))
-    this.clearInterval = options.clearInterval ?? (timer => clearInterval(timer))
+    this.setInterval =
+      options.setInterval ?? ((callback, delayMs) => setInterval(callback, delayMs))
+    this.clearInterval = options.clearInterval ?? ((timer) => clearInterval(timer))
     this.setTimer = options.setTimeout ?? ((callback, delayMs) => setTimeout(callback, delayMs))
-    this.clearTimer = options.clearTimeout ?? (timer => clearTimeout(timer))
+    this.clearTimer = options.clearTimeout ?? ((timer) => clearTimeout(timer))
     this.memorySampleIntervalMs = Math.max(250, Math.floor(options.memorySampleIntervalMs ?? 1_000))
     this.eventLoopSampleIntervalMs = Math.max(
       1,
@@ -263,8 +277,9 @@ export class RuntimePerformanceMonitor {
       { type: 'event', buffered: true, durationThreshold: 0 } as PerformanceObserverInit,
       (entry) => {
         if (entry.entryType !== 'event' || !INPUT_EVENT_NAMES.has(entry.name)) return
-        if (!isFiniteNonNegative(entry.duration)) return
-        this.record('core.input.latency', 'ms', entry.duration, {
+        const latency = readInputLatency(entry)
+        if (latency === undefined) return
+        this.record('core.input.latency', 'ms', latency, {
           phase: 'editor',
           metadata: { eventName: entry.name }
         })
@@ -345,12 +360,9 @@ export class RuntimePerformanceMonitor {
         this.record('core.frame.duration', 'ms', duration, { phase: 'editor' })
         this.record('core.frame.over16_7', 'ratio', duration > 16.7 ? 1 : 0, { phase: 'editor' })
         this.record('core.frame.over33', 'ratio', duration > 33 ? 1 : 0, { phase: 'editor' })
-        this.record(
-          'core.forcedReflow',
-          'count',
-          this.layoutTracker.consumeForcedReflows(),
-          { phase: 'editor' }
-        )
+        this.record('core.forcedReflow', 'count', this.layoutTracker.consumeForcedReflows(), {
+          phase: 'editor'
+        })
         this.record(
           'core.interactive.longTaskObserver',
           'count',

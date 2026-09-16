@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { fuzzySearchPaths, SearchPathIndex } from '@/node/workspaceSearch'
+import { FOLDER_SEARCH_DEBOUNCE_MS } from '@/components/sideBar/searchTiming'
 
 describe('workspace search primitives', () => {
+  it('keeps folder-search debounce within the responsive fast-path budget', () => {
+    expect(FOLDER_SEARCH_DEBOUNCE_MS).toBe(50)
+  })
+
   it('fuzzy-matches path segments and ranks the direct match before a longer path', async() => {
     const direct = '/workspace/nested-guide.md'
     const nested = '/workspace/notes/nested-guide.md'
@@ -19,11 +24,7 @@ describe('workspace search primitives', () => {
     index.replace(['/workspace/a.md', '/workspace/b.md', '/workspace/a.md'])
     index.add(['/workspace/c.md', '/workspace/b.md'])
 
-    expect(index.values()).toEqual([
-      '/workspace/a.md',
-      '/workspace/b.md',
-      '/workspace/c.md'
-    ])
+    expect(index.values()).toEqual(['/workspace/a.md', '/workspace/b.md', '/workspace/c.md'])
 
     index.remove(['/workspace/b.md'])
     expect(index.values()).toEqual(['/workspace/a.md', '/workspace/c.md'])

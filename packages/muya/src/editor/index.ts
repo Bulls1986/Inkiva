@@ -408,6 +408,10 @@ export class Editor {
         firstLeafBlock.setCursor(0, 0, needUpdated);
     }
 
+    whenRenderComplete(): Promise<void> {
+        return this.scrollPage?.whenRenderComplete() ?? Promise.resolve();
+    }
+
     updateContents(operations: JSONOp, selection: Nullable<IHistorySelection>, source: string) {
         const muya = this._muya;
         // ot-json1 no-op (`null`) is forwarded to dispatch — JSONState
@@ -431,7 +435,7 @@ export class Editor {
             // blocks drop never re-inserted). The json state is authoritative and
             // already up to date — rebuild from it instead of leaving an empty doc.
             debug.error(`updateContents incremental apply failed; rebuilding from state: ${String(error)}`);
-            this.scrollPage!.updateState(this.jsonState.getState());
+            this.scrollPage!.updateState(this.jsonState.getState(), false);
             this._restoreSelection(selection, true);
         }
     }
@@ -499,19 +503,19 @@ export class Editor {
 
         const state = this.jsonState.getState();
         this.inlineRenderer.invalidateReferenceDefinitions();
-        this.scrollPage!.updateState(state);
+        this.scrollPage!.updateState(state, false);
 
         // The tree was rebuilt wholesale, so the selection's cached block
         // references are stale — resolve the caret from paths instead.
         this._restoreSelection(selection, true);
     }
 
-    setContent(content: TState[] | string, autoFocus = false) {
+    setContent(content: TState[] | string, autoFocus = false, progressive = true) {
         this.jsonState.setContent(content);
         const state = this.jsonState.getState();
 
         this.inlineRenderer.invalidateReferenceDefinitions();
-        this.scrollPage!.updateState(state);
+        this.scrollPage!.updateState(state, progressive);
         this.history.clear();
         this.searchModule.reset();
 

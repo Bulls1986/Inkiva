@@ -134,7 +134,13 @@ class DiagramPreview extends Parent {
             this.domNode?.removeAttribute('data-diagram-lazy');
             this._viewportObserver?.disconnect();
             this._viewportObserver = null;
-            void this._renderImmediately();
+            // Keep the first visible frame cheap. The editor's editable
+            // milestone and the placeholder measurement both happen across
+            // the first paint boundaries; starting Mermaid/Vega here would
+            // block them. `update()` uses the normal 200 ms render scheduler,
+            // while an explicit focus/blur action still calls the immediate
+            // path and remains responsive.
+            void this.update();
         }, { rootMargin: '0px' });
 
         this._viewportObserveTimer = setTimeout(() => {

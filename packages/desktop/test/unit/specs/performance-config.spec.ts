@@ -6,7 +6,8 @@ describe('performance capture configuration', () => {
     expect(resolvePerformanceCaptureConfig({ NODE_ENV: 'production' })).toEqual({
       enabled: false,
       reportDirectory: null,
-      sampleIntervalMs: 1000
+      sampleIntervalMs: 1000,
+      maxRendererEvents: 10_000
     })
   })
 
@@ -20,7 +21,8 @@ describe('performance capture configuration', () => {
     ).toEqual({
       enabled: true,
       reportDirectory: '/tmp/inkiva-perf',
-      sampleIntervalMs: 1000
+      sampleIntervalMs: 1000,
+      maxRendererEvents: 10_000
     })
   })
 
@@ -43,7 +45,8 @@ describe('performance capture configuration', () => {
     ).toEqual({
       enabled: false,
       reportDirectory: null,
-      sampleIntervalMs: 1000
+      sampleIntervalMs: 1000,
+      maxRendererEvents: 10_000
     })
   })
 
@@ -62,6 +65,21 @@ describe('performance capture configuration', () => {
     ).toBe(400)
   })
 
+  it('accepts a bounded renderer event budget for high-volume fast capture', () => {
+    expect(
+      resolvePerformanceCaptureConfig({
+        INKIVA_PERF_CAPTURE: 'true',
+        INKIVA_PERF_MAX_RENDERER_EVENTS: '50000'
+      }).maxRendererEvents
+    ).toBe(50_000)
+    expect(
+      resolvePerformanceCaptureConfig({
+        INKIVA_PERF_CAPTURE: 'true',
+        INKIVA_PERF_MAX_RENDERER_EVENTS: 'not-a-number'
+      }).maxRendererEvents
+    ).toBe(10_000)
+  })
+
   it('ignores blank report directories and does not invent a path', () => {
     expect(
       resolvePerformanceCaptureConfig({
@@ -71,7 +89,8 @@ describe('performance capture configuration', () => {
     ).toEqual({
       enabled: true,
       reportDirectory: null,
-      sampleIntervalMs: 1000
+      sampleIntervalMs: 1000,
+      maxRendererEvents: 10_000
     })
   })
 })

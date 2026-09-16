@@ -23,6 +23,24 @@ afterEach(() => {
 });
 
 describe('scrollPage.updateState DOM mounting', () => {
+    it('mounts the initial document through a single document fragment', () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(
+            host,
+            { markdown: `${Array.from({ length: 40 }, (_, index) => `paragraph ${index}`).join('\n\n')}\n` } as ConstructorParameters<typeof Muya>[1],
+        );
+        const appendChild = vi.spyOn(Node.prototype, 'appendChild');
+        muya.init();
+        const fragmentCalls = appendChild.mock.calls.filter(([node]) => {
+            return node instanceof DocumentFragment;
+        });
+        appendChild.mockRestore();
+        mountedEditors.push(muya);
+
+        expect(fragmentCalls).toHaveLength(1);
+    });
+
     it('mounts a replacement document through a single document fragment', () => {
         const muya = bootMuya('old document\n');
         const scrollPage = muya.editor.scrollPage!;

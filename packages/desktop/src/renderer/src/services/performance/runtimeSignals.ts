@@ -10,8 +10,7 @@ export interface MemoryGrowthTrackerOptions {
   linearGrowthRSquared?: number
 }
 
-const isFiniteNonNegative = (value: number): boolean =>
-  Number.isFinite(value) && value >= 0
+const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0
 
 const calculateRSquared = (values: readonly number[]): number => {
   if (values.length < 2) return 0
@@ -44,10 +43,7 @@ export class MemoryGrowthTracker {
   constructor(options: MemoryGrowthTrackerOptions = {}) {
     this.windowSize = Math.max(2, Math.floor(options.windowSize ?? 50))
     this.linearGrowthRatio = Math.max(0, options.linearGrowthRatio ?? 0.02)
-    this.linearGrowthRSquared = Math.min(
-      1,
-      Math.max(0, options.linearGrowthRSquared ?? 0.8)
-    )
+    this.linearGrowthRSquared = Math.min(1, Math.max(0, options.linearGrowthRSquared ?? 0.8))
   }
 
   observe(value: number): MemoryGrowthSnapshot {
@@ -135,9 +131,11 @@ export class ScrollFpsTracker {
       return undefined
     }
 
-    const fps = (this.frameCount - 1) * 1_000 / (timestamp - this.firstTimestamp)
+    const fps = ((this.frameCount - 1) * 1_000) / (timestamp - this.firstTimestamp)
     this.reset()
-    return Number.isFinite(fps) ? fps : undefined
+    // RAF timestamps can carry sub-frame floating-point noise. This metric is
+    // a frame count per second, so report the nearest whole frame.
+    return Number.isFinite(fps) ? Math.max(0, Math.round(fps)) : undefined
   }
 
   reset(): void {

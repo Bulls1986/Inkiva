@@ -167,6 +167,22 @@ describe('image renderer — small image class (marktext cb7be189)', () => {
         expect(getWrapperSelector(out)).not.toContain('.mu-small-image');
     });
 
+    it('keeps the loading wrapper without an img until the async load resolves', () => {
+        const renderer = makeRenderer({
+            id: 'mu-image-4b',
+            isSuccess: undefined,
+        });
+        const token = makeImageToken();
+
+        const out = image.call(
+            asRenderer(renderer),
+            { h, block: fakeBlock, token, cursor: fakeCursor },
+        );
+
+        expect(getWrapperSelector(out)).toContain('.mu-image-loading');
+        expect(findImgSrc(out)).toBeUndefined();
+    });
+
     it('does NOT add `mu-small-image` when the image failed to load', () => {
         const renderer = makeRenderer({
             id: 'mu-image-5',
