@@ -120,6 +120,23 @@ describe('scrollPage progressive rendering', () => {
         expect((cachedState[0] as unknown as { text: string }).text).toBe('cached markdown');
     });
 
+    it('detaches the previous rendered tree before disposing it', () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, { markdown: 'before\n' });
+        mountedEditors.push(muya);
+
+        muya.init();
+        const oldBlock = muya.editor.scrollPage!.firstChild as Parent;
+        const dispose = vi.spyOn(oldBlock, 'dispose');
+
+        muya.setContent('after\n');
+
+        expect(oldBlock.parent).toBeNull();
+        expect(host.contains(oldBlock.domNode ?? null)).toBe(false);
+        expect(dispose).not.toHaveBeenCalled();
+    });
+
     it('mounts only the initial block window before completing in the background', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);

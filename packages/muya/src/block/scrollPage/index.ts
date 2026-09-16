@@ -28,6 +28,7 @@ interface IScrollPageCreateOptions {
 export const PROGRESSIVE_RENDER_THRESHOLD = 200;
 export const PROGRESSIVE_RENDER_INITIAL_BLOCKS = 32;
 const PROGRESSIVE_RENDER_CHUNK_BUDGET_MS = 8;
+const DETACHED_BLOCK_DISPOSAL_BUDGET_MS = 4;
 export const INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS = 100;
 const PROGRESSIVE_RENDER_LINE_HEIGHT_PX = 24;
 
@@ -81,6 +82,13 @@ export class ScrollPage extends Parent {
     private _progressiveCompletion: Promise<void> | null = null;
     private _resolveProgressiveCompletion: (() => void) | null = null;
     private _cloneProgressiveBlocks = false;
+
+    // Replacing a large rendered document must not synchronously call
+    // `remove()` for every block. Keep detached roots in a small background
+    // queue so the next document can mount before old resources are released.
+    private _detachedBlocks: Parent[] = [];
+
+    private _detachedDisposalFrameId: number | null = null;
 
     static override blockName = 'scrollpage';
 
@@ -317,6 +325,68 @@ export class ScrollPage extends Parent {
         resolve?.();
     }
 
+    private _detachRenderedBlocks(): Parent[] {
+        const detached: Parent[] = [];
+        this.children.forEach(child => detached.push(child as Parent));
+
+        this.children.head = null;
+        this.children.tail = null;
+        this.children.length = 0;
+
+        detached.forEach((block) => {
+            block.parent = null;
+            block.prev = null;
+            block.next = null;
+        });
+
+        const domNode = this.domNode;
+        if (domNode) {
+            const selection = domNode.ownerDocument.getSelection();
+            const selectionIsInside = selection?.rangeCount
+                && ((selection.anchorNode && domNode.contains(selection.anchorNode))
+                    || (selection.focusNode && domNode.contains(selection.focusNode)));
+            if (selectionIsInside)
+                selection?.removeAllRanges();
+
+            // Remove the entire rendered surface in one DOM operation. The
+            // detached block roots are disposed incrementally below.
+            domNode.replaceChildren();
+        }
+
+        return detached;
+    }
+
+    private _scheduleDetachedDisposal(): void {
+        if (this._detachedBlocks.length === 0 || this._detachedDisposalFrameId !== null)
+            return;
+
+        // Give the replacement two paint opportunities before releasing the
+        // previous tree. This keeps cleanup out of the switch's critical path.
+        this._detachedDisposalFrameId = requestAnimationFrame(() => {
+            this._detachedDisposalFrameId = requestAnimationFrame(() => {
+                this._detachedDisposalFrameId = null;
+                this._disposeDetachedBlocksChunk();
+            });
+        });
+    }
+
+    private _disposeDetachedBlocksChunk(): void {
+        const startedAt = performance.now();
+        while (
+            this._detachedBlocks.length > 0
+            && performance.now() - startedAt < DETACHED_BLOCK_DISPOSAL_BUDGET_MS
+        ) {
+            this._detachedBlocks.shift()?.dispose();
+        }
+
+        this._scheduleDetachedDisposal();
+    }
+
+    private _disposeDetachedBlocksImmediately(): void {
+        const detached = this._detachedBlocks.splice(0);
+        detached.forEach(block => block.dispose());
+    }
+
     private _cancelProgressiveRender(): void {
         this._progressiveGeneration += 1;
         if (this._progressiveFrameId !== null)
@@ -341,8 +411,10 @@ export class ScrollPage extends Parent {
 
     updateState(state: TState[], progressive = true, cloneBlocks = false) {
         this._cancelProgressiveRender();
-        // Empty scrollPage dom
-        this.empty();
+        const detached = this._detachRenderedBlocks();
+        if (detached.length > 0)
+            this._detachedBlocks.push(...detached);
+        this._scheduleDetachedDisposal();
         if (progressive)
             this._mountState(state, cloneBlocks);
         else
@@ -391,6 +463,10 @@ export class ScrollPage extends Parent {
 
     override dispose(): void {
         this._cancelProgressiveRender();
+        if (this._detachedDisposalFrameId !== null)
+            cancelAnimationFrame(this._detachedDisposalFrameId);
+        this._detachedDisposalFrameId = null;
+        this._disposeDetachedBlocksImmediately();
         this._activeStatusFrames.forEach(frameId => cancelAnimationFrame(frameId));
         this._activeStatusFrames.clear();
         this._blurFocus = { blur: null, focus: null };
