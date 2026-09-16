@@ -190,7 +190,7 @@ function _ancestorBlocks(leaf: Content | null): Parent[] {
 
     while (node) {
         if (PARAGRAPH_TYPES.has(_markdownTypeOf(node) ?? ''))
-            blocks.unshift(node);
+            blocks.push(node);
 
         if (node.isOutMostBlock)
             break;
@@ -198,6 +198,7 @@ function _ancestorBlocks(leaf: Content | null): Parent[] {
         node = node.parent;
     }
 
+    blocks.reverse();
     return blocks;
 }
 
