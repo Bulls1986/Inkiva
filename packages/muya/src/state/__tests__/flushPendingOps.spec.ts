@@ -93,6 +93,58 @@ describe('muya.flush() — make pending edits durable synchronously (#2938)', ()
         expect(muya.getMarkdown().trim()).toBe('hello');
     });
 
+    it('captures a DOM edit whose input event is still queued', () => {
+        const muya = boot('hello\n');
+        const leaf = muya.editor.scrollPage!.firstContentInDescendant() as Content;
+
+        leaf.setCursor(leaf.text.length, leaf.text.length, true);
+        leaf.domNode!.dispatchEvent(new InputEvent('beforeinput', {
+            bubbles: true,
+            inputType: 'insertText',
+            data: ' world',
+        }));
+        leaf.domNode!.textContent = 'hello world';
+        const renderedText = leaf.domNode!.firstChild!;
+
+        const range = document.createRange();
+        range.setStart(renderedText, renderedText.textContent!.length);
+        range.collapse(true);
+        const selection = document.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        // No input event is dispatched. This is the same ordering window as a
+        // tab-switch IPC arriving after the browser mutates the DOM but before
+        // Muya's input listener runs.
+        muya.flush();
+
+        expect(muya.getMarkdown().trim()).toBe('hello world');
+    });
+
+    it('captures a queued DOM edit after an earlier input op', () => {
+        const muya = boot('hello\n');
+        const leaf = muya.editor.scrollPage!.firstContentInDescendant() as Content;
+
+        leaf.text = 'hello first';
+        leaf.domNode!.dispatchEvent(new InputEvent('beforeinput', {
+            bubbles: true,
+            inputType: 'insertText',
+            data: ' second',
+        }));
+        leaf.domNode!.textContent = 'hello first second';
+        const renderedText = leaf.domNode!.firstChild!;
+        const range = document.createRange();
+        range.setStart(renderedText, renderedText.textContent!.length);
+        range.collapse(true);
+        const selection = document.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        muya.flush();
+
+        expect(muya.getMarkdown().trim()).toBe('hello first second');
+    });
+
     it('edits keep flushing normally after a flush', async () => {
         const muya = boot('hello\n');
         const leaf = muya.editor.scrollPage!.firstContentInDescendant() as Content;

@@ -466,6 +466,41 @@ class Content extends TreeNode {
     // Do nothing.
     }
 
+    /**
+     * Reconcile a native contenteditable mutation that has happened before its
+     * `input` event reaches the editor listener. Chromium can leave that event
+     * queued while an IPC tab switch is already being delivered, so flushing
+     * only JSONState would otherwise persist the previous text.
+     */
+    flushPendingInput(): void {
+        const domText = this.getDomText();
+        if (domText == null || domText === this.text)
+            return;
+
+        if (this.isComposed) {
+            this.text = domText;
+            return;
+        }
+
+        // The native selection gives Format/CodeBlockContent the offsets needed
+        // by their normal input handlers. Use a plain Event deliberately: the
+        // DOM already contains the browser's final text, so auto-pair logic must
+        // not apply the same keystroke a second time.
+        if (this.getCursor()) {
+            this.inputHandler(new Event('input'));
+        }
+        else {
+            // A selection can disappear while a DOM node is being replaced.
+            // Preserve the text even in that fallback; the next normal focus
+            // operation will restore the caret independently.
+            this.text = domText;
+        }
+    }
+
+    protected getDomText(): string | null {
+        return this.domNode?.textContent ?? null;
+    }
+
     backspaceHandler(_event: Event): void {
     // Do nothing.
     }

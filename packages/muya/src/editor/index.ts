@@ -247,6 +247,7 @@ export class Editor {
 
     private _activeContentBlock: Nullable<Content> = null;
     private _eventSubscription: Subscription | null = null;
+    private _nativeInputPending = false;
 
     constructor(private _muya: Muya) {
         const state = _muya.options.json || _muya.options.markdown || '';
@@ -290,6 +291,10 @@ export class Editor {
         });
 
         this._dispatchEvents();
+        // `beforeinput` runs before the browser mutates the contenteditable DOM.
+        // Remember it so a switch boundary can reconcile a DOM edit even when
+        // an earlier input operation is already waiting in JSONState.
+        this._muya.domNode.addEventListener('beforeinput', this._markNativeInputPending, true);
         // Hovering a rendered link wrapper dispatches `muya-link-tools` so the
         // staged popover lights up. Cleanup is handled by `muya.destroy()` →
         // `detachAllDomEvents`.
@@ -305,6 +310,9 @@ export class Editor {
         const { domNode } = this._muya;
 
         const eventHandler = (event: Event) => {
+            if (event.type === 'input')
+                this._nativeInputPending = false;
+
             const selectionResult = this.selection.getSelection();
             const anchorBlock = selectionResult?.anchor.block;
             const isSelectionInSameBlock = selectionResult?.isSelectionInSameBlock;
@@ -363,9 +371,15 @@ export class Editor {
         ).subscribe(eventHandler);
     }
 
+    private _markNativeInputPending = () => {
+        this._nativeInputPending = true;
+    };
+
     destroy() {
+        this._muya.domNode.removeEventListener('beforeinput', this._markNativeInputPending, true);
         this._eventSubscription?.unsubscribe();
         this._eventSubscription = null;
+        this._nativeInputPending = false;
         this.scrollPage?.dispose();
         this.scrollPage = null;
         this._activeContentBlock = null;
@@ -416,6 +430,24 @@ export class Editor {
 
     whenRenderComplete(): Promise<void> {
         return this.scrollPage?.whenRenderComplete() ?? Promise.resolve();
+    }
+
+    // Flush a native contenteditable mutation before draining the deferred JSON
+    // operation batch. The browser can mutate the DOM before its `input` event
+    // is delivered when a tab-switch IPC is already queued.
+    flush() {
+        // Only inspect the DOM after a native `beforeinput`. A programmatic
+        // mutation can legitimately leave the DOM one step behind the model;
+        // treating that stale DOM as authoritative would undo the pending model
+        // change. The beforeinput marker identifies the browser mutation that
+        // is still waiting for Muya's input listener.
+        if (this._nativeInputPending) {
+            const selection = this.selection.getSelection();
+            const activeContentBlock = selection?.anchor.block ?? this.activeContentBlock;
+            activeContentBlock?.flushPendingInput();
+        }
+        this._nativeInputPending = false;
+        this.jsonState.flush();
     }
 
     updateContents(operations: JSONOp, selection: Nullable<IHistorySelection>, source: string) {
