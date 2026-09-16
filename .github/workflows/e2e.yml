@@ -45,11 +45,7 @@ jobs:
         run: pnpm build
 
       - name: Run E2E Tests
-        run: >-
-          xvfb-run --auto-servernum pnpm --filter inkiva exec playwright test
-          test/e2e/visual-regression.spec.ts
-          --config=test/e2e/playwright.config.ts
-          --update-snapshots
+        run: xvfb-run --auto-servernum pnpm test:e2e
 
       - name: Upload performance reports
         if: always()
@@ -58,11 +54,3 @@ jobs:
           name: desktop-performance-reports
           path: packages/desktop/test-results/perf-results
           if-no-files-found: ignore
-
-      - name: Upload refreshed visual baselines
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: desktop-visual-snapshots
-          path: packages/desktop/test/e2e/visual-regression.spec.ts-snapshots
-          if-no-files-found: error
