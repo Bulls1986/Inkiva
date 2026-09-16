@@ -409,14 +409,19 @@ export class ScrollPage extends Parent {
         resolve?.();
     }
 
-    updateState(state: TState[], progressive = true, cloneBlocks = false) {
+    updateState(
+        state: TState[],
+        progressive = true,
+        cloneBlocks = false,
+        progressiveStartDelayMs = 0,
+    ) {
         this._cancelProgressiveRender();
         const detached = this._detachRenderedBlocks();
         if (detached.length > 0)
             this._detachedBlocks.push(...detached);
         this._scheduleDetachedDisposal();
         if (progressive)
-            this._mountState(state, cloneBlocks);
+            this._mountState(state, cloneBlocks, progressiveStartDelayMs);
         else
             this._mountBlocks(state, false, cloneBlocks);
     }

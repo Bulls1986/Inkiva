@@ -528,7 +528,15 @@ export class Editor {
         const state = this.jsonState.getStateForRender();
 
         this.inlineRenderer.invalidateReferenceDefinitions();
-        this.scrollPage!.updateState(state, progressive, true);
+        // A content switch needs a quiet handoff window after the initial
+        // blocks are mounted. Starting the progressive tail immediately can
+        // occupy the next two paint frames and make a tab click appear frozen.
+        this.scrollPage!.updateState(
+            state,
+            progressive,
+            true,
+            progressive ? INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS : 0,
+        );
         this.history.clear();
         this.searchModule.reset();
 
