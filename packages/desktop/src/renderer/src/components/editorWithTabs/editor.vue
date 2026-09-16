@@ -98,6 +98,7 @@ import {
   TableColumnToolbar,
   TableDragBar,
   TableRowColumMenu,
+  CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
   wordCount as muyaWordCount,
   en,
   de,
@@ -2102,10 +2103,20 @@ const handleFileChange = (payload: unknown) => {
         recordEditorSetContent('blocks')
         // `blocks` came through Pinia and may be reactive. Give Muya the raw
         // snapshot so its document model does not retain Vue proxies.
-        editor.value.setContent(toRaw(reusableBlocks))
+        editor.value.setContent(
+          toRaw(reusableBlocks),
+          false,
+          true,
+          CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS
+        )
       } else {
         recordEditorSetContent('markdown')
-        editor.value.setContent(newMarkdown)
+        editor.value.setContent(
+          newMarkdown,
+          false,
+          true,
+          CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS
+        )
       }
       // Tab switch swaps content without firing `json-change`, so re-seed the
       // TOC (otherwise returning to an open tab keeps the other tab's TOC).

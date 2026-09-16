@@ -520,7 +520,12 @@ export class Editor {
         this._restoreSelection(selection, true);
     }
 
-    setContent(content: TState[] | string, autoFocus = false, progressive = true) {
+    setContent(
+        content: TState[] | string,
+        autoFocus = false,
+        progressive = true,
+        progressiveStartDelayMs = 0,
+    ) {
         this.jsonState.setContent(content);
         // The ScrollPage clones each block as it enters the render tree. Using
         // the authoritative state directly here avoids a full-document clone
@@ -529,15 +534,7 @@ export class Editor {
         const state = this.jsonState.getStateForRender();
 
         this.inlineRenderer.invalidateReferenceDefinitions();
-        // A content switch needs a quiet handoff window after the initial
-        // blocks are mounted. Starting the progressive tail immediately can
-        // occupy the next two paint frames and make a tab click appear frozen.
-        this.scrollPage!.updateState(
-            state,
-            progressive,
-            true,
-            progressive ? CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS : 0,
-        );
+        this.scrollPage!.updateState(state, progressive, true, progressiveStartDelayMs);
         this.history.clear();
         this.searchModule.reset();
 

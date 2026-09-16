@@ -283,8 +283,13 @@ export class Muya {
         return this.editor.searchModule.replace(replaceValue, opt);
     }
 
-    setContent(content: TState[] | string, autoFocus = false, progressive = true) {
-        this.editor.setContent(content, autoFocus, progressive);
+    setContent(
+        content: TState[] | string,
+        autoFocus = false,
+        progressive = true,
+        progressiveStartDelayMs = 0,
+    ) {
+        this.editor.setContent(content, autoFocus, progressive, progressiveStartDelayMs);
     }
 
     /**
