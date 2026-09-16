@@ -434,6 +434,8 @@ export class Editor {
 
             drop(snapshot, operations, muya);
 
+            this.scrollPage!.setRenderedState(this.jsonState.getStateForRender());
+
             this._restoreSelection(selection);
         }
         catch (error) {
@@ -521,6 +523,7 @@ export class Editor {
         autoFocus = false,
         progressive = true,
         progressiveStartDelayMs = 0,
+        renderCacheKey: string | null = null,
     ) {
         this.jsonState.setContent(content);
         // The ScrollPage clones each block as it enters the render tree. Using
@@ -530,7 +533,13 @@ export class Editor {
         const state = this.jsonState.getStateForRender();
 
         this.inlineRenderer.invalidateReferenceDefinitions();
-        this.scrollPage!.updateState(state, progressive, true, progressiveStartDelayMs);
+        this.scrollPage!.updateState(
+            state,
+            progressive,
+            true,
+            progressiveStartDelayMs,
+            renderCacheKey,
+        );
         this.history.clear();
         this.searchModule.reset();
 

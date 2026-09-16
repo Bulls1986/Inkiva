@@ -50,6 +50,25 @@ interface IIdleScheduler {
 
 const idleScheduler = (): IIdleScheduler => globalThis as typeof globalThis & IIdleScheduler;
 
+const MAX_RENDER_CACHE_ENTRIES = 2;
+
+interface IRenderedCacheEntry {
+    state: TState[];
+    stateSignature: string | null;
+    blocks: Parent[];
+    mountedCount: number;
+    cloneBlocks: boolean;
+}
+
+function stateSignature(state: TState[]): string | null {
+    try {
+        return JSON.stringify(state) ?? null;
+    }
+    catch {
+        return null;
+    }
+}
+
 function estimateStateHeight(state: TState): number {
     if ('text' in state) {
         const text = state.text || '';
@@ -101,6 +120,13 @@ export class ScrollPage extends Parent {
     private _progressiveCompletion: Promise<void> | null = null;
     private _resolveProgressiveCompletion: (() => void) | null = null;
     private _cloneProgressiveBlocks = false;
+
+    // The desktop keeps at most two non-active tabs warm. Store their actual
+    // block trees here so returning to a warm tab only moves existing DOM
+    // nodes instead of reconstructing every block on the switch path.
+    private _renderCache = new Map<string, IRenderedCacheEntry>();
+    private _renderCacheKey: string | null = null;
+    private _renderedState: TState[] | null = null;
 
     // Replacing a large rendered document must not synchronously call
     // `remove()` for every block. Keep detached roots in small background
@@ -244,20 +270,33 @@ export class ScrollPage extends Parent {
         cloneBlocks = false,
         progressiveStartDelayMs = 0,
     ): void {
-        this._cloneProgressiveBlocks = cloneBlocks;
+        this._renderedState = state;
         if (state.length <= PROGRESSIVE_RENDER_THRESHOLD) {
             this._mountBlocks(state, false, cloneBlocks);
             return;
         }
 
+        const initialIndex = Math.min(PROGRESSIVE_RENDER_INITIAL_BLOCKS, state.length);
+        this._mountBlocks(state.slice(0, initialIndex), false, cloneBlocks);
+        this._startProgressiveRender(state, initialIndex, cloneBlocks, progressiveStartDelayMs);
+    }
+
+    private _startProgressiveRender(
+        state: TState[],
+        startIndex: number,
+        cloneBlocks: boolean,
+        progressiveStartDelayMs: number,
+    ): void {
+        if (startIndex >= state.length)
+            return;
+
+        this._cloneProgressiveBlocks = cloneBlocks;
         this._progressiveStates = state;
-        this._progressiveIndex = Math.min(PROGRESSIVE_RENDER_INITIAL_BLOCKS, state.length);
-        this._progressiveRemainingHeight = estimateStatesHeight(state, this._progressiveIndex);
+        this._progressiveIndex = startIndex;
+        this._progressiveRemainingHeight = estimateStatesHeight(state, startIndex);
         this._progressiveCompletion = new Promise((resolve) => {
             this._resolveProgressiveCompletion = resolve;
         });
-
-        this._mountBlocks(state.slice(0, this._progressiveIndex), false, cloneBlocks);
 
         const spacer = document.createElement('div');
         spacer.className = 'mu-progressive-render-placeholder';
@@ -401,6 +440,106 @@ export class ScrollPage extends Parent {
         return detached;
     }
 
+    private _queueDetachedBlocks(blocks: Parent[]): void {
+        if (blocks.length === 0)
+            return;
+
+        this._detachedBlockBatches.push(blocks);
+        this._scheduleDetachedDisposal();
+    }
+
+    private _buildRenderedCacheEntry(
+        key: string | null,
+        state: TState[] | null,
+        progressiveStates: TState[] | null,
+        progressiveIndex: number,
+        cloneBlocks: boolean,
+        blocks: Parent[],
+    ): IRenderedCacheEntry | null {
+        if (!key || !state)
+            return null;
+
+        const complete = progressiveStates === null && blocks.length === state.length;
+        const partial = progressiveStates === state
+            && progressiveIndex > 0
+            && progressiveIndex < state.length
+            && blocks.length === progressiveIndex;
+        if (!complete && !partial)
+            return null;
+
+        return {
+            state,
+            stateSignature: stateSignature(state),
+            blocks,
+            mountedCount: blocks.length,
+            cloneBlocks,
+        };
+    }
+
+    private _storeRenderedCacheEntry(key: string, entry: IRenderedCacheEntry): void {
+        const existing = this._renderCache.get(key);
+        if (existing)
+            this._queueDetachedBlocks(existing.blocks);
+
+        this._renderCache.delete(key);
+        this._renderCache.set(key, entry);
+
+        while (this._renderCache.size > MAX_RENDER_CACHE_ENTRIES) {
+            const oldestKey = this._renderCache.keys().next().value;
+            if (oldestKey === undefined)
+                break;
+
+            const oldest = this._renderCache.get(oldestKey);
+            this._renderCache.delete(oldestKey);
+            if (oldest)
+                this._queueDetachedBlocks(oldest.blocks);
+        }
+    }
+
+    private _takeRenderedCacheEntry(
+        key: string | null,
+        state: TState[],
+        progressive: boolean,
+    ): IRenderedCacheEntry | null {
+        if (!key)
+            return null;
+
+        const entry = this._renderCache.get(key);
+        if (!entry)
+            return null;
+
+        this._renderCache.delete(key);
+        const targetSignature = entry.state === state ? entry.stateSignature : stateSignature(state);
+        const stateMatches = entry.state === state
+            || (entry.stateSignature !== null && entry.stateSignature === targetSignature);
+        const shapeMatches = entry.mountedCount === entry.blocks.length
+            && entry.mountedCount <= state.length
+            && (entry.mountedCount === state.length || state.length > PROGRESSIVE_RENDER_THRESHOLD);
+        if (!progressive || !stateMatches || !shapeMatches) {
+            this._queueDetachedBlocks(entry.blocks);
+            return null;
+        }
+
+        return entry;
+    }
+
+    private _restoreRenderedCacheEntry(
+        state: TState[],
+        entry: IRenderedCacheEntry,
+        progressiveStartDelayMs: number,
+    ): void {
+        this._renderedState = state;
+        this._appendBlocks(entry.blocks);
+        if (entry.mountedCount < state.length) {
+            this._startProgressiveRender(
+                state,
+                entry.mountedCount,
+                entry.cloneBlocks,
+                progressiveStartDelayMs,
+            );
+        }
+    }
+
     private _scheduleDetachedDisposal(): void {
         const hasPendingBatches = this._detachedBatchIndex < this._detachedBlockBatches.length;
         if (
@@ -507,16 +646,69 @@ export class ScrollPage extends Parent {
         progressive = true,
         cloneBlocks = false,
         progressiveStartDelayMs = 0,
+        renderCacheKey: string | null = null,
     ) {
+        const previousKey = this._renderCacheKey;
+        const previousState = this._renderedState;
+        const previousProgressiveStates = this._progressiveStates;
+        const previousProgressiveIndex = this._progressiveIndex;
+        const previousCloneBlocks = this._cloneProgressiveBlocks;
+        const targetIsCurrent = renderCacheKey !== null && renderCacheKey === previousKey;
+        const targetEntry = targetIsCurrent
+            ? null
+            : this._takeRenderedCacheEntry(renderCacheKey, state, progressive);
+
         this._cancelProgressiveRender();
         const detached = this._detachRenderedBlocks();
-        if (detached.length > 0)
-            this._detachedBlockBatches.push(detached);
-        this._scheduleDetachedDisposal();
-        if (progressive)
-            this._mountState(state, cloneBlocks, progressiveStartDelayMs);
+
+        const cacheEntry = this._buildRenderedCacheEntry(
+            previousKey === renderCacheKey ? null : previousKey,
+            previousState,
+            previousProgressiveStates,
+            previousProgressiveIndex,
+            previousCloneBlocks,
+            detached,
+        );
+        if (cacheEntry)
+            this._storeRenderedCacheEntry(previousKey as string, cacheEntry);
         else
+            this._queueDetachedBlocks(detached);
+
+        this._renderCacheKey = renderCacheKey;
+        if (targetEntry) {
+            this._restoreRenderedCacheEntry(state, targetEntry, progressiveStartDelayMs);
+        }
+        else if (progressive) {
+            this._mountState(state, cloneBlocks, progressiveStartDelayMs);
+        }
+        else {
+            this._renderedState = state;
             this._mountBlocks(state, false, cloneBlocks);
+        }
+    }
+
+    /** Keep the render-cache state aligned after an incremental tree update. */
+    setRenderedState(state: TState[]): void {
+        this._renderedState = state;
+        if (this._progressiveStates === null)
+            return;
+
+        const mountedCount = this.children.length;
+        if (mountedCount > state.length) {
+            this._cancelProgressiveRender();
+            return;
+        }
+
+        if (mountedCount === state.length) {
+            this._finishProgressiveRender();
+            return;
+        }
+
+        this._progressiveStates = state;
+        this._progressiveIndex = mountedCount;
+        this._progressiveRemainingHeight = estimateStatesHeight(state, mountedCount);
+        if (this._progressiveSpacer)
+            this._progressiveSpacer.style.height = `${this._progressiveRemainingHeight}px`;
     }
 
     /**
@@ -573,6 +765,10 @@ export class ScrollPage extends Parent {
         this._detachedDisposalFrameId = null;
         this._detachedDisposalIdleCallbackId = null;
         this._disposeDetachedBlocksImmediately();
+        this._renderCache.forEach(entry => entry.blocks.forEach(block => block.dispose()));
+        this._renderCache.clear();
+        this._renderCacheKey = null;
+        this._renderedState = null;
         this._activeStatusFrames.forEach(frameId => cancelAnimationFrame(frameId));
         this._activeStatusFrames.clear();
         this._blurFocus = { blur: null, focus: null };

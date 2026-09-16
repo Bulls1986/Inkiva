@@ -2107,7 +2107,8 @@ const handleFileChange = (payload: unknown) => {
           toRaw(reusableBlocks),
           false,
           true,
-          CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS
+          CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
+          id ?? null
         )
       } else {
         recordEditorSetContent('markdown')
@@ -2115,7 +2116,8 @@ const handleFileChange = (payload: unknown) => {
           newMarkdown,
           false,
           true,
-          CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS
+          CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
+          id ?? null
         )
       }
       // Tab switch swaps content without firing `json-change`, so re-seed the

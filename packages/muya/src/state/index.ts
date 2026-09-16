@@ -309,6 +309,7 @@ class JSONState {
         const tocChanged = isTopLevelTocChange(op, previousState);
         const mutationKind = classifyDocumentMutation(op, previousState, tocChanged);
         this._apply(op);
+        this._muya.editor.scrollPage?.setRenderedState(this._state);
         const getDoc = () => this.getState();
         let previousSnapshot: TState[] | undefined;
         debug.log(JSON.stringify(op));

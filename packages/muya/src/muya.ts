@@ -288,8 +288,15 @@ export class Muya {
         autoFocus = false,
         progressive = true,
         progressiveStartDelayMs = 0,
+        renderCacheKey: string | null = null,
     ) {
-        this.editor.setContent(content, autoFocus, progressive, progressiveStartDelayMs);
+        this.editor.setContent(
+            content,
+            autoFocus,
+            progressive,
+            progressiveStartDelayMs,
+            renderCacheKey,
+        );
     }
 
     /**

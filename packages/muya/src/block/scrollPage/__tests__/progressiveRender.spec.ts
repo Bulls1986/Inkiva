@@ -163,6 +163,56 @@ describe('scrollPage progressive rendering', () => {
         expect((cachedState[0] as unknown as { text: string }).text).toBe('cached markdown');
     });
 
+    it('restores a warm rendered tree by cache key', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const contentA = paragraphs(PROGRESSIVE_RENDER_THRESHOLD + 20);
+        const contentB = paragraphs(PROGRESSIVE_RENDER_THRESHOLD + 20)
+            .replace('paragraph 0', 'other document 0');
+        const muya = new Muya(host, { markdown: contentA });
+        mountedEditors.push(muya);
+
+        muya.init();
+        muya.setContent(contentA, false, true, 0, 'tab-a');
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const firstA = scrollPage.firstChild as Parent;
+        const disposeA = vi.spyOn(firstA, 'dispose');
+
+        muya.setContent(contentB, false, true, 0, 'tab-b');
+        await muya.whenRenderComplete();
+        expect(scrollPage.firstContentInDescendant()?.text).toContain('other document 0');
+
+        muya.setContent(contentA, false, true, 0, 'tab-a');
+        await muya.whenRenderComplete();
+
+        expect(scrollPage.firstChild).toBe(firstA);
+        expect(disposeA).not.toHaveBeenCalled();
+        expect(scrollPage.firstContentInDescendant()?.text).toBe('paragraph 0');
+    });
+
+    it('rebuilds instead of restoring a stale warm tree', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const contentA = paragraphs(PROGRESSIVE_RENDER_THRESHOLD + 20);
+        const contentB = contentA.replace('paragraph 0', 'changed document 0');
+        const muya = new Muya(host, { markdown: contentA });
+        mountedEditors.push(muya);
+
+        muya.init();
+        muya.setContent(contentA, false, true, 0, 'tab-a');
+        await muya.whenRenderComplete();
+        const firstA = muya.editor.scrollPage!.firstChild;
+
+        muya.setContent(contentB, false, true, 0, 'tab-b');
+        await muya.whenRenderComplete();
+        muya.setContent('replacement\n', false, true, 0, 'tab-a');
+        await muya.whenRenderComplete();
+
+        expect(muya.editor.scrollPage!.firstChild).not.toBe(firstA);
+        expect(muya.editor.scrollPage!.firstContentInDescendant()?.text).toBe('replacement');
+    });
+
     it('detaches the previous rendered tree before disposing it', () => {
         const host = document.createElement('div');
         document.body.appendChild(host);
