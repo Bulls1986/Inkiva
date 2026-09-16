@@ -98,6 +98,7 @@ import {
   TableColumnToolbar,
   TableDragBar,
   TableRowColumMenu,
+  CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
   wordCount as muyaWordCount,
   en,
   de,
@@ -136,6 +137,7 @@ import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { getApplicationAppearance } from 'common/theme'
 import { SyntheticHistory, type IFileHistoryLike } from './syntheticHistory'
+import { isStaleEditorEvent } from './editorEventGuard'
 import {
   EditorSnapshotScheduler,
   getEditorMutationPolicy
@@ -1434,11 +1436,25 @@ const scrollToCords = (y: number) => {
   clearPendingScrollRestore()
 
   const target = Math.max(0, y)
+  if (target === 0) {
+    // Most tab activations restore the default top position. Avoid creating a
+    // pending restore and forcing a post-mount scrollHeight read for this
+    // common case; zero is valid regardless of the replacement document's
+    // eventual height.
+    container.scrollTop = 0
+    container.style.visibility = 'visible'
+    container.style.pointerEvents = 'auto'
+    return
+  }
   const pending: PendingScrollRestore = {
     container,
     target,
     startedAt: Date.now(),
-    expectedScrollTop: Math.min(target, getMaxScrollTop(container)),
+    // The old document may still occupy a large DOM tree here. Defer the
+    // first scrollHeight read until the rAF after the new surface is mounted,
+    // when the container is hidden and the browser can calculate one final
+    // layout for the replacement document.
+    expectedScrollTop: target,
     lastMaxScrollTop: null,
     stableSince: null,
     timer: null,
@@ -1556,7 +1572,7 @@ const handleExport = async (options: unknown) => {
 
   const extraCss = await getCssForOptions(opts as unknown as PdfCssOptions)
   const htmlToc = getHtmlToc(editor.value.getTOC(), opts as unknown as HtmlTocOptions)
-  const markdown = editor.value.getMarkdown()
+  const markdown = serializeEditorMarkdown(editor.value)
   const header = (opts.header ?? null) as HeaderFooterPart | null
   const footer = (opts.footer ?? null) as HeaderFooterPart | null
 
@@ -1757,12 +1773,15 @@ const recordEditorSetContent = (source: EditorSetContentSource): void => {
     __inkiva_e2e_editor_metrics__?: {
       setContentCalls: number
       setContentSources: EditorSetContentSource[]
+      markdownSerializationCalls: number
     }
   }
   const metrics = (globalState.__inkiva_e2e_editor_metrics__ ??= {
     setContentCalls: 0,
-    setContentSources: []
+    setContentSources: [],
+    markdownSerializationCalls: 0
   })
+  metrics.markdownSerializationCalls ??= 0
   metrics.setContentCalls += 1
   metrics.setContentSources.push(source)
 }
@@ -1906,6 +1925,7 @@ const setMarkdownToEditor = (payload: unknown) => {
     cursor: newCursor,
     contentAlreadyLoaded
   } = (payload ?? {}) as FileLoadedPayload
+  if (isStaleEditorEvent(id, currentFile.value?.id)) return
   if (editor.value) {
     if (!contentAlreadyLoaded) {
       beginEditorPerformanceOperation(id)
@@ -1923,7 +1943,7 @@ const setMarkdownToEditor = (payload: unknown) => {
       // a cursor afterwards (a freshly-opened file has no history to restore).
       recordEditorSetContent('markdown')
       editor.value.setContent(newMarkdown ?? '')
-      editorLayoutReconciler?.reset()
+      editorLayoutReconciler?.reset(true)
     }
     // The freshly loaded content is this tab's clean baseline (id 0). Re-seed
     // the monotonic save-tracking allocator so undoing an edit back to this
@@ -1932,7 +1952,7 @@ const setMarkdownToEditor = (payload: unknown) => {
     // raw payload) so it matches the markdown later emitted on `json-change`
     // — the engine may normalize trailing newlines / whitespace on round-trip.
     if (id) {
-      resetSyntheticHistory(id, editor.value.getMarkdown())
+      resetSyntheticHistory(id, serializeEditorMarkdown(editor.value))
     }
     if (newCursor) {
       runWhenEditorRenderComplete(id, (instance) => {
@@ -1987,8 +2007,21 @@ const handleFileChange = (payload: unknown) => {
     isReload
   } = (payload ?? {}) as FileChangePayload
   if (!editor.value) return
+  if (isStaleEditorEvent(id, currentFile.value?.id)) return
   const container = getScrollContainer()
   if (!container) return
+
+  // Hide the live editor before replacing a large rendered tree. Visibility
+  // alone keeps the layout box intact, while preventing the browser from
+  // laying out each detach/append operation on the switch's synchronous path.
+  const restoresScroll = typeof scrollTop === 'number' && scrollTop > 0
+  if (restoresScroll) {
+    container.style.visibility = 'hidden'
+    container.style.pointerEvents = 'none'
+  } else {
+    container.style.visibility = 'visible'
+    container.style.pointerEvents = 'auto'
+  }
 
   clearPendingScrollRestore()
 
@@ -2063,10 +2096,22 @@ const handleFileChange = (payload: unknown) => {
         recordEditorSetContent('blocks')
         // `blocks` came through Pinia and may be reactive. Give Muya the raw
         // snapshot so its document model does not retain Vue proxies.
-        editor.value.setContent(toRaw(reusableBlocks))
+        editor.value.setContent(
+          toRaw(reusableBlocks),
+          false,
+          true,
+          CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
+          id ?? null
+        )
       } else {
         recordEditorSetContent('markdown')
-        editor.value.setContent(newMarkdown)
+        editor.value.setContent(
+          newMarkdown,
+          false,
+          true,
+          CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
+          id ?? null
+        )
       }
       // Tab switch swaps content without firing `json-change`, so re-seed the
       // TOC (otherwise returning to an open tab keeps the other tab's TOC).
@@ -2089,25 +2134,22 @@ const handleFileChange = (payload: unknown) => {
         editor.value.setHistory(savedEngineHistory)
       }
       // First activation of a tab the save-tracking allocator has never seen:
-      // seed its clean baseline from the engine's serialization now, before
-      // any edit. For a tab that already has a tracker this is a no-op —
-      // switching back must keep the existing content -> id map.
-      if (id) {
-        getSyntheticHistory(id, editor.value.getMarkdown())
+      // seed its clean baseline from the payload already held by the store.
+      // For a tab that already has a tracker this is a no-op — switching back
+      // must keep the existing content -> id map and must not serialize the
+      // whole document just to discover that no seed is needed.
+      if (id && !syntheticHistoryByTab.has(id)) {
+        getSyntheticHistory(id, newMarkdown)
       }
     }
-    editorLayoutReconciler?.reset()
+    editorLayoutReconciler?.reset(true)
   } else if (newCursor) {
     applyCursor(editor.value, newCursor)
   }
 
   if (typeof scrollTop === 'number') {
-    container.style.visibility = 'hidden'
-    container.style.pointerEvents = 'none'
     scrollToCords(scrollTop)
   } else {
-    container.style.visibility = 'visible'
-    container.style.pointerEvents = 'auto'
     scrollToCursor(0)
   }
 
@@ -2301,7 +2343,7 @@ onMounted(() => {
   // after the first edit — so the pristine content never maps to id 0 and
   // undoing back to the on-disk content can never read as clean again (PG15).
   if (currentFile.value?.id) {
-    getSyntheticHistory(currentFile.value.id, muya.getMarkdown())
+    getSyntheticHistory(currentFile.value.id, serializeEditorMarkdown(muya))
   }
 
   const container = getScrollContainer()!
