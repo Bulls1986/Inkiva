@@ -332,7 +332,7 @@ describe('createEditorLayoutReconciler', () => {
     expect(onChange.mock.calls[0][0][0]).toEqual(expect.objectContaining({ delta: 40 }))
   })
 
-  it('can defer reset geometry reads until the next frame', async () => {
+  it('can defer reset geometry reads until the next frame', async() => {
     const fixture = makeFixture()
     reconciler = createEditorLayoutReconciler(fixture.container)
     vi.mocked(fixture.diagram.getBoundingClientRect).mockClear()
