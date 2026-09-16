@@ -121,9 +121,10 @@ export class ScrollPage extends Parent {
     private _resolveProgressiveCompletion: (() => void) | null = null;
     private _cloneProgressiveBlocks = false;
 
-    // The desktop keeps at most two non-active tabs warm. Store their actual
-    // block trees here so returning to a warm tab only moves existing DOM
-    // nodes instead of reconstructing every block on the switch path.
+    // The desktop keeps at most two non-active tabs warm. Store each warm
+    // document's initial render window here so returning to it only moves
+    // existing visible DOM nodes instead of reconstructing every block on the
+    // switch path; the tail remains interruptible background work.
     private _renderCache = new Map<string, IRenderedCacheEntry>();
     private _renderCacheKey: string | null = null;
     private _renderedState: TState[] | null = null;
@@ -467,11 +468,18 @@ export class ScrollPage extends Parent {
         if (!complete && !partial)
             return null;
 
+        const cachedBlockCount = state.length > PROGRESSIVE_RENDER_THRESHOLD
+            ? Math.min(PROGRESSIVE_RENDER_INITIAL_BLOCKS, blocks.length)
+            : blocks.length;
+        const cachedBlocks = blocks.slice(0, cachedBlockCount);
+        if (cachedBlockCount < blocks.length)
+            this._queueDetachedBlocks(blocks.slice(cachedBlockCount));
+
         return {
             state,
             stateSignature: stateSignature(state),
-            blocks,
-            mountedCount: blocks.length,
+            blocks: cachedBlocks,
+            mountedCount: cachedBlockCount,
             cloneBlocks,
         };
     }
@@ -654,9 +662,17 @@ export class ScrollPage extends Parent {
         const previousProgressiveIndex = this._progressiveIndex;
         const previousCloneBlocks = this._cloneProgressiveBlocks;
         const targetIsCurrent = renderCacheKey !== null && renderCacheKey === previousKey;
-        const targetEntry = targetIsCurrent
-            ? null
-            : this._takeRenderedCacheEntry(renderCacheKey, state, progressive);
+        let targetEntry: IRenderedCacheEntry | null = null;
+        if (!targetIsCurrent) {
+            targetEntry = this._takeRenderedCacheEntry(renderCacheKey, state, progressive);
+        }
+        else {
+            const staleEntry = this._renderCache.get(renderCacheKey);
+            if (staleEntry) {
+                this._renderCache.delete(renderCacheKey);
+                this._queueDetachedBlocks(staleEntry.blocks);
+            }
+        }
 
         this._cancelProgressiveRender();
         const detached = this._detachRenderedBlocks();
