@@ -39,15 +39,15 @@ Real Electron launch was attempted locally after building. The managed container
 
 The remote acceptance run executed the desktop suite with 288 tests passing and 11 skipped; the only failure was the Light screenshot comparison against the pre-redesign sans-serif snapshot. The captured Light, Dark, Paper, 550px, 768px, command-palette, sidebar, preferences, dialog, toast, and Markdown candidates were reviewed against the supplied reference. The editorial serif document layer, quiet quote surface, shared workspace header, compact title-bar behavior, and application chrome hierarchy match the intended direction; the old PNGs were stale baselines rather than a product regression.
 
-Required final gate: commit the reviewed candidates, rerun the remote desktop E2E suite, and retain the screenshot evidence with the PR.
+The runtime screenshot review is complete, but the old visual-regression PNG mismatch remains an explicit gate; it is not being hidden by baseline changes.
 
 ## Acceptance run — 2026-09-17
 
 - Fixed the custom title-bar word counter so the existing W/P/C/A modes remain visible, keyboard-accessible, and covered by the desktop E2E selectors.
 - Fixed public undo/redo to flush a pending contenteditable input before changing history; added a regression test for undo/redo immediately after a queued edit.
 - Stabilized Muya E2E caret initialization and whitespace caret placement after the editorial serif font change.
-- Rebased the desktop visual-regression PNGs from the reviewed remote Electron run so Light, Dark, Paper, compact widths, overlays, and editor surfaces exercise the current reference-aligned UI.
+- Captured and reviewed remote Electron screenshots for Light, Dark, Paper, compact widths, overlays, and editor surfaces against the supplied reference; the committed visual-regression PNGs remain unchanged per the acceptance rule.
 - Local evidence: desktop typecheck passed; Muya typecheck passed; focused desktop contracts passed (23 tests); focused Muya core tests passed (59 tests); Muya flush/history regression tests passed (15 tests); desktop and Muya builds completed successfully.
-- Runtime acceptance is pending the fresh remote E2E result after committing the reviewed visual baselines; the managed-container launch limitation remains documented above.
+- Runtime screenshot review is complete for the captured states; CI remains blocked by the unchanged visual-regression baseline mismatch and the separate Performance Fast Gate input-sampling timeout.
 
-final result: pending final remote CI confirmation
+final result: UI accepted; CI blocked by explicit visual and performance gates
