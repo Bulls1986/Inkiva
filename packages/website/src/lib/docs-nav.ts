@@ -52,7 +52,7 @@ export const DOC_TABS: DocTab[] = [
             slug: ['editing'],
             title: 'Editing in depth',
             file: 'end-user/EDITING.md',
-            hint: 'Shortcuts, format bar & find/replace'
+            hint: 'Editing tools, blocks & find/replace'
           },
           {
             slug: ['spelling'],
@@ -87,13 +87,13 @@ export const DOC_TABS: DocTab[] = [
             slug: ['key-bindings-macos'],
             title: 'Key bindings (macOS)',
             file: 'end-user/KEYBINDINGS_OSX.md',
-            hint: 'Default shortcuts on macOS'
+            hint: 'Baseline shortcuts and preset notes'
           },
           {
             slug: ['key-bindings-windows'],
             title: 'Key bindings (Windows)',
             file: 'end-user/KEYBINDINGS_WINDOWS.md',
-            hint: 'Default shortcuts on Windows'
+            hint: 'Baseline shortcuts and preset notes'
           },
           {
             slug: ['application-data-directory'],
@@ -122,7 +122,7 @@ export const DOC_TABS: DocTab[] = [
             slug: ['export'],
             title: 'Export a document',
             file: 'end-user/EXPORT.md',
-            hint: 'PDF, HTML, image export'
+            hint: 'PDF, HTML & print options'
           },
           {
             slug: ['themes'],
@@ -146,7 +146,7 @@ export const DOC_TABS: DocTab[] = [
             slug: ['image-uploader'],
             title: 'Image uploader configuration',
             file: 'end-user/IMAGE_UPLOADER_CONFIGRATION.md',
-            hint: 'Cloud image hosts'
+            hint: 'PicGo cloud uploads'
           }
         ]
       },
@@ -209,7 +209,7 @@ export const DOC_TABS: DocTab[] = [
             slug: ['dev', 'interface'],
             title: 'Interface',
             file: 'dev/INTERFACE.md',
-            hint: 'Muya & renderer public interfaces'
+            hint: 'Desktop shell, sidebar & editor layers'
           },
           {
             slug: ['dev', 'ipc'],

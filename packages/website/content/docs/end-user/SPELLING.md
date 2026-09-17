@@ -1,35 +1,17 @@
-#  Spelling
+# Spelling
 
-Inkiva can automatically check your text for misspelled words as you type and suggest corrections. Enable spell checking in settings under *spelling*. On macOS and Windows you can choose between Hunspell and the system spell checker (default). You can control the default proofing language via settings or change it at runtime through the `Change Language` entry under `Spelling`.
+Inkiva can check spelling as you type and offer corrections from the active dictionary. Spell checking is disabled by default. Enable it in **Preferences → Spelling**, then choose the default language.
 
-![](../assets/inkiva-spellchecker-menu.png)
+![Inkiva Preferences window on the Spelling page](../assets/inkiva-spelling-settings.png)
 
 ## Features
 
-**Automatic language detection:**
+When spell checking is enabled, misspelled words are underlined and the editor's context menu can offer corrections. Use **Change Language** from the spelling commands to change the language for the current session. `spellcheckerLanguage` stores the default BCP-47 language tag, such as `en-US`, `de-DE`, or `zh-CN`.
 
-Inkiva can try to automatically detect the language while typing and we're currently support over 160 languages by Compact Language Detector.
-
-**Don't underline misspelled words:**
-
-If you don't like that all spelling mistakes are red highlighted, you can disable this feature in settings but still benefit from manually spell checking via right-click menu. Disabling constantly spell checking will also improve performance overall.
-
-**Adding words to dictionary:**
-
-You can add words to the selected dictionary by right-clicking on a misspelled word and select `Add to Dictionary` or remove a previously added word. If you want to temporary ignore a word, select `Ignore`.
+If you prefer a clean writing surface, enable **Don't underline misspelled words**. Spell checking remains available, but the editor does not draw underlines for detected errors.
 
 ## Manage dictionaries
 
-### macOS spell checker
+Dictionary availability depends on the spell-checking provider and operating system. On macOS and Windows, install additional system language dictionaries through the operating system's language settings. If a Hunspell dictionary provider is available in the spelling preferences, use its language list to download and activate additional dictionaries; an internet connection may be required.
 
-You need to add the additional language dictionaries via *"Language & Region"* in your system preferences pane.
-
-### Windows spell checker
-
-On Windows 10, you need to add additional language dictionaries via *"Language"* in your *"Time & language"* settings. Add the additional language(s) and download the *"Basic typing"* language option for each language.
-
-### Hunspell
-
-Please go to spelling settings and scroll to the bottom. Now you see a list of available language dictionaries and can add additional dictionaries via the drop-down menu at the bottom. Please note that an active internet connection is required to download a dictionary!
-
-![](../assets/inkiva-spelling-settings.png)
+Right-click a misspelled word to ignore it or add it to the active dictionary when the provider exposes that action.

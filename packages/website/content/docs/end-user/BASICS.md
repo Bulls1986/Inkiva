@@ -2,81 +2,73 @@
 
 ## Getting started
 
-Inkiva is a realtime preview editor for markdown with various markdown extensions. You can simply write and edit text and Inkiva hides all unnecessary syntax elements. When you first start Inkiva an empty editor window is shown. You can see [key bindings](KEYBINDINGS.md) or command palette (<kbd>CmdOrCtrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>) for all available commands or just type `@` to get an overlay with available text elements. Inkiva provides a minimal and simple interface and in the next sections you can learn more about the interface and features.
+Inkiva is a document-first Markdown editor. It opens ordinary CommonMark/GFM files and folders, and its preview editor keeps most Markdown punctuation out of the way while you write. When the application starts without a restored session, the welcome surface offers **Recent Documents**, **New File**, and **Open file**.
 
-![](../assets/inkiva-default.png)
+![Inkiva welcome surface with Recent Documents, New File, and Open file](../assets/inkiva-default.png)
 
-### Interface
+The titlebar command launcher opens search for documents, headings, and commands. You can click it or press <kbd>CmdOrCtrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>. In an empty paragraph, type `/` to open the quick-insert menu; choose an item to turn that paragraph into a heading, list, quote, table, or another supported block.
 
-#### Toggle sidebar
+## Interface
 
-The sidebar consists of four panels and you can toggle the sidebar by pressing <kbd>CmdOrCtrl</kbd>+<kbd>J</kbd>:
+### Sidebar
 
-- Filesystem explorer (tree view) of the opened root directory. The tree also exposes a collapsible *Opened Files* subsection — toggle it via the `openedFilesInSidebar` preference.
-- Find in files
-- Table of contents of the selected tab
-- Document Info: backlinks and Local History for the selected document
+The optional sidebar is organized around the current document and folder:
 
-#### Toggle tabs
+- **Files** shows the opened folder tree and its **Opened Files** subsection.
+- **Search** searches the opened folder with filters for the search mode.
+- **Outline** shows headings from the selected document.
+- **More → Document Info** provides **Backlinks** and **Local History**.
 
-Inkiva can be used as a single editor but opens all files in a separate tab. Tabs can be toggled via <kbd>CmdOrCtrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd>, reordered by drag and drop, pinned, and reopened after closing.
+Use the sidebar controls or **View → Toggle Sidebar**. The default Typora shortcut is <kbd>CmdOrCtrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>; custom keybinding styles can change it. The `openedFilesInSidebar` preference controls the Opened Files subsection.
 
-**Want to use tabs without showing them?**
+![Inkiva editor with the Outline sidebar, document tab, and writing surface](../assets/inkiva-interface.png)
 
-You can hide tabs and use key bindings such as <kbd>CmdOrCtrl</kbd>+<kbd>Tab</kbd> to cycle through tabs or the sidebar *opened files* panel.
+The Files, Search, and Document Info panels are shown below.
 
-#### Split Editor
+![Inkiva Files sidebar showing a folder tree and Opened Files](../assets/inkiva-files.png)
 
-Use **View → Split Editor** or <kbd>CmdOrCtrl</kbd>+<kbd>Shift</kbd>+<kbd>\\</kbd> to open a second document pane. Inkiva shows A|B when another tab is available and A|A when the current document is the only open tab. The secondary pane is a comparison surface; choose **Use as editor** when you want to continue editing that document.
+![Inkiva Search sidebar for searching the opened folder](../assets/inkiva-search.png)
 
-#### Recent documents and Quick Open
+![Inkiva Document Info sidebar with Backlinks and Local History](../assets/inkiva-document-info.png)
 
-The welcome surface lists recently opened documents and folders. **Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>) searches Markdown files in the current folder and gives already-open documents priority.
+### Tabs and split view
 
-![](../assets/inkiva-interface-1.png)
+Each open document can appear in a tab. Drag tabs to reorder them, use the tab context menu for file actions, or hide the tab bar and work from the sidebar's **Opened Files** list. **View → Split Editor** opens a second document pane; use the pane controls to choose which pane is the active editor.
 
-#### Switch between editor modes
+### Quick Open and the command launcher
 
-You can use <kbd>CmdOrCtrl</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd> to switch between the preview and source-code editor. The realtime preview editor is the default editor with many features. A detailed overview of all features can be found [here](EDITING.md).
+**Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>) finds Markdown files in the opened folder and already-open documents. The command launcher searches commands, headings, and documents from one place.
 
-#### Typewriter and focus mode
+![Inkiva command launcher with document, heading, and command results](../assets/inkiva-command-palette.png)
 
-Use <kbd>CmdOrCtrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> to enter distraction free focus mode or <kbd>CmdOrCtrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd> for typewriter.
+### Editor modes
 
-<h4 align="center">:smile_cat:Edit modes:dog:</h4>
+Inkiva opens documents in the formatted preview editor by default. **View → Source Code Mode** switches to the raw Markdown editor for precise syntax editing. In the default Typora shortcut style, source mode is <kbd>CmdOrCtrl</kbd>+<kbd>/</kbd>, focus mode is <kbd>F8</kbd>, and typewriter mode is <kbd>F9</kbd>. See [Key bindings](KEYBINDINGS.md) for the preset and platform-specific tables.
 
-| Source Code          | Typewriter               | Focus               |
-|:--------------------:|:------------------------:|:-------------------:|
-| ![](../assets/source.gif) | ![](../assets/typewriter.gif) | ![](../assets/focus.gif) |
+## Open, edit, and save files
 
-## Open and modify markdown files
+### Open a file
 
-### Open your first file
+Choose **File → Open File** or press <kbd>CmdOrCtrl</kbd>+<kbd>O</kbd>. You can also pass a file path or folder to Inkiva from the [command line](CLI.md).
 
-You can use the menu `File -> Open File` or press <kbd>CmdOrCtrl</kbd>+<kbd>O</kbd> to open a file dialog to choose a markdown file. Another way to is to launch Inkiva with directories or files via command line.
+### Open a folder
 
-### Save your edited file
+Choose **File → Open Folder** or press <kbd>CmdOrCtrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>. The folder becomes the root for the Files panel, Quick Open, and in-folder Search.
 
-After some modifications you can save your file via <kbd>CmdOrCtrl</kbd>+<kbd>S</kbd> or use *save as* to use a different file name.
+### Save changes
 
-### Open a directory
-
-Inkiva also has support to open a directory via <kbd>CmdOrCtrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd> or the sidebar button *Open Folder*. After opening a directory all files and directories are shown in the sidebar tree view. The tree view allows you to open further files, browse and modify files or directories inside the opened root directory. Above the tree view are all opened files located. You can also use quick open (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>) to quickly open a file from the opened root directory or editor and navigate via arrow keys or select a file via mouse. To view another sidebar panel like find in files click on the left sidebar icons.
-
-![](../assets/inkiva-interface-2.png)
+Choose **File → Save** or press <kbd>CmdOrCtrl</kbd>+<kbd>S</kbd>. **File → Save As** writes the document to a new path. Inkiva marks unsaved changes in the tab and titlebar; automatic saving is enabled by default and can be adjusted in [Preferences](PREFERENCES.md).
 
 ## Appearances
 
-You can change the application appearance by selecting Inkiva Light, Inkiva Dark, or Inkiva Paper from the `Theme` menu. Inkiva Light and Inkiva Dark can also follow the system appearance.
+Inkiva includes **Inkiva Light**, **Inkiva Dark**, and **Inkiva Paper**. Choose an appearance from the **Theme** menu or from **Preferences → Theme**. Light and Dark can follow the operating system; Paper remains a manual choice. See [Appearances](THEMES.md).
+
+![Inkiva editor in the Dark appearance](../assets/inkiva-dark.png)
+
+![Inkiva editor in the Paper appearance](../assets/inkiva-paper.png)
 
 ## Preferences
 
-You can control and modify all preferences in the settings window or edit `preferences.json` in the [application data directory](APPLICATION_DATA_DIRECTORY.md). Detailed information about the preference file can be found [here](PREFERENCES.md).
+Open **File → Preferences** or the settings control at the bottom of the sidebar. Preferences can also be edited in `preferences.json` in the [application data directory](APPLICATION_DATA_DIRECTORY.md). The settings window groups general, theme, editor, and spelling options.
 
-- General application settings
-- Settings that control the editor appearance
-- Markdown related settings
-- The application appearance
-- Options how images are handled
-
-![](../assets/inkiva-settings.png)
+![Inkiva Preferences window on the General page](../assets/inkiva-settings.png)
