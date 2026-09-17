@@ -503,6 +503,9 @@ onBeforeUnmount(() => {
   & > li.active {
     background: transparent;
     color: var(--text-primary);
+    &::after {
+      opacity: 1;
+    }
     font-weight: 500;
     z-index: 3;
     & > .close-icon {
