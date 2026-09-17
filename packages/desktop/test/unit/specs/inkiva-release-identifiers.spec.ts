@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 const desktopRoot = path.resolve(__dirname, '../../../')
 const repositoryRoot = path.resolve(desktopRoot, '../..')
-const expectedStableVersion = '0.3.0'
+const expectedStableVersion = '0.3.1'
 
 const readJson = <T>(filePath: string): T => JSON.parse(fs.readFileSync(filePath, 'utf8')) as T
 
