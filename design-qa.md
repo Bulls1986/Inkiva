@@ -37,7 +37,7 @@ Scope: reference-aligned desktop shell, editor typography and Markdown rendering
 
 Real Electron launch was attempted locally after building. The managed container cannot complete that gate because the native `ced` binding/display dependencies are unavailable, and its browser blocks local URLs. Runtime evidence was therefore collected from the PR's Ubuntu Electron runner instead of treating local build output as a visual pass.
 
-The remote acceptance run executed the desktop suite with 288 tests passing and 11 skipped; the only failure was the Light screenshot comparison against the pre-redesign sans-serif snapshot. The captured Light, Dark, Paper, 550px, 768px, command-palette, sidebar, preferences, dialog, toast, and Markdown candidates were reviewed against the supplied reference. The editorial serif document layer, quiet quote surface, shared workspace header, compact title-bar behavior, and application chrome hierarchy match the intended direction; the old PNGs were stale baselines rather than a product regression. This change promotes the reviewed 15-state candidate set to the approved visual baseline.
+The remote Ubuntu Electron acceptance run executed 311 desktop tests with 300 passed and 11 skipped. The captured Light, Dark, Paper, 550px, 768px, command-palette, sidebar, preferences, dialog, toast, and Markdown states were reviewed against the supplied reference. The editorial serif document layer, quiet quote surface, shared workspace header, compact title-bar behavior, and application chrome hierarchy match the intended direction; the old PNGs were stale baselines rather than a product regression. This change promotes the reviewed 15-state candidate set to the approved visual baseline.
 
 The runtime screenshot review is complete. The snapshot update is limited to the reviewed design states; it does not change screenshot tolerances, skip visual cases, or weaken any functional, accessibility, or performance assertion.
 
@@ -48,6 +48,6 @@ The runtime screenshot review is complete. The snapshot update is limited to the
 - Stabilized Muya E2E caret initialization and whitespace caret placement after the editorial serif font change.
 - Captured and reviewed remote Electron screenshots for Light, Dark, Paper, compact widths, overlays, and editor surfaces against the supplied reference; promoted the reviewed 15-state visual-regression set to the new design baseline.
 - Local evidence: desktop typecheck passed; Muya typecheck passed; focused desktop contracts passed (23 tests); focused Muya core tests passed (59 tests); Muya flush/history regression tests passed (15 tests); desktop and Muya builds completed successfully.
-- Runtime screenshot review is complete for the captured states; the separate Performance Fast Gate input-sampling timeout remains an independent gate and is not changed by this baseline update.
+- Runtime screenshot review is complete for the captured states; the separate Performance Fast Gate also passed without changing thresholds, workload, or sampling rules.
 
-final result: design baseline synchronized; full CI still requires visual-regression and performance-gate confirmation
+final result: Product Design and engineering acceptance passed; PR remains open and unmerged
