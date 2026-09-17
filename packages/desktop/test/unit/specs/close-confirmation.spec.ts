@@ -61,7 +61,7 @@ describe('editor store — unsaved close confirmation', () => {
     vi.useRealTimers()
   })
 
-  it('requests the confirmation before starting buffered-state persistence', async () => {
+  it('requests the confirmation before starting buffered-state persistence', async() => {
     let resolveBufferedState: (() => void) | undefined
     mocks.sendBufferedState.mockReturnValue(
       new Promise<void>((resolve) => {

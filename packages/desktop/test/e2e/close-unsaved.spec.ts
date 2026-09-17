@@ -12,13 +12,13 @@ test.describe('closing a document with unsaved changes', () => {
   let app: ElectronApplication
   let page: Page
 
-  test.afterEach(async () => {
+  test.afterEach(async() => {
     if (app) await app.close()
     app = undefined as unknown as ElectronApplication
     page = undefined as unknown as Page
   })
 
-  test('shows the save confirmation after the close request', async () => {
+  test('shows the save confirmation after the close request', async() => {
     const launched = await launchWithMarkdown('# Close me\n', { suppressErrorDialog: true })
     app = launched.app
     page = launched.page
@@ -33,7 +33,7 @@ test.describe('closing a document with unsaved changes', () => {
     })
 
     await expect
-      .poll(async () => (await getMessageBoxCalls(app)).length, {
+      .poll(async() => (await getMessageBoxCalls(app)).length, {
         timeout: 5000
       })
       .toBe(1)
