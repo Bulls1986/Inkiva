@@ -1383,12 +1383,11 @@ h2.sec-title {
 }
 
 .quiet-hero {
-  min-height: 920px;
+  min-height: 960px;
   position: relative;
   isolation: isolate;
-  background:
-    linear-gradient(180deg, rgba(12, 14, 12, 0.12) 0%, rgba(12, 14, 12, 0.36) 44%, var(--quiet-ink) 98%),
-    url('/assets/quiet-studio-bg.webp') center top / cover no-repeat;
+  background: var(--quiet-paper);
+  color: var(--quiet-paper-text);
 }
 
 .quiet-hero::after {
@@ -1396,7 +1395,9 @@ h2.sec-title {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(90deg, rgba(8, 10, 8, 0.28), transparent 62%);
+  background:
+    radial-gradient(720px 360px at 14% 46%, rgba(255, 255, 255, 0.7), transparent 72%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent 60%);
   pointer-events: none;
 }
 
@@ -1404,7 +1405,7 @@ h2.sec-title {
   position: absolute;
   inset: 0 0 auto;
   z-index: 20;
-  color: rgba(250, 248, 241, 0.86);
+  color: var(--quiet-paper-text);
 }
 
 .quiet-nav-inner {
@@ -1412,7 +1413,7 @@ h2.sec-title {
   display: flex;
   align-items: center;
   gap: 28px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.19);
+  border-bottom: 1px solid var(--quiet-paper-line);
 }
 
 .quiet-brand {
@@ -1423,7 +1424,7 @@ h2.sec-title {
   font-family: var(--quiet-serif);
   font-size: 21px;
   letter-spacing: -0.04em;
-  color: #fff;
+  color: var(--quiet-paper-text);
 }
 
 .quiet-brand img {
@@ -1443,7 +1444,7 @@ h2.sec-title {
 .quiet-nav-links a,
 .quiet-language,
 .quiet-github {
-  color: rgba(250, 248, 241, 0.72);
+  color: rgba(23, 25, 23, 0.68);
   font-size: 12px;
   letter-spacing: 0.01em;
   transition: color 180ms ease;
@@ -1452,7 +1453,7 @@ h2.sec-title {
 .quiet-nav-links a:hover,
 .quiet-language:hover,
 .quiet-github:hover {
-  color: #fff;
+  color: var(--quiet-paper-text);
 }
 
 .quiet-nav-actions {
@@ -1474,7 +1475,7 @@ h2.sec-title {
 }
 
 .quiet-language {
-  border-right: 1px solid rgba(255, 255, 255, 0.2);
+  border-right: 1px solid var(--quiet-paper-line);
   padding-right: 20px;
 }
 
@@ -1524,24 +1525,24 @@ h2.sec-title {
 }
 
 .quiet-button--outline {
-  border-color: rgba(255, 255, 255, 0.42);
-  color: rgba(255, 255, 255, 0.94);
-  background: rgba(0, 0, 0, 0.16);
+  border-color: rgba(23, 25, 23, 0.25);
+  color: var(--quiet-paper-text);
+  background: rgba(255, 255, 255, 0.4);
 }
 
 .quiet-button--outline:hover {
-  border-color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(23, 25, 23, 0.5);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .quiet-menu-button {
   display: none;
   width: 38px;
   height: 38px;
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  border: 1px solid var(--quiet-paper-line);
   border-radius: 7px;
   background: transparent;
-  color: #fff;
+  color: var(--quiet-paper-text);
 }
 
 .quiet-menu-button svg {
@@ -1550,20 +1551,23 @@ h2.sec-title {
 }
 
 .quiet-hero-content {
-  padding-top: 148px;
+  padding-top: 142px;
   position: relative;
   z-index: 1;
+  text-align: center;
 }
 
 .quiet-hero-copy {
-  max-width: 670px;
+  max-width: 820px;
+  margin-inline: auto;
 }
 
 .quiet-eyebrow {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 11px;
-  color: rgba(248, 246, 239, 0.76);
+  color: var(--quiet-paper-muted);
   font-size: 13px;
   letter-spacing: 0.01em;
 }
@@ -1590,22 +1594,23 @@ h2.sec-title {
 }
 
 .quiet-hero h1 {
-  max-width: 650px;
+  max-width: 820px;
   margin: 22px 0 16px;
-  color: #fbfaf5;
+  color: var(--quiet-paper-text);
   font-size: clamp(56px, 7.25vw, 98px);
   line-height: 0.97;
 }
 
 .quiet-hero h1 em {
   display: block;
-  color: var(--quiet-blue-light);
+  color: #2b6fca;
   font-style: italic;
 }
 
 .quiet-hero-copy > p {
-  max-width: 515px;
-  color: rgba(248, 246, 239, 0.76);
+  max-width: 540px;
+  margin-inline: auto;
+  color: var(--quiet-paper-muted);
   font-family: var(--quiet-serif);
   font-size: 19px;
   line-height: 1.35;
@@ -1614,30 +1619,47 @@ h2.sec-title {
 .quiet-hero-actions {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   margin-top: 25px;
 }
 
+.quiet-hero-link {
+  padding: 8px 4px;
+  color: var(--quiet-paper-muted);
+  font-size: 13px;
+  text-decoration: underline;
+  text-decoration-color: rgba(23, 25, 23, 0.28);
+  text-underline-offset: 4px;
+  transition: color 180ms ease, text-decoration-color 180ms ease;
+}
+
+.quiet-hero-link:hover {
+  color: var(--quiet-paper-text);
+  text-decoration-color: currentColor;
+}
+
 .quiet-hero-note {
   margin-top: 12px;
-  color: rgba(248, 246, 239, 0.55) !important;
+  color: var(--quiet-paper-muted) !important;
   font-family: var(--quiet-sans) !important;
   font-size: 12px !important;
 }
 
 .quiet-editor-wrap {
-  margin-top: 43px;
+  width: min(100%, 1050px);
+  margin: 52px auto 0;
   position: relative;
 }
 
 .quiet-editor {
-  width: min(100%, 1050px);
+  width: 100%;
   margin-inline: auto;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  border: 1px solid rgba(23, 25, 23, 0.16);
   border-radius: 14px;
   background: #fbfcfd;
-  box-shadow: 0 30px 72px rgba(0, 0, 0, 0.34), 0 1px 0 rgba(255, 255, 255, 0.68) inset;
+  box-shadow: 0 30px 72px rgba(53, 48, 39, 0.18), 0 1px 0 rgba(255, 255, 255, 0.86) inset;
   color: #27303a;
   font-family: var(--quiet-sans);
 }
@@ -1963,6 +1985,7 @@ h2.sec-title {
   overflow: hidden;
   background: #fbfcfd;
   color: #27303a;
+  font-family: var(--quiet-serif);
 }
 
 .quiet-editor-rendered h1,
@@ -2031,7 +2054,7 @@ h2.sec-title {
   position: absolute;
   right: max(36px, calc((100vw - 1180px) / 2));
   bottom: 28px;
-  color: rgba(255, 255, 255, 0.52);
+  color: rgba(23, 25, 23, 0.48);
   font-family: var(--quiet-serif);
   font-size: 12px;
   letter-spacing: 0.12em;
@@ -2901,10 +2924,10 @@ h2.sec-title {
     align-items: stretch;
     gap: 0;
     padding: 9px;
-    border: 1px solid rgba(255, 255, 255, 0.17);
+    border: 1px solid var(--quiet-paper-line);
     border-radius: 9px;
-    background: rgba(16, 17, 15, 0.96);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.28);
+    background: rgba(241, 238, 231, 0.98);
+    box-shadow: 0 20px 40px rgba(53, 48, 39, 0.16);
   }
 
   .quiet-nav-links.is-open {
@@ -2938,7 +2961,7 @@ h2.sec-title {
   }
 
   .quiet-eyebrow {
-    align-items: flex-start;
+    align-items: center;
     flex-direction: column;
     gap: 7px;
   }

@@ -51,3 +51,25 @@ The runtime screenshot review is complete. The snapshot update is limited to the
 - Runtime screenshot review is complete for the captured states; the separate Performance Fast Gate also passed without changing thresholds, workload, or sampling rules.
 
 final result: Product Design and engineering acceptance passed; PR remains open and unmerged
+
+## Website concept hero — 2026-09-17
+
+- Implemented the first Product Design concept direction for the website hero: warm paper surface, centered editorial headline, one primary download action, and a large controlled product concept window.
+- The hero preview is an HTML/CSS concept mock based on the landed Inkiva UI baseline; no raw Electron or E2E screenshot is shipped in the website.
+- English and Chinese homepage copy are synchronized with the concept direction.
+
+### Website verification
+
+| Area | Check | Result |
+| --- | --- | --- |
+| Website | `pnpm --filter inkiva-website type-check` | Pass |
+| Website | `pnpm --filter inkiva-website lint` | Pass |
+| Website | `pnpm --filter inkiva-website exec next build` | Pass |
+| Website tests | `node --import tsx --test packages/website/test/*.test.ts` | 8/8 Pass |
+| Website package test script | `pnpm --filter inkiva-website test` | Blocked before test discovery by managed `tsx` IPC `EPERM` restriction |
+| Raw screenshot check | Website source and assets contain no E2E screenshot import or screenshot path | Pass |
+| Browser visual capture | Local static export | Blocked because the managed environment has no Chromium executable |
+
+### Website acceptance
+
+The implementation and automated checks pass. Final browser screenshot comparison remains blocked by the environment's missing browser executable and must be completed in a browser-capable environment.
