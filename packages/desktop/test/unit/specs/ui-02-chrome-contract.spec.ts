@@ -19,14 +19,19 @@ describe('Inkiva UI-02 chrome contract', () => {
     expect(css).not.toContain('transition: all')
   })
 
-  it('removes tab elevation and the decorative active blue line', () => {
+  it('keeps active tabs blended with a short bottom accent tail', () => {
     const css = read('editorWithTabs/tabs.vue')
 
     expect(css).toContain('height: var(--documentTabsHeight);')
     expect(css).toContain('transition: background-color var(--motion-fast)')
     expect(css).toContain('color: var(--text-secondary);')
-    expect(css).toContain('background: var(--surface-selected);')
-    expect(css).toContain('box-shadow: none;')
+    expect(css).toContain('  & > li.active {\n    background: transparent;')
+    expect(css).toContain('height: 7px;')
+    expect(css).toContain('background: linear-gradient(')
+    expect(css).toContain('var(--color-accent) 0 1px')
+    expect(css).toContain('var(--color-accent-focus) 1px 2px')
+    expect(css).toContain('pointer-events: none;')
+    expect(css).not.toContain('background: var(--surface-selected);')
     expect(css).not.toContain('box-shadow: 0px 0px 9px 2px')
     expect(css).not.toContain('height: 2px;')
     expect(css).not.toContain('transition: all')
