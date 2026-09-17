@@ -38,4 +38,12 @@ describe('Inkiva UI-10 title bar responsive contract', () => {
     expect(titleBar).toContain("grid-template-areas: 'menu controls';")
     expect(titleBar).toContain('minmax(0, 1fr) 138px')
   })
+
+  it('does not put the document filename in the custom status zone', () => {
+    const titleBar = read('components/titleBar/index.vue')
+
+    expect(titleBar).toContain('data-testid="titlebar-document-status"')
+    expect(titleBar).not.toContain('class="custom-document-name"')
+    expect(titleBar).not.toContain('.custom-document-name')
+  })
 })

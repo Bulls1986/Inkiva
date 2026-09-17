@@ -93,17 +93,8 @@
         v-if="showCustomTitleBar"
         class="custom-document-status title-no-drag"
         data-testid="titlebar-document-status"
-        :aria-label="filename || t('titlebar.untitled')"
         @dblclick.stop="toggleMaxmizeOnMacOS"
       >
-        <span
-          class="custom-document-name"
-          :class="{ clickable: !!filename }"
-          :title="filename || t('titlebar.untitled')"
-          @click="rename"
-        >
-          {{ filename || t('titlebar.untitled') }}
-        </span>
         <span
           class="save-status"
           :class="{ dirty: isSaved === false }"
@@ -596,22 +587,6 @@ div.title > span {
   border-left: 1px solid var(--border-subtle);
   font-size: var(--font-size-secondary);
   white-space: nowrap;
-}
-
-.custom-document-name {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text-primary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.custom-document-name.clickable {
-  cursor: pointer;
-}
-
-.custom-document-name.clickable:hover {
-  color: var(--color-accent);
 }
 
 .save-status {
