@@ -36,6 +36,20 @@ describe('AutosaveQueue', () => {
     queue.dispose()
   })
 
+  it('drops delayed autosave work when an explicit save supersedes it', () => {
+    const sent: AutosaveRequest[] = []
+    const queue = new AutosaveQueue({ send: value => sent.push(value) })
+
+    queue.schedule(request(1), 100)
+    queue.cancel('doc-1')
+    vi.advanceTimersByTime(100)
+
+    expect(sent).toEqual([])
+    expect(queue.hasWork('doc-1')).toBe(false)
+
+    queue.dispose()
+  })
+
   it('never overlaps writes and does not let an old ack mark newer content clean', () => {
     const sent: AutosaveRequest[] = []
     const queue = new AutosaveQueue({ send: value => sent.push(value) })

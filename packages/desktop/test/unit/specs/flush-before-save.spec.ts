@@ -26,6 +26,7 @@ vi.mock('@/services/notification', () => ({
 }))
 
 import { useEditorStore } from '@/store/editor'
+import { AutosaveQueue } from '@/store/autosaveQueue'
 import bus from '@/bus'
 import { EditorSnapshotScheduler } from '@/components/editorWithTabs/editorHotPath'
 
@@ -46,6 +47,7 @@ import { EditorSnapshotScheduler } from '@/components/editorWithTabs/editorHotPa
 const STALE = 'hello' // what the pre-flush snapshot holds
 const FLUSHED = 'hello world!' // the last keystroke the editor commits on flush
 const MARKDOWN_ARG = 4 // send(channel, id, filename, pathname, markdown, …)
+const REVISION_ARG = 7 // send(channel, id, filename, pathname, markdown, options, defaultPath, revision)
 
 function seedCurrentFile(
   store: ReturnType<typeof useEditorStore>,
@@ -110,6 +112,25 @@ describe('editor store — flush pending edits before saving (#3803)', () => {
     expect(call?.[MARKDOWN_ARG]).toBe(FLUSHED)
   })
 
+  it('FILE_SAVE supersedes delayed autosave work with the manual snapshot', () => {
+    const store = useEditorStore()
+    seedCurrentFile(store)
+    detach = onFlushCommit(store)
+    const cancelSpy = vi.spyOn(AutosaveQueue.prototype, 'cancel')
+    const sendSpy = vi.spyOn(window.electron.ipcRenderer, 'send')
+
+    try {
+      store.FILE_SAVE()
+
+      const call = sendSpy.mock.calls.find((c) => c[0] === 'mt::response-file-save')
+      expect(cancelSpy).toHaveBeenCalledWith('tab-1')
+      expect(call).toBeDefined()
+      expect(typeof call?.[REVISION_ARG]).toBe('number')
+    } finally {
+      cancelSpy.mockRestore()
+    }
+  })
+
   it('FILE_SAVE_AS sends the flushed markdown, not the stale pre-flush snapshot', () => {
     const store = useEditorStore()
     seedCurrentFile(store)
@@ -121,6 +142,25 @@ describe('editor store — flush pending edits before saving (#3803)', () => {
     const call = sendSpy.mock.calls.find((c) => c[0] === 'mt::response-file-save-as')
     expect(call).toBeDefined()
     expect(call?.[MARKDOWN_ARG]).toBe(FLUSHED)
+  })
+
+  it('FILE_SAVE_AS supersedes delayed autosave work with the manual snapshot', () => {
+    const store = useEditorStore()
+    seedCurrentFile(store)
+    detach = onFlushCommit(store)
+    const cancelSpy = vi.spyOn(AutosaveQueue.prototype, 'cancel')
+    const sendSpy = vi.spyOn(window.electron.ipcRenderer, 'send')
+
+    try {
+      store.FILE_SAVE_AS()
+
+      const call = sendSpy.mock.calls.find((c) => c[0] === 'mt::response-file-save-as')
+      expect(cancelSpy).toHaveBeenCalledWith('tab-1')
+      expect(call).toBeDefined()
+      expect(typeof call?.[REVISION_ARG]).toBe('number')
+    } finally {
+      cancelSpy.mockRestore()
+    }
   })
 
   // MOVE_FILE_TO / RESPONSE_FOR_RENAME only transmit `markdown` in their untitled
