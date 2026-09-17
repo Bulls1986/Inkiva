@@ -683,6 +683,7 @@ div.title > span {
   -webkit-app-region: no-drag;
   position: static;
   grid-area: search;
+  align-self: center;
   justify-self: center;
   display: flex;
   align-items: center;
