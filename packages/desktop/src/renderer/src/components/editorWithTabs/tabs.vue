@@ -413,6 +413,24 @@ onBeforeUnmount(() => {
     transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
     position: relative;
     padding: 0 8px;
+    /* Keep the active state in the title-bar surface; only its lower edge carries a short, soft accent tail. */
+    &::after {
+      content: '';
+      position: absolute;
+      right: 8px;
+      bottom: 0;
+      left: 8px;
+      height: 7px;
+      pointer-events: none;
+      opacity: 0;
+      background: linear-gradient(
+        to top,
+        var(--color-accent) 0 1px,
+        var(--color-accent-focus) 1px 2px,
+        transparent 100%
+      );
+      transition: opacity var(--motion-fast) ease;
+    }
     color: var(--text-secondary);
     font-size: var(--font-size-secondary);
     line-height: var(--documentTabsHeight);
@@ -483,8 +501,11 @@ onBeforeUnmount(() => {
     }
   }
   & > li.active {
-    background: var(--surface-selected);
+    background: transparent;
     color: var(--text-primary);
+    &::after {
+      opacity: 1;
+    }
     font-weight: 500;
     z-index: 3;
     & > .close-icon {
