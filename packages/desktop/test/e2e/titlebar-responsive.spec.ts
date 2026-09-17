@@ -131,10 +131,23 @@ test.describe('Inkiva title bar responsive layout', () => {
       else {
         expect(metrics.launcher.display).not.toBe('none')
         expect(metrics.launcher.width).toBeGreaterThanOrEqual(180)
-        expect(metrics.documentStatus.width).toBeLessThan(180)
+        expect(Math.round(metrics.documentStatus.width)).toBe(138)
         const titleBarCenter = (metrics.titleBar.top + metrics.titleBar.height / 2)
         const launcherCenter = (metrics.launcher.top + metrics.launcher.height / 2)
         expect(Math.abs(launcherCenter - titleBarCenter)).toBeLessThanOrEqual(0.5)
+
+        const initialLauncherLeft = metrics.launcher.left
+        const counter = page.locator('.custom-document-status .word-count')
+        for (let i = 0; i < 4; i += 1) {
+          await counter.click()
+          await expect
+            .poll(() => counter.locator('.text-center-vertical').innerText())
+            .toMatch(/^[WPCA]\s+\d+$/)
+
+          const switchedMetrics = await titleBarMetrics(page)
+          expect(Math.round(switchedMetrics.documentStatus.width)).toBe(138)
+          expect(Math.abs(switchedMetrics.launcher.left - initialLauncherLeft)).toBeLessThanOrEqual(0.5)
+        }
       }
     }
   })
