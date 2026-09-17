@@ -55,6 +55,21 @@ jobs:
           path: packages/desktop/test-results
           if-no-files-found: ignore
 
+      # Temporary acceptance diagnostic: capture the post-change visual
+      # candidates so an intentional design-baseline change can be reviewed
+      # before its snapshots are committed.
+      - name: Generate updated visual snapshot candidates
+        if: failure()
+        run: xvfb-run --auto-servernum pnpm --filter inkiva exec playwright test test/e2e/visual-regression.spec.ts --config=test/e2e/playwright.config.ts --update-snapshots
+
+      - name: Upload updated visual snapshot candidates
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-updated-visual-snapshots
+          path: packages/desktop/test/e2e/visual-regression.spec.ts-snapshots
+          if-no-files-found: ignore
+
       - name: Upload performance reports
         if: always()
         uses: actions/upload-artifact@v4
