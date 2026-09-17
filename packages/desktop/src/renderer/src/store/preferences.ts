@@ -20,6 +20,9 @@ export type FileSortBy = 'created' | 'modified' | 'title'
 export type FileSortOrder = 'asc' | 'desc'
 export type ShortcutStyle = 'marktext' | 'typora'
 
+const normalizeEditorLineWidth = (value: unknown): unknown =>
+  value === '780px' ? '80%' : value
+
 export interface PreferencesState {
   // ----- General -----
   autoSave: boolean
@@ -170,7 +173,7 @@ export const usePreferencesStore = defineStore('preferences', {
     codeBlockLineNumbers: false,
     trimUnnecessaryCodeBlockEmptyLines: true,
     wrapCodeBlocks: false,
-    editorLineWidth: '780px',
+    editorLineWidth: '80%',
 
     autoPairBracket: true,
     autoPairMarkdownSyntax: true,
@@ -257,8 +260,8 @@ export const usePreferencesStore = defineStore('preferences', {
         const normalizedIncoming =
           key === 'editorFontFamily' && incoming === 'Open Sans'
             ? 'system-ui'
-            : key === 'editorLineWidth' && incoming === '80%'
-              ? '780px'
+            : key === 'editorLineWidth'
+              ? normalizeEditorLineWidth(incoming)
               : incoming
         if (
           typeof normalizedIncoming !== 'undefined' &&
@@ -294,16 +297,20 @@ export const usePreferencesStore = defineStore('preferences', {
     },
 
     SET_SINGLE_PREFERENCE({ type, value }: SingleSetPreferencePayload): void {
+      const normalizedValue = type === 'editorLineWidth' ? normalizeEditorLineWidth(value) : value
+
       // Update local state
-      ;(this as unknown as Record<string, unknown>)[type as string] = value
+      ;(this as unknown as Record<string, unknown>)[type as string] = normalizedValue
 
       // Update i18n language if language preference changed
-      if (type === 'language' && typeof value === 'string') {
-        setLanguage(value)
+      if (type === 'language' && typeof normalizedValue === 'string') {
+        setLanguage(normalizedValue)
       }
 
       // save to electron-store
-      window.electron.ipcRenderer.send('mt::set-user-preference', { [type as string]: value })
+      window.electron.ipcRenderer.send('mt::set-user-preference', {
+        [type as string]: normalizedValue
+      })
     },
 
     SET_USER_DATA({ type, value }: SetUserDataPayload): void {

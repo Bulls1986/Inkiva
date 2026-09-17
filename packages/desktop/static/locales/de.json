@@ -387,7 +387,7 @@
         "fontSize": "Schriftgröße in Pixeln",
         "lineHeight": "Zeilenhöhe",
         "wrapCodeBlocks": "Text in Codeblöcken umbrechen",
-        "editorLineWidth": "Definiert die maximale Editor-Bereichsbreite. Ein leerer String oder Suffixe von ch (Zeichen), px (Pixel) oder % (Prozent) sind erlaubt",
+        "editorLineWidth": "Definiert die maximale Breite des Editorbereichs als Prozentsatz des verfügbaren Bereichs",
         "codeFontSize": "Schriftgröße im Codeblock, der Bereich ist 12 ~ 18",
         "codeFontFamily": "Schriftfamilie im Codeblock",
         "codeBlockLineNumbers": "Ob Zeilennummern angezeigt werden sollen",
@@ -518,7 +518,7 @@
         "paragraphSpacing": "Absatzabstand",
         "fontFamily": "Schriftfamilie",
         "maxWidth": "Maximale Breite",
-        "maxWidthNotes": "Maximale Breite des Editor-Inhalts"
+        "maxWidthNotes": "Als Prozentsatz des verfügbaren Editorbereichs festlegen; Standard 80%"
       },
       "codeBlock": {
         "title": "Code-Block",

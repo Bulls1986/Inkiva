@@ -387,7 +387,7 @@
         "fontSize": "Tamanho da fonte em pixels",
         "lineHeight": "Altura da linha",
         "wrapCodeBlocks": "Quebrar texto dentro de blocos de código",
-        "editorLineWidth": "Define a largura máxima da área do editor. Uma string vazia ou sufixos de ch (caracteres), px (pixels) ou % (porcentagem) são permitidos",
+        "editorLineWidth": "Define a largura máxima da área do editor como porcentagem do espaço disponível",
         "codeFontSize": "Tamanho da fonte no bloco de código, o intervalo é 12 ~ 18",
         "codeFontFamily": "Família de fonte usada no bloco de código",
         "codeBlockLineNumbers": "Se mostrar os números de linha",
@@ -518,7 +518,7 @@
         "paragraphSpacing": "Espaçamento entre parágrafos",
         "fontFamily": "Família da fonte",
         "maxWidth": "Largura máxima",
-        "maxWidthNotes": "Largura máxima do conteúdo do editor"
+        "maxWidthNotes": "Defina como uma porcentagem do espaço disponível do editor; padrão 80%"
       },
       "codeBlock": {
         "title": "Bloco de Código",

@@ -154,7 +154,7 @@ test.describe('Check Launch Inkiva', () => {
         .toBe(true)
       await expect
         .poll(() => defaults.page.locator('#editor-width').textContent())
-        .toContain('780px')
+        .toContain('80%')
     } finally {
       await defaults.app.close()
     }

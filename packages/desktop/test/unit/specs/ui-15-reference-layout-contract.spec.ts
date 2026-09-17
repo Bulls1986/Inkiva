@@ -41,13 +41,20 @@ describe('Inkiva reference visual layout contract', () => {
     expect(readRenderer('../index.html')).toContain('background: #f8f8f6;')
     expect(preferences).toContain("editorFontFamily: 'Georgia'")
     expect(preferences).toContain('fontSize: 18')
-    expect(preferences).toContain("editorLineWidth: '780px'")
+    expect(preferences).toContain("editorLineWidth: '80%'")
     expect(staticPreferences).toContain('"editorFontFamily": "Georgia"')
     expect(staticPreferences).toContain('"fontSize": 18')
-    expect(staticPreferences).toContain('"editorLineWidth": "780px"')
+    expect(staticPreferences).toContain('"editorLineWidth": "80%"')
     expect(schema).toContain('"default": 18')
     expect(schema).toContain('"default": "Georgia"')
-    expect(schema).toContain('"default": "780px"')
+    expect(schema).toContain('"default": "80%"')
+  })
+
+  it('exposes editor width as a percentage-only preference control', () => {
+    const editor = readRenderer('prefComponents/editor/index.vue')
+
+    expect(editor).toContain(':regex-validator="/^(?:[1-9][0-9]?|100)%$/"')
+    expect(editor).not.toContain('780px')
   })
 
   it('keeps the shell geometry and document type scale aligned with the preview', () => {

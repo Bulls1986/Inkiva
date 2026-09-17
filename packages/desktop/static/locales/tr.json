@@ -386,7 +386,7 @@
         "fontSize": "Piksel cinsinden yazı tipi boyutu",
         "lineHeight": "Satır Yüksekliği",
         "wrapCodeBlocks": "Kod bloklarındaki metni kaydır",
-        "editorLineWidth": "Maksimum düzenleyici alanı genişliğini tanımlar. Boş bir dize veya ch (karakter), px (piksel) ya da % (yüzde) son ekleri kullanılabilir",
+        "editorLineWidth": "Kullanılabilir düzenleyici alanının yüzdesi olarak maksimum düzenleyici alanı genişliğini tanımlar",
         "codeFontSize": "Kod bloğundaki yazı tipi boyutu, aralık 12 ~ 18",
         "codeFontFamily": "Kod bloğunda kullanılan yazı tipi ailesi",
         "codeBlockLineNumbers": "Satır numaralarının gösterilip gösterilmeyeceği",
@@ -518,7 +518,7 @@
         "paragraphSpacing": "Paragraf aralığı",
         "fontFamily": "Yazı tipi ailesi",
         "maxWidth": "Maksimum genişlik",
-        "maxWidthNotes": "Düzenleyici içeriğinin maksimum genişliği"
+        "maxWidthNotes": "Kullanılabilir düzenleyici alanının yüzdesi olarak ayarlayın; varsayılan %80"
       },
       "codeBlock": {
         "title": "Kod Bloğu",

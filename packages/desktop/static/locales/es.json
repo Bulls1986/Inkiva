@@ -387,7 +387,7 @@
         "fontSize": "Tamaño de fuente en píxeles",
         "lineHeight": "Altura de línea",
         "wrapCodeBlocks": "Ajustar texto dentro de bloques de código",
-        "editorLineWidth": "Define el ancho máximo del área del editor. Se permite una cadena vacía o sufijos de ch (caracteres), px (píxeles) o % (porcentaje)",
+        "editorLineWidth": "Define el ancho máximo del área del editor como porcentaje del espacio disponible",
         "codeFontSize": "Tamaño de fuente en bloque de código, el rango es 12 ~ 18",
         "codeFontFamily": "Familia de fuente utilizada en bloque de código",
         "codeBlockLineNumbers": "Si mostrar los números de línea",
@@ -518,7 +518,7 @@
         "paragraphSpacing": "Espaciado de párrafos",
         "fontFamily": "Familia de fuente",
         "maxWidth": "Ancho máximo",
-        "maxWidthNotes": "Ancho máximo del contenido del editor"
+        "maxWidthNotes": "Establecer como porcentaje del espacio disponible del editor; valor predeterminado 80%"
       },
       "codeBlock": {
         "title": "Bloque de Código",

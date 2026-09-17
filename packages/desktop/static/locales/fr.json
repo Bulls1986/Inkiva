@@ -387,7 +387,7 @@
         "fontSize": "Taille de police en pixels",
         "lineHeight": "Hauteur de ligne",
         "wrapCodeBlocks": "Retour à la ligne dans les blocs de code",
-        "editorLineWidth": "Définit la largeur maximale de la zone d'édition. Une chaîne vide ou des suffixes de ch (caractères), px (pixels) ou % (pourcentage) sont autorisés",
+        "editorLineWidth": "Définit la largeur maximale de la zone d'édition en pourcentage de l'espace disponible",
         "codeFontSize": "Taille de police dans le bloc de code, la plage est de 12 ~ 18",
         "codeFontFamily": "Famille de police utilisée dans le bloc de code",
         "codeBlockLineNumbers": "Afficher les numéros de ligne",
@@ -518,7 +518,7 @@
         "paragraphSpacing": "Espacement des paragraphes",
         "fontFamily": "Famille de police",
         "maxWidth": "Largeur maximale",
-        "maxWidthNotes": "Largeur maximale du contenu de l'éditeur"
+        "maxWidthNotes": "Définir en pourcentage de l’espace disponible de l’éditeur ; valeur par défaut : 80 %"
       },
       "codeBlock": {
         "title": "Bloc de code",
