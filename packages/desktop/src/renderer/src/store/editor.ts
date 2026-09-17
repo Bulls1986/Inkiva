@@ -808,20 +808,27 @@ export const useEditorStore = defineStore('editor', {
     LISTEN_FOR_CLOSE(): void {
       const preferencesStore = usePreferencesStore()
       window.electron.ipcRenderer.on('mt::ask-for-close', () => {
-        sendBufferedState()
-          .catch((err) => {
-            console.error('Failed to update buffered state before closing', err)
-          })
-          .then(() => {
-            const unsavedFiles = this.GET_UNSAVED_FILES()
+        const unsavedFiles = this.GET_UNSAVED_FILES()
 
-            if (unsavedFiles.length && preferencesStore.startUpAction !== 'restoreAll') {
-              // Ignore unsaved files when user has chosen to restore all on startup, as they will be restored anyway.
-              window.electron.ipcRenderer.send('mt::close-window-confirm', deepClone(unsavedFiles))
-            } else {
-              window.electron.ipcRenderer.send('mt::close-window')
-            }
-          })
+        if (unsavedFiles.length && preferencesStore.startUpAction !== 'restoreAll') {
+          // Ignore unsaved files when user has chosen to restore all on startup, as they will be restored anyway.
+          // Do not deep-clone the markdown here: IPC already clones its arguments, and the
+          // extra JSON round-trip made large documents wait before the native dialog opened.
+          window.electron.ipcRenderer.send('mt::close-window-confirm', unsavedFiles)
+        } else {
+          window.electron.ipcRenderer.send('mt::close-window')
+        }
+
+        // Snapshotting and persisting the recovery state can serialize the entire workspace
+        // and wait on disk I/O. It must not sit in front of the user's close decision. Defer it
+        // until the close request has crossed IPC so the main process can open the dialog first.
+        setTimeout(() => {
+          void Promise.resolve()
+            .then(() => sendBufferedState())
+            .catch((err) => {
+              console.error('Failed to update buffered state after closing', err)
+            })
+        }, 0)
       })
     },
 
