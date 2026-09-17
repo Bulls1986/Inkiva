@@ -73,6 +73,8 @@ export interface LaunchOptions {
   userDataDir?: string
   /** Override the editor bootstrap wait for intentionally large fixtures. */
   waitForEditorTimeout?: number
+  /** Override the temporary Markdown fixture filename for layout regressions. */
+  filename?: string
 }
 
 export const launchElectron = async(
@@ -539,10 +541,10 @@ export const setSourceMarkdown = async(
   await exitSourceMode(page, app)
 }
 
-const writeTempMarkdown = (content: string): string => {
+const writeTempMarkdown = (content: string, filename = 'note.md'): string => {
   const dir = trackTempDir(getTempPath('-doc'))
   fs.mkdirSync(dir, { recursive: true })
-  const filePath = path.join(dir, 'note.md')
+  const filePath = path.join(dir, filename)
   fs.writeFileSync(filePath, content, 'utf-8')
   return filePath
 }
@@ -565,7 +567,7 @@ export const launchWithMarkdown = async(
   markdown = '',
   options: LaunchOptions = {}
 ): Promise<LaunchWithMarkdownResult> => {
-  const filePath = writeTempMarkdown(markdown)
+  const filePath = writeTempMarkdown(markdown, options.filename)
   const { app, page } = await launchElectron([filePath], options)
   await waitForEditor(page, options.waitForEditorTimeout)
   await waitForMenuReady(app)
