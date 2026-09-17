@@ -101,13 +101,12 @@ const COPY: Record<Locale, Copy> = {
       github: 'GitHub'
     },
     eyebrow: 'A document-first Markdown editor',
-    heroTitle: 'Write in Markdown.',
-    heroTitleAccent: 'See it take shape.',
-    heroBody:
-      'Inkiva is a calm, local-first desktop editor where your document stays visible while you write. Standard Markdown, rendered in real time.',
-    heroDownload: 'Download for Windows x64',
-    heroDocs: 'View docs',
-    heroNote: 'No account. No subscription. Just a better writing space.',
+    heroTitle: 'A calmer space',
+    heroTitleAccent: 'for deeper writing.',
+    heroBody: 'Inkiva is a Markdown editor designed to help you think, write, and stay in flow.',
+    heroDownload: 'Download Inkiva',
+    heroDocs: 'Read the docs',
+    heroNote: 'Windows 11, 10 · Free',
     editorTitle: 'The Art of Enough.md',
     editorDocuments: 'Documents',
     editorRecent: 'Recent documents',
@@ -186,13 +185,12 @@ const COPY: Record<Locale, Copy> = {
       github: 'GitHub'
     },
     eyebrow: '文档优先的 Markdown 编辑器',
-    heroTitle: '用 Markdown 写作，',
-    heroTitleAccent: '让内容自然显现。',
-    heroBody:
-      'Inkiva 是一款平静、本地优先的桌面编辑器。写作时文档始终就在眼前，标准 Markdown 会在原处实时呈现。',
-    heroDownload: '下载 Windows x64 版',
+    heroTitle: '一个更安静的空间，',
+    heroTitleAccent: '写出更深的内容。',
+    heroBody: 'Inkiva 是一款为思考、写作与持续专注而设计的 Markdown 编辑器。',
+    heroDownload: '下载 Inkiva',
     heroDocs: '查看文档',
-    heroNote: '无需账号，无需订阅，只为让写作更舒服。',
+    heroNote: 'Windows 11、macOS · 免费开源',
     editorTitle: '恰到好处.md',
     editorDocuments: '文档',
     editorRecent: '最近文档',
@@ -339,7 +337,7 @@ function FileGlyph() {
 
 function QuietEditor({ copy }: { copy: Copy }) {
   return (
-    <div className="quiet-editor" aria-label="Inkiva editor preview" data-preview="writing-surface">
+    <div className="quiet-editor" aria-label="Inkiva editor concept preview" data-preview="writing-surface">
       <div className="quiet-editor-bar">
         <div className="quiet-editor-product">
           <img src="/assets/inkiva-logo.svg" alt="" width={20} height={20} />
@@ -597,8 +595,7 @@ export default function QuietHomePage({ locale = 'en' }: { locale?: Locale }) {
                 <DownloadIcon aria-hidden="true" />
                 {copy.heroDownload}
               </a>
-              <Link className="quiet-button quiet-button--outline" href="/docs/installation">
-                <ExportIcon aria-hidden="true" />
+              <Link className="quiet-hero-link" href="/docs/installation">
                 {copy.heroDocs}
               </Link>
             </div>
