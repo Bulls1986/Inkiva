@@ -310,6 +310,7 @@ const measureFolderSearch = async(
       onResultMutation()
     }
 
+    input.addEventListener('input', onInput, true)
     state.__inkiva_fast_gate_action__ = measurement
   }, expectedPath)
 
