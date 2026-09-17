@@ -35,16 +35,19 @@ Scope: reference-aligned desktop shell, editor typography and Markdown rendering
 
 ## Runtime visual gate
 
-Real Electron launch was attempted after building. The container cannot complete the gate because the native `ced` binding is unavailable after dependency scripts were skipped/failed, and the environment has no X server/`$DISPLAY`. Chromium/Xvfb is also unavailable. Therefore post-change runtime screenshots were not captured here, and this is not a visual-pass claim.
+Real Electron launch was attempted locally after building. The managed container cannot complete that gate because the native `ced` binding/display dependencies are unavailable, and its browser blocks local URLs. Runtime evidence was therefore collected from the PR's Ubuntu Electron runner instead of treating local build output as a visual pass.
 
-Required follow-up in a real desktop environment: capture Light, Dark, Paper, source mode, command palette with file/heading results, focused controls, and widths around 550/768/1000/1536px; verify native menus, window controls, overlay sidebar, tab alignment, caret/scroll behavior, and reduced-motion behavior.
+The remote acceptance run executed the desktop suite with 288 tests passing and 11 skipped; the only failure was the Light screenshot comparison against the pre-redesign sans-serif snapshot. The captured Light, Dark, Paper, 550px, 768px, command-palette, sidebar, preferences, dialog, toast, and Markdown candidates were reviewed against the supplied reference. The editorial serif document layer, quiet quote surface, shared workspace header, compact title-bar behavior, and application chrome hierarchy match the intended direction; the old PNGs were stale baselines rather than a product regression.
+
+Required final gate: commit the reviewed candidates, rerun the remote desktop E2E suite, and retain the screenshot evidence with the PR.
 
 ## Acceptance run — 2026-09-17
 
 - Fixed the custom title-bar word counter so the existing W/P/C/A modes remain visible, keyboard-accessible, and covered by the desktop E2E selectors.
 - Fixed public undo/redo to flush a pending contenteditable input before changing history; added a regression test for undo/redo immediately after a queued edit.
 - Stabilized Muya E2E caret initialization and whitespace caret placement after the editorial serif font change.
+- Rebased the desktop visual-regression PNGs from the reviewed remote Electron run so Light, Dark, Paper, compact widths, overlays, and editor surfaces exercise the current reference-aligned UI.
 - Local evidence: desktop typecheck passed; Muya typecheck passed; focused desktop contracts passed (23 tests); focused Muya core tests passed (59 tests); Muya flush/history regression tests passed (15 tests); desktop and Muya builds completed successfully.
-- Runtime acceptance remains blocked in this managed container: Electron cannot launch without the native runtime/display dependencies, and the managed browser blocks local URLs. The prior CI run still needs a fresh remote E2E/visual result after these fixes.
+- Runtime acceptance is pending the fresh remote E2E result after committing the reviewed visual baselines; the managed-container launch limitation remains documented above.
 
-final result: blocked
+final result: pending final remote CI confirmation
