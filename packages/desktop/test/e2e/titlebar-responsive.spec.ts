@@ -17,8 +17,10 @@ const SUPPORTED_WIDTHS = [
 ] as const
 
 interface LayoutBox {
+  top: number
   left: number
   right: number
+  height: number
   width: number
   display: string
 }
@@ -57,8 +59,8 @@ const titleBarMetrics = async(page: Page): Promise<TitleBarMetrics> =>
     const getBox = (selector: string): LayoutBox => {
       const element = document.querySelector(selector)
       if (!element) throw new Error(`Missing title bar element: ${selector}`)
-      const { left, right, width } = element.getBoundingClientRect()
-      return { left, right, width, display: getComputedStyle(element).display }
+      const { top, left, right, height, width } = element.getBoundingClientRect()
+      return { top, left, right, height, width, display: getComputedStyle(element).display }
     }
 
     return {
@@ -116,7 +118,12 @@ test.describe('Inkiva title bar responsive layout', () => {
       else expect(metrics.brand.display).not.toBe('none')
 
       if (width <= 1100) expect(metrics.launcher.display).toBe('none')
-      else expect(metrics.launcher.display).not.toBe('none')
+      else {
+        expect(metrics.launcher.display).not.toBe('none')
+        const titleBarCenter = (metrics.titleBar.top + metrics.titleBar.height / 2)
+        const launcherCenter = (metrics.launcher.top + metrics.launcher.height / 2)
+        expect(Math.abs(launcherCenter - titleBarCenter)).toBeLessThanOrEqual(0.5)
+      }
     }
   })
 })
