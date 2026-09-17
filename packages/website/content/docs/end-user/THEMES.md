@@ -25,3 +25,7 @@ You can switch appearances in several ways:
 3. **Follow System**: Enable `Follow System Theme` to switch between Inkiva Light and Inkiva Dark with your operating system. Inkiva Paper remains an intentional manual choice.
 
 Markdown styling and application chrome use separate design layers, so the writing surface stays consistent while the application remains calm and legible. Custom CSS is an optional, explicit override applied after the selected appearance.
+
+The Theme preferences page provides a visual preview of the three built-in appearances:
+
+![Inkiva Theme preferences with Light, Dark, and Paper previews](../assets/inkiva-settings-theme.png)

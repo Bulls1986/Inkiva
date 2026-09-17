@@ -1,6 +1,6 @@
-#### Image Uploader Configuration
+# Image Uploader Configuration
 
-##### PicGo
+## PicGo
 
 PicGo is a CLI tool that uploads images to various cloud providers. See the [PicGo documentation](https://picgo.github.io/PicGo-Doc/en/guide/) for installation, configuration, and supported backends.
 

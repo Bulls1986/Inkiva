@@ -4,7 +4,9 @@ Welcome to the end-user documentation of Inkiva, a document-first Markdown edito
 
 Inkiva works with ordinary CommonMark/GFM files and folders. Navigation, backlinks, local history, and recovery are assistance around the document — not a separate workspace format.
 
-![](assets/inkiva-interface-2.png)
+The current desktop interface keeps the document at the center: a compact titlebar, optional navigation sidebar, tabs, and a focused writing surface. The screenshots in this guide are from the current Inkiva desktop application; labels can vary with the selected language and operating system.
+
+![Inkiva desktop interface with the Outline sidebar and Markdown editor](assets/inkiva-interface.png)
 
 **Quick start:**
 
