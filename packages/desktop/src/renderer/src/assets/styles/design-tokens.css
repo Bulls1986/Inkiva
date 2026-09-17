@@ -38,6 +38,8 @@
   --markdown-content-width: 924px;
   --markdown-content-side-padding: 50px;
   --editorContentTopPadding: 40px;
+  --markdown-font-family: Georgia, 'Times New Roman', 'Noto Serif CJK SC',
+    'Songti SC', SimSun, serif;
   --markdown-heading-weight: 600;
   --markdown-heading-letter-spacing: -0.025em;
   --markdown-quote-surface: rgb(11 99 229 / 4%);
@@ -103,8 +105,10 @@
   --control-height-sm: 28px;
   --control-height-md: 32px;
   --control-height-lg: 36px;
-  --sidebar-navigation-height: 58px;
-  --documentTabsHeight: 34px;
+  /* The sidebar navigation and document tabs form one shared workspace band. */
+  --workspace-header-height: 50px;
+  --sidebar-navigation-height: var(--workspace-header-height);
+  --documentTabsHeight: var(--workspace-header-height);
 
   /* Motion and elevation */
   --motion-fast: 120ms;

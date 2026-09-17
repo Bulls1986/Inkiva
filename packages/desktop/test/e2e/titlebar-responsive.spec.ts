@@ -27,10 +27,10 @@ interface TitleBarMetrics {
   viewportWidth: number
   titleBar: LayoutBox
   menu: LayoutBox
-  document: LayoutBox
-  stats: LayoutBox
+  brand: LayoutBox
+  documentStatus: LayoutBox
+  launcher: LayoutBox
   controls: LayoutBox
-  pathDisplay: string
 }
 
 const setWindowSize = async(
@@ -61,18 +61,14 @@ const titleBarMetrics = async(page: Page): Promise<TitleBarMetrics> =>
       return { left, right, width, display: getComputedStyle(element).display }
     }
 
-    const pathElement = document.querySelector(
-      '.title-bar .title > span > span:not(.filename):not(.save-dot)'
-    )
-
     return {
       viewportWidth: window.innerWidth,
       titleBar: getBox('.title-bar'),
       menu: getBox('[data-testid="titlebar-menu"]'),
-      document: getBox('[data-testid="titlebar-document"]'),
-      stats: getBox('[data-testid="titlebar-stats"]'),
-      controls: getBox('[data-testid="titlebar-controls"]'),
-      pathDisplay: pathElement ? getComputedStyle(pathElement).display : 'missing'
+      brand: getBox('[data-testid="titlebar-brand"]'),
+      documentStatus: getBox('[data-testid="titlebar-document-status"]'),
+      launcher: getBox('[data-testid="command-launcher"]'),
+      controls: getBox('[data-testid="titlebar-controls"]')
     }
   })
 
@@ -97,7 +93,7 @@ test.describe('Inkiva title bar responsive layout', () => {
     if (app) await app.close()
   })
 
-  test('keeps menu and document content clear of window controls at every supported width', async() => {
+  test('keeps menu, status, and controls collision-free at every supported width', async() => {
     for (const width of SUPPORTED_WIDTHS) {
       await setWindowSize(app, width)
       await waitForViewport(page, width)
@@ -110,19 +106,17 @@ test.describe('Inkiva title bar responsive layout', () => {
       expect(metrics.menu.right).toBeLessThanOrEqual(metrics.controls.left + 1)
 
       if (width <= 600) {
-        expect(metrics.document.display).toBe('none')
+        expect(metrics.documentStatus.display).toBe('none')
       } else {
-        expect(metrics.document.display).not.toBe('none')
-        const documentLimit =
-          metrics.stats.display === 'none' ? metrics.controls.left : metrics.stats.left
-        expect(metrics.document.right).toBeLessThanOrEqual(documentLimit + 1)
+        expect(metrics.documentStatus.display).not.toBe('none')
+        expect(metrics.documentStatus.right).toBeLessThanOrEqual(metrics.controls.left + 1)
       }
 
-      if (width <= 820) expect(metrics.stats.display).toBe('none')
-      else expect(metrics.stats.display).not.toBe('none')
+      if (width <= 820) expect(metrics.brand.display).toBe('none')
+      else expect(metrics.brand.display).not.toBe('none')
 
-      if (width <= 1000) expect(metrics.pathDisplay).toBe('none')
-      else expect(metrics.pathDisplay).not.toBe('none')
+      if (width <= 1100) expect(metrics.launcher.display).toBe('none')
+      else expect(metrics.launcher.display).not.toBe('none')
     }
   })
 })

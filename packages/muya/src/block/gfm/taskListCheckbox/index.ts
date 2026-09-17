@@ -5,7 +5,7 @@ import type Parent from '../../base/parent';
 import type TaskList from '../taskList';
 import type TaskListItem from '../taskListItem';
 import { CLASS_NAMES, isFirefox } from '../../../config';
-import { isHTMLInputElement, isMouseEvent } from '../../../utils';
+import { isHTMLInputElement, isKeyboardEvent, isMouseEvent } from '../../../utils';
 import { operateClassName } from '../../../utils/dom';
 import logger from '../../../utils/logger';
 import TreeNode from '../../base/treeNode';
@@ -139,9 +139,21 @@ class TaskListCheckbox extends TreeNode {
         super(muya);
         this.tagName = isFirefox ? 'span' : 'input';
         this._checked = checked;
+        const label = muya.i18n.t('Toggle task completion');
         this.attributes = isFirefox
-            ? { contenteditable: 'false' }
-            : { type: 'checkbox', contenteditable: 'false' };
+            ? {
+                    'contenteditable': 'false',
+                    'role': 'checkbox',
+                    'tabindex': '0',
+                    'aria-checked': String(checked),
+                    'aria-label': label,
+                }
+            : {
+                    'type': 'checkbox',
+                    'contenteditable': 'false',
+                    'aria-checked': String(checked),
+                    'aria-label': label,
+                };
         this.classList = ['mu-task-list-checkbox'];
 
         if (checked) {
@@ -181,8 +193,22 @@ class TaskListCheckbox extends TreeNode {
             (this.parent as TaskListItem).firstContentInDescendant()?.setCursor(0, 0, true);
         };
 
+        const keydownHandler = (event: Event) => {
+            if (!isFirefox || !isKeyboardEvent(event))
+                return;
+
+            if (event.key !== 'Enter' && event.key !== ' ')
+                return;
+
+            event.preventDefault();
+            event.stopPropagation();
+            this.update(!this._checked, 'user');
+            (this.parent as TaskListItem).firstContentInDescendant()?.setCursor(0, 0, true);
+        };
+
         const eventIds = [
             eventCenter.attachDOMEvent(domNode!, 'click', clickHandler),
+            eventCenter.attachDOMEvent(domNode!, 'keydown', keydownHandler),
         ];
 
         this._eventIds.push(...eventIds);
@@ -233,6 +259,7 @@ class TaskListCheckbox extends TreeNode {
             checked ? 'add' : 'remove',
             CLASS_NAMES.MU_CHECKBOX_CHECKED,
         );
+        this.domNode!.setAttribute('aria-checked', String(checked));
 
         if (isHTMLInputElement(this.domNode) && this.domNode.checked !== checked && !isFirefox)
             this.domNode.checked = checked;

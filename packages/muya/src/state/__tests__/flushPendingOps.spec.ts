@@ -93,6 +93,20 @@ describe('muya.flush() — make pending edits durable synchronously (#2938)', ()
         expect(muya.getMarkdown().trim()).toBe('hello');
     });
 
+    it('flushes pending edits before undo and redo', () => {
+        const muya = boot('hello\n');
+        const leaf = muya.editor.scrollPage!.firstContentInDescendant() as Content;
+
+        leaf.text = 'hello world';
+        expect(muya.getMarkdown().trim()).toBe('hello');
+
+        muya.undo();
+        expect(muya.getMarkdown().trim()).toBe('hello');
+
+        muya.redo();
+        expect(muya.getMarkdown().trim()).toBe('hello world');
+    });
+
     it('captures a DOM edit whose input event is still queued', () => {
         const muya = boot('hello\n');
         const leaf = muya.editor.scrollPage!.firstContentInDescendant() as Content;

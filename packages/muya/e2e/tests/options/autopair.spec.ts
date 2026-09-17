@@ -42,10 +42,20 @@ async function rebuildAndFocus(page: Page, opts: Partial<IMuyaOptions>): Promise
     await page.evaluate((o) => {
         window.__e2e!.rebuildMuya(o);
         window.muya!.setContent('');
-        window.muya!.focus();
+        const firstBlock = window.muya!.editor.scrollPage!.firstContentInDescendant()!;
+        firstBlock.setCursor(0, 0, true);
         window.muya!.domNode.focus();
     }, opts);
     await expect(page.locator(editor.paragraph).first()).toBeVisible();
+    await expect.poll(() => page.evaluate(() => {
+        const selection = window.muya!.editor.selection.getSelection();
+        return {
+            active: window.muya!.editor.activeContentBlock != null,
+            anchor: selection?.anchor.offset ?? null,
+            focus: selection?.focus.offset ?? null,
+            focused: document.activeElement === window.muya!.domNode,
+        };
+    })).toEqual({ active: true, anchor: 0, focus: 0, focused: true });
 }
 
 async function getFirstBlockText(page: Page): Promise<string> {
@@ -184,18 +194,18 @@ test.describe('options / auto-pair matrix', () => {
         // rebuildAndFocus: drive focus via muya's API + domNode.focus()
         // because clicking an empty paragraph doesn't establish a
         // text-node selection in headless Chromium.
-        await page.evaluate(() => {
-            window.muya!.setContent('');
-            window.muya!.focus();
-            window.muya!.domNode.focus();
+        await rebuildAndFocus(page, {
+            autoPairBracket: false,
+            autoPairMarkdownSyntax: false,
+            autoPairQuote: false,
         });
         await page.keyboard.type('*');
         await expect.poll(() => getFirstBlockText(page)).toBe('*');
 
-        await page.evaluate(() => {
-            window.muya!.setContent('');
-            window.muya!.focus();
-            window.muya!.domNode.focus();
+        await rebuildAndFocus(page, {
+            autoPairBracket: false,
+            autoPairMarkdownSyntax: false,
+            autoPairQuote: false,
         });
         await page.keyboard.type('"');
         await expect.poll(() => getFirstBlockText(page)).toBe('"');

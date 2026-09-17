@@ -57,6 +57,7 @@ export const zhTW = {
         'Eliminate': '清除樣式',
         // Code block
         'Copy content': '複製內容',
+        'Toggle task completion': '切換任務完成狀態',
         'Input Language Identifier...': '輸入程式語言識別碼...',
         // emojiPicker
         'Smileys & Emotion': '笑臉 & 情緒',

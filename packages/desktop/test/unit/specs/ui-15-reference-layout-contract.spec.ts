@@ -11,15 +11,17 @@ const readRenderer = (relativePath: string): string =>
   readFileSync(resolve(renderer, relativePath), 'utf8')
 
 describe('Inkiva reference visual layout contract', () => {
-  it('keeps the document tabs in a standalone shell row above the workspace', () => {
+  it('keeps the document tabs in the editor column beside the single sidebar', () => {
     const app = readRenderer('pages/app.vue')
-    const editorWithTabs = readRenderer('components/editorWithTabs/index.vue')
 
     expect(app).toMatch(
-      /<title-bar[\s\S]*?\/>[\s\S]*?class="document-tabs-row"[\s\S]*?<tabs\s*\/>[\s\S]*?class="editor-workspace"/
+      /class="editor-middle"[\s\S]*?class="document-tabs-row"[\s\S]*?<tabs\s*\/>/
     )
-    expect(app).not.toContain('<tabs v-show="showTabBar"')
-    expect(editorWithTabs).not.toContain('<tabs')
+    expect(app.indexOf('class="document-tabs-row"')).toBeGreaterThan(
+      app.indexOf('class="editor-middle"')
+    )
+    expect(app).toContain('v-show="showTabBar"')
+    expect(app).not.toMatch(/class="document-tabs-row"[\s\S]*?class="editor-workspace"/)
   })
 
   it('uses the preview reading column and neutral paper foundation', () => {
@@ -31,17 +33,20 @@ describe('Inkiva reference visual layout contract', () => {
     expect(tokens).toContain('--markdown-content-width: 924px;')
     expect(tokens).toContain('--font-body: 18px;')
     expect(tokens).toContain('--editorContentTopPadding: 40px;')
+    expect(tokens).toContain('--markdown-font-family: Georgia')
+    expect(tokens).toContain('--workspace-header-height: 50px;')
     expect(tokens).toContain('--surface-editor: #F8F8F6;')
     expect(tokens).toContain('--surface-chrome: #F1F2F0;')
     expect(tokens).not.toContain('--surface-editor: #FFFDF8;')
     expect(readRenderer('../index.html')).toContain('background: #f8f8f6;')
-    expect(preferences).toContain("editorFontFamily: 'system-ui'")
+    expect(preferences).toContain("editorFontFamily: 'Georgia'")
     expect(preferences).toContain('fontSize: 18')
     expect(preferences).toContain("editorLineWidth: '780px'")
-    expect(staticPreferences).toContain('"editorFontFamily": "system-ui"')
+    expect(staticPreferences).toContain('"editorFontFamily": "Georgia"')
     expect(staticPreferences).toContain('"fontSize": 18')
     expect(staticPreferences).toContain('"editorLineWidth": "780px"')
     expect(schema).toContain('"default": 18')
+    expect(schema).toContain('"default": "Georgia"')
     expect(schema).toContain('"default": "780px"')
   })
 
@@ -65,6 +70,8 @@ describe('Inkiva reference visual layout contract', () => {
     const titleBar = readRenderer('components/titleBar/index.vue')
 
     expect(titleBar).toContain('data-testid="command-launcher"')
+    expect(titleBar).toContain('data-testid="titlebar-brand"')
+    expect(titleBar).toContain('data-testid="titlebar-document-status"')
     expect(titleBar).toContain("bus.emit('show-command-palette')")
     expect(titleBar).toContain("t('commandPalette.placeholder')")
   })

@@ -57,6 +57,7 @@ export const ko = {
         'Eliminate': '서식 지우기',
         // Code block
         'Copy content': '내용 복사',
+        'Toggle task completion': '작업 완료 상태 전환',
         'Input Language Identifier...': '언어 식별자 입력...',
         // emojiPicker
         'Smileys & Emotion': '스마일 & 감정',

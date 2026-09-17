@@ -21,7 +21,7 @@ const readShellMetrics = async(page: Page) =>
       workspace: box('.editor-workspace'),
       sidebar: box('.side-bar'),
       editorMiddle: box('.editor-middle'),
-      tabsInsideEditor: !!document.querySelector('.editor-middle .editor-tabs')
+      tabsInsideEditor: !!document.querySelector('.editor-middle [data-testid="document-tabs-row"]')
     }
   })
 
@@ -39,7 +39,7 @@ test.describe('reference application shell', () => {
     if (app) await app.close()
   })
 
-  test('places the document list in a full-width row between titlebar and workspace', async() => {
+  test('aligns the document tabs with the sidebar navigation inside the workspace', async() => {
     await expect(page.locator('[data-testid="document-tabs-row"]')).toBeVisible()
     await expect(page.locator('[data-testid="document-tabs"]')).toBeVisible()
 
@@ -50,7 +50,7 @@ test.describe('reference application shell', () => {
     expect(metrics.workspace).not.toBeNull()
     expect(metrics.sidebar).not.toBeNull()
     expect(metrics.editorMiddle).not.toBeNull()
-    expect(metrics.tabsInsideEditor).toBe(false)
+    expect(metrics.tabsInsideEditor).toBe(true)
 
     const { titleBar, tabsRow, workspace, sidebar, editorMiddle } = metrics
     if (!titleBar || !tabsRow || !workspace || !sidebar || !editorMiddle) {
@@ -58,11 +58,14 @@ test.describe('reference application shell', () => {
     }
 
     expect(tabsRow.top).toBeGreaterThanOrEqual(titleBar.bottom - 1)
-    expect(workspace.top).toBeGreaterThanOrEqual(tabsRow.bottom - 1)
-    expect(tabsRow.left).toBeLessThanOrEqual(1)
+    expect(tabsRow.bottom).toBeLessThanOrEqual(workspace.bottom + 1)
+    expect(tabsRow.left).toBeGreaterThanOrEqual(editorMiddle.left - 1)
     expect(tabsRow.right).toBeGreaterThanOrEqual(metrics.viewport.width - 1)
-    expect(sidebar.top).toBeGreaterThanOrEqual(workspace.top - 1)
-    expect(editorMiddle.top).toBeGreaterThanOrEqual(workspace.top - 1)
+    expect(sidebar.top).toBeGreaterThanOrEqual(titleBar.bottom - 1)
+    expect(editorMiddle.top).toBeGreaterThanOrEqual(titleBar.bottom - 1)
+    expect(tabsRow.top).toBeGreaterThanOrEqual(sidebar.top - 1)
+    expect(tabsRow.top).toBeLessThanOrEqual(sidebar.top + 1)
+    expect(workspace.top).toBeLessThanOrEqual(sidebar.top + 1)
   })
 
   test('keeps the writing surface free of a permanent code-editor status frame', async() => {

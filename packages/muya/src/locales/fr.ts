@@ -57,6 +57,7 @@ export const fr = {
         'Eliminate': 'Effacer le formatage',
         // Code block
         'Copy content': 'Copier le contenu',
+        'Toggle task completion': 'Basculer l’état de la tâche',
         'Input Language Identifier...': 'Saisir l\'identifiant de langage...',
         // emojiPicker
         'Smileys & Emotion': 'Émoticônes & émotions',

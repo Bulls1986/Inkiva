@@ -509,7 +509,8 @@ onBeforeUnmount(() => {
   cursor: pointer;
   color: var(--icon-secondary);
   font: inherit;
-  opacity: 0;
+  /* The reference keeps a quiet but discoverable new-tab affordance visible. */
+  opacity: 1;
   &.always-visible {
     opacity: 1;
   }

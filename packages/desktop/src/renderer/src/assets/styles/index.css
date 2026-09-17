@@ -1,7 +1,8 @@
 /* Common CSS used by all three application appearances. */
 :root {
-  --titleBarHeight: 32px;
-  --documentTabsHeight: 34px;
+  --titleBarHeight: 48px;
+  --workspace-header-height: 50px;
+  --documentTabsHeight: var(--workspace-header-height);
   --editorAreaWidth: var(--markdown-content-width, 924px);
 
   /* Legacy component bridge: components consume semantic tokens through these

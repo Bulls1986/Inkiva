@@ -1,5 +1,7 @@
 :root {
-  --titleBarHeight: 32px;
+  --titleBarHeight: 48px;
+  --workspace-header-height: 50px;
+  --documentTabsHeight: var(--workspace-header-height);
   --editorAreaWidth: var(--markdown-content-width, 924px);
 
   /* Dark appearance aliases resolve to the shared semantic token system. */

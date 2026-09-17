@@ -142,6 +142,14 @@
       "followThemDisabled": "Themenauswahl deaktiviert, wenn dem Systemdesign gefolgt wird"
     }
   },
+  "titlebar": {
+    "saved": "Gespeichert",
+    "unsaved": "Nicht gespeichert",
+    "untitled": "Unbenanntes Dokument",
+    "menu": "Anwendungsmenü",
+    "maximize": "Fenster maximieren",
+    "restore": "Fenster wiederherstellen"
+  },
   "contextMenu": {
     "cut": "Ausschneiden",
     "copy": "Kopieren",
@@ -195,6 +203,7 @@
     "searchLimited": "Suche auf die ersten {count} Ergebnisse beschränkt"
   },
   "sideBar": {
+    "navigation": "Seitenleistennavigation",
     "search": {
       "searchInFolder": "Im Ordner suchen...",
       "noFolderOpen": "Kein Ordner geöffnet",
@@ -227,9 +236,10 @@
     }
   },
   "commandPalette": {
-    "placeholder": "Befehl zum Ausführen eingeben",
+    "placeholder": "Dokumente, Überschriften oder Befehle durchsuchen…",
     "sections": {
       "files": "Dateien",
+      "headings": "Überschriften",
       "commands": "Befehle"
     },
     "loading": "Launcher wird vorbereitet…",
@@ -671,6 +681,11 @@
     },
     "theme": {
       "title": "Design",
+      "options": {
+        "light": "Hell",
+        "dark": "Dunkel",
+        "paper": "Papier"
+      },
       "followSystemTheme": "Systemdesign folgen",
       "modeThemes": "Design-Auswahl",
       "lightModeTheme": "Helles Modus-Design",

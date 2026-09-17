@@ -57,6 +57,7 @@ export const tr = {
         'Eliminate': 'Temizle',
         // Code block
         'Copy content': 'İçeriği kopyala',
+        'Toggle task completion': 'Görev tamamlanma durumunu değiştir',
         'Input Language Identifier...': 'Dil Tanımlayıcısını girin...',
         // emojiPicker
         'Smileys & Emotion': 'Suratlar ve Duygular',

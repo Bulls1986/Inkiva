@@ -57,6 +57,7 @@ export const en = {
         'Eliminate': 'Eliminate',
         // Code block
         'Copy content': 'Copy content',
+        'Toggle task completion': 'Toggle task completion',
         'Input Language Identifier...': 'Input Language Identifier...',
         // emojiPicker
         'Smileys & Emotion': 'Smileys & Emotion',

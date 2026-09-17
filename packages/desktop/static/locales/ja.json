@@ -142,6 +142,14 @@
       "followThemDisabled": "システムテーマに従う場合、テーマ選択は無効です"
     }
   },
+  "titlebar": {
+    "saved": "保存済み",
+    "unsaved": "未保存",
+    "untitled": "無題のドキュメント",
+    "menu": "アプリケーションメニュー",
+    "maximize": "ウィンドウを最大化",
+    "restore": "ウィンドウを元に戻す"
+  },
   "contextMenu": {
     "cut": "切り取り",
     "copy": "コピー",
@@ -195,6 +203,7 @@
     "searchLimited": "最初の {count} 件まで検索しました"
   },
   "sideBar": {
+    "navigation": "サイドバーナビゲーション",
     "search": {
       "searchInFolder": "フォルダ内を検索...",
       "noFolderOpen": "フォルダが開かれていません",
@@ -227,9 +236,10 @@
     }
   },
   "commandPalette": {
-    "placeholder": "実行するコマンドを入力",
+    "placeholder": "ドキュメント、見出し、コマンドを検索…",
     "sections": {
       "files": "ファイル",
+      "headings": "見出し",
       "commands": "コマンド"
     },
     "loading": "ランチャーを準備中…",
@@ -671,6 +681,11 @@
     },
     "theme": {
       "title": "テーマ",
+      "options": {
+        "light": "ライト",
+        "dark": "ダーク",
+        "paper": "ペーパー"
+      },
       "followSystemTheme": "システムのテーマに従う",
       "modeThemes": "テーマの選択",
       "lightModeTheme": "ライトモードのテーマ",

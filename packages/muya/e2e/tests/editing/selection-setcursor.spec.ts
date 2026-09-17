@@ -41,23 +41,36 @@ async function readSelection(page: Page): Promise<SelectionSnapshot> {
     });
 }
 
-// Pixel centre of the character at `charOffset` in the nth matched paragraph,
-// measured from a real DOM Range so the click lands on an exact text offset.
-async function pointAtChar(
+// Place the browser selection at an exact text offset. Clicking the centre of
+// a whitespace character is font-dependent: after the editor switches to the
+// reference serif stack Chromium can resolve the same click one character to
+// the right. Dispatching the real click path after setting the native range
+// keeps this test on the same Muya selection/update route without relying on
+// pixel geometry.
+async function placeCaretAtChar(
     page: Page,
     selector: string,
     paragraphIndex: number,
     charOffset: number,
-): Promise<{ x: number; y: number }> {
-    return page.evaluate(
+): Promise<void> {
+    await page.evaluate(
         ({ selector, paragraphIndex, charOffset }) => {
             const p = document.querySelectorAll(selector)[paragraphIndex] as HTMLElement;
             const textNode = document.createTreeWalker(p, NodeFilter.SHOW_TEXT).nextNode()!;
+            const editor = window.muya!.domNode as HTMLElement;
+            editor.focus();
             const range = document.createRange();
             range.setStart(textNode, charOffset);
-            range.setEnd(textNode, charOffset + 1);
-            const r = range.getBoundingClientRect();
-            return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+            range.collapse(true);
+            const selection = window.getSelection()!;
+            selection.removeAllRanges();
+            selection.addRange(range);
+            textNode.parentElement!.dispatchEvent(new MouseEvent('click', {
+                bubbles: true,
+                button: 0,
+                clientX: 0,
+                clientY: 0,
+            }));
         },
         { selector, paragraphIndex, charOffset },
     );
@@ -70,8 +83,7 @@ test.describe('selection setcursor regression', () => {
         await expect(para).toBeVisible();
 
         // Click between "hello" and " world" (offset 5), then type 'X'.
-        const point = await pointAtChar(page, editor.paragraph, 0, 5);
-        await page.mouse.click(point.x, point.y);
+        await placeCaretAtChar(page, editor.paragraph, 0, 5);
         await slowType(page, 'X');
 
         await expect(para).toContainText('helloX world');
@@ -92,8 +104,7 @@ test.describe('selection setcursor regression', () => {
         await expect(para).toBeVisible();
 
         // Caret after "hello" (offset 5), then extend two chars to the right.
-        const point = await pointAtChar(page, editor.paragraph, 0, 5);
-        await page.mouse.click(point.x, point.y);
+        await placeCaretAtChar(page, editor.paragraph, 0, 5);
         await expect.poll(() => readSelection(page).then(s => s.anchorOffset)).toBe(5);
 
         await page.keyboard.press('Shift+ArrowRight');
