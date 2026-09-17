@@ -232,10 +232,15 @@ export class Muya {
     }
 
     undo() {
+        // Native contenteditable input is coalesced until the next animation
+        // frame. Flush it before changing history so clicking Undo immediately
+        // after typing cannot skip the just-entered correction (#3825).
+        this.editor.flush();
         this.editor.history.undo();
     }
 
     redo() {
+        this.editor.flush();
         this.editor.history.redo();
     }
 

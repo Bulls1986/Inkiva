@@ -124,15 +124,16 @@
         >
           <button
             type="button"
-            class="custom-word-count"
-            :aria-label="`${t('menu.counter.words')}: ${wordCount.word}`"
+            class="word-count"
+            :aria-label="`${HASH[show].full}: ${wordCount[show]}`"
             @click.stop="handleWordClick"
           >
-            {{ wordCount.word }} {{ t('menu.counter.words') }}
+            <span class="text-center-vertical">{{ `${HASH[show].short} ${wordCount[show]}` }}</span>
           </button>
         </el-tooltip>
       </div>
       <div
+        v-if="!showCustomTitleBar"
         class="word-count-toolbar"
         :class="{ custom: showCustomTitleBar }"
         data-testid="titlebar-stats"
@@ -520,10 +521,6 @@ img {
   grid-area: status;
 }
 
-.title-bar.frameless:not(.isOsx) .word-count-toolbar.custom {
-  display: none;
-}
-
 .title-bar.frameless:not(.isOsx) .right-toolbar {
   position: static;
   grid-area: controls;
@@ -639,32 +636,6 @@ div.title > span {
 
 .custom-word-count-tooltip {
   flex: 0 0 auto;
-}
-
-.custom-word-count {
-  -webkit-app-region: no-drag;
-  appearance: none;
-  min-height: var(--hit-target-sm);
-  padding: 0 4px;
-  color: var(--text-tertiary);
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--font-size-secondary);
-  white-space: nowrap;
-}
-
-.custom-word-count:hover,
-.custom-word-count:focus-visible {
-  color: var(--text-primary);
-  background: var(--surface-hover);
-}
-
-.custom-word-count:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
 }
 
 .menu-bar {
@@ -818,6 +789,32 @@ div.title > span {
   }
 }
 
+.custom-document-status .word-count {
+  -webkit-app-region: no-drag;
+  appearance: none;
+  border: 0;
+  min-height: var(--hit-target-sm);
+  padding: 0 4px;
+  color: var(--text-tertiary);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-secondary);
+  white-space: nowrap;
+}
+
+.custom-document-status .word-count:hover > span,
+.custom-document-status .word-count:focus-visible > span {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.custom-document-status .word-count:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .title-no-drag {
   -webkit-app-region: no-drag;
 }
@@ -899,10 +896,6 @@ div.title > span {
   }
 
   .titlebar-brand {
-    display: none;
-  }
-
-  .title-bar.frameless:not(.isOsx) .word-count-toolbar.custom {
     display: none;
   }
 

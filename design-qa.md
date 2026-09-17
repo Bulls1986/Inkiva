@@ -39,4 +39,12 @@ Real Electron launch was attempted after building. The container cannot complete
 
 Required follow-up in a real desktop environment: capture Light, Dark, Paper, source mode, command palette with file/heading results, focused controls, and widths around 550/768/1000/1536px; verify native menus, window controls, overlay sidebar, tab alignment, caret/scroll behavior, and reduced-motion behavior.
 
+## Acceptance run — 2026-09-17
+
+- Fixed the custom title-bar word counter so the existing W/P/C/A modes remain visible, keyboard-accessible, and covered by the desktop E2E selectors.
+- Fixed public undo/redo to flush a pending contenteditable input before changing history; added a regression test for undo/redo immediately after a queued edit.
+- Stabilized Muya E2E caret initialization and whitespace caret placement after the editorial serif font change.
+- Local evidence: desktop typecheck passed; Muya typecheck passed; focused desktop contracts passed (23 tests); focused Muya core tests passed (59 tests); Muya flush/history regression tests passed (15 tests); desktop and Muya builds completed successfully.
+- Runtime acceptance remains blocked in this managed container: Electron cannot launch without the native runtime/display dependencies, and the managed browser blocks local URLs. The prior CI run still needs a fresh remote E2E/visual result after these fixes.
+
 final result: blocked
