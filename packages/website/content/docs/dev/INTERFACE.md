@@ -2,20 +2,22 @@
 
 ## Main interface
 
-![](../assets/inkiva-interface.png)
+![Inkiva desktop shell with titlebar, Outline sidebar, tabs, and editor](../assets/inkiva-interface.png)
 
-- Green: titlebar
-- Orange: sidebar
-- Red: editor with tabs and per-tab notification at the bottom
+The desktop shell is split into three main regions:
+
+- **Titlebar**: window controls, the current document, menus, save state, word count, and the command launcher.
+- **Sidebar**: Files, Search, Outline, and the More menu for Document Info. The settings entry remains at the bottom.
+- **Editor**: document tabs, the formatted preview or source editor, and the per-tab status area.
 
 ### Titlebar
 
-The titlebar is located at the top of the window and shows the current opened file path and the menu. macOS uses client-side decorations (CSD); Windows can use either the custom CSD or the native titlebar.
+The titlebar is rendered by Inkiva on Windows and Linux by default, while macOS uses client-side decorations. The `titleBarStyle` preference can select the native Windows titlebar. The command launcher is a clickable titlebar control and can also be opened with its menu shortcut.
 
 ### Sidebar
 
-The sidebar is an optional feature of Inkiva that contains four panels and has a variable width. The first panel is a tree view of the opened root directory; it also hosts a collapsible *Opened Files* subsection (toggle via the `openedFilesInSidebar` preference). The other panels are a folder searcher (find in files) powered by ripgrep, a table of contents of the currently opened document, and Document Info with backlinks and Local History for that document.
+The sidebar is optional and keeps navigation close to the document. The Files panel shows the opened root directory and Opened Files; Search uses the opened folder as its scope; Outline reflects headings in the selected tab; and Document Info exposes backlinks and Local History.
 
 ### Editor
 
-The editor is the core element that hosts the realtime preview editor called Muya and consists of three parts. Tabs are located at the top and at the bottom the per-tab notification bar is located for events like file changed or deleted. The main part is the editor that is either provided by Muya or CodeMirror for the source-code editor. There are multiple overlays available like inline toolbar, emoji picker, quick insert or image tools.
+The preview editor is powered by Muya and the source-code editor by CodeMirror. Both operate on the same Markdown document model and file path. The renderer also hosts contextual tools such as the quick-insert menu, paragraph actions, inline formatting, link/image tools, emoji picker, table controls, and diagram editors.

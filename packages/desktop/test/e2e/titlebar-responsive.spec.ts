@@ -16,9 +16,13 @@ const SUPPORTED_WIDTHS = [
   1440
 ] as const
 
+const LONG_FILENAME = `inkiva-${'long-document-name-'.repeat(6)}.md`
+
 interface LayoutBox {
+  top: number
   left: number
   right: number
+  height: number
   width: number
   display: string
 }
@@ -57,8 +61,8 @@ const titleBarMetrics = async(page: Page): Promise<TitleBarMetrics> =>
     const getBox = (selector: string): LayoutBox => {
       const element = document.querySelector(selector)
       if (!element) throw new Error(`Missing title bar element: ${selector}`)
-      const { left, right, width } = element.getBoundingClientRect()
-      return { left, right, width, display: getComputedStyle(element).display }
+      const { top, left, right, height, width } = element.getBoundingClientRect()
+      return { top, left, right, height, width, display: getComputedStyle(element).display }
     }
 
     return {
@@ -80,7 +84,8 @@ test.describe('Inkiva title bar responsive layout', () => {
 
   test.beforeAll(async() => {
     const launched = await launchWithMarkdown(
-      '# Title bar responsive contract\n\nKeep the chrome stable.\n'
+      '# Title bar responsive contract\n\nKeep the chrome stable.\n',
+      { filename: LONG_FILENAME }
     )
     app = launched.app
     page = launched.page
@@ -91,6 +96,13 @@ test.describe('Inkiva title bar responsive layout', () => {
 
   test.afterAll(async() => {
     if (app) await app.close()
+  })
+
+  test('does not repeat a long document filename in the custom status zone', async() => {
+    const status = page.getByTestId('titlebar-document-status')
+
+    await expect(status.locator('.custom-document-name')).toHaveCount(0)
+    await expect(status).not.toContainText(LONG_FILENAME)
   })
 
   test('keeps menu, status, and controls collision-free at every supported width', async() => {
@@ -116,7 +128,14 @@ test.describe('Inkiva title bar responsive layout', () => {
       else expect(metrics.brand.display).not.toBe('none')
 
       if (width <= 1100) expect(metrics.launcher.display).toBe('none')
-      else expect(metrics.launcher.display).not.toBe('none')
+      else {
+        expect(metrics.launcher.display).not.toBe('none')
+        expect(metrics.launcher.width).toBeGreaterThanOrEqual(180)
+        expect(metrics.documentStatus.width).toBeLessThan(180)
+        const titleBarCenter = (metrics.titleBar.top + metrics.titleBar.height / 2)
+        const launcherCenter = (metrics.launcher.top + metrics.launcher.height / 2)
+        expect(Math.abs(launcherCenter - titleBarCenter)).toBeLessThanOrEqual(0.5)
+      }
     }
   })
 })

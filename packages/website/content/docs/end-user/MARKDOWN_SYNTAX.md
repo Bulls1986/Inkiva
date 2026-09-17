@@ -243,7 +243,7 @@ Images have a similar syntax to links but include a preceding exclamation point.
 or
 
 ```markdown
-![Alt text](hhttps://raw.githubusercontent.com/Bulls1986/Inkiva/develop/packages/desktop/static/inkiva.png "Inkiva logo")
+![Alt text](https://raw.githubusercontent.com/Bulls1986/Inkiva/develop/packages/desktop/static/inkiva.png "Inkiva logo")
 ```
 
 ![Alt text](https://raw.githubusercontent.com/Bulls1986/Inkiva/develop/packages/desktop/static/inkiva.png "Inkiva logo")

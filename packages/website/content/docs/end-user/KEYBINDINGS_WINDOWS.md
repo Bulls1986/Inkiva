@@ -1,8 +1,8 @@
-ew.source-code-m# Key Bindings for Windows
+# Key Bindings for Windows
 
-Inkiva key bindings for Windows. Please see [general key bindings](KEYBINDINGS.md) for information how to use custom key bindings.
+Inkiva key bindings for Windows. The tables below document the MarkText-compatible preset (`shortcutStyle=marktext`). New profiles use the Typora preset; see the [general key bindings](KEYBINDINGS.md) guide for its current overrides and for custom keybinding instructions.
 
-## Available menu key bindings
+## MarkText preset menu key bindings
 
 #### File menu
 
@@ -43,7 +43,7 @@ Inkiva key bindings for Windows. Please see [general key bindings](KEYBINDINGS.m
 | `edit.find-next`          | <kbd>F3</kbd>                                 | Continue the search and find the next match     |
 | `edit.find-previous`      | <kbd>Shift</kbd>+<kbd>F3</kbd>                | Continue the search and find the previous match |
 | `edit.replace`            | <kbd>Ctrl</kbd>+<kbd>R</kbd>                  | Replace the information with a replacement      |
-| `edit.find-in-folder`     | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> | Find files contain the keyword in opend folder  |
+| `edit.find-in-folder`     | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> | Find files containing the keyword in the opened folder |
 
 #### Paragraph menu
 
@@ -77,14 +77,14 @@ Inkiva key bindings for Windows. Please see [general key bindings](KEYBINDINGS.m
 | `format.strong`       | <kbd>Ctrl</kbd>+<kbd>B</kbd>                  | Set the font of the selected text to bold       |
 | `format.emphasis`     | <kbd>Ctrl</kbd>+<kbd>I</kbd>                  | Set the font of the selected text to italic     |
 | `format.underline`    | <kbd>Ctrl</kbd>+<kbd>U</kbd>                  | Change the selected text to underline           |
-| `format.superscript`  | -                                             | Change the selected text to underline           |
-| `format.subscript`    | -                                             | Change the selected text to underline           |
+| `format.superscript`  | -                                             | Change the selected text to superscript         |
+| `format.subscript`    | -                                             | Change the selected text to subscript           |
 | `format.highlight`    | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd> | Highlight the selected text by <mark>tag</mark> |
 | `format.inline-code`  | <kbd>Ctrl</kbd>+<kbd>`</kbd>                  | Change the selected text to inline code         |
 | `format.inline-math`  | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> | Change the selected text to inline math         |
 | `format.strike`       | <kbd>Ctrl</kbd>+<kbd>D</kbd>                  | Strike through the selected text                |
 | `format.hyperlink`    | <kbd>Ctrl</kbd>+<kbd>L</kbd>                  | Insert a hyperlink                              |
-| `format.image`        | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> | Insert a image                                  |
+| `format.image`        | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> | Insert an image                                 |
 | `format.clear-format` | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> | Clear the formatting of the selected text       |
 
 #### Window menu
@@ -92,7 +92,7 @@ Inkiva key bindings for Windows. Please see [general key bindings](KEYBINDINGS.m
 | Id                            | Default                      | Description               |
 | ----------------------------- | ---------------------------- | ------------------------- |
 | `window.minimize`             | <kbd>Ctrl</kbd>+<kbd>M</kbd> | Minimize the window       |
-| `window.toggle-always-on-top` | -                            | Toogle always on top mode |
+| `window.toggle-always-on-top` | -                            | Toggle always-on-top mode |
 | `window.zoomIn`               | -                            | Zoom in                   |
 | `window.zoomOut`              | -                            | Zoom out                  |
 | `window.toggle-full-screen`   | <kbd>F11</kbd>               | Toggle fullscreen mode    |
@@ -107,7 +107,7 @@ Inkiva key bindings for Windows. Please see [general key bindings](KEYBINDINGS.m
 | `view.focus-mode`       | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd> | Enable focus mode                        |
 | `view.toggle-sidebar`   | <kbd>Ctrl</kbd>+<kbd>J</kbd>                  | Toggle sidebar                           |
 | `view.toggle-tabbar`    | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> | Toggle tabbar                            |
-| `view.toggle-toc` .     | <kbd>Ctrl</kbd>+<kbd>K</kbd>                  | Toggle table of contents                 |
+| `view.toggle-toc`       | <kbd>Ctrl</kbd>+<kbd>K</kbd>                  | Toggle table of contents                 |
 | `view.toggle-dev-tools` | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd>   | Toggle developer tools (debug mode only) |
 | `view.dev-reload`       | <kbd>Ctrl</kbd>+<kbd>F5</kbd>                 | Reload window (debug mode only)          |
 | `view.reload-images`    | <kbd>F5</kbd>                                 | Reload images                            |

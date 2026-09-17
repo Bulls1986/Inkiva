@@ -1,8 +1,8 @@
 # Key Bindings for macOS
 
-Inkiva key bindings for macOS. Please see [general key bindings](KEYBINDINGS.md) for information how to use custom key bindings.
+Inkiva key bindings for macOS. The tables below document the MarkText-compatible preset (`shortcutStyle=marktext`). New profiles use the Typora preset; see the [general key bindings](KEYBINDINGS.md) guide for its current overrides and for custom keybinding instructions.
 
-## Available menu key bindings
+## MarkText preset menu key bindings
 
 #### Inkiva menu
 
@@ -50,7 +50,7 @@ Inkiva key bindings for macOS. Please see [general key bindings](KEYBINDINGS.md)
 | `edit.find-next`          | <kbd>Cmd</kbd>+<kbd>G</kbd>                       | Continue the search and find the next match     |
 | `edit.find-previous`      | <kbd>Shift</kbd>+<kbd>Cmd</kbd>+<kbd>G</kbd>      | Continue the search and find the previous match |
 | `edit.replace`            | <kbd>Command</kbd>+<kbd>Option</kbd>+<kbd>F</kbd> | Replace the information with a replacement      |
-| `edit.find-in-folder`     | <kbd>Command</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>  | Find files contain the keyword in opend folder  |
+| `edit.find-in-folder`     | <kbd>Command</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>  | Find files containing the keyword in the opened folder |
 | `edit.screenshot`         | <kbd>Command</kbd>+<kbd>Option</kbd>+<kbd>A</kbd> | Get the screenshot                              |
 
 #### Paragraph menu
@@ -85,14 +85,14 @@ Inkiva key bindings for macOS. Please see [general key bindings](KEYBINDINGS.md)
 | `format.strong`       | <kbd>Command</kbd>+<kbd>B</kbd>                  | Set the font of the selected text to bold       |
 | `format.emphasis`     | <kbd>Command</kbd>+<kbd>I</kbd>                  | Set the font of the selected text to italic     |
 | `format.underline`    | <kbd>Command</kbd>+<kbd>U</kbd>                  | Change the selected text to underline           |
-| `format.superscript`  | -                                                | Change the selected text to underline           |
-| `format.subscript`    | -                                                | Change the selected text to underline           |
+| `format.superscript`  | -                                                | Change the selected text to superscript         |
+| `format.subscript`    | -                                                | Change the selected text to subscript           |
 | `format.highlight`    | <kbd>Command</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd> | Highlight the selected text by <mark>tag</mark> |
 | `format.inline-code`  | <kbd>Command</kbd>+<kbd>`</kbd>                  | Change the selected text to inline code         |
 | `format.inline-math`  | <kbd>Command</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> | Change the selected text to inline math         |
 | `format.strike`       | <kbd>Command</kbd>+<kbd>D</kbd>                  | Strike through the selected text                |
 | `format.hyperlink`    | <kbd>Command</kbd>+<kbd>L</kbd>                  | Insert a hyperlink                              |
-| `format.image`        | <kbd>Command</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> | Insert a image                                  |
+| `format.image`        | <kbd>Command</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> | Insert an image                                 |
 | `format.clear-format` | <kbd>Command</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> | Clear the formatting of the selected text       |
 
 #### Window menu
@@ -100,7 +100,7 @@ Inkiva key bindings for macOS. Please see [general key bindings](KEYBINDINGS.md)
 | Id                            | Default                                         | Description               |
 | ----------------------------- | ----------------------------------------------- | ------------------------- |
 | `window.minimize`             | <kbd>Command</kbd>+<kbd>M</kbd>                 | Minimize the window       |
-| `window.toggle-always-on-top` | -                                               | Toogle always on top mode |
+| `window.toggle-always-on-top` | -                                               | Toggle always-on-top mode |
 | `window.zoomIn`               | -                                               | Zoom in                   |
 | `window.zoomOut`              | -                                               | Zoom out                  |
 | `window.toggle-full-screen`   | <kbd>Ctrl</kbd>+<kbd>Command</kbd>+<kbd>F</kbd> | Toggle fullscreen mode    |
@@ -115,7 +115,7 @@ Inkiva key bindings for macOS. Please see [general key bindings](KEYBINDINGS.md)
 | `view.focus-mode`       | <kbd>Command</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd>  | Enable focus mode                        |
 | `view.toggle-sidebar`   | <kbd>Command</kbd>+<kbd>J</kbd>                   | Toggle sidebar                           |
 | `view.toggle-tabbar`    | <kbd>Command</kbd>+<kbd>Option</kbd>+<kbd>B</kbd> | Toggle tabbar                            |
-| `view.toggle-toc` .     | <kbd>Command</kbd>+<kbd>K</kbd>                   | Toggle table of contents                 |
+| `view.toggle-toc`       | <kbd>Command</kbd>+<kbd>K</kbd>                   | Toggle table of contents                 |
 | `view.toggle-dev-tools` | <kbd>Command</kbd>+<kbd>Option</kbd>+<kbd>I</kbd> | Toggle developer tools (debug mode only) |
 | `view.dev-reload`       | <kbd>Command</kbd>+<kbd>Option</kbd>+<kbd>R</kbd> | Reload window (debug mode only)          |
 | `view.reload-images`    | <kbd>Command</kbd>+<kbd>R</kbd>                   | Reload images                            |

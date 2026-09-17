@@ -1,29 +1,25 @@
-# Export a Document
+# Export a document
 
-Inkiva allows you to export a markdown document as PDF and HTML file or to print the document.
+Inkiva can export the current Markdown document as a PDF or HTML file, or send it to the system print dialog. Open **File → Export** and choose the output format.
 
-## Options
+![Inkiva Export Options dialog with page, style, theme, and header and footer tabs](../assets/inkiva-export.png)
 
-### Page options
+## Page options
 
-You can set the page size, orientation and margin before exporting a document.
+For PDF export and printing, choose the page size, orientation, and margins before exporting.
 
-### Style
+## Style
 
-Adjust the page style without modify the page theme:
+Adjust the exported page without changing the document or its application appearance:
 
-- Overwrite font family, size and line height.
-- Auto numbering headings.
-- Option to show the front matter on the exported document.
+- Override the font family, font size, and line height.
+- Automatically number headings.
+- Show or hide front matter.
 
-### Theme
+## Theme
 
-Inkiva allows you to select a page theme before exporting. You can learn more about page themes [here](EXPORT_THEMES.md).
+Choose a page theme for the exported document. See [Export themes](EXPORT_THEMES.md) for the available styles and custom-theme guidance.
 
-### Header and footer
+## Header and footer
 
-You can include a header and/or footer in the exported document if you choose PDF or printing and also adjust the header/footer style. You can select between no, a single or a three cell header in export options. The header and/or footer appear on each page when defined and the header can be multiline but the footer only single line. Unfortunately, page numbering is currently not supported. An example can be seen below.
-
-![](../assets/inkiva-export-header.png)
-
-![](../assets/inkiva-export-pdf.png)
+PDF export and printing support optional headers and footers. Choose no header/footer, or use a single-cell or three-cell layout, then enter the text in the export options. Headers may be multiline; footers are single-line. Page numbering is not currently supported.

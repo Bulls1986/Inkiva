@@ -659,6 +659,11 @@ export const useEditorStore = defineStore('editor', {
       const options = getOptionsFromState(this.currentFile)
       const defaultPath = getRootFolderFromState(projectStore)
       if (id) {
+        // An explicit save already contains the newest flushed snapshot. Leave no
+        // delayed autosave behind to rewrite the same document a few seconds later.
+        // An older write that is already in flight is still acknowledged normally;
+        // the per-document write queue keeps this revision ordered after it.
+        autosaveQueue.cancel(id)
         window.electron.ipcRenderer.send(
           'mt::response-file-save',
           id,
@@ -666,7 +671,8 @@ export const useEditorStore = defineStore('editor', {
           pathname,
           markdown,
           deepClone(options),
-          defaultPath
+          defaultPath,
+          getDocumentRevision(id)
         )
       }
     },
@@ -690,6 +696,9 @@ export const useEditorStore = defineStore('editor', {
       const defaultPath = getRootFolderFromState(projectStore)
 
       if (id) {
+        // Save As is also an explicit durable snapshot. It must supersede any
+        // delayed autosave associated with the current tab before the path changes.
+        autosaveQueue.cancel(id)
         window.electron.ipcRenderer.send(
           'mt::response-file-save-as',
           id,
@@ -697,7 +706,8 @@ export const useEditorStore = defineStore('editor', {
           pathname,
           markdown,
           deepClone(options),
-          defaultPath
+          defaultPath,
+          getDocumentRevision(id)
         )
       }
     },

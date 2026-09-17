@@ -19,5 +19,5 @@ Usage: inkiva [commands] [path ...]
 `inkiva` should point to your installation of Inkiva. The exact location will vary from platform to platform. On macOS, you can create a convenient alias like:
 
 ```sh
-alias inkiva="/Applications/Mark\ Text.app/Contents/MacOS/Mark\ Text"
+alias inkiva="/Applications/Inkiva.app/Contents/MacOS/Inkiva"
 ```
