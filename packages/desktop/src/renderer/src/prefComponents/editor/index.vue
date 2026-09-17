@@ -43,7 +43,7 @@
           :description="t('preferences.editor.textEditor.maxWidth')"
           :notes="t('preferences.editor.textEditor.maxWidthNotes')"
           :input="editorLineWidth"
-          :regex-validator="/^(?:$|[0-9]+(?:ch|px|%)$)/"
+          :regex-validator="/^(?:[1-9][0-9]?|100)%$/"
           :on-change="(value) => onSelectChange('editorLineWidth', value)"
         />
       </template>

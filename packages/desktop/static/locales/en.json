@@ -422,7 +422,7 @@
         "fontSize": "Font size in pixels",
         "lineHeight": "Line Height",
         "wrapCodeBlocks": "Wrap text inside code blocks",
-        "editorLineWidth": "Defines the maximum editor area width. An empty string or suffixes of ch (characters), px (pixels) or % (percentage) are allowed",
+        "editorLineWidth": "Defines the maximum editor area width as a percentage of the available editor space",
         "codeFontSize": "Font size in code Block, the range is 12 ~ 18",
         "codeFontFamily": "Font family used in code block",
         "codeBlockLineNumbers": "Whether to show the line numbers",
@@ -554,7 +554,7 @@
         "paragraphSpacing": "Paragraph spacing",
         "fontFamily": "Font family",
         "maxWidth": "Max width",
-        "maxWidthNotes": "Maximum width of editor content"
+        "maxWidthNotes": "Set as a percentage of the available editor space; default 80%"
       },
       "codeBlock": {
         "title": "Code Block",

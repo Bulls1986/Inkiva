@@ -22,7 +22,7 @@ describe('private build first-run defaults', () => {
       lineHeight: 1.7,
       paragraphSpacing: 0.75,
       editorFontFamily: 'Georgia',
-      editorLineWidth: '780px',
+      editorLineWidth: '80%',
       sideBarVisibility: true,
       tabBarVisibility: true
     })) {
@@ -30,5 +30,13 @@ describe('private build first-run defaults', () => {
       expect(defaultEntries[key]?.default).toBe(value)
       expect(preferences[key as keyof typeof preferences]).toBe(value)
     }
+  })
+
+  it('migrates the previous pixel default to the percentage default', () => {
+    const preferences = usePreferencesStore()
+
+    preferences.SET_USER_PREFERENCE({ editorLineWidth: '780px' })
+
+    expect(preferences.editorLineWidth).toBe('80%')
   })
 })

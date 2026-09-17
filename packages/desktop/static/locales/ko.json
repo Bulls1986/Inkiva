@@ -387,7 +387,7 @@
         "fontSize": "픽셀 단위 글꼴 크기",
         "lineHeight": "줄 높이",
         "wrapCodeBlocks": "코드 블록 내에서 텍스트 줄바꿈",
-        "editorLineWidth": "편집기 영역의 최대 너비를 정의합니다. 빈 문자열 또는 ch(문자), px(픽셀), %(백분율) 접미사가 허용됩니다",
+        "editorLineWidth": "사용 가능한 편집기 공간의 백분율로 편집기 영역의 최대 너비를 정의합니다",
         "codeFontSize": "코드 블록의 글꼴 크기, 범위는 12~18",
         "codeFontFamily": "코드 블록에서 사용되는 글꼴 패밀리",
         "codeBlockLineNumbers": "줄 번호를 표시할지 여부",
@@ -518,7 +518,7 @@
         "paragraphSpacing": "문단 간격",
         "fontFamily": "글꼴 패밀리",
         "maxWidth": "최대 너비",
-        "maxWidthNotes": "편집기 콘텐츠의 최대 너비"
+        "maxWidthNotes": "사용 가능한 편집기 공간의 백분율로 설정합니다. 기본값은 80%입니다"
       },
       "codeBlock": {
         "title": "코드 블록",

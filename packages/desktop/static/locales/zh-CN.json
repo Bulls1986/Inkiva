@@ -422,7 +422,7 @@
         "fontSize": "字体大小（像素）",
         "lineHeight": "行高",
         "wrapCodeBlocks": "在代码块内自动换行",
-        "editorLineWidth": "定义编辑器区域的最大宽度。允许空字符串或 ch（字符）、px（像素）或 %（百分比）后缀",
+        "editorLineWidth": "定义编辑器区域的最大宽度，使用可用编辑器空间的百分比",
         "codeFontSize": "代码块中的字体大小，范围是 12 ~ 18",
         "codeFontFamily": "代码块中使用的字体系列",
         "codeBlockLineNumbers": "是否显示行号",
@@ -553,7 +553,7 @@
         "paragraphSpacing": "段落间距",
         "fontFamily": "字体系列",
         "maxWidth": "最大宽度",
-        "maxWidthNotes": "编辑器内容的最大宽度"
+        "maxWidthNotes": "按可用编辑器空间的百分比设置，默认 80%"
       },
       "codeBlock": {
         "title": "代码块",

@@ -387,7 +387,7 @@
         "fontSize": "フォントサイズ（ピクセル）",
         "lineHeight": "行の高さ",
         "wrapCodeBlocks": "コードブロック内でテキストを折り返す",
-        "editorLineWidth": "エディターエリアの最大幅を定義します。空文字列またはch（文字）、px（ピクセル）、%（パーセンテージ）の接尾辞が許可されます",
+        "editorLineWidth": "使用可能なエディター領域に対する割合でエディターエリアの最大幅を定義します",
         "codeFontSize": "コードブロックのフォントサイズ、範囲は12〜18",
         "codeFontFamily": "コードブロックで使用されるフォントファミリー",
         "codeBlockLineNumbers": "行番号を表示するかどうか",
@@ -518,7 +518,7 @@
         "paragraphSpacing": "段落間隔",
         "fontFamily": "フォントファミリー",
         "maxWidth": "最大幅",
-        "maxWidthNotes": "エディターコンテンツの最大幅"
+        "maxWidthNotes": "使用可能なエディター領域に対する割合で設定します。デフォルトは80%です"
       },
       "codeBlock": {
         "title": "コードブロック",
