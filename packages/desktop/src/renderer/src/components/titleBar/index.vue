@@ -47,11 +47,24 @@
           />
         </span>
       </div>
+      <div
+        v-if="showCustomTitleBar"
+        class="titlebar-brand title-no-drag"
+        data-testid="titlebar-brand"
+        aria-label="Inkiva"
+      >
+        <img
+          :src="inkivaLogo"
+          alt=""
+          aria-hidden="true"
+        >
+        <span>Inkiva</span>
+      </div>
       <nav
         v-if="showCustomTitleBar"
         class="menu-bar title-no-drag"
         data-testid="titlebar-menu"
-        aria-label="Application menu"
+        :aria-label="t('titlebar.menu')"
       >
         <button
           v-for="item in topMenuItems"
@@ -77,6 +90,50 @@
         <kbd>{{ isOsx ? '⌘ K' : 'Ctrl K' }}</kbd>
       </button>
       <div
+        v-if="showCustomTitleBar"
+        class="custom-document-status title-no-drag"
+        data-testid="titlebar-document-status"
+        :aria-label="filename || t('titlebar.untitled')"
+        @dblclick.stop="toggleMaxmizeOnMacOS"
+      >
+        <span
+          class="custom-document-name"
+          :class="{ clickable: !!filename }"
+          :title="filename || t('titlebar.untitled')"
+          @click="rename"
+        >
+          {{ filename || t('titlebar.untitled') }}
+        </span>
+        <span
+          class="save-status"
+          :class="{ dirty: isSaved === false }"
+          role="status"
+          :aria-label="isSaved === false ? t('titlebar.unsaved') : t('titlebar.saved')"
+        >
+          <span
+            class="save-status-dot"
+            aria-hidden="true"
+          />
+          {{ isSaved === false ? t('titlebar.unsaved') : t('titlebar.saved') }}
+        </span>
+        <el-tooltip
+          v-if="wordCount"
+          class="custom-word-count-tooltip"
+          :content="`${wordCount[show]} ${HASH[show].full + (wordCount[show] > 1 ? 's' : '')}`"
+          placement="bottom-end"
+        >
+          <button
+            type="button"
+            class="word-count"
+            :aria-label="`${HASH[show].full}: ${wordCount[show]}`"
+            @click.stop="handleWordClick"
+          >
+            <span class="text-center-vertical">{{ `${HASH[show].short} ${wordCount[show]}` }}</span>
+          </button>
+        </el-tooltip>
+      </div>
+      <div
+        v-if="!showCustomTitleBar"
         class="word-count-toolbar"
         :class="{ custom: showCustomTitleBar }"
         data-testid="titlebar-stats"
@@ -131,7 +188,7 @@
         <button
           type="button"
           class="frameless-titlebar-button frameless-titlebar-toggle"
-          :aria-label="isMaximized ? 'Restore window' : 'Maximize window'"
+          :aria-label="isMaximized ? t('titlebar.restore') : t('titlebar.maximize')"
           @click.stop="handleMaximizeClick"
         >
           <div>
@@ -184,6 +241,7 @@ import { useI18n } from 'vue-i18n'
 import { ArrowRight, Search } from '@element-plus/icons-vue'
 import type { FileWordCount } from '@shared/types/files'
 import bus from '../../bus'
+import inkivaLogo from '../../assets/images/logo.png'
 
 interface ProjectInfo {
   name?: string
@@ -435,38 +493,32 @@ img {
   }
 }
 .title-bar.frameless:not(.isOsx) .title {
-  position: relative;
-  grid-area: document;
-  min-width: 0;
-  width: 100%;
-  padding: 0 8px;
-  box-sizing: border-box;
-  overflow: hidden;
+  display: none;
 }
 
 .title-bar.frameless:not(.isOsx) {
   display: grid;
-  grid-template-columns: minmax(0, max-content) minmax(120px, 1fr) minmax(260px, min(420px, 34vw)) auto 138px;
-  grid-template-areas: 'menu document search stats controls';
+  grid-template-columns: auto minmax(0, max-content) minmax(180px, 1fr) minmax(120px, max-content) 138px;
+  grid-template-areas: 'brand menu search status controls';
+  column-gap: 6px;
+}
+
+.title-bar.frameless:not(.isOsx) .titlebar-brand {
+  grid-area: brand;
 }
 
 .title-bar.frameless:not(.isOsx) .menu-bar {
   position: static;
   grid-area: menu;
-  width: 100%;
+  width: auto;
   min-width: 0;
   max-width: none;
-  padding-left: 8px;
+  padding-left: 0;
   box-sizing: border-box;
 }
 
-.title-bar.frameless:not(.isOsx) .word-count-toolbar.custom {
-  position: static;
-  grid-area: stats;
-  width: auto;
-  min-width: 0;
-  padding: 0 8px;
-  box-sizing: border-box;
+.title-bar.frameless:not(.isOsx) .custom-document-status {
+  grid-area: status;
 }
 
 .title-bar.frameless:not(.isOsx) .right-toolbar {
@@ -504,6 +556,86 @@ div.title > span {
 }
 .title:hover {
   color: var(--text-primary);
+}
+
+.titlebar-brand {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  height: var(--titleBarHeight);
+  padding: 0 6px 0 10px;
+  box-sizing: border-box;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: var(--font-weight-emphasis);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.titlebar-brand > img {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.custom-document-status {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  height: var(--titleBarHeight);
+  padding: 0 10px;
+  box-sizing: border-box;
+  color: var(--text-secondary);
+  border-left: 1px solid var(--border-subtle);
+  font-size: var(--font-size-secondary);
+  white-space: nowrap;
+}
+
+.custom-document-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-document-name.clickable {
+  cursor: pointer;
+}
+
+.custom-document-name.clickable:hover {
+  color: var(--color-accent);
+}
+
+.save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+
+.save-status-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+
+.save-status.dirty .save-status-dot {
+  background: var(--color-accent);
+}
+
+.custom-word-count-tooltip {
+  flex: 0 0 auto;
 }
 
 .menu-bar {
@@ -658,6 +790,32 @@ div.title > span {
   }
 }
 
+.custom-document-status .word-count {
+  -webkit-app-region: no-drag;
+  appearance: none;
+  border: 0;
+  min-height: var(--hit-target-sm);
+  padding: 0 4px;
+  color: var(--text-tertiary);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-secondary);
+  white-space: nowrap;
+}
+
+.custom-document-status .word-count:hover > span,
+.custom-document-status .word-count:focus-visible > span {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.custom-document-status .word-count:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .title-no-drag {
   -webkit-app-region: no-drag;
 }
@@ -712,8 +870,8 @@ div.title > span {
 
 @media (max-width: 1100px) {
   .title-bar.frameless:not(.isOsx) {
-    grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 138px;
-    grid-template-areas: 'menu document stats controls';
+    grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr) 138px;
+    grid-template-areas: 'brand menu status controls';
   }
 
   .command-launcher {
@@ -722,18 +880,23 @@ div.title > span {
 }
 
 @media (max-width: 1000px) {
-  .title-bar.frameless:not(.isOsx) .title > span > span:not(.filename):not(.save-dot) {
+  .titlebar-brand {
+    padding-left: 8px;
+    padding-right: 4px;
+  }
+
+  .titlebar-brand > span {
     display: none;
   }
 }
 
 @media (max-width: 820px) {
   .title-bar.frameless:not(.isOsx) {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 138px;
-    grid-template-areas: 'menu document controls';
+    grid-template-columns: minmax(0, 1fr) minmax(0, max-content) 138px;
+    grid-template-areas: 'menu status controls';
   }
 
-  .title-bar.frameless:not(.isOsx) .word-count-toolbar.custom {
+  .titlebar-brand {
     display: none;
   }
 
@@ -757,7 +920,7 @@ div.title > span {
     grid-template-areas: 'menu controls';
   }
 
-  .title-bar.frameless:not(.isOsx) .title {
+  .custom-document-status {
     display: none;
   }
 }
