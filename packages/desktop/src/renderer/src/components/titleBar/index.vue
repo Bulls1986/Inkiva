@@ -489,7 +489,7 @@ img {
 
 .title-bar.frameless:not(.isOsx) {
   display: grid;
-  grid-template-columns: auto minmax(0, max-content) minmax(180px, 1fr) minmax(120px, max-content) 138px;
+  grid-template-columns: auto minmax(0, max-content) minmax(180px, 1fr) 138px 138px;
   grid-template-areas: 'brand menu search status controls';
   column-gap: 6px;
 }
