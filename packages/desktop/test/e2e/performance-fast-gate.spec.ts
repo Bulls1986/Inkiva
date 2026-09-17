@@ -25,7 +25,6 @@ import {
   launchElectron,
   placeCaretInEditor,
   sendIpcFromRenderer,
-  sendIpcToRenderer,
   showSidebarPanel,
   waitForEditor,
   waitForWorkspaceReady
@@ -68,6 +67,13 @@ interface FastGateProbe {
   expectedAt: number
   intervalId: number
   inputObserver?: PerformanceObserver
+}
+
+interface RendererActionMeasurement {
+  startedAt?: number
+  durationMs?: number
+  error?: string
+  cleanup?: () => void
 }
 
 const createCaptureDirectory = (): CaptureDirectory => {
@@ -180,13 +186,223 @@ const measurePageAction = async(
 ): Promise<number> => {
   const startedAt = await page.evaluate(() => performance.now())
   await action()
-  // Save/search timings include the next paint because they measure the
-  // user-visible result. Placeholder timing ends at attachment itself; adding
-  // two paint boundaries there measures the probe instead of placeholder
-  // creation and can fail the <50 ms gate on a nominal 60 Hz frame budget.
+  // This helper is only for probes without a renderer-owned completion
+  // boundary. Save, folder search, and tab activation use renderer-side
+  // timestamps below so controller polling and IPC scheduling are excluded.
+  // Placeholder timing ends at attachment itself; adding two paint boundaries
+  // there measures the probe instead of placeholder creation and can fail the
+  // <50 ms gate on a nominal 60 Hz frame budget.
   if (settleAfterAction) await waitForPaint(page)
   const endedAt = await page.evaluate(() => performance.now())
   return Math.max(0, endedAt - startedAt)
+}
+
+const clearRendererActionMeasurement = async(page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & {
+      __inkiva_fast_gate_action__?: RendererActionMeasurement
+    }
+    state.__inkiva_fast_gate_action__?.cleanup?.()
+    delete state.__inkiva_fast_gate_action__
+  }).catch(() => {
+    // Preserve the original action failure if the renderer closes.
+  })
+}
+
+const waitForRendererActionMeasurement = async(page: Page, name: string): Promise<number> => {
+  try {
+    await page.waitForFunction(
+      () => {
+        const state = globalThis as typeof globalThis & {
+          __inkiva_fast_gate_action__?: RendererActionMeasurement
+        }
+        const measurement = state.__inkiva_fast_gate_action__
+        return (
+          typeof measurement?.durationMs === 'number' || typeof measurement?.error === 'string'
+        )
+      },
+      null,
+      { timeout: 60_000 }
+    )
+    const result = await page.evaluate(() => {
+      const state = globalThis as typeof globalThis & {
+        __inkiva_fast_gate_action__?: RendererActionMeasurement
+      }
+      const measurement = state.__inkiva_fast_gate_action__
+      return {
+        durationMs: measurement?.durationMs,
+        error: measurement?.error
+      }
+    })
+    if (result.error) throw new Error(name + ' measurement failed: ' + result.error)
+    if (typeof result.durationMs !== 'number') {
+      throw new Error(name + ' measurement did not produce a duration')
+    }
+    return result.durationMs
+  } finally {
+    await clearRendererActionMeasurement(page)
+  }
+}
+
+const measureFolderSearch = async(
+  page: Page,
+  searchInput: Locator,
+  searchToken: string,
+  expectedPath: string
+): Promise<number> => {
+  await page.evaluate((expectedResultPath) => {
+    const state = globalThis as typeof globalThis & {
+      __inkiva_fast_gate_action__?: RendererActionMeasurement
+    }
+    state.__inkiva_fast_gate_action__?.cleanup?.()
+
+    const input = document.querySelector<HTMLInputElement>('.side-bar-search input.search-input')
+    const searchRoot = document.querySelector<HTMLElement>('.side-bar-search')
+    if (!input || !searchRoot) throw new Error('folder search input is not mounted')
+
+    let observer: MutationObserver | undefined
+    let timeoutId: number | undefined
+    let settling = false
+    const measurement: RendererActionMeasurement = {}
+    const cleanup = (): void => {
+      input.removeEventListener('input', onInput, true)
+      observer?.disconnect()
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId)
+    }
+    measurement.cleanup = cleanup
+
+    const hasExpectedResult = (): boolean =>
+      Array.from(searchRoot.querySelectorAll<HTMLElement>('.search-result[title]')).some(
+        (item) => item.getAttribute('title') === expectedResultPath
+      )
+
+    const complete = (): void => {
+      const startedAt = measurement.startedAt
+      if (settling || typeof startedAt !== 'number') return
+      settling = true
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          measurement.durationMs = Math.max(0, performance.now() - startedAt)
+          cleanup()
+        })
+      })
+    }
+
+    const onResultMutation = (): void => {
+      if (hasExpectedResult()) complete()
+    }
+
+    const onInput = (): void => {
+      if (measurement.startedAt !== undefined) return
+      measurement.startedAt = performance.now()
+      observer = new MutationObserver(onResultMutation)
+      observer.observe(searchRoot, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['title']
+      })
+      timeoutId = window.setTimeout(() => {
+        if (measurement.durationMs !== undefined) return
+        measurement.error = 'expected folder result was not rendered'
+        cleanup()
+      }, 60_000)
+      onResultMutation()
+    }
+
+    state.__inkiva_fast_gate_action__ = measurement
+  }, expectedPath)
+
+  try {
+    await searchInput.fill(searchToken)
+    return await waitForRendererActionMeasurement(page, 'folder search')
+  } catch (error) {
+    await clearRendererActionMeasurement(page)
+    throw error
+  }
+}
+
+const measureManualSave = async(page: Page): Promise<number> => {
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & {
+      __inkiva_fast_gate_action__?: RendererActionMeasurement
+    }
+    state.__inkiva_fast_gate_action__?.cleanup?.()
+
+    const root = document.querySelector('#app') as
+      | (Element & {
+        __vue_app__?: { config?: { globalProperties?: Record<string, unknown> } }
+      })
+      | null
+    const pinia = root?.__vue_app__?.config?.globalProperties?.$pinia as
+      | {
+        _s?: Map<
+          string,
+          {
+            currentFile?: { id?: string } | null
+            FILE_SAVE?: () => void
+          }
+        >
+      }
+      | undefined
+    const editorStore = pinia?._s?.get('editor')
+    const tabId = editorStore?.currentFile?.id
+    if (!tabId || !editorStore?.FILE_SAVE) {
+      throw new Error('active editor store is unavailable for manual save measurement')
+    }
+
+    let unsubscribeSaved: (() => void) | undefined
+    let unsubscribeFailure: (() => void) | undefined
+    let settling = false
+    const measurement: RendererActionMeasurement = {}
+    const cleanup = (): void => {
+      unsubscribeSaved?.()
+      unsubscribeFailure?.()
+      unsubscribeSaved = undefined
+      unsubscribeFailure = undefined
+    }
+    measurement.cleanup = cleanup
+
+    const complete = (): void => {
+      const startedAt = measurement.startedAt
+      if (settling || typeof startedAt !== 'number') return
+      settling = true
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          measurement.durationMs = Math.max(0, performance.now() - startedAt)
+          cleanup()
+        })
+      })
+    }
+
+    unsubscribeSaved = window.electron.ipcRenderer.on('mt::tab-saved', (_, savedTabId) => {
+      if (savedTabId === tabId) complete()
+    })
+    unsubscribeFailure = window.electron.ipcRenderer.on(
+      'mt::tab-save-failure',
+      (_, failedTabId, message) => {
+        if (failedTabId !== tabId) return
+        measurement.error = typeof message === 'string' ? message : 'save failed'
+        cleanup()
+      }
+    )
+
+    state.__inkiva_fast_gate_action__ = measurement
+    measurement.startedAt = performance.now()
+    try {
+      editorStore.FILE_SAVE()
+    } catch (error) {
+      measurement.error = error instanceof Error ? error.message : String(error)
+      cleanup()
+    }
+  })
+
+  try {
+    return await waitForRendererActionMeasurement(page, 'manual save')
+  } catch (error) {
+    await clearRendererActionMeasurement(page)
+    throw error
+  }
 }
 
 const measureTabClick = async(
@@ -199,69 +415,65 @@ const measureTabClick = async(
 
   await page.evaluate((id) => {
     const state = globalThis as typeof globalThis & {
-      __inkiva_tab_click_probe__?: {
-        startedAt?: number
-        target: HTMLElement
-        listener: (event: PointerEvent) => void
-      }
+      __inkiva_fast_gate_action__?: RendererActionMeasurement
     }
-    const previous = state.__inkiva_tab_click_probe__
-    if (previous) previous.target.removeEventListener('pointerdown', previous.listener, true)
+    state.__inkiva_fast_gate_action__?.cleanup?.()
 
-    const target = Array.from(document.querySelectorAll<HTMLElement>('.tabs-container > li')).find(
+    const tab = Array.from(document.querySelectorAll<HTMLElement>('.tabs-container > li')).find(
       (element) => element.getAttribute('data-id') === id
     )
-    if (!target) throw new Error('tab click target is no longer mounted')
+    if (!tab) throw new Error('tab click target is no longer mounted')
 
-    const probe: {
-      startedAt?: number
-      target: HTMLElement
-      listener: (event: PointerEvent) => void
-    } = {
-      target,
-      listener: () => {
-        probe.startedAt = performance.now()
-        target.removeEventListener('pointerdown', probe.listener, true)
-      }
+    const wasActive = tab.classList.contains('active')
+    let observer: MutationObserver | undefined
+    let settling = false
+    const measurement: RendererActionMeasurement = {}
+    const cleanup = (): void => {
+      tab.removeEventListener('pointerdown', onPointerDown, true)
+      observer?.disconnect()
     }
-    target.addEventListener('pointerdown', probe.listener, true)
-    state.__inkiva_tab_click_probe__ = probe
+    measurement.cleanup = cleanup
+
+    const complete = (): void => {
+      const startedAt = measurement.startedAt
+      if (settling || typeof startedAt !== 'number') return
+      settling = true
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          measurement.durationMs = Math.max(0, performance.now() - startedAt)
+          cleanup()
+        })
+      })
+    }
+
+    const onTabMutation = (): void => {
+      if (tab.classList.contains('active')) complete()
+    }
+
+    const onPointerDown = (): void => {
+      if (measurement.startedAt !== undefined) return
+      measurement.startedAt = performance.now()
+      if (wasActive) {
+        complete()
+        return
+      }
+      observer = new MutationObserver(onTabMutation)
+      observer.observe(tab, { attributes: true, attributeFilter: ['class'] })
+      onTabMutation()
+    }
+
+    tab.addEventListener('pointerdown', onPointerDown, true)
+    state.__inkiva_fast_gate_action__ = measurement
   }, tabId)
 
   try {
     await target.click({ force: true })
+    const duration = await waitForRendererActionMeasurement(page, 'tab activation')
     if (waitForActive) await expect(target).toHaveClass(/active/)
-    await waitForPaint(page)
-    return await page.evaluate(() => {
-      const state = globalThis as typeof globalThis & {
-        __inkiva_tab_click_probe__?: {
-          startedAt?: number
-          target: HTMLElement
-          listener: (event: PointerEvent) => void
-        }
-      }
-      const probe = state.__inkiva_tab_click_probe__
-      if (!probe || typeof probe.startedAt !== 'number') {
-        throw new Error('tab pointerdown did not produce a timing sample')
-      }
-      return Math.max(0, performance.now() - probe.startedAt)
-    })
-  } finally {
-    await page.evaluate(() => {
-      const state = globalThis as typeof globalThis & {
-        __inkiva_tab_click_probe__?: {
-          startedAt?: number
-          target: HTMLElement
-          listener: (event: PointerEvent) => void
-        }
-      }
-      const probe = state.__inkiva_tab_click_probe__
-      if (!probe) return
-      probe.target.removeEventListener('pointerdown', probe.listener, true)
-      delete state.__inkiva_tab_click_probe__
-    }).catch(() => {
-      // Preserve the original action failure if the renderer closes.
-    })
+    return duration
+  } catch (error) {
+    await clearRendererActionMeasurement(page)
+    throw error
   }
 }
 
@@ -649,19 +861,7 @@ const collectDocumentSamples = async(
       await recordSample(page, 'core.input.latency', 'ms', inputDuration, 'editor')
 
       const saveToken = 'fast-gate-input-' + String(index)
-      const saveDuration = await measurePageAction(page, async() => {
-        // The renderer receives this only after the main process has completed
-        // the durable write. Measuring the IPC acknowledgement avoids adding
-        // expect.poll's 100 ms filesystem sampling quantum to the save metric.
-        const saveCompleted = page.evaluate(
-          () =>
-            new Promise<void>((resolve) => {
-              window.electron.ipcRenderer.once('mt::tab-saved', () => resolve())
-            })
-        )
-        await sendIpcToRenderer(app as ElectronApplication, 'mt::editor-ask-file-save')
-        await saveCompleted
-      }, false)
+      const saveDuration = await measureManualSave(page)
       await expect
         .poll(() => (fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : ''), {
           timeout: 60_000
@@ -673,22 +873,7 @@ const collectDocumentSamples = async(
       const searchInput = page.locator('.side-bar-search input.search-input')
       const searchPath = fixtures.searchDocuments[index] as string
       const searchToken = 'fast-folder-search-token-' + String(index)
-      const searchDuration = await measurePageAction(page, async() => {
-        await searchInput.fill(searchToken)
-        await expect
-          .poll(
-            () =>
-              page
-                .locator('.side-bar-search .search-result[title]')
-                .evaluateAll((items) =>
-                  items
-                    .map((item) => item.getAttribute('title'))
-                    .filter((title): title is string => title !== null)
-                ),
-            { timeout: 60_000 }
-          )
-          .toContain(searchPath)
-      })
+      const searchDuration = await measureFolderSearch(page, searchInput, searchToken, searchPath)
       await recordSample(page, 'search.folder.firstBatch', 'ms', searchDuration, 'search')
       await searchInput.fill('')
 
