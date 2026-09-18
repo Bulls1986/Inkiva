@@ -3,6 +3,8 @@ import type { ElectronApplication, Page } from 'playwright'
 
 import {
   clearRendererErrors,
+  enterSourceMode,
+  exitSourceMode,
   expectNoRendererErrors,
   launchWithMarkdown,
   placeCaretAtTextBoundary,
@@ -229,6 +231,7 @@ test.describe('Render Surface 2.0 — Electron core interaction gate', () => {
         path: Array<string | number>
         muya: {
           editor: {
+            scrollPage: { firstContentInDescendant: () => MuyaBlock | null }
             selection: {
               setSelection: (
                 anchor: { offset: number; block: MuyaBlock; path: Array<string | number> },
@@ -240,26 +243,35 @@ test.describe('Render Surface 2.0 — Electron core interaction gate', () => {
         }
       }
       const blocks = Array.from(document.querySelectorAll<HTMLElement>('.mu-paragraph-content'))
-      const firstNode = blocks.find((node) => node.textContent === 'paragraph 0')
       const targetNode = blocks.find((node) => node.textContent?.includes(needle))
-      const firstBlock = (firstNode as (HTMLElement & { __MUYA_BLOCK__?: MuyaBlock }) | undefined)
-        ?.__MUYA_BLOCK__
       const targetBlock = (targetNode as (HTMLElement & { __MUYA_BLOCK__?: MuyaBlock }) | undefined)
         ?.__MUYA_BLOCK__
-      if (!firstBlock || !targetBlock) throw new Error('virtual selection endpoints were not mounted')
+      if (!targetBlock) throw new Error('virtual selection focus endpoint was not mounted')
 
-      const { editor } = firstBlock.muya
+      const { editor } = targetBlock.muya
+      const firstBlock = editor.scrollPage.firstContentInDescendant()
+      if (!firstBlock) throw new Error('logical selection anchor block was not found')
       editor.selection.setSelection(
         { offset: 0, block: firstBlock, path: firstBlock.path },
         { offset: targetBlock.text.length, block: targetBlock, path: targetBlock.path }
       )
-      const text = editor.clipboard.getClipboardData().text
-      editor.clipboard.cutHandler()
-      return text
+      return editor.clipboard.getClipboardData().text
     }, NEEDLE)
     expect(selectedText).toContain('paragraph 1')
     expect(selectedText).toContain(NEEDLE)
     await expectBoundedVirtualization(page)
+
+    await page.evaluate(() => {
+      type BlockWithClipboard = {
+        muya: { editor: { clipboard: { cutHandler: () => void } } }
+      }
+      const node = document.querySelector<HTMLElement>('.mu-paragraph-content') as
+        | (HTMLElement & { __MUYA_BLOCK__?: BlockWithClipboard })
+        | null
+      const block = node?.__MUYA_BLOCK__
+      if (!block) throw new Error('mounted block was unavailable for logical cut')
+      block.muya.editor.clipboard.cutHandler()
+    })
 
     // The cut proves the logical range includes blocks that were never part of
     // the viewport window at the same time. Undo must restore the complete model.
@@ -290,6 +302,85 @@ test.describe('Render Surface 2.0 — Electron core interaction gate', () => {
         timeout: 5000
       })
       .toBeGreaterThan(0)
+    await expectBoundedVirtualization(page)
+    await expectNoRendererErrors(app)
+  })
+
+  test('tab switch restores a caret whose target block is outside the default render window', async() => {
+    await placeCaretAtTextBoundary(page)
+    const modifier = process.platform === 'darwin' ? 'Meta' : 'Control'
+    await page.keyboard.press(`${modifier}+End`)
+    await expect
+      .poll(() => page.locator('.mu-paragraph-content').filter({ hasText: /^paragraph 359$/ }).count(), {
+        timeout: 5000
+      })
+      .toBeGreaterThan(0)
+
+    await page.waitForTimeout(200)
+    await sendIpcToRenderer(app, 'mt::new-untitled-tab', true, 'temporary tab\n')
+    await expect.poll(() => page.locator('.tabs-container > li').count(), { timeout: 5000 }).toBe(2)
+    await expect.poll(() => readStoreMarkdown(page), { timeout: 5000 }).toContain('temporary tab')
+
+    await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 0)
+    await expect.poll(() => readStoreMarkdown(page), { timeout: 5000 }).toContain('paragraph 359')
+    await expect
+      .poll(() => page.locator('.mu-paragraph-content').filter({ hasText: /^paragraph 359$/ }).count(), {
+        timeout: 5000
+      })
+      .toBeGreaterThan(0)
+
+    const restoredCaret = await page.evaluate(() => {
+      const selection = document.getSelection()
+      if (!selection || selection.rangeCount === 0 || !selection.anchorNode) return null
+      const anchor =
+        selection.anchorNode.nodeType === Node.TEXT_NODE
+          ? selection.anchorNode.parentElement
+          : (selection.anchorNode as Element)
+      const paragraph = anchor?.closest('.mu-paragraph-content')
+      return paragraph?.textContent ?? null
+    })
+    expect(restoredCaret).toBe('paragraph 359')
+    await expectBoundedVirtualization(page)
+    await expectNoRendererErrors(app)
+  })
+
+  test('source mode round-trip restores a caret in an offscreen logical block', async() => {
+    await placeCaretAtTextBoundary(page)
+    const modifier = process.platform === 'darwin' ? 'Meta' : 'Control'
+    await page.keyboard.press(`${modifier}+End`)
+    await expect
+      .poll(() => page.locator('.mu-paragraph-content').filter({ hasText: /^paragraph 359$/ }).count(), {
+        timeout: 5000
+      })
+      .toBeGreaterThan(0)
+    await page.waitForTimeout(200)
+
+    await enterSourceMode(page, app)
+    const sourceCursor = await page.evaluate(() => {
+      const cm = document.querySelector('.source-code .CodeMirror') as
+        | (Element & { CodeMirror?: { getCursor(): { line: number; ch: number } } })
+        | null
+      return cm?.CodeMirror?.getCursor() ?? null
+    })
+    expect(sourceCursor).toEqual({ line: (BLOCK_COUNT - 1) * 2, ch: 'paragraph 359'.length })
+
+    await exitSourceMode(page, app)
+    await expect
+      .poll(() => page.locator('.mu-paragraph-content').filter({ hasText: /^paragraph 359$/ }).count(), {
+        timeout: 5000
+      })
+      .toBeGreaterThan(0)
+    const restoredCaret = await page.evaluate(() => {
+      const selection = document.getSelection()
+      if (!selection || selection.rangeCount === 0 || !selection.anchorNode) return null
+      const anchor =
+        selection.anchorNode.nodeType === Node.TEXT_NODE
+          ? selection.anchorNode.parentElement
+          : (selection.anchorNode as Element)
+      const paragraph = anchor?.closest('.mu-paragraph-content')
+      return paragraph?.textContent ?? null
+    })
+    expect(restoredCaret).toBe('paragraph 359')
     await expectBoundedVirtualization(page)
     await expectNoRendererErrors(app)
   })
