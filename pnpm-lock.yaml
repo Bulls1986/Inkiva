@@ -111,9 +111,6 @@ importers:
       dayjs:
         specifier: ^1.11.21
         version: 1.11.21
-      deep-equal:
-        specifier: ^2.2.3
-        version: 2.2.3
       dom-autoscroller:
         specifier: ^2.3.4
         version: 2.3.4
@@ -247,9 +244,6 @@ importers:
       '@types/codemirror':
         specifier: ^5.60.17
         version: 5.60.17
-      '@types/deep-equal':
-        specifier: ^1.0.4
-        version: 1.0.4
       '@types/dragula':
         specifier: ^3.7.5
         version: 3.7.5
