@@ -271,10 +271,16 @@ const measureFolderSearch = async(
     }
     measurement.cleanup = cleanup
 
+    const normalizeResultPath = (value: string): string => {
+      const normalized = value.replace(/\\/g, '/')
+      return /^[a-z]:\//i.test(normalized) ? normalized.toLowerCase() : normalized
+    }
+    const normalizedExpectedPath = normalizeResultPath(expectedResultPath)
     const hasExpectedResult = (): boolean =>
-      Array.from(searchRoot.querySelectorAll<HTMLElement>('.search-result[title]')).some(
-        (item) => item.getAttribute('title') === expectedResultPath
-      )
+      Array.from(searchRoot.querySelectorAll<HTMLElement>('.search-result[title]')).some((item) => {
+        const title = item.getAttribute('title')
+        return title !== null && normalizeResultPath(title) === normalizedExpectedPath
+      })
 
     const complete = (): void => {
       const startedAt = measurement.startedAt
@@ -304,9 +310,19 @@ const measureFolderSearch = async(
       })
       timeoutId = window.setTimeout(() => {
         if (measurement.durationMs !== undefined) return
-        measurement.error = 'expected folder result was not rendered'
+        const renderedPaths = Array.from(
+          searchRoot.querySelectorAll<HTMLElement>('.search-result[title]')
+        )
+          .map((item) => item.getAttribute('title'))
+          .filter((title): title is string => title !== null)
+          .slice(0, 5)
+        measurement.error =
+          'expected folder result was not rendered; input=' +
+          JSON.stringify(input.value) +
+          '; renderedPaths=' +
+          JSON.stringify(renderedPaths)
         cleanup()
-      }, 60_000)
+      }, 10_000)
       onResultMutation()
     }
 
