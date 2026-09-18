@@ -383,7 +383,7 @@ const makeSyntheticHistory = (id: string, content: string): IFileHistoryLike => 
   return getSyntheticHistory(id, content).build(content)
 }
 
-const recordEditorMarkdownSerialization = (): void => {
+const recordEditorMarkdownSerialization = (revision?: number): void => {
   if (window.electron?.process?.env?.PERF_TESTING !== 'true') return
 
   const globalState = globalThis as typeof globalThis & {
@@ -391,18 +391,22 @@ const recordEditorMarkdownSerialization = (): void => {
       setContentCalls: number
       setContentSources: EditorSetContentSource[]
       markdownSerializationCalls: number
+      markdownSerializationRevisions: number[]
     }
   }
   const metrics = (globalState.__inkiva_e2e_editor_metrics__ ??= {
     setContentCalls: 0,
     setContentSources: [],
-    markdownSerializationCalls: 0
+    markdownSerializationCalls: 0,
+    markdownSerializationRevisions: []
   })
   metrics.markdownSerializationCalls = (metrics.markdownSerializationCalls ?? 0) + 1
+  metrics.markdownSerializationRevisions ??= []
+  if (typeof revision === 'number') metrics.markdownSerializationRevisions.push(revision)
 }
 
-const serializeEditorMarkdown = (instance: MuyaInstance): string => {
-  recordEditorMarkdownSerialization()
+const serializeEditorMarkdown = (instance: MuyaInstance, revision?: number): string => {
+  recordEditorMarkdownSerialization(revision)
   return instance.getMarkdown()
 }
 
@@ -414,7 +418,7 @@ const serializeEditorMarkdownForRevision = (
   const cached = serializedMarkdownByTab.get(id)
   if (cached?.revision === revision) return cached.markdown
 
-  const markdown = serializeEditorMarkdown(instance)
+  const markdown = serializeEditorMarkdown(instance, revision)
   serializedMarkdownByTab.set(id, { revision, markdown })
   return markdown
 }
@@ -1802,14 +1806,17 @@ const recordEditorSetContent = (source: EditorSetContentSource): void => {
       setContentCalls: number
       setContentSources: EditorSetContentSource[]
       markdownSerializationCalls: number
+      markdownSerializationRevisions: number[]
     }
   }
   const metrics = (globalState.__inkiva_e2e_editor_metrics__ ??= {
     setContentCalls: 0,
     setContentSources: [],
-    markdownSerializationCalls: 0
+    markdownSerializationCalls: 0,
+    markdownSerializationRevisions: []
   })
   metrics.markdownSerializationCalls ??= 0
+  metrics.markdownSerializationRevisions ??= []
   metrics.setContentCalls += 1
   metrics.setContentSources.push(source)
 }
