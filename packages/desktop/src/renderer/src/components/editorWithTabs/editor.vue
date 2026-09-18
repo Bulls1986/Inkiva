@@ -2006,16 +2006,16 @@ const setMarkdownToEditor = (payload: unknown) => {
       editor.value.setContent(newMarkdown ?? '')
       editorLayoutReconciler?.reset(true)
     }
-    // The freshly loaded content is this tab's clean baseline (id 0). Re-seed
-    // the monotonic save-tracking allocator so undoing an edit back to this
-    // content reads as clean again (matches the store's `lastSavedHistoryId: 0`).
-    // Seed from the engine's OWN serialization of the loaded document (not the
-    // raw payload) so it matches the markdown later emitted on `json-change`
-    // — the engine may normalize trailing newlines / whitespace on round-trip.
+    // The freshly loaded content is this tab's clean baseline (id 0). History
+    // comparison needs Muya's normalized serialization, but the authoritative
+    // revision Markdown must stay byte-identical to the loaded source until an
+    // actual content mutation occurs. Keeping those roles separate prevents a
+    // source-mode toggle/save from silently reformatting pristine Markdown.
     if (id) {
       const revision = documentRevisionSnapshots.currentRevision(id)
-      const normalizedMarkdown = serializeEditorMarkdownForRevision(id, revision, editor.value)
+      const normalizedMarkdown = serializeEditorMarkdown(editor.value)
       resetSyntheticHistory(id, normalizedMarkdown)
+      documentRevisionSnapshots.seedMarkdown(id, revision, newMarkdown ?? currentFile.value?.markdown ?? '')
     }
     if (newCursor) {
       runWhenEditorRenderComplete(id, (instance) => {
@@ -2404,16 +2404,16 @@ onMounted(() => {
   // `file-loaded` / `setMarkdownToEditor` runs for it — seed its TOC here.
   refreshEditorTocWhenReady(currentFile.value?.id)
 
-  // Seed the save-tracking baseline for the mount-loaded document (from the
-  // engine's OWN serialization, same reason as setMarkdownToEditor). Without
-  // this the allocator is created lazily on the first `json-change` — i.e.
-  // after the first edit — so the pristine content never maps to id 0 and
-  // undoing back to the on-disk content can never read as clean again (PG15).
+  // Seed the save-tracking baseline from Muya's normalized serialization so
+  // undo/redo compares against the engine's own representation. Keep the clean
+  // revision's authoritative Markdown as the exact store/disk source; otherwise
+  // merely entering source mode would rewrite formatting such as table spacing.
   if (currentFile.value?.id) {
     const id = currentFile.value.id
     const revision = documentRevisionSnapshots.currentRevision(id)
-    const normalizedMarkdown = serializeEditorMarkdownForRevision(id, revision, muya)
+    const normalizedMarkdown = serializeEditorMarkdown(muya)
     getSyntheticHistory(id, normalizedMarkdown)
+    documentRevisionSnapshots.seedMarkdown(id, revision, currentFile.value.markdown)
   }
 
   const container = getScrollContainer()!

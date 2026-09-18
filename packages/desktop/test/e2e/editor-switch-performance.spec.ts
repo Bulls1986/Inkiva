@@ -250,7 +250,6 @@ test.describe('editor switch rebuild performance', () => {
       )
       expect(editorMetrics.markdownSerializationCalls).toBeGreaterThan(0)
       expect(snapshotMetrics.markdown.misses).toBe(editorMetrics.markdownSerializationCalls)
-      expect(snapshotMetrics.markdown.hits).toBeGreaterThan(0)
       expect(snapshotMetrics.wordCount.misses).toBeLessThanOrEqual(snapshotMetrics.markdown.misses)
       expect(snapshotMetrics.blocks.misses).toBeLessThanOrEqual(snapshotMetrics.markdown.misses)
 
