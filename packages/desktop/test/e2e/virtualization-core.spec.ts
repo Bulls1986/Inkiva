@@ -3,6 +3,7 @@ import type { ElectronApplication, Page } from 'playwright'
 
 import {
   clearRendererErrors,
+  clickMenuById,
   enterSourceMode,
   exitSourceMode,
   expectNoRendererErrors,
@@ -417,6 +418,80 @@ test.describe('Render Surface 2.0 — Electron core interaction gate', () => {
     // spacers still use the wide/initial estimates only reflects the handful of
     // currently mounted blocks and severely under-reports total document height.
     expect(narrowHeight / wideHeight).toBeGreaterThan(1.35)
+    await expectBoundedVirtualization(page)
+    await expectNoRendererErrors(app)
+  })
+
+  test('sidebar and editor max-width changes preserve the virtual viewport anchor', async() => {
+    const longDocument = Array.from({ length: BLOCK_COUNT }, (_, index) =>
+      `paragraph ${index} ${'responsive-anchor '.repeat(28)}`
+    ).join('\n\n') + '\n'
+    await setSourceMarkdown(page, app, longDocument)
+    await expect.poll(() => readVirtualization(page), { timeout: 10000 }).toMatchObject({
+      enabled: true,
+      totalBlocks: BLOCK_COUNT
+    })
+
+    const editor = page.locator('.editor-component')
+    await editor.evaluate((node) => {
+      const element = node as HTMLElement
+      // A real user starts scrolling with wheel/pointer input. This also proves
+      // the bounded resize-settle guard yields immediately to user interaction.
+      element.dispatchEvent(new WheelEvent('wheel', { deltaY: 120, bubbles: true }))
+      element.scrollTop = element.scrollHeight * 0.55
+      element.dispatchEvent(new Event('scroll'))
+    })
+    await page.waitForTimeout(250)
+
+    const readViewportAnchor = async(): Promise<{ index: number; width: number }> =>
+      page.evaluate(() => {
+        const editorNode = document.querySelector<HTMLElement>('.editor-component')
+        const container = document.querySelector<HTMLElement>('.mu-container')
+        if (!editorNode || !container) throw new Error('virtual editor surface is unavailable')
+        const editorTop = editorNode.getBoundingClientRect().top
+        const paragraphs = Array.from(container.querySelectorAll<HTMLElement>('.mu-paragraph-content'))
+          .map((node) => {
+            const match = /^paragraph (\d+)/.exec(node.textContent ?? '')
+            return match
+              ? { index: Number(match[1]), distance: Math.abs(node.getBoundingClientRect().top - editorTop) }
+              : null
+          })
+          .filter((value): value is { index: number; distance: number } => value !== null)
+        paragraphs.sort((left, right) => left.distance - right.distance)
+        if (!paragraphs[0]) throw new Error('no mounted paragraph was available near the viewport')
+        return { index: paragraphs[0].index, width: container.getBoundingClientRect().width }
+      })
+
+    const beforeSidebar = await readViewportAnchor()
+    expect(beforeSidebar.index).toBeGreaterThan(100)
+    await clickMenuById(app, 'sideBarMenuItem')
+    await page.waitForTimeout(300)
+    const afterSidebar = await readViewportAnchor()
+    expect(afterSidebar.width).toBeGreaterThan(beforeSidebar.width)
+    expect(Math.abs(afterSidebar.index - beforeSidebar.index)).toBeLessThanOrEqual(2)
+    await expectBoundedVirtualization(page)
+
+    const setEditorWidthPreference = async(value: string): Promise<void> => {
+      await page.evaluate((nextValue) => {
+        const root = document.querySelector('#app') as
+          | (Element & { __vue_app__?: { config?: { globalProperties?: Record<string, unknown> } } })
+          | null
+        const pinia = root?.__vue_app__?.config?.globalProperties?.$pinia as
+          | { _s?: Map<string, { SET_SINGLE_PREFERENCE?: (payload: { type: string; value: unknown }) => void }> }
+          | undefined
+        const preferences = pinia?._s?.get('preferences')
+        if (!preferences?.SET_SINGLE_PREFERENCE) throw new Error('preferences store is unavailable')
+        preferences.SET_SINGLE_PREFERENCE({ type: 'editorLineWidth', value: nextValue })
+      }, value)
+      await page.waitForTimeout(300)
+    }
+
+    await setEditorWidthPreference('60%')
+    const narrow = await readViewportAnchor()
+    await setEditorWidthPreference('100%')
+    const full = await readViewportAnchor()
+    expect(full.width).toBeGreaterThan(narrow.width)
+    expect(Math.abs(full.index - narrow.index)).toBeLessThanOrEqual(2)
     await expectBoundedVirtualization(page)
     await expectNoRendererErrors(app)
   })

@@ -185,6 +185,10 @@ export class ScrollPage extends Parent {
     private _virtualScrollHandler: (() => void) | null = null;
     private _virtualResizeObserver: ResizeObserver | null = null;
     private _virtualWindowResizeHandler: (() => void) | null = null;
+    private _virtualResizeCorrectionFrameId: number | null = null;
+    private _virtualResizeCorrectionGeneration = 0;
+    private _virtualResizeCorrectionTarget: number | null = null;
+    private _virtualResizeInteractionHandler: (() => void) | null = null;
     private _virtualLastScrollTop = 0;
     private _virtualLastViewportHeight = VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX;
 
@@ -397,12 +401,59 @@ export class ScrollPage extends Parent {
         this.updateVirtualWindowForViewport(initialScrollTop, initialViewportHeight);
     }
 
+    private _cancelVirtualResizeCorrection(): void {
+        this._virtualResizeCorrectionGeneration += 1;
+        this._virtualResizeCorrectionTarget = null;
+        if (this._virtualResizeCorrectionFrameId !== null) {
+            cancelAnimationFrame(this._virtualResizeCorrectionFrameId);
+            this._virtualResizeCorrectionFrameId = null;
+        }
+    }
+
+    private _settleVirtualResizeScroll(container: HTMLElement, target: number): void {
+        this._cancelVirtualResizeCorrection();
+        this._virtualResizeCorrectionTarget = target;
+        const generation = this._virtualResizeCorrectionGeneration;
+        const startedAt = performance.now();
+        const settle = () => {
+            this._virtualResizeCorrectionFrameId = null;
+            if (
+                generation !== this._virtualResizeCorrectionGeneration
+                || !this._virtualizationEnabled
+                || this._virtualScrollContainer !== container
+            ) {
+                return;
+            }
+
+            if (Math.abs(container.scrollTop - target) > 1)
+                container.scrollTop = target;
+
+            // Focused contenteditable can ask Chromium to reveal a remotely
+            // pinned caret for a few frames after responsive reflow. Hold the
+            // logical viewport anchor only during that bounded settle window;
+            // real user interaction cancels it immediately below.
+            if (performance.now() - startedAt < 160) {
+                this._virtualResizeCorrectionFrameId = requestAnimationFrame(settle);
+            }
+            else {
+                this._virtualResizeCorrectionTarget = null;
+            }
+        };
+        this._virtualResizeCorrectionFrameId = requestAnimationFrame(settle);
+    }
+
     private _attachVirtualScrollListener(): void {
         if (!this._virtualizationEnabled || !this.muya.domNode)
             return;
 
         const container = findScrollContainer(this.muya.domNode);
+        const contentWidth = () => this.domNode?.clientWidth || container.clientWidth || undefined;
         const handler = () => {
+            const resizeTarget = this._virtualResizeCorrectionTarget;
+            if (resizeTarget !== null && Math.abs(container.scrollTop - resizeTarget) > 1) {
+                container.scrollTop = resizeTarget;
+                return;
+            }
             this.updateVirtualWindowForViewport(
                 container.scrollTop,
                 container.clientHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX,
@@ -412,7 +463,7 @@ export class ScrollPage extends Parent {
             const previousScrollTop = container.scrollTop;
             const anchorIndex = this._virtualIndexAtOffset(previousScrollTop);
             const anchorOffset = previousScrollTop - (this._virtualOffsets[anchorIndex] ?? 0);
-            this._rebuildVirtualOffsets(this._virtualStates, container.clientWidth || undefined);
+            this._rebuildVirtualOffsets(this._virtualStates, contentWidth());
             const correctedScrollTop = Math.max(
                 0,
                 (this._virtualOffsets[anchorIndex] ?? 0) + anchorOffset,
@@ -420,14 +471,24 @@ export class ScrollPage extends Parent {
             if (Math.abs(container.scrollTop - correctedScrollTop) > 1)
                 container.scrollTop = correctedScrollTop;
             handler();
+            this._settleVirtualResizeScroll(container, correctedScrollTop);
         };
+        const cancelResizeCorrection = () => this._cancelVirtualResizeCorrection();
         this._virtualScrollContainer = container;
         this._virtualScrollHandler = handler;
-        this._rebuildVirtualOffsets(this._virtualStates, container.clientWidth || undefined);
+        this._virtualResizeInteractionHandler = cancelResizeCorrection;
+        this._rebuildVirtualOffsets(this._virtualStates, contentWidth());
         container.addEventListener('scroll', handler, { passive: true });
+        for (const eventName of ['wheel', 'touchstart', 'pointerdown', 'mousedown', 'keydown'] as const)
+            container.addEventListener(eventName, cancelResizeCorrection, { passive: true });
         if (typeof ResizeObserver !== 'undefined') {
             this._virtualResizeObserver = new ResizeObserver(resizeHandler);
             this._virtualResizeObserver.observe(container);
+            // Editor max-width changes only resize the Markdown surface while
+            // leaving the outer scroll container unchanged. Observe both so
+            // virtual height estimates are rebuilt for the actual text width.
+            if (this.domNode !== container)
+                this._virtualResizeObserver.observe(this.domNode!);
         }
         else if (typeof window !== 'undefined') {
             this._virtualWindowResizeHandler = resizeHandler;
@@ -438,6 +499,11 @@ export class ScrollPage extends Parent {
     private _teardownVirtualization(): void {
         if (this._virtualScrollContainer && this._virtualScrollHandler)
             this._virtualScrollContainer.removeEventListener('scroll', this._virtualScrollHandler);
+        if (this._virtualScrollContainer && this._virtualResizeInteractionHandler) {
+            for (const eventName of ['wheel', 'touchstart', 'pointerdown', 'mousedown', 'keydown'] as const)
+                this._virtualScrollContainer.removeEventListener(eventName, this._virtualResizeInteractionHandler);
+        }
+        this._cancelVirtualResizeCorrection();
         this._virtualResizeObserver?.disconnect();
         if (this._virtualWindowResizeHandler && typeof window !== 'undefined')
             window.removeEventListener('resize', this._virtualWindowResizeHandler);
@@ -446,6 +512,7 @@ export class ScrollPage extends Parent {
         this._virtualScrollHandler = null;
         this._virtualResizeObserver = null;
         this._virtualWindowResizeHandler = null;
+        this._virtualResizeInteractionHandler = null;
         this._virtualizationEnabled = false;
         this._virtualBlocks = [];
         this._virtualStates = [];
