@@ -1,4 +1,5 @@
 name: Performance Fast Gate
+# PR-A baseline measurement trigger only; application code is unchanged.
 
 on:
   pull_request:
