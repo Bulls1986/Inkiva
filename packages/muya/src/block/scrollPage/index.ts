@@ -169,6 +169,7 @@ export class ScrollPage extends Parent {
     private _virtualOffsets: number[] = [0];
     private _virtualWindowStart = 0;
     private _virtualWindowEnd = 0;
+    private _virtualRevealIndex: number | null = null;
     private _virtualBeforeSpacer: HTMLElement | null = null;
     private _virtualGapSpacers: HTMLElement[] = [];
     private _virtualAfterSpacer: HTMLElement | null = null;
@@ -430,6 +431,7 @@ export class ScrollPage extends Parent {
         this._virtualOffsets = [0];
         this._virtualWindowStart = 0;
         this._virtualWindowEnd = 0;
+        this._virtualRevealIndex = null;
         this._virtualBeforeSpacer = null;
         for (const spacer of this._virtualGapSpacers) {
             if (spacer.parentNode === this.domNode)
@@ -494,6 +496,8 @@ export class ScrollPage extends Parent {
             indexes.add(anchorIndex);
         if (focusIndex !== null)
             indexes.add(focusIndex);
+        if (this._virtualRevealIndex !== null)
+            indexes.add(this._virtualRevealIndex);
 
         return [...indexes]
             .sort((left, right) => left - right)
@@ -688,6 +692,20 @@ export class ScrollPage extends Parent {
         ) {
             this._virtualScrollContainer.scrollTop = this._virtualLastScrollTop;
         }
+    }
+
+    setVirtualRevealPath(path: TBlockPath | null): void {
+        if (!this._virtualizationEnabled)
+            return;
+
+        this._virtualRevealIndex = path === null
+            ? null
+            : this._virtualIndexFromPath(path);
+
+        this.updateVirtualWindowForViewport(
+            this._virtualLastScrollTop,
+            this._virtualLastViewportHeight,
+        );
     }
 
     ensureVirtualSelectionRange(anchorPath: TBlockPath, focusPath: TBlockPath): void {

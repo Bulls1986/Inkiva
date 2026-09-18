@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { isEqualAccelerator } from 'common/keybinding'
 import keybindingsLinux from 'main_renderer/keyboard/keybindingsLinux'
+import keybindingsWindows from 'main_renderer/keyboard/keybindingsWindows'
+import keybindingsDarwin from 'main_renderer/keyboard/keybindingsDarwin'
 import {
   applyShortcutStyle,
   DEFAULT_SHORTCUT_STYLE,
@@ -10,6 +12,12 @@ import {
 import KeybindingConfigurator from '../../../src/renderer/src/prefComponents/keybindings/KeybindingConfigurator'
 
 describe('shortcut style presets', () => {
+  it('keeps select-all mapped to the editor command accelerator on desktop platforms', () => {
+    expect(keybindingsWindows.get('edit.select-all')).toBe('Ctrl+A')
+    expect(keybindingsLinux.get('edit.select-all')).toBe('Ctrl+A')
+    expect(keybindingsDarwin.get('edit.select-all')).toBe('Command+A')
+  })
+
   it('keeps MarkText defaults unchanged and does not mutate the source map', () => {
     const defaults = applyShortcutStyle(keybindingsLinux, 'marktext', 'linux')
 

@@ -139,7 +139,12 @@ describe('stage C0 top-level virtualization prototype', () => {
         expect(copied).toContain('paragraph 0');
         expect(copied).toContain(`paragraph ${totalBlocks - 1}`);
 
-        muya.editor.clipboard.cutHandler();
+        const active = muya.editor.selection.anchorBlock!;
+        active.domNode!.focus();
+        document.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Delete',
+            bubbles: true,
+        }));
         muya.flush();
         expect(muya.editor.scrollPage!.length()).toBe(1);
         expect(muya.getMarkdown().trim()).toBe('');
@@ -185,11 +190,17 @@ describe('stage C0 top-level virtualization prototype', () => {
         muya.init();
         await muya.whenRenderComplete();
 
-        await muya.editor.searchModule.searchAsync('needle-target', { selectHighlight: true });
+        await muya.editor.searchModule.searchAsync('needle-target');
         const match = muya.editor.searchModule.matches[0];
         expect(match).toBeDefined();
         expect(match.block.outMostBlock!.domNode!.isConnected).toBe(true);
-        expect(muya.editor.selection.anchorBlock).toBe(match.block);
+
+        prototype(muya.editor.scrollPage!).updateVirtualWindowForViewport(0, 500);
+        expect(match.block.outMostBlock!.domNode!.isConnected).toBe(true);
+
+        await muya.editor.searchModule.searchAsync('');
+        prototype(muya.editor.scrollPage!).updateVirtualWindowForViewport(0, 500);
+        expect(match.block.outMostBlock!.domNode?.isConnected ?? false).toBe(false);
 
         const composing = contentAt(muya, 36);
         composing.setCursor(0, 0, true);
