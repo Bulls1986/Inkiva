@@ -1,4 +1,3 @@
-import equal from 'deep-equal'
 import bus from '../bus'
 import { getUniqueId, deepClone } from '../util'
 import listToTree, { type ListItem, type TreeNode } from '../util/listToTree'
@@ -48,6 +47,26 @@ interface TocItem extends ListItem {
 }
 
 type TocTreeNode = TreeNode<TocItem>
+
+const isSameTocSnapshot = (left: TocItem[], right: TocItem[]): boolean => {
+  if (left === right) return true
+  if (left.length !== right.length) return false
+
+  for (let index = 0; index < left.length; index += 1) {
+    const a = left[index]
+    const b = right[index]
+    if (
+      a?.slug !== b?.slug ||
+      a?.githubSlug !== b?.githubSlug ||
+      a?.content !== b?.content ||
+      a?.lvl !== b?.lvl
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
 
 interface RestoreWarning {
   tabId?: string | null
@@ -1655,11 +1674,11 @@ export const useEditorStore = defineStore('editor', {
      * pass `false` to avoid rebuilding the tree when the heading snapshot is
      * unchanged.
      * @param toc Flat list of headings returned by `muya.getTOC()`.
-     * @param force Rebuild even when the incoming snapshot deep-equals the old one.
+     * @param force Rebuild even when the incoming snapshot matches the old one.
      */
     UPDATE_TOC(toc: TocItem[], force = true): boolean {
       const nextToc = toc ?? []
-      if (!force && equal(nextToc, this.listToc)) return false
+      if (!force && isSameTocSnapshot(nextToc, this.listToc)) return false
 
       this.listToc = nextToc
       this.toc = listToTree<TocItem>(nextToc)

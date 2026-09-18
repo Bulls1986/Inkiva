@@ -19,11 +19,6 @@ vi.hoisted(() => {
   }
 })
 
-const equalSpy = vi.hoisted(() =>
-  vi.fn((left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right))
-)
-
-vi.mock('deep-equal', () => ({ default: equalSpy }))
 vi.mock('@/services/notification', () => ({
   default: { notify: vi.fn(), name: 'notify' }
 }))
@@ -33,37 +28,29 @@ import { useEditorStore } from '@/store/editor'
 describe('TOC refresh equality guard', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    equalSpy.mockClear()
   })
 
-  it('compares an incoming TOC only once before deciding to rebuild', () => {
+  it('skips rebuilding when an incremental TOC snapshot is unchanged', () => {
     const store = useEditorStore()
-    const tab = {
-      id: 'tab-1',
-      filename: 'a.md',
-      pathname: '/x/a.md',
-      markdown: 'old',
-      trimTrailingNewline: 0,
-      isSaved: true,
-      lastSavedHistoryId: -1,
-      history: { stack: [], lastEditIndex: -1, lastInitIndex: -1 },
-      wordCount: { paragraph: 1, word: 1, character: 3, all: 3 }
-    }
-    const oldToc = [{ slug: 'uid-1', githubSlug: 'old', content: 'Old', lvl: 1 }]
-    const nextToc = [{ slug: 'uid-1', githubSlug: 'new', content: 'New', lvl: 1 }]
-    store.tabs = [tab] as unknown as typeof store.tabs
-    store.tabIdToIndex = { 'tab-1': 0 }
-    store.currentFile = tab as unknown as typeof store.currentFile
-    store.listToc = oldToc
-    equalSpy.mockClear()
+    const first = [{ slug: 'uid-1', githubSlug: 'intro', content: 'Intro', lvl: 1 }]
+    store.UPDATE_TOC(first)
+    const previousList = store.listToc
+    const previousTree = store.toc
 
-    store.LISTEN_FOR_CONTENT_CHANGE({
-      id: tab.id,
-      markdown: 'new',
-      toc: nextToc
-    })
+    expect(store.UPDATE_TOC([{ ...first[0] }], false)).toBe(false)
+    expect(store.listToc).toBe(previousList)
+    expect(store.toc).toBe(previousTree)
+  })
 
-    expect(equalSpy).toHaveBeenCalledTimes(1)
-    expect(store.listToc).toEqual(nextToc)
+  it('rebuilds when a scalar TOC field changes', () => {
+    const store = useEditorStore()
+    store.UPDATE_TOC([{ slug: 'uid-1', githubSlug: 'old', content: 'Old', lvl: 1 }])
+
+    expect(store.UPDATE_TOC([
+      { slug: 'uid-1', githubSlug: 'new', content: 'New', lvl: 1 }
+    ], false)).toBe(true)
+    expect(store.listToc).toEqual([
+      { slug: 'uid-1', githubSlug: 'new', content: 'New', lvl: 1 }
+    ])
   })
 })
