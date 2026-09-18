@@ -162,7 +162,7 @@ describe('stage C0 top-level virtualization prototype', () => {
         const viewportBlock = contentAt(muya, 220);
         viewportBlock.setCursor(0, 0, true);
         prototype(muya.editor.scrollPage!).updateVirtualWindowForViewport(5_000, 500);
-        expect(composing.outMostBlock!.domNode!.isConnected).toBe(false);
+        expect(composing.outMostBlock!.domNode?.isConnected ?? false).toBe(false);
     });
 
     it('survives rebuild Undo/Redo without falling back to a fully mounted document', async () => {

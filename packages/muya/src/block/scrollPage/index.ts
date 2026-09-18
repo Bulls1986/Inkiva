@@ -9,6 +9,7 @@ import { deepClone, isHTMLElement, isMouseEvent } from '../../utils';
 import { findScrollContainer } from '../../utils/dom';
 import logger from '../../utils/logger';
 import Parent from '../base/parent';
+import { withDeferredBlockDomCreation } from '../base/treeNode';
 
 const debug = logger('scrollpage:');
 
@@ -49,6 +50,8 @@ interface IVirtualizationSnapshot {
     enabled: boolean;
     totalBlocks: number;
     mountedBlocks: number;
+    materializedBlocks: number;
+    retainedDetachedDomBlocks: number;
     windowStart: number;
     windowEnd: number;
     beforeHeight: number;
@@ -67,6 +70,14 @@ function shouldUseVirtualization(muya: Muya): boolean {
     const prototypeGlobal = globalThis as typeof globalThis & IVirtualRendererPrototypeGlobal;
     return muya.options.virtualizeLargeDocuments === true
         || prototypeGlobal[VIRTUAL_RENDERER_PROTOTYPE_FLAG] === true;
+}
+
+function canDeferVirtualStateDom(state: TState): boolean {
+    if (state.name !== 'paragraph' && state.name !== 'atx-heading')
+        return false;
+
+    const text = 'text' in state && typeof state.text === 'string' ? state.text : '';
+    return !/!\[|<img\b/i.test(text);
 }
 
 interface IIdleDeadline {
@@ -154,6 +165,7 @@ export class ScrollPage extends Parent {
     private _cloneProgressiveBlocks = false;
     private _virtualizationEnabled = false;
     private _virtualBlocks: Parent[] = [];
+    private _virtualStates: TState[] = [];
     private _virtualOffsets: number[] = [0];
     private _virtualWindowStart = 0;
     private _virtualWindowEnd = 0;
@@ -286,6 +298,16 @@ export class ScrollPage extends Parent {
         });
     }
 
+    private _createVirtualBlocks(state: TState[], cloneBlocks = false): Parent[] {
+        const renderStates = cloneBlocks ? deepClone(state) : state;
+        return renderStates.map((block) => {
+            const create = () => ScrollPage.loadBlock(block.name).create(this.muya, block);
+            return canDeferVirtualStateDom(block)
+                ? withDeferredBlockDomCreation(create)
+                : create();
+        });
+    }
+
     private _appendBlocks(blocks: Parent[], beforeSpacer = false): void {
         if (blocks.length === 0)
             return;
@@ -336,7 +358,8 @@ export class ScrollPage extends Parent {
     private _mountVirtualization(state: TState[], cloneBlocks: boolean): void {
         this._teardownVirtualization();
         this._virtualizationEnabled = true;
-        this._virtualBlocks = this._createBlocks(state, cloneBlocks);
+        this._virtualStates = state;
+        this._virtualBlocks = this._createVirtualBlocks(state, cloneBlocks);
         this._virtualBlocks.forEach((block) => {
             block.parent = this;
         });
@@ -408,6 +431,7 @@ export class ScrollPage extends Parent {
         this._virtualWindowResizeHandler = null;
         this._virtualizationEnabled = false;
         this._virtualBlocks = [];
+        this._virtualStates = [];
         this._virtualOffsets = [0];
         this._virtualWindowStart = 0;
         this._virtualWindowEnd = 0;
@@ -518,9 +542,18 @@ export class ScrollPage extends Parent {
     }
 
     private _removeBlocksOutsideVirtualRanges(desired: Set<Parent>): void {
-        for (const block of this._virtualBlocks) {
+        for (let index = 0; index < this._virtualBlocks.length; index += 1) {
+            const block = this._virtualBlocks[index];
+            if (desired.has(block))
+                continue;
+
+            if (canDeferVirtualStateDom(this._virtualStates[index])) {
+                block.dematerializeDomTree();
+                continue;
+            }
+
             const node = block.domNode;
-            if (!desired.has(block) && node && node.parentNode === this.domNode)
+            if (node && node.parentNode === this.domNode)
                 this.domNode!.removeChild(node);
         }
     }
@@ -546,7 +579,7 @@ export class ScrollPage extends Parent {
         for (let rangeIndex = 0; rangeIndex < ranges.length; rangeIndex += 1) {
             const range = ranges[rangeIndex];
             for (let index = range.start; index < range.end; index += 1) {
-                const node = this._virtualBlocks[index]?.domNode;
+                const node = this._virtualBlocks[index]?.materializeDomTree();
                 if (node)
                     sequence.push(node);
             }
@@ -661,6 +694,15 @@ export class ScrollPage extends Parent {
             mountedBlocks: this._virtualizationEnabled
                 ? this._virtualBlocks.filter(block => block.domNode?.parentNode === this.domNode).length
                 : this.children.length,
+            materializedBlocks: this._virtualizationEnabled
+                ? this._virtualBlocks.filter(block => block.domNode !== null).length
+                : this.children.length,
+            retainedDetachedDomBlocks: this._virtualizationEnabled
+                ? this._virtualBlocks.filter((block) => {
+                    const { domNode } = block;
+                    return Boolean(domNode && domNode.parentNode !== this.domNode);
+                }).length
+                : 0,
             windowStart: this._virtualWindowStart,
             windowEnd: this._virtualWindowEnd,
             beforeHeight: this._virtualizationEnabled
@@ -1119,6 +1161,7 @@ export class ScrollPage extends Parent {
             const blocks: Parent[] = [];
             this.children.forEach(child => blocks.push(child as Parent));
             this._virtualBlocks = blocks;
+            this._virtualStates = state;
             this._rebuildVirtualOffsets(state);
             this.updateVirtualWindowForViewport(
                 this._virtualLastScrollTop,

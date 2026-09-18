@@ -186,7 +186,7 @@ test.describe('Stage C0 virtualization prototype', () => {
             const viewportBlock = scrollPage.find(260)!.firstContentInDescendant()!;
             viewportBlock.setCursor(0, 0, true);
             scrollPage.updateVirtualWindowForViewport(6_000, 600);
-            return !composing.outMostBlock!.domNode!.isConnected;
+            return !(composing.outMostBlock!.domNode?.isConnected ?? false);
         });
         expect(detachedAfterComposition).toBe(true);
         expect(pageErrors.filter(message => /InvalidStateError|Selection|Range/i.test(message))).toEqual([]);

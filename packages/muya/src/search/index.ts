@@ -60,7 +60,16 @@ export class Search {
         for (const [block, highlights] of matchesMap.entries()) {
             const isActive = highlights.some(h => h.active);
 
-            block.update(undefined, isClear ? [] : highlights);
+            // Virtualized documents keep the complete logical Content tree but
+            // may intentionally leave offscreen blocks without DOM. Preserve
+            // their logical match ranges and only render highlights once the
+            // block is materialized. The active Find target is special: mount
+            // it first so focus/caret/highlight continue to use native DOM
+            // Selection semantics.
+            if (!block.domNode && isActive && !isClear)
+                this._scrollPage?.ensureVirtualSelectionRange(block.path, block.path);
+            if (block.domNode)
+                block.update(undefined, isClear ? [] : highlights);
 
             if (block.parent?.active && !isActive)
                 block.blurHandler();

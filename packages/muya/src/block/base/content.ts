@@ -606,7 +606,8 @@ class Content extends TreeNode {
 
     override createDomNode() {
         super.createDomNode();
-        this.update();
+        if (this.domNode)
+            this.update();
     }
 
     /**
@@ -648,8 +649,10 @@ class Content extends TreeNode {
      * @param {boolean} needUpdate
      */
     setCursor(begin: number, end: number, needUpdate = false) {
-        const anchor = { offset: begin, block: this, path: this.path };
-        const focus = { offset: end, block: this, path: this.path };
+        const path = this.path;
+        this.scrollPage?.ensureVirtualSelectionRange(path, path);
+        const anchor = { offset: begin, block: this, path };
+        const focus = { offset: end, block: this, path };
 
         if (needUpdate)
             this.update({ anchor, focus, block: this });

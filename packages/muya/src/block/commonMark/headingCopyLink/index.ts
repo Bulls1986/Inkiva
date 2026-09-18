@@ -49,6 +49,14 @@ class HeadingCopyLink extends TreeNode {
             'title': label,
         };
         this.createDomNode();
+        if (this.domNode)
+            this._initializeDomNode();
+    }
+
+    private _initializeDomNode() {
+        const { domNode } = this;
+        if (!domNode)
+            return;
 
         // The button carries the accessible label, so the icon image is purely
         // decorative — an empty `alt` keeps screen readers from announcing it
@@ -57,9 +65,21 @@ class HeadingCopyLink extends TreeNode {
         img.classList.add('mu-icon-inner');
         img.setAttribute('src', formatLinkIcon);
         img.setAttribute('alt', '');
-        this.domNode!.appendChild(img);
-
+        domNode.appendChild(img);
         this._listen();
+    }
+
+    override materializeDomTree() {
+        const wasMaterialized = this.domNode !== null;
+        const domNode = super.materializeDomTree();
+        if (!wasMaterialized && domNode)
+            this._initializeDomNode();
+        return domNode;
+    }
+
+    override dematerializeDomTree(): void {
+        this._detachDOMEvents();
+        super.dematerializeDomTree();
     }
 
     private _listen() {

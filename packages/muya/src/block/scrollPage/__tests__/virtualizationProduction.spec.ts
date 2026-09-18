@@ -38,6 +38,8 @@ describe('stage C1 virtualization production contract', () => {
         expect(snapshot.totalBlocks).toBe(totalBlocks);
         expect(snapshot.mountedBlocks).toBeGreaterThan(0);
         expect(snapshot.mountedBlocks).toBeLessThan(totalBlocks);
+        expect(snapshot.materializedBlocks).toBeLessThan(totalBlocks / 2);
+        expect(snapshot.retainedDetachedDomBlocks).toBeLessThan(16);
     });
 
     it('keeps a collapsed active block pinned without expanding the DOM across the whole gap', async () => {

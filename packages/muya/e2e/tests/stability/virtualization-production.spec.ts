@@ -126,6 +126,8 @@ test.describe('Stage C1 virtualization productionization', () => {
         expect(initial.enabled).toBe(true);
         expect(initial.totalBlocks).toBe(TOTAL_BLOCKS);
         expect(initial.mountedBlocks).toBeLessThan(TOTAL_BLOCKS);
+        expect(initial.materializedBlocks).toBeLessThan(TOTAL_BLOCKS / 2);
+        expect(initial.retainedDetachedDomBlocks).toBeLessThan(16);
 
         await page.evaluate(() => {
             const editor = document.querySelector<HTMLElement>('#editor')!;
