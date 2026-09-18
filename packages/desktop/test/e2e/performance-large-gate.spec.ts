@@ -37,6 +37,7 @@ import {
   expectNoRendererErrors,
   getRendererErrors,
   launchElectron,
+  placeCaretAtTextBoundary,
   placeCaretInEditor,
   sendIpcFromRenderer,
   sendIpcToRenderer,
@@ -281,9 +282,10 @@ const readMaxEventLoopLag = async (page: Page): Promise<number> =>
   })
 
 const measureInput = async (page: Page, metric?: string, iteration = 0): Promise<number> => {
-  await placeCaretInEditor(page)
+  await placeCaretAtTextBoundary(page)
   const beforeCount = await readInputCount(page)
-  await page.keyboard.insertText('large-gate-input-' + iteration)
+  const inputToken = 'large-gate-input-' + iteration
+  await page.keyboard.insertText(inputToken)
   await page.waitForFunction(
     (count) => {
       const state = (globalThis as typeof globalThis & { __inkiva_large_gate_probe__?: GateProbe })
@@ -297,6 +299,13 @@ const measureInput = async (page: Page, metric?: string, iteration = 0): Promise
   if (duration === undefined) {
     throw new Error('Event Timing did not produce a real input sample')
   }
+
+  // Event Timing alone only proves that Chromium observed the input event.
+  // The performance sample is valid only after Muya has committed the same
+  // input into its Markdown model. This synchronization is deliberately
+  // outside the measured duration.
+  await expect.poll(() => readCurrentMarkdown(page), { timeout: 5000 }).toContain(inputToken)
+
   if (metric) await recordSample(page, metric, 'ms', duration)
   return duration
 }

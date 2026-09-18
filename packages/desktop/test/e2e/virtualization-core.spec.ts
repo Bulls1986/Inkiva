@@ -119,6 +119,94 @@ test.describe('Render Surface 2.0 — Electron core interaction gate', () => {
     await expectNoRendererErrors(app)
   })
 
+  test('composition pins the active block across a distant viewport recalculation and commits CJK text', async() => {
+    const before = await readStoreMarkdown(page)
+
+    await page.evaluate(() => {
+      const node = document.querySelector<HTMLElement>(
+        '.editor-component span.mu-paragraph-content'
+      )
+      if (!node) throw new Error('visible paragraph content was not found')
+
+      const topLevel = node.closest<HTMLElement>('.mu-paragraph')
+      if (!topLevel) throw new Error('top-level paragraph was not found')
+      topLevel.dataset.imeVirtualizationProbe = 'true'
+
+      node.focus()
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT)
+      const textNode = walker.nextNode()
+      if (!(textNode instanceof Text)) throw new Error('paragraph text node was not found')
+      const range = document.createRange()
+      range.setStart(textNode, textNode.data.length)
+      range.collapse(true)
+      const selection = document.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+
+      node.dispatchEvent(
+        new CompositionEvent('compositionstart', {
+          bubbles: true,
+          cancelable: true,
+          data: ''
+        })
+      )
+      node.textContent = `${node.textContent ?? ''}你`
+      node.dispatchEvent(
+        new InputEvent('input', {
+          bubbles: true,
+          cancelable: true,
+          data: '你',
+          inputType: 'insertCompositionText',
+          isComposing: true
+        })
+      )
+    })
+
+    // Synthetic composition only verifies the editor lifecycle. Native Windows/
+    // macOS IME candidate windows remain a separate platform acceptance gate.
+    expect(await readStoreMarkdown(page)).toBe(before)
+
+    await page.evaluate(() => {
+      const editor = document.querySelector<HTMLElement>('.editor-component')
+      if (!editor) throw new Error('editor scroll surface is missing')
+      editor.scrollTop = editor.scrollHeight
+      editor.dispatchEvent(new Event('scroll'))
+    })
+    await page.waitForTimeout(120)
+
+    await expect.poll(() => page.locator('[data-ime-virtualization-probe="true"]').count()).toBe(1)
+    await expectBoundedVirtualization(page)
+
+    await page.evaluate(() => {
+      const node = document.querySelector<HTMLElement>(
+        '[data-ime-virtualization-probe="true"] span.mu-paragraph-content'
+      )
+      if (!node) throw new Error('composition block was unmounted')
+
+      const textNode = node.firstChild
+      if (textNode instanceof Text) {
+        const range = document.createRange()
+        range.setStart(textNode, textNode.data.length)
+        range.collapse(true)
+        const selection = document.getSelection()
+        selection?.removeAllRanges()
+        selection?.addRange(range)
+      }
+
+      node.dispatchEvent(
+        new CompositionEvent('compositionend', {
+          bubbles: true,
+          cancelable: true,
+          data: '你'
+        })
+      )
+    })
+
+    await expect.poll(() => readStoreMarkdown(page), { timeout: 5000 }).toContain('paragraph 0你')
+    await expectBoundedVirtualization(page)
+    await expectNoRendererErrors(app)
+  })
+
   test('Find mounts an offscreen result and top-bottom-top scrolling remains bounded with no blank surface', async() => {
     await sendIpcToRenderer(app, 'mt::editor-edit-action', 'find')
     const input = page.locator('.search-bar .search input')
