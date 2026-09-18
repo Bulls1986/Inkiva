@@ -112,7 +112,7 @@ function stateSignature(state: TState[]): string | null {
     }
 }
 
-function estimateStateHeight(state: TState): number {
+function estimateStateHeight(state: TState, viewportWidth?: number): number {
     if ('text' in state) {
         const text = state.text || '';
         let explicitLines = 1;
@@ -120,7 +120,14 @@ function estimateStateHeight(state: TState): number {
             if (character === '\n')
                 explicitLines += 1;
         }
-        const lines = Math.max(1, explicitLines, Math.ceil(text.length / 88));
+        // The original 88-char estimate roughly matches an ~880px editor line.
+        // Scale it with the live viewport width for virtualized documents so a
+        // responsive width change invalidates offscreen spacer geometry instead
+        // of preserving stale heights from the previous layout.
+        const estimatedCharsPerLine = viewportWidth
+            ? Math.max(24, Math.min(160, Math.floor((viewportWidth / 880) * 88)))
+            : 88;
+        const lines = Math.max(1, explicitLines, Math.ceil(text.length / estimatedCharsPerLine));
 
         if (state.name === 'diagram')
             return 192;
@@ -132,7 +139,7 @@ function estimateStateHeight(state: TState): number {
 
     if ('children' in state && Array.isArray(state.children)) {
         const childrenHeight = state.children.reduce(
-            (height, child) => height + estimateStateHeight(child),
+            (height, child) => height + estimateStateHeight(child, viewportWidth),
             0,
         );
         return Math.max(PROGRESSIVE_RENDER_LINE_HEIGHT_PX, childrenHeight);
@@ -400,9 +407,22 @@ export class ScrollPage extends Parent {
                 container.clientHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX,
             );
         };
-        const resizeHandler = () => handler();
+        const resizeHandler = () => {
+            const previousScrollTop = container.scrollTop;
+            const anchorIndex = this._virtualIndexAtOffset(previousScrollTop);
+            const anchorOffset = previousScrollTop - (this._virtualOffsets[anchorIndex] ?? 0);
+            this._rebuildVirtualOffsets(this._virtualStates, container.clientWidth || undefined);
+            const correctedScrollTop = Math.max(
+                0,
+                (this._virtualOffsets[anchorIndex] ?? 0) + anchorOffset,
+            );
+            if (Math.abs(container.scrollTop - correctedScrollTop) > 1)
+                container.scrollTop = correctedScrollTop;
+            handler();
+        };
         this._virtualScrollContainer = container;
         this._virtualScrollHandler = handler;
+        this._rebuildVirtualOffsets(this._virtualStates, container.clientWidth || undefined);
         container.addEventListener('scroll', handler, { passive: true });
         if (typeof ResizeObserver !== 'undefined') {
             this._virtualResizeObserver = new ResizeObserver(resizeHandler);
@@ -444,11 +464,11 @@ export class ScrollPage extends Parent {
         this._publishVirtualizationDiagnostics();
     }
 
-    private _rebuildVirtualOffsets(state: TState[]): void {
+    private _rebuildVirtualOffsets(state: TState[], viewportWidth?: number): void {
         const offsets = Array.from<number>({ length: state.length + 1 });
         offsets[0] = 0;
         for (let index = 0; index < state.length; index += 1)
-            offsets[index + 1] = offsets[index] + estimateStateHeight(state[index]);
+            offsets[index + 1] = offsets[index] + estimateStateHeight(state[index], viewportWidth);
         this._virtualOffsets = offsets;
     }
 

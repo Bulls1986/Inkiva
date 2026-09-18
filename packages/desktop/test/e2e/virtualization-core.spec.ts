@@ -8,7 +8,8 @@ import {
   expectNoRendererErrors,
   launchWithMarkdown,
   placeCaretAtTextBoundary,
-  sendIpcToRenderer
+  sendIpcToRenderer,
+  setSourceMarkdown
 } from './helpers'
 
 const BLOCK_COUNT = 360
@@ -381,6 +382,41 @@ test.describe('Render Surface 2.0 — Electron core interaction gate', () => {
       return paragraph?.textContent ?? null
     })
     expect(restoredCaret).toBe('paragraph 359')
+    await expectBoundedVirtualization(page)
+    await expectNoRendererErrors(app)
+  })
+
+  test('width reflow invalidates virtual height geometry instead of preserving stale spacer estimates', async() => {
+    const longDocument = Array.from({ length: BLOCK_COUNT }, (_, index) =>
+      `paragraph ${index} ${'wrapping-content '.repeat(36)}`
+    ).join('\n\n') + '\n'
+    await setSourceMarkdown(page, app, longDocument)
+    await expect.poll(() => readVirtualization(page), { timeout: 10000 }).toMatchObject({
+      enabled: true,
+      totalBlocks: BLOCK_COUNT
+    })
+
+    const resize = async(width: number): Promise<void> => {
+      await app.evaluate(({ BrowserWindow }, w) => {
+        const win = BrowserWindow.getAllWindows()[0]
+        if (!win) throw new Error('No editor BrowserWindow found')
+        win.setSize(w, 800)
+      }, width)
+      await expect.poll(() => page.evaluate(() => window.innerWidth), { timeout: 5000 }).toBe(width)
+      await page.waitForTimeout(250)
+    }
+    const scrollHeight = (): Promise<number> =>
+      page.locator('.editor-component').evaluate((node) => (node as HTMLElement).scrollHeight)
+
+    await resize(1400)
+    const wideHeight = await scrollHeight()
+    await resize(700)
+    const narrowHeight = await scrollHeight()
+
+    // Every paragraph wraps much more at 700px. A virtual surface whose offscreen
+    // spacers still use the wide/initial estimates only reflects the handful of
+    // currently mounted blocks and severely under-reports total document height.
+    expect(narrowHeight / wideHeight).toBeGreaterThan(1.35)
     await expectBoundedVirtualization(page)
     await expectNoRendererErrors(app)
   })
