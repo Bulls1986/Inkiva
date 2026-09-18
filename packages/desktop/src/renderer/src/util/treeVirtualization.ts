@@ -162,14 +162,19 @@ export const flattenTreeRows = (
   return model.getRows(0, model.totalRows)
 }
 
-export const hasMoreThanTreeRows = (root: TreeNode, limit: number): boolean => {
+export const hasMoreThanTreeRows = (
+  root: TreeNode,
+  limit: number,
+  collapsedPaths: ReadonlySet<string> = new Set(),
+  expandedPaths: ReadonlySet<string> = new Set()
+): boolean => {
   if (!Number.isInteger(limit) || limit < 1) throw new Error('limit must be a positive integer')
   let count = 0
 
   const visitFolder = (folder: TreeFolderNode): boolean => {
     count += 1
     if (count > limit) return true
-    if (folder.isCollapsed === true) return false
+    if (isFolderCollapsed(folder, collapsedPaths, expandedPaths)) return false
     for (const child of folder.folders) {
       if (visitFolder(child)) return true
     }

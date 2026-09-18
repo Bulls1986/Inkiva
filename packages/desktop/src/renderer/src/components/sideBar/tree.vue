@@ -104,6 +104,9 @@
         <virtualized-tree
           v-if="isVirtualizedTree"
           :project-tree="projectTree"
+          :collapsed-paths="collapsedPaths"
+          :expanded-paths="expandedPaths"
+          @folder-toggle="handleFolderToggle"
         />
         <template v-else>
         <folder
@@ -111,6 +114,9 @@
           :key="folder.id"
           :folder="folder"
           :depth="depth"
+          :collapsed-paths="collapsedPaths"
+          :expanded-paths="expandedPaths"
+          @folder-toggle="handleFolderToggle"
         />
         <input
           v-show="createCacheDirname === projectTree.pathname"
@@ -199,9 +205,12 @@ const props = defineProps<{
 }>()
 
 const depth = 0
+const collapsedPaths = ref<Set<string>>(new Set())
+const expandedPaths = ref<Set<string>>(new Set())
 
 const isVirtualizedTree = computed(() =>
-  props.projectTree !== null && hasMoreThanTreeRows(props.projectTree, 300)
+  props.projectTree !== null &&
+  hasMoreThanTreeRows(props.projectTree, 300, collapsedPaths.value, expandedPaths.value)
 )
 // Persist the section collapse state (#2421). The tree is rendered under a
 // v-if and is destroyed when the sidebar is closed, so local refs reset to
@@ -232,6 +241,22 @@ const createCacheDirname = computed<string | undefined>(() => {
   const cache = createCache.value as { dirname?: string }
   return cache.dirname
 })
+
+// Folder expansion is shared by the regular and virtualized renderers so a
+// large branch can cross the virtualization threshold without losing state.
+const handleFolderToggle = (pathname: string, collapsed: boolean): void => {
+  const nextCollapsed = new Set(collapsedPaths.value)
+  const nextExpanded = new Set(expandedPaths.value)
+  if (collapsed) {
+    nextCollapsed.add(pathname)
+    nextExpanded.delete(pathname)
+  } else {
+    nextCollapsed.delete(pathname)
+    nextExpanded.add(pathname)
+  }
+  collapsedPaths.value = nextCollapsed
+  expandedPaths.value = nextExpanded
+}
 
 // Methods
 const openFolder = (): void => {

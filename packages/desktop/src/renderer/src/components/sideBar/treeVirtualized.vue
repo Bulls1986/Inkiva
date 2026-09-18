@@ -123,6 +123,12 @@ import type { TreeFileNode, TreeFolderNode, TreeNode } from './types'
 
 const props = defineProps<{
   projectTree: TreeNode
+  collapsedPaths?: ReadonlySet<string>
+  expandedPaths?: ReadonlySet<string>
+}>()
+
+const emit = defineEmits<{
+  (event: 'folder-toggle', pathname: string, collapsed: boolean): void
 }>()
 
 const ROW_HEIGHT = 30
@@ -145,19 +151,21 @@ const { currentFile, tabs } = storeToRefs(editorStore)
 const viewport = ref<HTMLDivElement | null>(null)
 const scrollTop = ref(0)
 const viewportHeight = ref(DEFAULT_VIEWPORT_HEIGHT)
-const collapsedPaths = ref<Set<string>>(new Set())
-const expandedPaths = ref<Set<string>>(new Set())
 const renameName = ref('')
 const createName = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
 const createInput = ref<HTMLInputElement | null>(null)
 
 const isFolderCollapsed = (folder: TreeFolderNode): boolean =>
-  collapsedPaths.value.has(folder.pathname) ||
-  (folder.isCollapsed === true && !expandedPaths.value.has(folder.pathname))
+  (props.collapsedPaths?.has(folder.pathname) ?? false) ||
+  (folder.isCollapsed === true && !(props.expandedPaths?.has(folder.pathname) ?? false))
 
 const treeModel = computed(() =>
-  createTreeRowModel(props.projectTree, collapsedPaths.value, expandedPaths.value)
+  createTreeRowModel(
+    props.projectTree,
+    props.collapsedPaths ?? new Set<string>(),
+    props.expandedPaths ?? new Set<string>()
+  )
 )
 const createPath = computed<string | undefined>(() => {
   const cache = createCache.value as { dirname?: string }
@@ -236,17 +244,7 @@ const handleScroll = (event: Event): void => {
 }
 
 const toggleFolder = (folder: TreeFolderNode): void => {
-  const nextCollapsed = new Set(collapsedPaths.value)
-  const nextExpanded = new Set(expandedPaths.value)
-  if (isFolderCollapsed(folder)) {
-    nextCollapsed.delete(folder.pathname)
-    nextExpanded.add(folder.pathname)
-  } else {
-    nextCollapsed.add(folder.pathname)
-    nextExpanded.delete(folder.pathname)
-  }
-  collapsedPaths.value = nextCollapsed
-  expandedPaths.value = nextExpanded
+  emit('folder-toggle', folder.pathname, !isFolderCollapsed(folder))
 }
 
 const handleFolderKeydown = (event: KeyboardEvent, folder: TreeFolderNode): void => {

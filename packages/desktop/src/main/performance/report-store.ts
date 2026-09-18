@@ -1,5 +1,6 @@
-import { mkdir as createDirectory, writeFile as writeTextFile } from 'node:fs/promises'
+import { mkdir as createDirectory } from 'node:fs/promises'
 import { join } from 'node:path'
+import writeFileAtomic from 'write-file-atomic'
 import {
   PERFORMANCE_TRACE_SCHEMA_VERSION,
   type PerformanceEvent,
@@ -96,7 +97,12 @@ const defaultFileSystem: PerformanceReportFileSystem = {
     await createDirectory(directory, options)
   },
   writeFile: async(filePath, content, options) => {
-    await writeTextFile(filePath, content, options)
+    // Publish category reports atomically. The large performance gate reads
+    // these files immediately after Electron exits; a plain write can expose
+    // the final pathname before all JSON bytes have reached disk, allowing the
+    // collector to observe a truncated document. write-file-atomic writes and
+    // fsyncs a sibling temp file before replacing the destination.
+    await writeFileAtomic(filePath, content, options)
   }
 }
 
@@ -268,8 +274,8 @@ export class PerformanceReportWriter {
       let content: string
 
       try {
-        // One JSON.stringify call produces the complete document passed to
-        // writeFile. No streaming or partial report writes are used.
+        // One JSON.stringify call produces the complete document; the default
+        // writer publishes it atomically so readers never observe partial JSON.
         content = `${JSON.stringify(categoryReport, null, 2)}\n`
       } catch (error) {
         return {

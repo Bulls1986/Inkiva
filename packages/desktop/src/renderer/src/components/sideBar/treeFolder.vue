@@ -43,6 +43,9 @@
         :key="childFolder.id"
         :folder="childFolder"
         :depth="depth + 1"
+        :collapsed-paths="props.collapsedPaths"
+        :expanded-paths="props.expandedPaths"
+        @folder-toggle="forwardFolderToggle"
       />
       <input
         v-if="createCache.dirname === folder.pathname"
@@ -64,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useProjectStore } from '@/store/project'
 import { showContextMenu } from '../../contextMenu/sideBar'
@@ -76,6 +79,12 @@ import type { TreeFolderNode } from './types'
 const props = defineProps<{
   folder: TreeFolderNode
   depth: number
+  collapsedPaths?: ReadonlySet<string>
+  expandedPaths?: ReadonlySet<string>
+}>()
+
+const emit = defineEmits<{
+  (event: 'folder-toggle', pathname: string, collapsed: boolean): void
 }>()
 
 const projectStore = useProjectStore()
@@ -87,8 +96,10 @@ const folderEl = ref<HTMLDivElement | null>(null)
 const renameInput = ref<HTMLInputElement | null>(null)
 const input = ref<HTMLInputElement | null>(null)
 
-// Use a local reactive state for isCollapsed that syncs with the prop
-const isCollapsed = ref<boolean>(!!props.folder.isCollapsed)
+const isCollapsed = computed<boolean>(() =>
+  (props.collapsedPaths?.has(props.folder.pathname) ?? false) ||
+  (props.folder.isCollapsed === true && !(props.expandedPaths?.has(props.folder.pathname) ?? false))
+)
 
 const { renameCache } = storeToRefs(projectStore)
 const { createCache } = storeToRefs(projectStore)
@@ -102,7 +113,7 @@ const handleInputFocus = (): void => {
   // is null while collapsed, so New File on a collapsed folder did nothing
   // (#3439).
   if (createCache.value.dirname !== props.folder.pathname) return
-  isCollapsed.value = false
+  if (isCollapsed.value) emit('folder-toggle', props.folder.pathname, false)
   nextTick(() => {
     if (input.value) {
       input.value.focus()
@@ -116,7 +127,11 @@ const handleInputEnter = (): void => {
 }
 
 const folderNameClick = (): void => {
-  isCollapsed.value = !isCollapsed.value
+  emit('folder-toggle', props.folder.pathname, !isCollapsed.value)
+}
+
+const forwardFolderToggle = (pathname: string, collapsed: boolean): void => {
+  emit('folder-toggle', pathname, collapsed)
 }
 
 const handleFolderKeydown = (event: KeyboardEvent): void => {
