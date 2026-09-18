@@ -1,6 +1,7 @@
 import type { Doc, JSONOp, JSONOpList, Path } from 'ot-json1';
 import type { Muya } from '../muya';
 import type { TDiff } from '../utils';
+import type { DocumentMutationKind } from './tocChange';
 import type { TState } from './types';
 import * as json1 from 'ot-json1';
 import { deepClone } from '../utils';
@@ -85,6 +86,23 @@ class JSONState {
         if (op === null)
             return;
         this._state = asState(json1.type.apply(asDoc(this._state), op));
+    }
+
+    private _buildHistoryInverse(
+        op: JSONOp,
+        previousState: TState[],
+        mutationKind: DocumentMutationKind,
+    ): JSONOpList | undefined {
+        // C1 is intentionally limited to structural edits: text and diagram
+        // mutations keep their existing History inversion path. Structural ops
+        // may need document context, so compute their inverse while the
+        // authoritative pre-change state is still available. This walks only
+        // the operation paths instead of forcing History to deep-clone the full
+        // document through `prevDoc` on every structural edit.
+        if (op === null || mutationKind !== 'structural')
+            return undefined;
+
+        return (json1.type.invertWithDoc(op, asDoc(previousState)) as JSONOpList | null) ?? undefined;
     }
 
     setContent(content: TState[] | string) {
@@ -308,6 +326,9 @@ class JSONState {
         const previousState = this._state;
         const tocChanged = isTopLevelTocChange(op, previousState);
         const mutationKind = classifyDocumentMutation(op, previousState, tocChanged);
+        let cachedInverseOp: JSONOpList | undefined;
+        const getInverseOp = () =>
+            (cachedInverseOp ??= this._buildHistoryInverse(op, previousState, mutationKind));
         this._apply(op);
         const getDoc = () => this.getState();
         let previousSnapshot: TState[] | undefined;
@@ -317,6 +338,9 @@ class JSONState {
             source,
             tocChanged,
             mutationKind,
+            get inverseOp() {
+                return getInverseOp();
+            },
             get prevDoc() {
                 return (previousSnapshot ??= deepClone(previousState));
             },
@@ -417,6 +441,9 @@ class JSONState {
         const previousState = this._state;
         const tocChanged = isTopLevelTocChange(op, previousState);
         const mutationKind = classifyDocumentMutation(op, previousState, tocChanged);
+        let cachedInverseOp: JSONOpList | undefined;
+        const getInverseOp = () =>
+            (cachedInverseOp ??= this._buildHistoryInverse(op, previousState, mutationKind));
         this._apply(op);
         this._muya.editor?.scrollPage?.setRenderedState(this._state);
         const getDoc = () => this.getState();
@@ -433,6 +460,9 @@ class JSONState {
             source: 'user',
             tocChanged,
             mutationKind,
+            get inverseOp() {
+                return getInverseOp();
+            },
             get prevDoc() {
                 return (previousSnapshot ??= deepClone(previousState));
             },
