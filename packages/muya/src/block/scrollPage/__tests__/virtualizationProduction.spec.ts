@@ -40,6 +40,14 @@ describe('stage C1 virtualization production contract', () => {
         expect(snapshot.mountedBlocks).toBeLessThan(totalBlocks);
         expect(snapshot.materializedBlocks).toBeLessThan(totalBlocks / 2);
         expect(snapshot.retainedDetachedDomBlocks).toBeLessThan(16);
+        expect(muya.editor.scrollPage!.domNode!.dataset.virtualizationEnabled).toBe('true');
+        expect(Number(muya.editor.scrollPage!.domNode!.dataset.virtualTotalBlocks)).toBe(totalBlocks);
+        expect(Number(muya.editor.scrollPage!.domNode!.dataset.virtualMaterializedBlocks)).toBe(
+            snapshot.materializedBlocks,
+        );
+        expect(Number(muya.editor.scrollPage!.domNode!.dataset.virtualRetainedDetachedBlocks)).toBe(
+            snapshot.retainedDetachedDomBlocks,
+        );
     });
 
     it('keeps a collapsed active block pinned without expanding the DOM across the whole gap', async () => {

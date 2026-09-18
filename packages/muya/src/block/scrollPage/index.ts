@@ -440,6 +440,7 @@ export class ScrollPage extends Parent {
         this._virtualAfterSpacer = null;
         this._virtualLastScrollTop = 0;
         this._virtualLastViewportHeight = VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX;
+        this._publishVirtualizationDiagnostics();
     }
 
     private _rebuildVirtualOffsets(state: TState[]): void {
@@ -644,6 +645,7 @@ export class ScrollPage extends Parent {
             this._virtualWindowStart,
             Math.min(end, this._virtualBlocks.length),
         );
+        this._publishVirtualizationDiagnostics();
     }
 
     updateVirtualWindowForViewport(scrollTop: number, viewportHeight: number): void {
@@ -722,6 +724,32 @@ export class ScrollPage extends Parent {
 
     getVirtualizationPrototypeSnapshot(): IVirtualizationSnapshot {
         return this.getVirtualizationSnapshot();
+    }
+
+    private _publishVirtualizationDiagnostics(): void {
+        const { domNode } = this;
+        if (!domNode)
+            return;
+
+        if (!this._virtualizationEnabled) {
+            delete domNode.dataset.virtualizationEnabled;
+            delete domNode.dataset.virtualTotalBlocks;
+            delete domNode.dataset.virtualMountedBlocks;
+            delete domNode.dataset.virtualMaterializedBlocks;
+            delete domNode.dataset.virtualRetainedDetachedBlocks;
+            delete domNode.dataset.virtualWindowStart;
+            delete domNode.dataset.virtualWindowEnd;
+            return;
+        }
+
+        const snapshot = this.getVirtualizationSnapshot();
+        domNode.dataset.virtualizationEnabled = 'true';
+        domNode.dataset.virtualTotalBlocks = String(snapshot.totalBlocks);
+        domNode.dataset.virtualMountedBlocks = String(snapshot.mountedBlocks);
+        domNode.dataset.virtualMaterializedBlocks = String(snapshot.materializedBlocks);
+        domNode.dataset.virtualRetainedDetachedBlocks = String(snapshot.retainedDetachedDomBlocks);
+        domNode.dataset.virtualWindowStart = String(snapshot.windowStart);
+        domNode.dataset.virtualWindowEnd = String(snapshot.windowEnd);
     }
 
     private _startProgressiveRender(

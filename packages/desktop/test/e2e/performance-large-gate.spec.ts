@@ -71,6 +71,15 @@ interface GateProbe {
   inputObserver?: PerformanceObserver
 }
 
+interface VirtualizationDiagnostics {
+  totalBlocks: number
+  mountedBlocks: number
+  materializedBlocks: number
+  retainedDetachedDomBlocks: number
+  editorDomNodes: number
+  totalDomNodes: number
+}
+
 interface WorkspaceData {
   root: string
   firstFile: string
@@ -363,6 +372,75 @@ const collectFrameDurations = async(page: Page): Promise<number[]> =>
       })
   )
 
+const readVirtualizationDiagnostics = async(page: Page): Promise<VirtualizationDiagnostics> =>
+  await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>('.mu-container[data-virtualization-enabled="true"]')
+    if (!root) throw new Error('virtualized editor diagnostics are unavailable')
+
+    const readCount = (name: string): number => {
+      const value = Number(root.dataset[name])
+      if (!Number.isFinite(value) || value < 0) {
+        throw new Error('invalid virtualization diagnostic: ' + name + '=' + String(root.dataset[name]))
+      }
+      return value
+    }
+
+    return {
+      totalBlocks: readCount('virtualTotalBlocks'),
+      mountedBlocks: readCount('virtualMountedBlocks'),
+      materializedBlocks: readCount('virtualMaterializedBlocks'),
+      retainedDetachedDomBlocks: readCount('virtualRetainedDetachedBlocks'),
+      editorDomNodes: root.querySelectorAll('*').length + 1,
+      totalDomNodes: document.querySelectorAll('*').length
+    }
+  })
+
+const recordVirtualizationDiagnostics = async(
+  page: Page,
+  tier: MarkdownDocumentTier
+): Promise<void> => {
+  if (tier !== '50k' && tier !== '500k' && tier !== '1m') return
+  const diagnostics = await readVirtualizationDiagnostics(page)
+  if (diagnostics.totalBlocks <= 0) throw new Error('virtualization total block count is empty')
+  if (diagnostics.mountedBlocks >= diagnostics.totalBlocks) {
+    throw new Error(
+      'virtualization mounted block count is not bounded: ' +
+        String(diagnostics.mountedBlocks) + '/' + String(diagnostics.totalBlocks)
+    )
+  }
+  if (diagnostics.materializedBlocks >= diagnostics.totalBlocks) {
+    throw new Error(
+      'virtualization materialized block count is not bounded: ' +
+        String(diagnostics.materializedBlocks) + '/' + String(diagnostics.totalBlocks)
+    )
+  }
+
+  const prefix = 'virtualization.' + tier + '.'
+  await recordSample(page, prefix + 'totalBlocks', 'count', diagnostics.totalBlocks)
+  await recordSample(page, prefix + 'mountedBlocks', 'count', diagnostics.mountedBlocks)
+  await recordSample(page, prefix + 'materializedBlocks', 'count', diagnostics.materializedBlocks)
+  await recordSample(
+    page,
+    prefix + 'retainedDetachedDomBlocks',
+    'count',
+    diagnostics.retainedDetachedDomBlocks
+  )
+  await recordSample(page, prefix + 'editorDomNodes', 'count', diagnostics.editorDomNodes)
+  await recordSample(page, prefix + 'totalDomNodes', 'count', diagnostics.totalDomNodes)
+  await recordSample(
+    page,
+    prefix + 'mountedRatio',
+    'ratio',
+    diagnostics.mountedBlocks / diagnostics.totalBlocks
+  )
+  await recordSample(
+    page,
+    prefix + 'materializedRatio',
+    'ratio',
+    diagnostics.materializedBlocks / diagnostics.totalBlocks
+  )
+}
+
 const readCurrentPath = async(page: Page): Promise<string | null> =>
   await page.evaluate(() => {
     const root = document.querySelector('#app') as
@@ -574,6 +652,12 @@ const collectDocumentTier = async(
     app = launched.app
     const { page } = launched
     await installGateProbe(page)
+    const selectionRangeErrors: string[] = []
+    page.on('pageerror', (error) => {
+      if (/InvalidStateError|Selection|Range/i.test(error.message)) {
+        selectionRangeErrors.push(error.message)
+      }
+    })
     await page.waitForSelector('.editor-component', { state: 'visible', timeout: 180000 })
     await waitForEditor(page, 180000)
     const initialMilestones = await readEditorMilestones(page)
@@ -607,6 +691,9 @@ const collectDocumentTier = async(
           'document-open'
         )
       }
+
+      await recordVirtualizationDiagnostics(page, tier)
+      const selectionErrorCountBefore = selectionRangeErrors.length
 
       await showSidebarPanel(app!, page, 'files')
       const outlineDuration = await measurePageAction(page, async() => {
@@ -727,6 +814,22 @@ const collectDocumentTier = async(
 
         const saveWhileEditing = await measureSaveEditorLock(page, app!, index + 1000)
         await recordSample(page, 'save.editorLock', 'count', saveWhileEditing, 'autosave')
+      }
+
+      if (tier === '50k' || tier === '500k' || tier === '1m') {
+        const selectionRangeExceptionCount = selectionRangeErrors.length - selectionErrorCountBefore
+        await recordSample(
+          page,
+          'virtualization.' + tier + '.selectionRangeException',
+          'count',
+          selectionRangeExceptionCount
+        )
+        if (selectionRangeExceptionCount > 0) {
+          throw new Error(
+            'virtualization selection/range exception: ' +
+              selectionRangeErrors.slice(selectionErrorCountBefore).join(' | ')
+          )
+        }
       }
     }
   } finally {
