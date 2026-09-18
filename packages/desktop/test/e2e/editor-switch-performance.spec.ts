@@ -253,8 +253,9 @@ test.describe('editor switch rebuild performance', () => {
       expect(snapshotMetrics.wordCount.misses).toBeLessThanOrEqual(snapshotMetrics.markdown.misses)
       expect(snapshotMetrics.blocks.misses).toBeLessThanOrEqual(snapshotMetrics.markdown.misses)
 
+      // The close handshake may synchronously destroy the renderer. Sending
+      // the IPC is the assertion boundary; do not touch the page afterwards.
       await sendIpcToRenderer(app, 'mt::ask-for-close')
-      await page.waitForTimeout(100)
     } finally {
       await app.close()
     }
