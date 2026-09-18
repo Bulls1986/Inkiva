@@ -118,6 +118,7 @@ import EditorSearch from '../search/index.vue'
 import bus from '@/bus'
 import { DEFAULT_EDITOR_FONT_FAMILY, DEFAULT_CODE_FONT_FAMILY } from '@/config'
 import notice from '@/services/notification'
+import { documentRevisionSnapshots } from '@/services/documentRevisionSnapshot'
 import Printer from '@/services/printService'
 import { SpellcheckerLanguageCommand } from '@/commands'
 import { SpellChecker } from '@/spellchecker'
@@ -143,10 +144,7 @@ import {
   getEditorMutationPolicy,
   type EditorSnapshotMode
 } from './editorHotPath'
-import {
-  rendererPerformance,
-  rendererPerformanceMonitor
-} from '@/services/performance/runtime'
+import { rendererPerformance, rendererPerformanceMonitor } from '@/services/performance/runtime'
 import { createInputParseProbe } from '@/services/performance/inputParse'
 import { scheduleEditorPerformanceMilestones } from './editorPerformanceMilestones'
 
@@ -341,13 +339,13 @@ const flushActiveEditorForTabSwitch = () => {
   if (id) editorSnapshotScheduler.flush(id, 'switch')
 }
 
-// The engine's undo/redo history (`getHistory()`) has a different shape than
-// the desktop store's `tab.history` (which drives the save/dirty tracking and
-// is migrated separately). We therefore keep the real engine history in a
-// per-tab map here for restoration across in-session tab switches, and feed the
-// store a SYNTHETIC desktop-shaped history.
-const engineHistoryByTab = new Map<string, unknown>()
-const serializedMarkdownByTab = new Map<string, { revision: number; markdown: string }>()
+// Engine undo/redo state and the desktop save/dirty history are derived from
+// the same authoritative document revision. Keep them in one revision snapshot
+// so tab restore and dirty tracking cannot silently observe different content.
+interface EditorHistoryRevisionSnapshot {
+  engineHistory: unknown
+  syntheticHistory: IFileHistoryLike
+}
 
 // The WYSIWYG caret captured the instant the user switches INTO source mode.
 // Focus moves to CodeMirror while source mode is up, so by the time the tab is
@@ -379,8 +377,8 @@ const getSyntheticHistory = (id: string, baselineContent: string): SyntheticHist
 const resetSyntheticHistory = (id: string, baselineContent: string): void => {
   syntheticHistoryByTab.set(id, new SyntheticHistory(baselineContent))
 }
-const makeSyntheticHistory = (id: string, content: string): IFileHistoryLike => {
-  return getSyntheticHistory(id, content).build(content)
+const makeSyntheticHistory = (id: string, content: string, revision: number): IFileHistoryLike => {
+  return getSyntheticHistory(id, content).build(content, revision)
 }
 
 const recordEditorMarkdownSerialization = (revision?: number): void => {
@@ -414,14 +412,10 @@ const serializeEditorMarkdownForRevision = (
   id: string,
   revision: number,
   instance: MuyaInstance
-): string => {
-  const cached = serializedMarkdownByTab.get(id)
-  if (cached?.revision === revision) return cached.markdown
-
-  const markdown = serializeEditorMarkdown(instance, revision)
-  serializedMarkdownByTab.set(id, { revision, markdown })
-  return markdown
-}
+): string =>
+  documentRevisionSnapshots.getMarkdown(id, revision, () =>
+    serializeEditorMarkdown(instance, revision)
+  )
 
 const captureEditorSnapshot = (
   id: string,
@@ -429,27 +423,40 @@ const captureEditorSnapshot = (
   mode: EditorSnapshotMode = 'full'
 ): void => {
   if (!currentFile.value || currentFile.value.id !== id || !editor.value) return
+  if (documentRevisionSnapshots.currentRevision(id) !== revision) return
 
-  const markdown = serializeEditorMarkdownForRevision(id, revision, editor.value)
-  const engineHistory = editor.value.getHistory()
-  engineHistoryByTab.set(id, engineHistory)
+  const instance = editor.value
+  const markdown = serializeEditorMarkdownForRevision(id, revision, instance)
+  const historySnapshot = documentRevisionSnapshots.getHistoryMeta<EditorHistoryRevisionSnapshot>(
+    id,
+    revision,
+    () => ({
+      engineHistory: instance.getHistory(),
+      syntheticHistory: makeSyntheticHistory(id, markdown, revision)
+    })
+  )
   const includeDerivedMetadata = mode !== 'persistence'
   const includeBlocks = mode === 'full'
+  const wordCount = includeDerivedMetadata
+    ? documentRevisionSnapshots.getWordCount(id, revision, () => muyaWordCount(markdown))
+    : undefined
+  const blocks = includeBlocks
+    ? documentRevisionSnapshots.getBlocks(
+      id,
+      revision,
+      () => instance.getState(),
+      Math.max(markdown.length * 2, 1)
+    )
+    : null
+
   editorStore.LISTEN_FOR_CONTENT_CHANGE({
     id,
     revision,
     markdown,
-    // Manual save only needs durable Markdown/history/caret. Reuse this same
-    // revision's serialized Markdown when the scheduler enriches UI metadata
-    // later, keeping word counting off the disk-write critical path.
-    wordCount: includeDerivedMetadata ? muyaWordCount(markdown) : undefined,
-    cursor: serializeCursor(editor.value.getSelection()),
-    // Synthetic, desktop-shaped history so the store's save/dirty tracking
-    // keeps working (the engine history shape is incompatible).
-    history: makeSyntheticHistory(id, markdown),
-    // Persistence/switch snapshots invalidate reusable blocks immediately. A
-    // deferred full enrichment repopulates them without reserializing Markdown.
-    blocks: includeBlocks ? editor.value.getState() : null
+    wordCount,
+    cursor: serializeCursor(instance.getSelection()),
+    history: historySnapshot.syntheticHistory,
+    blocks
   })
 }
 // Drop per-tab bookkeeping for tabs that no longer exist. Tab ids are unique
@@ -457,15 +464,10 @@ const captureEditorSnapshot = (
 // each `SyntheticHistory` holds) would grow unbounded as tabs are opened and
 // closed. Driven by a watcher on the store's live tab id set.
 const pruneClosedTabState = (liveTabIds: Set<string>): void => {
-  for (const id of engineHistoryByTab.keys()) {
-    if (!liveTabIds.has(id)) engineHistoryByTab.delete(id)
-  }
-  for (const id of serializedMarkdownByTab.keys()) {
-    if (!liveTabIds.has(id)) serializedMarkdownByTab.delete(id)
-  }
   for (const id of syntheticHistoryByTab.keys()) {
     if (!liveTabIds.has(id)) syntheticHistoryByTab.delete(id)
   }
+  documentRevisionSnapshots.prune(liveTabIds)
 }
 
 interface SelectionFormatLike {
@@ -1309,17 +1311,19 @@ const handleSearch = (payload: unknown) => {
   const requestGeneration = ++searchRequestGeneration
   let revealedFirstMatch = false
 
-  editor.value.searchAsync(value, opt, (result: ReturnType<typeof toSearchMatches>) => {
-    if (requestGeneration !== searchRequestGeneration) return
-    editorStore.SEARCH(toSearchMatches(result))
-    if (!revealedFirstMatch && result.matches.length > 0) {
-      revealedFirstMatch = true
-      scrollToHighlight()
-    }
-  }).catch(() => {
-    if (requestGeneration !== searchRequestGeneration) return
-    editorStore.SEARCH({ index: -1, matches: [], value })
-  })
+  editor.value
+    .searchAsync(value, opt, (result: ReturnType<typeof toSearchMatches>) => {
+      if (requestGeneration !== searchRequestGeneration) return
+      editorStore.SEARCH(toSearchMatches(result))
+      if (!revealedFirstMatch && result.matches.length > 0) {
+        revealedFirstMatch = true
+        scrollToHighlight()
+      }
+    })
+    .catch(() => {
+      if (requestGeneration !== searchRequestGeneration) return
+      editorStore.SEARCH({ index: -1, matches: [], value })
+    })
 }
 
 const handReplace = (payload: unknown) => {
@@ -1594,6 +1598,25 @@ const rememberLastExport = (options: ExportOptions) => {
   }
 }
 
+const getCurrentRevisionMarkdownSnapshot = (): string => {
+  const id = currentFile.value?.id
+  editor.value.flush()
+  if (id) editorSnapshotScheduler.flush(id, 'persistence')
+  const revision = id ? documentRevisionSnapshots.currentRevision(id) : 0
+  return id
+    ? (documentRevisionSnapshots.readMarkdown(id, revision) ??
+        serializeEditorMarkdownForRevision(id, revision, editor.value))
+    : serializeEditorMarkdown(editor.value)
+}
+
+if (window.electron?.process?.env?.PERF_TESTING === 'true') {
+  ;(
+    globalThis as typeof globalThis & {
+      __inkiva_get_export_markdown_snapshot__?: () => string
+    }
+  ).__inkiva_get_export_markdown_snapshot__ = getCurrentRevisionMarkdownSnapshot
+}
+
 const handleExport = async (options: unknown) => {
   const opts = options as ExportOptions
   const { type, headerFooterStyled, htmlTitle } = opts
@@ -1604,7 +1627,7 @@ const handleExport = async (options: unknown) => {
 
   const extraCss = await getCssForOptions(opts as unknown as PdfCssOptions)
   const htmlToc = getHtmlToc(editor.value.getTOC(), opts as unknown as HtmlTocOptions)
-  const markdown = serializeEditorMarkdown(editor.value)
+  const markdown = getCurrentRevisionMarkdownSnapshot()
   const header = (opts.header ?? null) as HeaderFooterPart | null
   const footer = (opts.footer ?? null) as HeaderFooterPart | null
 
@@ -1844,7 +1867,10 @@ const refreshEditorToc = (force = true): void => {
   editorStore.UPDATE_TOC(editor.value.getTOC(), force)
 }
 
-const runWhenEditorRenderComplete = (id: string | undefined, callback: (instance: MuyaInstance) => void): void => {
+const runWhenEditorRenderComplete = (
+  id: string | undefined,
+  callback: (instance: MuyaInstance) => void
+): void => {
   const instance = editor.value
   if (!instance) return
 
@@ -1980,14 +2006,16 @@ const setMarkdownToEditor = (payload: unknown) => {
       editor.value.setContent(newMarkdown ?? '')
       editorLayoutReconciler?.reset(true)
     }
-    // The freshly loaded content is this tab's clean baseline (id 0). Re-seed
-    // the monotonic save-tracking allocator so undoing an edit back to this
-    // content reads as clean again (matches the store's `lastSavedHistoryId: 0`).
-    // Seed from the engine's OWN serialization of the loaded document (not the
-    // raw payload) so it matches the markdown later emitted on `json-change`
-    // — the engine may normalize trailing newlines / whitespace on round-trip.
+    // The freshly loaded content is this tab's clean baseline (id 0). History
+    // comparison needs Muya's normalized serialization, but the authoritative
+    // revision Markdown must stay byte-identical to the loaded source until an
+    // actual content mutation occurs. Keeping those roles separate prevents a
+    // source-mode toggle/save from silently reformatting pristine Markdown.
     if (id) {
-      resetSyntheticHistory(id, serializeEditorMarkdown(editor.value))
+      const revision = documentRevisionSnapshots.currentRevision(id)
+      const normalizedMarkdown = serializeEditorMarkdown(editor.value)
+      resetSyntheticHistory(id, normalizedMarkdown)
+      documentRevisionSnapshots.seedMarkdown(id, revision, newMarkdown ?? currentFile.value?.markdown ?? '')
     }
     if (newCursor) {
       runWhenEditorRenderComplete(id, (instance) => {
@@ -2060,8 +2088,7 @@ const handleFileChange = (payload: unknown) => {
 
   clearPendingScrollRestore()
 
-  const isSourceModeHandoff =
-    isIndexCursor(muyaIndexCursor) && !newCursor && payloadHistory == null
+  const isSourceModeHandoff = isIndexCursor(muyaIndexCursor) && !newCursor && payloadHistory == null
   if (typeof newMarkdown === 'string') {
     beginEditorPerformanceOperation(id)
     // Returning from source-code mode: the WYSIWYG engine is never unmounted
@@ -2164,9 +2191,14 @@ const handleFileChange = (payload: unknown) => {
           }
         })
       }
-      const savedEngineHistory = id ? engineHistoryByTab.get(id) : undefined
-      if (savedEngineHistory) {
-        editor.value.setHistory(savedEngineHistory)
+      const historySnapshot = id
+        ? documentRevisionSnapshots.readHistoryMeta<EditorHistoryRevisionSnapshot>(
+          id,
+          documentRevisionSnapshots.currentRevision(id)
+        )
+        : undefined
+      if (historySnapshot?.engineHistory) {
+        editor.value.setHistory(historySnapshot.engineHistory)
       }
       // First activation of a tab the save-tracking allocator has never seen:
       // seed its clean baseline from the payload already held by the store.
@@ -2372,13 +2404,16 @@ onMounted(() => {
   // `file-loaded` / `setMarkdownToEditor` runs for it — seed its TOC here.
   refreshEditorTocWhenReady(currentFile.value?.id)
 
-  // Seed the save-tracking baseline for the mount-loaded document (from the
-  // engine's OWN serialization, same reason as setMarkdownToEditor). Without
-  // this the allocator is created lazily on the first `json-change` — i.e.
-  // after the first edit — so the pristine content never maps to id 0 and
-  // undoing back to the on-disk content can never read as clean again (PG15).
+  // Seed the save-tracking baseline from Muya's normalized serialization so
+  // undo/redo compares against the engine's own representation. Keep the clean
+  // revision's authoritative Markdown as the exact store/disk source; otherwise
+  // merely entering source mode would rewrite formatting such as table spacing.
   if (currentFile.value?.id) {
-    getSyntheticHistory(currentFile.value.id, serializeEditorMarkdown(muya))
+    const id = currentFile.value.id
+    const revision = documentRevisionSnapshots.currentRevision(id)
+    const normalizedMarkdown = serializeEditorMarkdown(muya)
+    getSyntheticHistory(id, normalizedMarkdown)
+    documentRevisionSnapshots.seedMarkdown(id, revision, currentFile.value.markdown)
   }
 
   const container = getScrollContainer()!

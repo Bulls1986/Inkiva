@@ -36,28 +36,35 @@
 // `setContent` -> edit -> undo round-trip purely in trailing newlines (loading
 // `'x\n'` may serialize to `'x\n\n\n'`, while undoing an edit lands on `'x\n'`),
 // so the content signature must ignore them or undo-to-saved would never match.
-const stripTrailingNewlines = (content: string): string =>
-  content.replace(/[\r\n]+$/, '')
+//
+// This path runs synchronously while save captures the current history revision.
+// Avoid allocating a normalized copy and avoid per-character BigInt arithmetic:
+// two independent 32-bit integer streams plus the normalized length form a
+// compact ~64-bit composite fingerprint while staying on V8's fast integer path.
+const FNV32_OFFSET = 0x811c9dc5
+const FNV32_PRIME = 0x01000193
+const SECOND_OFFSET = 0x9e3779b9
+const SECOND_PRIME = 0x85ebca6b
 
-// A fast, stable 64-bit string hash (FNV-1a) over the trailing-newline-normalized
-// content. Used so the content -> id map stores short keys instead of whole
-// documents; a collision would map two genuinely different documents to the same
-// id and could reintroduce the false-clean it guards against. 64 bits keeps the
-// collision probability negligible even for a long editing session with many
-// thousands of distinct snapshots (a 32-bit hash hits ~50% collision odds near
-// ~77k snapshots via the birthday bound — realistic over a long session — so the
-// extra width is worth the BigInt key).
-const FNV64_OFFSET = 0xcbf29ce484222325n
-const FNV64_PRIME = 0x100000001b3n
-const MASK64 = 0xffffffffffffffffn
-const hashContent = (content: string): bigint => {
-  const normalized = stripTrailingNewlines(content)
-  let hash = FNV64_OFFSET
-  for (let i = 0; i < normalized.length; i++) {
-    hash ^= BigInt(normalized.charCodeAt(i))
-    hash = (hash * FNV64_PRIME) & MASK64
+const hashContent = (content: string): string => {
+  let end = content.length
+  while (end > 0) {
+    const code = content.charCodeAt(end - 1)
+    if (code !== 10 && code !== 13) break
+    end -= 1
   }
-  return hash
+
+  let first = FNV32_OFFSET
+  let second = SECOND_OFFSET
+  for (let i = 0; i < end; i++) {
+    const code = content.charCodeAt(i)
+    first = Math.imul(first ^ code, FNV32_PRIME) >>> 0
+    second = Math.imul(second ^ (code + 0x9e37), SECOND_PRIME) >>> 0
+  }
+
+  return `${end}:${first.toString(16).padStart(8, '0')}:${second
+    .toString(16)
+    .padStart(8, '0')}`
 }
 
 export interface IFileHistoryLike {
@@ -73,7 +80,7 @@ export interface IFileHistoryLike {
 // store's seeded `lastSavedHistoryId: 0` for a freshly loaded/clean document.
 export class SyntheticHistory {
   private counter = 0
-  private readonly idByContent = new Map<bigint, number>()
+  private readonly idByContent = new Map<string, number>()
 
   constructor(baselineContent: string = '') {
     // The freshly-loaded document is its own clean baseline; the store seeds
@@ -97,9 +104,14 @@ export class SyntheticHistory {
   // Build the desktop-shaped synthetic history the store consumes. The store
   // only reads `stack[lastEditIndex].id`; the remaining fields keep its
   // bookkeeping happy (a single committed edit at index 0).
-  build(content: string): IFileHistoryLike {
+  build(content: string, revision?: number): IFileHistoryLike {
     return {
-      stack: [{ id: this.idFor(content) }],
+      stack: [
+        {
+          id: this.idFor(content),
+          ...(typeof revision === 'number' ? { revision } : {})
+        }
+      ],
       index: 0,
       lastEditIndex: 0,
       lastInitIndex: -1
