@@ -833,6 +833,22 @@
           "limit": 0
         },
         {
+          "id": "virtualization-500k-heap-linear-growth-20-count",
+          "metric": "virtualization.500k.heapLinearGrowth20",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "virtualization-1m-heap-linear-growth-20-count",
+          "metric": "virtualization.1m.heapLinearGrowth20",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
           "id": "stability-crash-count",
           "metric": "stability.crash",
           "unit": "count",

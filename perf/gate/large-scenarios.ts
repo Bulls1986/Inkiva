@@ -102,7 +102,9 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
       'undo.fullDomRebuild',
       'memory.single50kDelta',
       'memory.tabs8Delta',
-      'memory.closedTabsEditorDom'
+      'memory.closedTabsEditorDom',
+      'virtualization.500k.heapLinearGrowth20',
+      'virtualization.1m.heapLinearGrowth20'
     ]
   },
   {

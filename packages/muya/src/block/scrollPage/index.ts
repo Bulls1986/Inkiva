@@ -52,6 +52,7 @@ interface IVirtualizationSnapshot {
     mountedBlocks: number;
     materializedBlocks: number;
     retainedDetachedDomBlocks: number;
+    pendingDetachedBlocks: number;
     windowStart: number;
     windowEnd: number;
     beforeHeight: number;
@@ -749,6 +750,16 @@ export class ScrollPage extends Parent {
         );
     }
 
+    private _pendingDetachedBlockCount(): number {
+        let pending = 0;
+        for (let batchIndex = this._detachedBatchIndex; batchIndex < this._detachedBlockBatches.length; batchIndex += 1) {
+            const batch = this._detachedBlockBatches[batchIndex];
+            const startIndex = batchIndex === this._detachedBatchIndex ? this._detachedBlockIndex : 0;
+            pending += Math.max(0, batch.length - startIndex);
+        }
+        return pending;
+    }
+
     getVirtualizationSnapshot(): IVirtualizationSnapshot {
         const totalBlocks = this._virtualBlocks.length;
         const totalEstimatedHeight = this._virtualOffsets[totalBlocks] ?? 0;
@@ -767,6 +778,7 @@ export class ScrollPage extends Parent {
                     return Boolean(domNode && domNode.parentNode !== this.domNode);
                 }).length
                 : 0,
+            pendingDetachedBlocks: this._pendingDetachedBlockCount(),
             windowStart: this._virtualWindowStart,
             windowEnd: this._virtualWindowEnd,
             beforeHeight: this._virtualizationEnabled
@@ -793,12 +805,15 @@ export class ScrollPage extends Parent {
         if (!domNode)
             return;
 
+        domNode.dataset.pendingDetachedBlocks = String(this._pendingDetachedBlockCount());
+
         if (!this._virtualizationEnabled) {
             delete domNode.dataset.virtualizationEnabled;
             delete domNode.dataset.virtualTotalBlocks;
             delete domNode.dataset.virtualMountedBlocks;
             delete domNode.dataset.virtualMaterializedBlocks;
             delete domNode.dataset.virtualRetainedDetachedBlocks;
+            delete domNode.dataset.virtualPendingDetachedBlocks;
             delete domNode.dataset.virtualWindowStart;
             delete domNode.dataset.virtualWindowEnd;
             return;
@@ -810,6 +825,7 @@ export class ScrollPage extends Parent {
         domNode.dataset.virtualMountedBlocks = String(snapshot.mountedBlocks);
         domNode.dataset.virtualMaterializedBlocks = String(snapshot.materializedBlocks);
         domNode.dataset.virtualRetainedDetachedBlocks = String(snapshot.retainedDetachedDomBlocks);
+        domNode.dataset.virtualPendingDetachedBlocks = String(snapshot.pendingDetachedBlocks);
         domNode.dataset.virtualWindowStart = String(snapshot.windowStart);
         domNode.dataset.virtualWindowEnd = String(snapshot.windowEnd);
     }
@@ -978,6 +994,7 @@ export class ScrollPage extends Parent {
             return;
 
         this._detachedBlockBatches.push(blocks);
+        this._publishVirtualizationDiagnostics();
         this._scheduleDetachedDisposal();
     }
 
@@ -1136,6 +1153,7 @@ export class ScrollPage extends Parent {
             this._detachedBatchIndex = 0;
             this._detachedBlockIndex = 0;
         }
+        this._publishVirtualizationDiagnostics();
         this._scheduleDetachedDisposal();
     }
 
@@ -1149,6 +1167,7 @@ export class ScrollPage extends Parent {
         this._detachedBlockBatches = [];
         this._detachedBatchIndex = 0;
         this._detachedBlockIndex = 0;
+        this._publishVirtualizationDiagnostics();
     }
 
     private _cancelProgressiveRender(): void {

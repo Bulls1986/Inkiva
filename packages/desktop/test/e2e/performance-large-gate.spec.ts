@@ -59,6 +59,7 @@ type GatePhase =
 const runLargeGate = process.env.INKIVA_RUN_PERF_LARGE_GATE === 'true'
 const runTreeFocus = process.env.INKIVA_RUN_PERF_TREE_FOCUS === 'true'
 const runTabFocus = process.env.INKIVA_RUN_PERF_TAB_FOCUS === 'true'
+const runVirtualHeapFocus = process.env.INKIVA_RUN_PERF_VIRTUAL_HEAP_FOCUS === 'true'
 const enabledLevels = runLargeGate ? parseLargeGateLevels(process.env.INKIVA_PERF_GATE_LEVELS) : []
 const configuredShard = process.env.INKIVA_PERF_GATE_SHARD
 const SAMPLE_COUNT = LARGE_GATE_SAMPLE_COUNT
@@ -889,6 +890,7 @@ const collectDocumentTier = async (
           )
         }
       }
+
     }
   } finally {
     if (app) {
@@ -1612,6 +1614,61 @@ const collectCombinationSamples = async (
   }
 }
 
+const collectVirtualizedMemoryLeakSamples = async (
+  level: LargeGateLevel,
+  tier: '500k' | '1m',
+  capture: CaptureDirectory
+): Promise<void> => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-virtual-memory-leak-'))
+  const firstPath = path.join(root, 'virtual-memory-first-' + tier + '.md')
+  const cyclePath = path.join(root, 'virtual-memory-cycle-' + tier + '.md')
+  const markdown = createMarkdownFixture(tier).markdown
+  fs.writeFileSync(firstPath, markdown, 'utf8')
+  fs.writeFileSync(cyclePath, markdown, 'utf8')
+  let app: ElectronApplication | undefined
+
+  try {
+    const launched = await launchCaptured([firstPath], capture, 240000)
+    app = launched.app
+    const { page } = launched
+    await waitForEditor(page, 240000)
+    const metricPrefix = 'virtualization.' + tier + '.'
+    const metricMap: Record<string, string> = {
+      'memory.heapUsed': metricPrefix + 'heapUsed',
+      'memory.heapGrowth50': metricPrefix + 'heapGrowth10',
+      'memory.heapLinearGrowth': metricPrefix + 'heapLinearGrowth10',
+      'memory.heapLinearGrowth200': metricPrefix + 'heapLinearGrowth20'
+    }
+    const evaluation = await collectMemoryLeakCycleSamples({
+      app,
+      page,
+      firstPath,
+      cyclePath,
+      cycleCount: 20,
+      // Closed-tab history intentionally retains the latest 10 documents,
+      // including markdown. Fill that bounded product cache before measuring so
+      // the leak series observes post-cap retention rather than expected warm-up.
+      warmupCycleCount: 10,
+      recordHeapSamples: true,
+      waitForDetachedDisposal: true,
+      evaluationOptions: {
+        shortWindowSize: 10,
+        longWindowSize: 20
+      },
+      recordSample: (metric, unit, value) =>
+        recordSample(page, metricMap[metric] ?? metricPrefix + metric, unit, value, 'memory')
+    })
+    expect(evaluation.linearGrowth200).toBe(false)
+    await expectNoRendererErrors(app)
+  } finally {
+    if (app) {
+      await closeElectron(app, 30_000)
+      appendCapture(capture.directory, level)
+    }
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 const collectMemoryLeakSamples = async (
   level: LargeGateLevel,
   capture: CaptureDirectory
@@ -1625,6 +1682,11 @@ const collectMemoryLeakSamples = async (
   let app: ElectronApplication | undefined
 
   try {
+    if (level === 'P1') {
+      await collectVirtualizedMemoryLeakSamples(level, '500k', capture)
+      await collectVirtualizedMemoryLeakSamples(level, '1m', capture)
+    }
+
     const launched = await launchCaptured([firstPath], capture, 180000)
     app = launched.app
     const { page } = launched
@@ -1634,6 +1696,8 @@ const collectMemoryLeakSamples = async (
       page,
       firstPath,
       cyclePath,
+      recordHeapSamples: true,
+      waitForDetachedDisposal: true,
       recordSample: (metric, unit, value) => recordSample(page, metric, unit, value, 'memory')
     })
     await expectNoRendererErrors(app)
@@ -1772,6 +1836,23 @@ test.describe('@perf-gate-tab-focus focused diagnostic', () => {
       // Diagnostic-only loop: skip repeated open sampling and exercise two
       // lifecycle transitions. The real P1 gate keeps the 20-sample defaults.
       await collectTabSamples('P1', capture, '50k', 0, 2)
+    } finally {
+      capture.cleanup()
+    }
+  })
+})
+
+test.describe('@perf-gate-virtual-heap focused diagnostic', () => {
+  test.skip(!runVirtualHeapFocus, 'Run with INKIVA_RUN_PERF_VIRTUAL_HEAP_FOCUS=true')
+  test.setTimeout(3_600_000)
+
+  test('500k and 1m virtualized open/edit/close cycles have no linear post-GC heap growth', async () => {
+    const capture = createCaptureDirectory()
+    try {
+      clearCaptureFiles(capture.directory, 'P1')
+      for (const tier of ['500k', '1m'] as const) {
+        await collectVirtualizedMemoryLeakSamples('P1', tier, capture)
+      }
     } finally {
       capture.cleanup()
     }
