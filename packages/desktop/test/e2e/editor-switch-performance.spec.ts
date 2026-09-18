@@ -149,6 +149,28 @@ test.describe('editor switch rebuild performance', () => {
     }
   })
 
+  test('serializes a saved revision only once across deferred enrichment', async() => {
+    const { app, page } = await launchWithMarkdown('# Base\n')
+
+    try {
+      await placeCaretInEditor(page)
+      await resetEditorMetrics(page)
+      // Race save against the normal 80ms snapshot debounce so the save path
+      // must capture the pending revision itself.
+      await page.keyboard.type(' saved-once', { delay: 0 })
+      await sendIpcToRenderer(app, 'mt::editor-ask-file-save')
+
+      // Persistence capture runs synchronously; its full UI enrichment is
+      // intentionally deferred. Both must reuse one Markdown serialization for
+      // the same revision.
+      await page.waitForTimeout(350)
+      const metrics = await readEditorMetrics(page)
+      expect(metrics.markdownSerializationCalls).toBe(1)
+    } finally {
+      await app.close()
+    }
+  })
+
   test('reuses the warm render tree when switching a large document back', async() => {
     const { app, page } = await launchWithMarkdown(createLargeDocument('A'))
 

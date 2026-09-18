@@ -625,6 +625,13 @@ export const useEditorStore = defineStore('editor', {
       bus.emit('flush-active-editor')
     },
 
+    // Save only needs the newest persistence snapshot. The editor uses a
+    // dedicated flush mode so derived word-count/block work stays off the
+    // durable write's critical path while preserving #3803 same-frame edits.
+    flushActiveEditorForSave(): void {
+      bus.emit('flush-active-editor-for-save')
+    },
+
     // A tab switch still needs the outgoing rAF edit to become durable, but a
     // full block snapshot would put Markdown serialization, history cloning,
     // and AST cloning on the click's synchronous path. The editor clears the
@@ -653,7 +660,7 @@ export const useEditorStore = defineStore('editor', {
 
     FILE_SAVE(): void {
       if (!this.currentFile) return
-      this.flushActiveEditor()
+      this.flushActiveEditorForSave()
       const projectStore = useProjectStore()
       const { id, filename, pathname, markdown } = this.currentFile
       const options = getOptionsFromState(this.currentFile)
@@ -689,7 +696,7 @@ export const useEditorStore = defineStore('editor', {
 
     FILE_SAVE_AS(): void {
       if (!this.currentFile) return
-      this.flushActiveEditor()
+      this.flushActiveEditorForSave()
       const projectStore = useProjectStore()
       const { id, filename, pathname, markdown } = this.currentFile
       const options = getOptionsFromState(this.currentFile)

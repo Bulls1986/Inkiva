@@ -438,6 +438,7 @@ onMounted(() => {
   bus.on('image-action', handleImageAction)
   bus.on('scroll-to-header', handleScrollToHeader)
   bus.on('flush-active-editor', flushSourceSnapshot)
+  bus.on('flush-active-editor-for-save', flushSourceSnapshot)
   bus.on('flush-active-editor-for-tab-switch', flushSourceSnapshot)
 
   // For some reason, code mirror does not seem to play well with Vue's refs if we reference editor.value directly.
@@ -479,6 +480,7 @@ onBeforeUnmount(() => {
   bus.off('image-action', handleImageAction)
   bus.off('scroll-to-header', handleScrollToHeader)
   bus.off('flush-active-editor', flushSourceSnapshot)
+  bus.off('flush-active-editor-for-save', flushSourceSnapshot)
   bus.off('flush-active-editor-for-tab-switch', flushSourceSnapshot)
 
   const id = tabId.value

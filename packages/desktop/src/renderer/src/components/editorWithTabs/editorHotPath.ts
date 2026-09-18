@@ -118,8 +118,10 @@ type TimerHandle = ReturnType<typeof setTimeout>
 type SetTimer = (handler: () => void, timeout: number) => TimerHandle
 type ClearTimer = (timer: TimerHandle) => void
 
+export type EditorSnapshotMode = 'full' | 'switch' | 'persistence'
+
 interface SnapshotEntry {
-  capture: (includeBlocks?: boolean) => void
+  capture: (mode?: EditorSnapshotMode) => void
   debounceTimer: TimerHandle | null
   maxWaitTimer: TimerHandle | null
 }
@@ -127,6 +129,7 @@ interface SnapshotEntry {
 export interface EditorSnapshotSchedulerOptions {
   delayMs?: number
   maxWaitMs?: number
+  postPersistenceDelayMs?: number
   setTimeout?: SetTimer
   clearTimeout?: ClearTimer
 }
@@ -139,6 +142,7 @@ export interface EditorSnapshotSchedulerOptions {
 export class EditorSnapshotScheduler {
   private readonly delayMs: number
   private readonly maxWaitMs: number
+  private readonly postPersistenceDelayMs: number
   private readonly setTimer: SetTimer
   private readonly clearTimer: ClearTimer
   private readonly entries = new Map<string, SnapshotEntry>()
@@ -146,11 +150,12 @@ export class EditorSnapshotScheduler {
   constructor(options: EditorSnapshotSchedulerOptions = {}) {
     this.delayMs = options.delayMs ?? 80
     this.maxWaitMs = options.maxWaitMs ?? 500
+    this.postPersistenceDelayMs = options.postPersistenceDelayMs ?? 200
     this.setTimer = options.setTimeout ?? ((handler, timeout) => setTimeout(handler, timeout))
     this.clearTimer = options.clearTimeout ?? ((timer) => clearTimeout(timer))
   }
 
-  request(id: string, capture: (includeBlocks?: boolean) => void, immediate = false): void {
+  request(id: string, capture: (mode?: EditorSnapshotMode) => void, immediate = false): void {
     if (!id) return
     let entry = this.entries.get(id)
     if (!entry) {
@@ -172,13 +177,27 @@ export class EditorSnapshotScheduler {
     }
   }
 
-  flush(id: string, includeBlocks = true): void {
+  flush(id: string, mode: EditorSnapshotMode = 'full'): void {
     const entry = this.entries.get(id)
     if (!entry) return
     if (entry.debounceTimer !== null) this.clearTimer(entry.debounceTimer)
     if (entry.maxWaitTimer !== null) this.clearTimer(entry.maxWaitTimer)
+    entry.debounceTimer = null
+    entry.maxWaitTimer = null
+
+    if (mode === 'persistence') {
+      // Manual save needs the durable Markdown snapshot immediately, but derived
+      // UI metadata (word count + reusable block state) must not sit in front of
+      // the disk write. Keep the same capture callback and enrich later; the
+      // editor caches Markdown per revision so this follow-up does not serialize
+      // the same revision a second time.
+      entry.capture(mode)
+      entry.debounceTimer = this.setTimer(() => this.flush(id, 'full'), this.postPersistenceDelayMs)
+      return
+    }
+
     this.entries.delete(id)
-    entry.capture(includeBlocks)
+    entry.capture(mode)
   }
 
   cancel(id?: string): void {

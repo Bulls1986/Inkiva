@@ -90,14 +90,49 @@ describe('EditorSnapshotScheduler', () => {
     scheduler.dispose()
   })
 
+  it('can flush a pending save snapshot without derived word-count or block work', () => {
+    const scheduler = new EditorSnapshotScheduler({ delayMs: 50, maxWaitMs: 200 })
+    const capture = vi.fn()
+
+    scheduler.request('doc-1', capture)
+    scheduler.flush('doc-1', 'persistence')
+
+    expect(capture).toHaveBeenCalledWith('persistence')
+    expect(capture).toHaveBeenCalledTimes(1)
+
+    scheduler.dispose()
+  })
+
+  it('reuses the same capture after persistence flush for deferred enrichment', () => {
+    const scheduler = new EditorSnapshotScheduler({
+      delayMs: 50,
+      maxWaitMs: 200,
+      postPersistenceDelayMs: 120
+    })
+    const capture = vi.fn()
+
+    scheduler.request('doc-1', capture)
+    scheduler.flush('doc-1', 'persistence')
+    expect(capture).toHaveBeenCalledTimes(1)
+    expect(capture).toHaveBeenLastCalledWith('persistence')
+
+    vi.advanceTimersByTime(119)
+    expect(capture).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(1)
+    expect(capture).toHaveBeenCalledTimes(2)
+    expect(capture).toHaveBeenLastCalledWith('full')
+
+    scheduler.dispose()
+  })
+
   it('can flush a pending switch snapshot without cloning block state', () => {
     const scheduler = new EditorSnapshotScheduler({ delayMs: 50, maxWaitMs: 200 })
     const capture = vi.fn()
 
     scheduler.request('doc-1', capture)
-    scheduler.flush('doc-1', false)
+    scheduler.flush('doc-1', 'switch')
 
-    expect(capture).toHaveBeenCalledWith(false)
+    expect(capture).toHaveBeenCalledWith('switch')
     vi.runAllTimers()
     expect(capture).toHaveBeenCalledTimes(1)
 
