@@ -170,7 +170,7 @@ export class ScrollPage extends Parent {
     private _virtualWindowStart = 0;
     private _virtualWindowEnd = 0;
     private _virtualBeforeSpacer: HTMLElement | null = null;
-    private _virtualMiddleSpacer: HTMLElement | null = null;
+    private _virtualGapSpacers: HTMLElement[] = [];
     private _virtualAfterSpacer: HTMLElement | null = null;
     private _virtualScrollContainer: HTMLElement | null = null;
     private _virtualScrollHandler: (() => void) | null = null;
@@ -376,13 +376,8 @@ export class ScrollPage extends Parent {
         after.setAttribute('aria-hidden', 'true');
         after.style.pointerEvents = 'none';
         after.style.userSelect = 'none';
-        const middle = document.createElement('div');
-        middle.className = 'mu-virtual-render-placeholder mu-virtual-render-placeholder-middle';
-        middle.setAttribute('aria-hidden', 'true');
-        middle.style.pointerEvents = 'none';
-        middle.style.userSelect = 'none';
         this._virtualBeforeSpacer = before;
-        this._virtualMiddleSpacer = middle;
+        this._virtualGapSpacers = [];
         this._virtualAfterSpacer = after;
         this.domNode!.replaceChildren(before, after);
 
@@ -436,7 +431,11 @@ export class ScrollPage extends Parent {
         this._virtualWindowStart = 0;
         this._virtualWindowEnd = 0;
         this._virtualBeforeSpacer = null;
-        this._virtualMiddleSpacer = null;
+        for (const spacer of this._virtualGapSpacers) {
+            if (spacer.parentNode === this.domNode)
+                this.domNode?.removeChild(spacer);
+        }
+        this._virtualGapSpacers = [];
         this._virtualAfterSpacer = null;
         this._virtualLastScrollTop = 0;
         this._virtualLastViewportHeight = VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX;
@@ -477,46 +476,45 @@ export class ScrollPage extends Parent {
             : null;
     }
 
-    private _virtualPinnedRange(): { start: number; end: number } | null {
+    private _virtualPinnedRanges(): IVirtualRange[] {
         if (!this._virtualizationEnabled)
-            return null;
+            return [];
 
-        const indexes: number[] = [];
+        const indexes = new Set<number>();
         const activeIndex = this.muya.editor.activeContentBlock?.outMostBlock
             ? this._virtualBlocks.indexOf(this.muya.editor.activeContentBlock.outMostBlock)
             : -1;
         if (activeIndex >= 0)
-            indexes.push(activeIndex);
+            indexes.add(activeIndex);
 
         const { anchorPath, focusPath } = this.muya.editor.selection;
         const anchorIndex = this._virtualIndexFromPath(anchorPath);
         const focusIndex = this._virtualIndexFromPath(focusPath);
         if (anchorIndex !== null)
-            indexes.push(anchorIndex);
+            indexes.add(anchorIndex);
         if (focusIndex !== null)
-            indexes.push(focusIndex);
+            indexes.add(focusIndex);
 
-        if (indexes.length === 0)
-            return null;
-        return {
-            start: Math.min(...indexes),
-            end: Math.max(...indexes) + 1,
-        };
+        return [...indexes]
+            .sort((left, right) => left - right)
+            .map(index => ({ start: index, end: index + 1 }));
     }
 
     private _buildVirtualRanges(
         start: number,
         end: number,
-        pinned: IVirtualRange | null,
+        pinned: readonly IVirtualRange[] = [],
     ): IVirtualRange[] {
         const totalBlocks = this._virtualBlocks.length;
         const safeStart = Math.max(0, Math.min(start, totalBlocks));
         const safeEnd = Math.max(safeStart, Math.min(end, totalBlocks));
         const ranges: IVirtualRange[] = [{ start: safeStart, end: safeEnd }];
 
-        if (pinned && pinned.end > pinned.start) {
-            const pinnedStart = Math.max(0, Math.min(pinned.start, totalBlocks));
-            const pinnedEnd = Math.max(pinnedStart, Math.min(pinned.end, totalBlocks));
+        for (const pinnedRange of pinned) {
+            if (pinnedRange.end <= pinnedRange.start)
+                continue;
+            const pinnedStart = Math.max(0, Math.min(pinnedRange.start, totalBlocks));
+            const pinnedEnd = Math.max(pinnedStart, Math.min(pinnedRange.end, totalBlocks));
             if (pinnedEnd > pinnedStart)
                 ranges.push({ start: pinnedStart, end: pinnedEnd });
         }
@@ -559,11 +557,24 @@ export class ScrollPage extends Parent {
         }
     }
 
+    private _virtualGapSpacer(index: number): HTMLElement {
+        let spacer = this._virtualGapSpacers[index];
+        if (spacer)
+            return spacer;
+
+        spacer = document.createElement('div');
+        spacer.className = 'mu-virtual-render-placeholder mu-virtual-render-placeholder-middle';
+        spacer.setAttribute('aria-hidden', 'true');
+        spacer.style.pointerEvents = 'none';
+        spacer.style.userSelect = 'none';
+        this._virtualGapSpacers[index] = spacer;
+        return spacer;
+    }
+
     private _buildVirtualDomSequence(ranges: IVirtualRange[]): Node[] | null {
         const before = this._virtualBeforeSpacer;
-        const middle = this._virtualMiddleSpacer;
         const after = this._virtualAfterSpacer;
-        if (!before || !middle || !after)
+        if (!before || !after)
             return null;
 
         const totalBlocks = this._virtualBlocks.length;
@@ -575,6 +586,13 @@ export class ScrollPage extends Parent {
             0,
             totalHeight - (this._virtualOffsets[lastRange.end] ?? totalHeight),
         )}px`;
+
+        const requiredGapCount = Math.max(0, ranges.length - 1);
+        for (let index = requiredGapCount; index < this._virtualGapSpacers.length; index += 1) {
+            const spacer = this._virtualGapSpacers[index];
+            if (spacer?.parentNode === this.domNode)
+                this.domNode?.removeChild(spacer);
+        }
 
         const sequence: Node[] = [before];
         for (let rangeIndex = 0; rangeIndex < ranges.length; rangeIndex += 1) {
@@ -592,8 +610,9 @@ export class ScrollPage extends Parent {
                     (this._virtualOffsets[nextRange.start] ?? 0)
                     - (this._virtualOffsets[range.end] ?? 0),
                 );
-                middle.style.height = `${gapHeight}px`;
-                sequence.push(middle);
+                const spacer = this._virtualGapSpacer(rangeIndex);
+                spacer.style.height = `${gapHeight}px`;
+                sequence.push(spacer);
             }
         }
         sequence.push(after);
@@ -625,20 +644,17 @@ export class ScrollPage extends Parent {
     private _applyVirtualWindow(
         start: number,
         end: number,
-        pinned: IVirtualRange | null = null,
+        pinned: readonly IVirtualRange[] = [],
     ): void {
         if (!this._virtualizationEnabled || !this.domNode)
             return;
 
         const ranges = this._buildVirtualRanges(start, end, pinned);
         this._removeBlocksOutsideVirtualRanges(this._collectVirtualBlocks(ranges));
-        const middle = this._virtualMiddleSpacer;
         const sequence = this._buildVirtualDomSequence(ranges);
-        if (!middle || !sequence)
+        if (!sequence)
             return;
 
-        if (ranges.length < 2 && middle.parentNode === this.domNode)
-            this.domNode.removeChild(middle);
         this._syncVirtualDomSequence(sequence);
         this._virtualWindowStart = Math.max(0, Math.min(start, this._virtualBlocks.length));
         this._virtualWindowEnd = Math.max(
@@ -660,7 +676,7 @@ export class ScrollPage extends Parent {
         const endOffset = this._virtualLastScrollTop + height + overscan;
         const start = this._virtualIndexAtOffset(startOffset);
         const end = Math.min(this._virtualBlocks.length, this._virtualIndexAtOffset(endOffset) + 1);
-        this._applyVirtualWindow(start, end, this._virtualPinnedRange());
+        this._applyVirtualWindow(start, end, this._virtualPinnedRanges());
 
         // Replacing large DOM gaps with spacers can make Chromium's native
         // scroll anchoring choose the still-connected active block and pull the
@@ -681,9 +697,17 @@ export class ScrollPage extends Parent {
         const focusIndex = this._virtualIndexFromPath(focusPath);
         if (anchorIndex === null || focusIndex === null)
             return;
+
+        const pinned: IVirtualRange[] = [
+            { start: anchorIndex, end: anchorIndex + 1 },
+        ];
+        if (focusIndex !== anchorIndex)
+            pinned.push({ start: focusIndex, end: focusIndex + 1 });
+
         this._applyVirtualWindow(
-            Math.min(anchorIndex, focusIndex),
-            Math.max(anchorIndex, focusIndex) + 1,
+            this._virtualWindowStart,
+            this._virtualWindowEnd,
+            pinned,
         );
     }
 

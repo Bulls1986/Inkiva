@@ -439,11 +439,10 @@ class TextSelection {
             return;
         }
 
-        // Stage C0 virtualization prototype keeps the complete logical block
-        // tree while only mounting a top-level DOM window. Mount the full
-        // logical selection span before resolving DOM endpoints so native
-        // Selection/Range never targets detached blocks. This intentionally
-        // expands to the whole document for Ctrl/Cmd+A during the prototype.
+        // Keep the logical selection independent from the virtual DOM surface.
+        // Only the native Range endpoints need live DOM; intermediate selected
+        // blocks remain represented by spacers and the model-aware clipboard /
+        // edit paths operate on the complete logical block tree.
         scrollPage?.ensureVirtualSelectionRange(anchorPath, focusPath);
 
         const anchorEndpoint = this._resolveEndpoint(anchorBlock, anchorPath);

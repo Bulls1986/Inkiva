@@ -131,8 +131,47 @@ describe('stage C0 top-level virtualization prototype', () => {
         expect(last.outMostBlock!.domNode!.isConnected).toBe(true);
         expect(muya.editor.selection.anchorBlock).toBe(first);
         expect(muya.editor.selection.focusBlock).toBe(last);
-        expect(prototype(muya.editor.scrollPage!).getVirtualizationPrototypeSnapshot().mountedBlocks)
-            .toBe(totalBlocks);
+        const selectAllSnapshot
+            = prototype(muya.editor.scrollPage!).getVirtualizationPrototypeSnapshot();
+        expect(selectAllSnapshot.mountedBlocks).toBeLessThan(totalBlocks / 2);
+
+        const copied = muya.editor.clipboard.getClipboardData().text;
+        expect(copied).toContain('paragraph 0');
+        expect(copied).toContain(`paragraph ${totalBlocks - 1}`);
+
+        muya.editor.clipboard.cutHandler();
+        muya.flush();
+        expect(muya.editor.scrollPage!.length()).toBe(1);
+        expect(muya.getMarkdown().trim()).toBe('');
+    });
+
+    it('uses independent spacers for viewport gaps around distant selection endpoints', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + 180;
+        const muya = new Muya(host, { markdown: paragraphs(totalBlocks) });
+        mountedEditors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+
+        const scrollPage = muya.editor.scrollPage!;
+        const api = prototype(scrollPage);
+        const initial = api.getVirtualizationPrototypeSnapshot();
+        const anchor = contentAt(muya, 24);
+        const focus = contentAt(muya, totalBlocks - 24);
+
+        muya.editor.selection.setSelection(
+            { offset: 0, block: anchor, path: anchor.path },
+            { offset: focus.text.length, block: focus, path: focus.path },
+        );
+        api.updateVirtualWindowForViewport(initial.totalEstimatedHeight / 2, 500);
+
+        expect(anchor.outMostBlock!.domNode!.isConnected).toBe(true);
+        expect(focus.outMostBlock!.domNode!.isConnected).toBe(true);
+        expect(scrollPage.domNode!.querySelectorAll('.mu-virtual-render-placeholder-middle').length)
+            .toBeGreaterThanOrEqual(2);
+        expect(api.getVirtualizationPrototypeSnapshot().mountedBlocks).toBeLessThan(totalBlocks / 2);
     });
 
     it('mounts an offscreen Find result and keeps the active IME block pinned across window recalculation', async () => {
