@@ -215,6 +215,49 @@ describe('stage C0 top-level virtualization prototype', () => {
         expect(composing.outMostBlock!.domNode?.isConnected ?? false).toBe(false);
     });
 
+    it('routes Ctrl/Cmd+End and Home to logical document boundaries without full mount', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + 100;
+        const muya = new Muya(host, { markdown: paragraphs(totalBlocks) });
+        mountedEditors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+
+        const first = contentAt(muya, 0);
+        const last = contentAt(muya, totalBlocks - 1);
+        first.setCursor(0, 0, true);
+
+        const endEvent = new KeyboardEvent('keydown', {
+            key: 'End',
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+        });
+        first.keydownHandler(endEvent);
+        expect(endEvent.defaultPrevented).toBe(true);
+        expect(muya.editor.activeContentBlock).toBe(last);
+        expect(last.getCursor()?.start.offset).toBe(last.text.length);
+        expect(last.outMostBlock!.domNode!.isConnected).toBe(true);
+        expect(prototype(muya.editor.scrollPage!).getVirtualizationPrototypeSnapshot().mountedBlocks)
+            .toBeLessThan(totalBlocks / 2);
+
+        const homeEvent = new KeyboardEvent('keydown', {
+            key: 'Home',
+            metaKey: true,
+            bubbles: true,
+            cancelable: true,
+        });
+        last.keydownHandler(homeEvent);
+        expect(homeEvent.defaultPrevented).toBe(true);
+        expect(muya.editor.activeContentBlock).toBe(first);
+        expect(first.getCursor()?.start.offset).toBe(0);
+        expect(first.outMostBlock!.domNode!.isConnected).toBe(true);
+        expect(prototype(muya.editor.scrollPage!).getVirtualizationPrototypeSnapshot().mountedBlocks)
+            .toBeLessThan(totalBlocks / 2);
+    });
+
     it('survives rebuild Undo/Redo without falling back to a fully mounted document', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);

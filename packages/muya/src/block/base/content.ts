@@ -789,6 +789,31 @@ class Content extends TreeNode {
         if (this.muya.ui.handleContentKeydown(event))
             return;
 
+        // Native Ctrl/Cmd+Home/End only sees the currently mounted DOM. Under
+        // top-level virtualization that would stop at the render-window edge
+        // instead of the logical document boundary. Resolve the destination
+        // from the block tree, let setCursor() reveal/pin it, then scroll the
+        // newly mounted endpoint into view.
+        if (
+            (event.ctrlKey || event.metaKey)
+            && !event.altKey
+            && !event.shiftKey
+            && (event.key === 'Home' || event.key === 'End')
+        ) {
+            const target = event.key === 'Home'
+                ? this.scrollPage?.firstContentInDescendant()
+                : this.scrollPage?.lastContentInDescendant();
+
+            if (target) {
+                event.preventDefault();
+                event.stopPropagation();
+                const offset = event.key === 'Home' ? 0 : target.text.length;
+                target.setCursor(offset, offset, true);
+                target.domNode?.scrollIntoView({ block: event.key === 'Home' ? 'start' : 'end' });
+                return;
+            }
+        }
+
         if (this._wrapSelectionWithAutoPair(event))
             return;
 

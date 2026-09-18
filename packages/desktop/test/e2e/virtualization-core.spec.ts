@@ -207,6 +207,93 @@ test.describe('Render Surface 2.0 — Electron core interaction gate', () => {
     await expectNoRendererErrors(app)
   })
 
+  test('cross-block logical selection spans an originally unmounted range without full DOM mount', async() => {
+    const first = page.locator('.mu-paragraph-content').filter({ hasText: /^paragraph 0$/ }).first()
+    await expect(first).toBeVisible({ timeout: 5000 })
+    await first.click({ position: { x: 2, y: 8 } })
+
+    // Keep the original caret block active while Find reveals a distant block
+    // that was outside the initial render window.
+    await sendIpcToRenderer(app, 'mt::editor-edit-action', 'find')
+    const input = page.locator('.search-bar .search input')
+    await expect(input).toBeVisible({ timeout: 5000 })
+    await input.fill(NEEDLE)
+    await expect(page.locator('.search-result')).toContainText('1 / 1', { timeout: 5000 })
+    const target = page.locator('.mu-paragraph-content').filter({ hasText: NEEDLE }).first()
+    await expect(target).toBeVisible({ timeout: 5000 })
+    await page.keyboard.press('Escape')
+
+    const selectedText = await page.evaluate((needle) => {
+      type MuyaBlock = {
+        text: string
+        path: Array<string | number>
+        muya: {
+          editor: {
+            selection: {
+              setSelection: (
+                anchor: { offset: number; block: MuyaBlock; path: Array<string | number> },
+                focus: { offset: number; block: MuyaBlock; path: Array<string | number> }
+              ) => void
+            }
+            clipboard: { getClipboardData: () => { text: string }; cutHandler: () => void }
+          }
+        }
+      }
+      const blocks = Array.from(document.querySelectorAll<HTMLElement>('.mu-paragraph-content'))
+      const firstNode = blocks.find((node) => node.textContent === 'paragraph 0')
+      const targetNode = blocks.find((node) => node.textContent?.includes(needle))
+      const firstBlock = (firstNode as (HTMLElement & { __MUYA_BLOCK__?: MuyaBlock }) | undefined)
+        ?.__MUYA_BLOCK__
+      const targetBlock = (targetNode as (HTMLElement & { __MUYA_BLOCK__?: MuyaBlock }) | undefined)
+        ?.__MUYA_BLOCK__
+      if (!firstBlock || !targetBlock) throw new Error('virtual selection endpoints were not mounted')
+
+      const { editor } = firstBlock.muya
+      editor.selection.setSelection(
+        { offset: 0, block: firstBlock, path: firstBlock.path },
+        { offset: targetBlock.text.length, block: targetBlock, path: targetBlock.path }
+      )
+      const text = editor.clipboard.getClipboardData().text
+      editor.clipboard.cutHandler()
+      return text
+    }, NEEDLE)
+    expect(selectedText).toContain('paragraph 1')
+    expect(selectedText).toContain(NEEDLE)
+    await expectBoundedVirtualization(page)
+
+    // The cut proves the logical range includes blocks that were never part of
+    // the viewport window at the same time. Undo must restore the complete model.
+    await expect.poll(() => readStoreMarkdown(page), { timeout: 5000 }).not.toContain('paragraph 1')
+    await expect.poll(() => readStoreMarkdown(page), { timeout: 5000 }).toContain('paragraph 359')
+    await sendIpcToRenderer(app, 'mt::editor-edit-action', 'undo')
+    await expect.poll(() => readStoreMarkdown(page), { timeout: 5000 }).toContain('paragraph 1')
+    await expect.poll(() => readStoreMarkdown(page), { timeout: 5000 }).toContain(NEEDLE)
+    await expectBoundedVirtualization(page)
+    await expectNoRendererErrors(app)
+  })
+
+  test('Ctrl/Cmd+End and Ctrl/Cmd+Home jump to logical document boundaries without progressive full mount', async() => {
+    await placeCaretAtTextBoundary(page)
+    const modifier = process.platform === 'darwin' ? 'Meta' : 'Control'
+
+    await page.keyboard.press(`${modifier}+End`)
+    await expect
+      .poll(() => page.locator('.mu-paragraph-content').filter({ hasText: /^paragraph 359$/ }).count(), {
+        timeout: 5000
+      })
+      .toBeGreaterThan(0)
+    await expectBoundedVirtualization(page)
+
+    await page.keyboard.press(`${modifier}+Home`)
+    await expect
+      .poll(() => page.locator('.mu-paragraph-content').filter({ hasText: /^paragraph 0$/ }).count(), {
+        timeout: 5000
+      })
+      .toBeGreaterThan(0)
+    await expectBoundedVirtualization(page)
+    await expectNoRendererErrors(app)
+  })
+
   test('Find mounts an offscreen result and top-bottom-top scrolling remains bounded with no blank surface', async() => {
     await sendIpcToRenderer(app, 'mt::editor-edit-action', 'find')
     const input = page.locator('.search-bar .search input')
