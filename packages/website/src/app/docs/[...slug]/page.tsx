@@ -1,18 +1,18 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import {
-  ALL_PAGES,
-  findPageBySlug,
-  firstPageOfTab,
-  neighborsFor
-} from '@/lib/docs-nav'
+import { ALL_PAGES, findPageBySlug, firstPageOfTab, neighborsFor } from '@/lib/docs-nav'
 import { readDoc, renderMarkdown } from '@/lib/markdown'
 import DocsSidebar from '@/components/docs/DocsSidebar'
 import DocsToc from '@/components/docs/DocsToc'
 import Pager from '@/components/docs/Pager'
 import SidebarToggle from '@/components/docs/SidebarToggle'
 import { DOWNLOAD } from '@/lib/downloads'
+import {
+  createDocumentationJsonLd,
+  createPageMetadata,
+  stringifyJsonLd
+} from '@/lib/seo'
 
 export const dynamicParams = false
 export const dynamic = 'force-static'
@@ -23,18 +23,17 @@ export function generateStaticParams() {
 
 type Params = { slug: string[] }
 
-export async function generateMetadata({
-  params
-}: {
-  params: Promise<Params>
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { slug } = await params
   const page = findPageBySlug(slug)
   if (!page) return {}
-  return {
+  return createPageMetadata({
     title: page.title,
-    description: page.hint
-  }
+    description: page.hint ?? `Documentation for ${page.title}.`,
+    path: page.href,
+    type: 'article',
+    openGraphTitle: `${page.title} · Inkiva Docs`
+  })
 }
 
 export default async function DocPage({ params }: { params: Promise<Params> }) {
@@ -46,12 +45,22 @@ export default async function DocPage({ params }: { params: Promise<Params> }) {
   const { html, toc, title, lead } = await renderMarkdown(source, page.file)
   const { prev, next } = neighborsFor(page.slug)
   const fallbackTab = firstPageOfTab(page.tab)
+  const documentTitle = title ?? page.title
+  const documentDescription = lead ?? page.hint ?? `Documentation for ${page.title}.`
+  const documentJsonLd = createDocumentationJsonLd({
+    title: documentTitle,
+    description: documentDescription,
+    path: page.href
+  })
 
-  const editHref =
-    DOWNLOAD.repo + '/edit/develop/packages/website/content/docs/' + page.file
+  const editHref = DOWNLOAD.repo + '/edit/develop/packages/website/content/docs/' + page.file
 
   return (
     <div className="docs-shell">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: stringifyJsonLd(documentJsonLd) }}
+      />
       <DocsSidebar activeTab={page.tab} activeHref={page.href} />
       <main className="doc-main">
         <SidebarToggle />
@@ -66,7 +75,7 @@ export default async function DocPage({ params }: { params: Promise<Params> }) {
           <div className="doc-eyebrow">
             {page.tab === 'user' ? 'User documentation' : 'Developer documentation'}
           </div>
-          <h1 className="art-title">{title ?? page.title}</h1>
+          <h1 className="art-title">{documentTitle}</h1>
           {lead && <p className="art-lead">{lead}</p>}
           <div className="prose" dangerouslySetInnerHTML={{ __html: html }} />
           <Pager prev={prev} next={next} />

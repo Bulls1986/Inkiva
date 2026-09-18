@@ -12,7 +12,8 @@
     "lint": "eslint . --max-warnings 0",
     "type-check": "tsc --noEmit",
     "test": "tsx --test test/**/*.test.ts",
-    "build:static": "next build"
+    "build:static": "next build",
+    "verify:seo": "node --import tsx scripts/verify-seo-output.ts"
   },
   "dependencies": {
     "github-slugger": "^2.0.0",

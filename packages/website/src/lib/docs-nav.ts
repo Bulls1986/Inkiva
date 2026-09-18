@@ -279,7 +279,7 @@ export const ALL_PAGES: DocPageWithCtx[] = DOC_TABS.flatMap((tab) =>
       tab: tab.id,
       tabLabel: tab.label,
       group: group.label,
-      href: '/docs/' + page.slug.join('/')
+      href: '/docs/' + page.slug.join('/') + '/'
     }))
   )
 )

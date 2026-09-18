@@ -55,7 +55,7 @@ export default function Nav({ locale = 'en' }: Props) {
         <a href={hash(SECTIONS.preview)}>{labels.features}</a>
         <a href={hash(SECTIONS.themes)}>{labels.themes}</a>
         <a href={hash(SECTIONS.extensions)}>{labels.markdown}</a>
-        <Link href="/docs">{labels.docs}</Link>
+        <Link href="/docs/">{labels.docs}</Link>
       </div>
       <div className="nav-right">
         <Link

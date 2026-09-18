@@ -43,7 +43,7 @@ const SANITIZE_SCHEMA: typeof defaultSchema = {
 }
 
 const FILE_TO_SLUG = new Map<string, string>(
-  ALL_PAGES.map((p) => [p.file.toLowerCase(), '/docs/' + p.slug.join('/')])
+  ALL_PAGES.map((p) => [p.file.toLowerCase(), p.href])
 )
 
 export async function readDoc(file: string): Promise<string> {
