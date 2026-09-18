@@ -1,5 +1,16 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { firstPageOfTab } from '@/lib/docs-nav'
+import { DOCS_DESCRIPTION, createPageMetadata } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  ...createPageMetadata({
+    title: 'Documentation',
+    description: DOCS_DESCRIPTION,
+    path: '/docs/',
+    openGraphTitle: 'Documentation · Inkiva Docs'
+  })
+}
 
 export default function DocsIndex() {
   const first = firstPageOfTab('user')
@@ -12,9 +23,7 @@ export default function DocsIndex() {
         <p className="art-lead">
           Learn the editor, its Markdown behavior, themes, shortcuts and export workflow.
         </p>
-        <p>
-          Start with the user guide, or browse the developer documentation from the sidebar.
-        </p>
+        <p>Start with the user guide, or browse the developer documentation from the sidebar.</p>
         <p>
           <Link className="edit-link" href={first.href}>
             Open the user guide →

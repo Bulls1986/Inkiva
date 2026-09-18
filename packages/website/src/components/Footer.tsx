@@ -25,7 +25,7 @@ export default function Footer() {
           </div>
           <div className="foot-col">
             <h5>Resources</h5>
-            <Link href="/docs">Documentation</Link>
+            <Link href="/docs/">Documentation</Link>
             <a href={DOWNLOAD.releases} {...EXT_LINK}>Releases</a>
             <a href={DOWNLOAD.contributing} {...EXT_LINK}>Contributing</a>
             <a href={DOWNLOAD.issues} {...EXT_LINK}>Issues</a>

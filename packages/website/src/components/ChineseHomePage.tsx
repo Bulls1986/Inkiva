@@ -462,7 +462,7 @@ export default function ChineseHomePage() {
             </div>
             <div className="foot-col">
               <h5>资源</h5>
-              <Link href="/docs">文档</Link>
+              <Link href="/docs/">文档</Link>
               <a href={DOWNLOAD.releases} {...EXT_LINK}>
                 发布版本
               </a>

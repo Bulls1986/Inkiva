@@ -105,7 +105,7 @@ function TabPane({
             onToggle={() => toggleGroup(key)}
           >
             {group.pages.map((page) => {
-              const href = '/docs/' + page.slug.join('/')
+              const href = '/docs/' + page.slug.join('/') + '/'
               const active = href === activeHref
               return (
                 <Link

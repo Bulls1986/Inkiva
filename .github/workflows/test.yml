@@ -27,5 +27,8 @@ jobs:
           INKIVA_RELEASE_VERSION_LABEL: v0.0.0-test
         run: pnpm --filter inkiva-website run build:static
 
+      - name: Verify Website SEO Output
+        run: pnpm --filter inkiva-website run verify:seo
+
       - name: Run Unit Tests
         run: pnpm test

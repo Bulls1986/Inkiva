@@ -288,7 +288,7 @@ function QuietNav({ locale, copy }: QuietNavProps) {
           <a href="#markdown" onClick={closeMenu}>
             {copy.nav.markdown}
           </a>
-          <Link href="/docs" onClick={closeMenu}>
+          <Link href="/docs/" onClick={closeMenu}>
             {copy.nav.docs}
           </Link>
         </div>
@@ -595,7 +595,7 @@ export default function QuietHomePage({ locale = 'en' }: { locale?: Locale }) {
                 <DownloadIcon aria-hidden="true" />
                 {copy.heroDownload}
               </a>
-              <Link className="quiet-hero-link" href="/docs/installation">
+              <Link className="quiet-hero-link" href="/docs/installation/">
                 {copy.heroDocs}
               </Link>
             </div>
@@ -712,7 +712,7 @@ export default function QuietHomePage({ locale = 'en' }: { locale?: Locale }) {
             ))}
           </div>
           <div className="quiet-download-links">
-            <Link href="/docs/installation">
+            <Link href="/docs/installation/">
               <ExportIcon aria-hidden="true" /> {copy.docs}
             </Link>
             <a href={DOWNLOAD.repo} {...EXT_LINK}>
@@ -741,7 +741,7 @@ export default function QuietHomePage({ locale = 'en' }: { locale?: Locale }) {
             </div>
             <div>
               <strong>{copy.footerResources}</strong>
-              <Link href="/docs">{copy.docs}</Link>
+              <Link href="/docs/">{copy.docs}</Link>
               <a href={DOWNLOAD.releases} {...EXT_LINK}>
                 Releases
               </a>
