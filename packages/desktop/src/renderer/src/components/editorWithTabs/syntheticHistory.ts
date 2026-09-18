@@ -36,8 +36,7 @@
 // `setContent` -> edit -> undo round-trip purely in trailing newlines (loading
 // `'x\n'` may serialize to `'x\n\n\n'`, while undoing an edit lands on `'x\n'`),
 // so the content signature must ignore them or undo-to-saved would never match.
-const stripTrailingNewlines = (content: string): string =>
-  content.replace(/[\r\n]+$/, '')
+const stripTrailingNewlines = (content: string): string => content.replace(/[\r\n]+$/, '')
 
 // A fast, stable 64-bit string hash (FNV-1a) over the trailing-newline-normalized
 // content. Used so the content -> id map stores short keys instead of whole
@@ -97,9 +96,14 @@ export class SyntheticHistory {
   // Build the desktop-shaped synthetic history the store consumes. The store
   // only reads `stack[lastEditIndex].id`; the remaining fields keep its
   // bookkeeping happy (a single committed edit at index 0).
-  build(content: string): IFileHistoryLike {
+  build(content: string, revision?: number): IFileHistoryLike {
     return {
-      stack: [{ id: this.idFor(content) }],
+      stack: [
+        {
+          id: this.idFor(content),
+          ...(typeof revision === 'number' ? { revision } : {})
+        }
+      ],
       index: 0,
       lastEditIndex: 0,
       lastInitIndex: -1

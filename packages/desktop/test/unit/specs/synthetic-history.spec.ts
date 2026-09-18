@@ -138,4 +138,10 @@ describe('SyntheticHistory (saved/clean indicator id allocator)', () => {
     expect(hist.stack).toHaveLength(1)
     expect(typeof hist.stack[0].id).toBe('number')
   })
+
+  it('binds the emitted history metadata to the content revision when provided', () => {
+    const h = new SyntheticHistory('')
+    const hist = h.build('X', 42)
+    expect(hist.stack[0]).toMatchObject({ revision: 42 })
+  })
 })

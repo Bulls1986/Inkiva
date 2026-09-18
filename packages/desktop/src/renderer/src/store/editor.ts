@@ -21,6 +21,7 @@ import { useRecentDocumentsStore } from './recentDocuments'
 import { DEFAULT_RIGHT_COLUMN, useLayoutStore } from './layout'
 import { useMainStore } from '.'
 import { t } from '../i18n'
+import { documentRevisionSnapshots } from '../services/documentRevisionSnapshot'
 import { debouncedSendBufferedState, sendBufferedState } from './bufferedState'
 import { AutosaveQueue, type AutosaveRequest } from './autosaveQueue'
 import { getTabIdsToCloseRight, pushClosedTab } from './tabsWorkflow'
@@ -209,15 +210,13 @@ const cloneEditorValue = <T>(value: T): T => {
   }
 }
 
-const documentRevisions = new Map<string, number>()
+const nextDocumentRevision = (id: string): number =>
+  documentRevisionSnapshots.advanceContentRevision(id)
 
-const nextDocumentRevision = (id: string): number => {
-  const revision = (documentRevisions.get(id) ?? 0) + 1
-  documentRevisions.set(id, revision)
-  return revision
-}
+const getDocumentRevision = (id: string): number => documentRevisionSnapshots.currentRevision(id)
 
-const getDocumentRevision = (id: string): number => documentRevisions.get(id) ?? 0
+const snapshotMarkdownForFile = (file: IFileState): string =>
+  documentRevisionSnapshots.readMarkdown(file.id, getDocumentRevision(file.id)) ?? file.markdown
 
 const autosaveQueue = new AutosaveQueue({
   send: (request: AutosaveRequest) => {
@@ -263,6 +262,11 @@ export const useEditorStore = defineStore('editor', {
       })
       this.tabActivationOrder = snapshot.activationOrder
       this.tabLifecycle = snapshot.byId
+      const liveIds = new Set(this.tabs.map((tab) => tab.id))
+      for (const [id, lifecycle] of Object.entries(snapshot.byId)) {
+        documentRevisionSnapshots.setLifecycle(id, lifecycle)
+      }
+      documentRevisionSnapshots.prune(liveIds)
     },
 
     _recordClosedTab(file: IFileState): void {
@@ -320,7 +324,9 @@ export const useEditorStore = defineStore('editor', {
         s.tabLifecycle = {}
         s.tabActivationOrder = []
         s.pinnedTabIds = bufferedEditorState.pinnedPathnames.reduce<string[]>((ids, pathname) => {
-          const tab = tabs.find((candidate) => window.fileUtils.isSamePathSync(candidate.pathname, pathname))
+          const tab = tabs.find((candidate) =>
+            window.fileUtils.isSamePathSync(candidate.pathname, pathname)
+          )
           if (tab) ids.push(tab.id)
           return ids
         }, [])
@@ -498,6 +504,11 @@ export const useEditorStore = defineStore('editor', {
       tab.id = oldId
       tab.notifications = oldNotifications
       tab.scrollTop = oldScrollTop
+      // Disk reload replaces the authoritative content even when CodeMirror
+      // suppresses its local change event. Give the new on-disk text a fresh
+      // content revision immediately so no old derived snapshot can survive.
+      const reloadRevision = nextDocumentRevision(oldId)
+      documentRevisionSnapshots.seedMarkdown(oldId, reloadRevision, markdown)
       if (oldHistory) {
         tab.history = oldHistory
       }
@@ -665,12 +676,12 @@ export const useEditorStore = defineStore('editor', {
       return this.tabs
         .filter((file) => !file.isSaved)
         .map((file) => {
-          const { id, filename, pathname, markdown } = file
+          const { id, filename, pathname } = file
           return {
             id,
             filename,
             pathname,
-            markdown,
+            markdown: snapshotMarkdownForFile(file),
             options: deepClone(getOptionsFromState(file)),
             defaultPath
           }
@@ -681,10 +692,13 @@ export const useEditorStore = defineStore('editor', {
       if (!this.currentFile) return
       this.flushActiveEditorForSave()
       const projectStore = useProjectStore()
-      const { id, filename, pathname, markdown } = this.currentFile
+      const { id, filename, pathname } = this.currentFile
       const options = getOptionsFromState(this.currentFile)
       const defaultPath = getRootFolderFromState(projectStore)
       if (id) {
+        const revision = getDocumentRevision(id)
+        const markdown =
+          documentRevisionSnapshots.readMarkdown(id, revision) ?? this.currentFile.markdown
         // An explicit save already contains the newest flushed snapshot. Leave no
         // delayed autosave behind to rewrite the same document a few seconds later.
         // An older write that is already in flight is still acknowledged normally;
@@ -698,7 +712,7 @@ export const useEditorStore = defineStore('editor', {
           markdown,
           deepClone(options),
           defaultPath,
-          getDocumentRevision(id)
+          revision
         )
       }
     },
@@ -717,11 +731,14 @@ export const useEditorStore = defineStore('editor', {
       if (!this.currentFile) return
       this.flushActiveEditorForSave()
       const projectStore = useProjectStore()
-      const { id, filename, pathname, markdown } = this.currentFile
+      const { id, filename, pathname } = this.currentFile
       const options = getOptionsFromState(this.currentFile)
       const defaultPath = getRootFolderFromState(projectStore)
 
       if (id) {
+        const revision = getDocumentRevision(id)
+        const markdown =
+          documentRevisionSnapshots.readMarkdown(id, revision) ?? this.currentFile.markdown
         // Save As is also an explicit durable snapshot. It must supersede any
         // delayed autosave associated with the current tab before the path changes.
         autosaveQueue.cancel(id)
@@ -733,7 +750,7 @@ export const useEditorStore = defineStore('editor', {
           markdown,
           deepClone(options),
           defaultPath,
-          getDocumentRevision(id)
+          revision
         )
       }
     },
@@ -834,6 +851,9 @@ export const useEditorStore = defineStore('editor', {
     LISTEN_FOR_CLOSE(): void {
       const preferencesStore = usePreferencesStore()
       window.electron.ipcRenderer.on('mt::ask-for-close', () => {
+        // A close boundary must materialize the newest active revision exactly
+        // once so the prompt/save-all path never falls back to stale tab text.
+        this.flushActiveEditorForSave()
         const unsavedFiles = this.GET_UNSAVED_FILES()
 
         if (unsavedFiles.length && preferencesStore.startUpAction !== 'restoreAll') {
@@ -889,13 +909,13 @@ export const useEditorStore = defineStore('editor', {
       const unsavedFiles = tabs
         .filter((file) => !(file.isSaved && /[^\n]/.test(file.markdown)))
         .map((file) => {
-          const { id, filename, pathname, markdown } = file
+          const { id, filename, pathname } = file
           const options = getOptionsFromState(file)
           return {
             id,
             filename,
             pathname,
-            markdown,
+            markdown: snapshotMarkdownForFile(file),
             options,
             defaultPath: getRootFolderFromState(projectStore)
           }
@@ -1212,7 +1232,7 @@ export const useEditorStore = defineStore('editor', {
 
       if (file.id) {
         autosaveQueue.cancel(file.id)
-        documentRevisions.delete(file.id)
+        documentRevisionSnapshots.release(file.id)
       }
 
       this.updateTabIdToIndex() // Update before sending it out to prevent stale mappings.
@@ -1255,10 +1275,16 @@ export const useEditorStore = defineStore('editor', {
     },
 
     CLOSE_UNSAVED_TAB(file: IFileState): void {
-      const { id, pathname, filename, markdown } = file
+      const { id, pathname, filename } = file
       const options = getOptionsFromState(file)
       window.electron.ipcRenderer.send('mt::save-and-close-tabs', [
-        { id, pathname, filename, markdown, options: deepClone(options) }
+        {
+          id,
+          pathname,
+          filename,
+          markdown: snapshotMarkdownForFile(file),
+          options: deepClone(options)
+        }
       ])
     },
 
@@ -1728,10 +1754,18 @@ export const useEditorStore = defineStore('editor', {
 
       const { filename, pathname, markdown: oldMarkdown, trimTrailingNewline } = tab
 
+      const currentRevision = getDocumentRevision(id)
+      if (incomingRevision !== undefined && incomingRevision < currentRevision) {
+        // A deferred result from an older revision must never overwrite the
+        // authoritative tab state or repopulate the current snapshot cache.
+        return
+      }
+
       markdown = adjustTrailingNewlines(markdown, trimTrailingNewline)
-      const revision = incomingRevision ?? (
-        markdown !== oldMarkdown ? nextDocumentRevision(id) : getDocumentRevision(id)
-      )
+      const revision =
+        incomingRevision ??
+        (markdown !== oldMarkdown ? nextDocumentRevision(id) : getDocumentRevision(id))
+      documentRevisionSnapshots.seedMarkdown(id, revision, markdown)
       tab.markdown = markdown
 
       if (oldMarkdown.length === 0 && markdown.length === 1 && markdown[0] === '\n') {
@@ -1787,14 +1821,21 @@ export const useEditorStore = defineStore('editor', {
           revision,
           filename,
           pathname,
-          markdown,
+          markdown: documentRevisionSnapshots.readMarkdown(id, revision) ?? markdown,
           options
         })
       }
       debouncedSendBufferedState()
     },
 
-    HANDLE_AUTO_SAVE({ id, revision, filename, pathname, markdown, options }: AutoSavePayload): void {
+    HANDLE_AUTO_SAVE({
+      id,
+      revision,
+      filename,
+      pathname,
+      markdown,
+      options
+    }: AutoSavePayload): void {
       if (!id || !pathname) {
         throw new Error('HANDLE_AUTO_SAVE: Invalid tab.')
       }
@@ -1803,15 +1844,18 @@ export const useEditorStore = defineStore('editor', {
       const { autoSaveDelay } = preferencesStore
       const projectStore = useProjectStore()
       const defaultPath = getRootFolderFromState(projectStore)
-      autosaveQueue.schedule({
-        id,
-        revision,
-        filename,
-        pathname,
-        markdown,
-        options: deepClone(options),
-        defaultPath
-      }, autoSaveDelay)
+      autosaveQueue.schedule(
+        {
+          id,
+          revision,
+          filename,
+          pathname,
+          markdown,
+          options: deepClone(options),
+          defaultPath
+        },
+        autoSaveDelay
+      )
     },
 
     SELECTION_CHANGE(changes: SelectionChange): void {
@@ -2426,7 +2470,9 @@ const createBufferedEditorState = (state: unknown): BufferedEditorState | null =
     : Array.isArray(s.pinnedTabIds)
       ? s.pinnedTabIds
         .map((id) => tabs.find((tab) => tab.id === id)?.pathname)
-        .filter((pathname): pathname is string => typeof pathname === 'string' && pathname.length > 0)
+        .filter(
+          (pathname): pathname is string => typeof pathname === 'string' && pathname.length > 0
+        )
       : []
 
   return {

@@ -18,6 +18,7 @@ import bus from '../../bus'
 import { getApplicationAppearance } from 'common/theme'
 import { EXTREME_DOCUMENT_VIEWPORT_MARGIN } from '@/util/largeDocumentMode'
 import { SourceSnapshotScheduler } from './sourceCodeHotPath'
+import { documentRevisionSnapshots } from '@/services/documentRevisionSnapshot'
 
 // CodeMirror 5 ships no first-party types; the wrapper in src/renderer/src/
 // codeMirror/index.ts also keeps the surface intentionally loose.
@@ -107,19 +108,25 @@ const getMarkdownAndCursor = (cm: CMInstance) => {
 }
 
 const commitWordCount = (id: string, markdown: string): void => {
-  const wordCount = getWordCount(markdown)
+  const revision = documentRevisionSnapshots.currentRevision(id)
+  const wordCount = documentRevisionSnapshots.getWordCount(id, revision, () =>
+    getWordCount(markdown)
+  )
   latestWordCount = wordCount
   editorStore.LISTEN_FOR_CONTENT_CHANGE({
     id,
-    markdown,
+    revision,
+    markdown: documentRevisionSnapshots.readMarkdown(id, revision) ?? markdown,
     wordCount
   })
 }
 
 const captureSourceSnapshot = (id: string, revision: number, cm: CMInstance): void => {
   if (viewDestroyed.value || tabId.value !== id) return
+  if (documentRevisionSnapshots.currentRevision(id) !== revision) return
   const markdown = cm.getValue() as string
   latestMarkdown = markdown
+  documentRevisionSnapshots.seedMarkdown(id, revision, markdown)
   editorStore.LISTEN_FOR_CONTENT_CHANGE({
     id,
     markdown,
@@ -145,14 +152,16 @@ const prepareTabSwitch = () => {
     const id = tabId.value
     flushSourceSnapshot()
     const { cursor, markdown: newMarkdown } = getMarkdownAndCursor(editor.value)
+    const revision = documentRevisionSnapshots.currentRevision(id)
     editorStore.LISTEN_FOR_CONTENT_CHANGE({
       id,
-      markdown: newMarkdown,
+      revision,
+      markdown: documentRevisionSnapshots.readMarkdown(id, revision) ?? newMarkdown,
       muyaIndexCursor: cursor,
       // The word-count timer is metadata-only. Reuse the last completed value
       // at a tab boundary so a large source document does not pay another full
       // text scan in the tab-switch critical path.
-      wordCount: latestWordCount
+      wordCount: documentRevisionSnapshots.readWordCount(id, revision) ?? latestWordCount
     })
     tabId.value = null
   }
@@ -343,10 +352,8 @@ const saveContent = (cm: CMInstance) => {
       const id = tabId.value
       const revision = editorStore.MARK_CONTENT_DIRTY(id)
       editorStore.PERSIST_MUYA_INDEX_CURSOR(id, getCursor(cm))
-      sourceSnapshotScheduler.request(
-        id,
-        revision,
-        (latestRevision) => captureSourceSnapshot(id, latestRevision, cm)
+      sourceSnapshotScheduler.request(id, revision, (latestRevision) =>
+        captureSourceSnapshot(id, latestRevision, cm)
       )
 
       // Word counting scans the whole source text. Keep it out of the
@@ -386,7 +393,7 @@ const listenChange = () => {
 // CodeMirror instead. Resolve the TOC entry to its heading line in the source.
 const handleScrollToHeader = (slug: unknown) => {
   if (!editor.value) return
-  const index = editorStore.listToc.findIndex(item => item.slug === slug)
+  const index = editorStore.listToc.findIndex((item) => item.slug === slug)
   if (index < 0) return
   const line = findMarkdownHeadingLine(editor.value.getValue(), index)
   if (line < 0) return

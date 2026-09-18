@@ -34,6 +34,7 @@
     "build:mac:arm64": "tsx ../../scripts/minify-locales.ts && electron-rebuild && electron-vite build && electron-builder --mac --arm64 --publish never",
     "perf:inspect": "cross-env PERF_TESTING=true INKIVA_PERF_CAPTURE=true electron-vite preview -- --inspect=5858",
     "perf:inspect-brk": "cross-env PERF_TESTING=true INKIVA_PERF_CAPTURE=true electron-vite preview -- --inspect-brk=5858",
+    "perf:revision-snapshot:micro": "tsx test/performance/revision-snapshot-benchmark.ts",
     "test": "vitest run",
     "test:unit": "vitest run test/unit",
     "test:lifecycle": "vitest run test/unit/specs/image-path-autocomplete.spec.ts test/unit/specs/watcher-lifecycle.spec.ts",
