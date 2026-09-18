@@ -38,6 +38,7 @@ export default function referenceImage(
             { alt },
             className,
             CLASS_NAMES.MU_COPY_REMOVE,
+            block.outMostBlock?.domNode ?? block.domNode ?? null,
         ));
     }
     // `loadImageMap` keys by `src`, so two reference images sharing the same

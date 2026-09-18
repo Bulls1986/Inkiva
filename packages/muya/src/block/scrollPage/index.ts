@@ -4,7 +4,7 @@ import type { Nullable } from '../../types';
 import type Content from '../base/content';
 import type TreeNode from '../base/treeNode';
 import type { IConstructor, TBlockPath } from '../types';
-import { BLOCK_DOM_PROPERTY } from '../../config';
+import { BLOCK_DOM_PROPERTY, VIRTUAL_BLOCK_MOUNT_EVENT } from '../../config';
 import { deepClone, isHTMLElement, isMouseEvent } from '../../utils';
 import { findScrollContainer } from '../../utils/dom';
 import logger from '../../utils/logger';
@@ -38,14 +38,14 @@ export const INITIAL_PROGRESSIVE_RENDER_START_DELAY_MS = 100;
 export const CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS = 0;
 const PROGRESSIVE_RENDER_LINE_HEIGHT_PX = 24;
 const VIRTUAL_RENDERER_PROTOTYPE_FLAG = '__INKIVA_VIRTUAL_RENDERER_PROTOTYPE__';
-const VIRTUAL_RENDERER_PROTOTYPE_DEFAULT_VIEWPORT_PX = 720;
-const VIRTUAL_RENDERER_PROTOTYPE_OVERSCAN_VIEWPORTS = 2;
+const VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX = 720;
+const VIRTUAL_RENDERER_OVERSCAN_VIEWPORTS = 2;
 
 interface IVirtualRendererPrototypeGlobal {
     __INKIVA_VIRTUAL_RENDERER_PROTOTYPE__?: boolean;
 }
 
-interface IVirtualizationPrototypeSnapshot {
+interface IVirtualizationSnapshot {
     enabled: boolean;
     totalBlocks: number;
     mountedBlocks: number;
@@ -54,11 +54,19 @@ interface IVirtualizationPrototypeSnapshot {
     beforeHeight: number;
     afterHeight: number;
     totalEstimatedHeight: number;
+    viewportHeight: number;
+    renderCacheEntries: number;
 }
 
-function isVirtualRendererPrototypeEnabled(): boolean {
+interface IVirtualRange {
+    start: number;
+    end: number;
+}
+
+function shouldUseVirtualization(muya: Muya): boolean {
     const prototypeGlobal = globalThis as typeof globalThis & IVirtualRendererPrototypeGlobal;
-    return prototypeGlobal[VIRTUAL_RENDERER_PROTOTYPE_FLAG] === true;
+    return muya.options.virtualizeLargeDocuments === true
+        || prototypeGlobal[VIRTUAL_RENDERER_PROTOTYPE_FLAG] === true;
 }
 
 interface IIdleDeadline {
@@ -144,17 +152,20 @@ export class ScrollPage extends Parent {
     private _progressiveCompletion: Promise<void> | null = null;
     private _resolveProgressiveCompletion: (() => void) | null = null;
     private _cloneProgressiveBlocks = false;
-    private _virtualizationPrototypeEnabled = false;
+    private _virtualizationEnabled = false;
     private _virtualBlocks: Parent[] = [];
     private _virtualOffsets: number[] = [0];
     private _virtualWindowStart = 0;
     private _virtualWindowEnd = 0;
     private _virtualBeforeSpacer: HTMLElement | null = null;
+    private _virtualMiddleSpacer: HTMLElement | null = null;
     private _virtualAfterSpacer: HTMLElement | null = null;
     private _virtualScrollContainer: HTMLElement | null = null;
     private _virtualScrollHandler: (() => void) | null = null;
+    private _virtualResizeObserver: ResizeObserver | null = null;
+    private _virtualWindowResizeHandler: (() => void) | null = null;
     private _virtualLastScrollTop = 0;
-    private _virtualLastViewportHeight = VIRTUAL_RENDERER_PROTOTYPE_DEFAULT_VIEWPORT_PX;
+    private _virtualLastViewportHeight = VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX;
 
     // The desktop keeps at most two non-active tabs warm. Store each warm
     // document's initial render window here so returning to it only moves
@@ -307,8 +318,8 @@ export class ScrollPage extends Parent {
         progressiveStartDelayMs = 0,
     ): void {
         this._renderedState = state;
-        if (state.length > PROGRESSIVE_RENDER_THRESHOLD && isVirtualRendererPrototypeEnabled()) {
-            this._mountVirtualizationPrototype(state, cloneBlocks);
+        if (state.length > PROGRESSIVE_RENDER_THRESHOLD && shouldUseVirtualization(this.muya)) {
+            this._mountVirtualization(state, cloneBlocks);
             return;
         }
 
@@ -322,9 +333,9 @@ export class ScrollPage extends Parent {
         this._startProgressiveRender(state, initialIndex, cloneBlocks, progressiveStartDelayMs);
     }
 
-    private _mountVirtualizationPrototype(state: TState[], cloneBlocks: boolean): void {
-        this._teardownVirtualizationPrototype();
-        this._virtualizationPrototypeEnabled = true;
+    private _mountVirtualization(state: TState[], cloneBlocks: boolean): void {
+        this._teardownVirtualization();
+        this._virtualizationEnabled = true;
         this._virtualBlocks = this._createBlocks(state, cloneBlocks);
         this._virtualBlocks.forEach((block) => {
             block.parent = this;
@@ -342,48 +353,69 @@ export class ScrollPage extends Parent {
         after.setAttribute('aria-hidden', 'true');
         after.style.pointerEvents = 'none';
         after.style.userSelect = 'none';
+        const middle = document.createElement('div');
+        middle.className = 'mu-virtual-render-placeholder mu-virtual-render-placeholder-middle';
+        middle.setAttribute('aria-hidden', 'true');
+        middle.style.pointerEvents = 'none';
+        middle.style.userSelect = 'none';
         this._virtualBeforeSpacer = before;
+        this._virtualMiddleSpacer = middle;
         this._virtualAfterSpacer = after;
         this.domNode!.replaceChildren(before, after);
 
         this._attachVirtualScrollListener();
         const initialScrollTop = this._virtualScrollContainer?.scrollTop ?? 0;
         const initialViewportHeight = this._virtualScrollContainer?.clientHeight
-            || VIRTUAL_RENDERER_PROTOTYPE_DEFAULT_VIEWPORT_PX;
+            || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX;
         this.updateVirtualWindowForViewport(initialScrollTop, initialViewportHeight);
     }
 
     private _attachVirtualScrollListener(): void {
-        if (!this._virtualizationPrototypeEnabled || !this.muya.domNode)
+        if (!this._virtualizationEnabled || !this.muya.domNode)
             return;
 
         const container = findScrollContainer(this.muya.domNode);
         const handler = () => {
             this.updateVirtualWindowForViewport(
                 container.scrollTop,
-                container.clientHeight || VIRTUAL_RENDERER_PROTOTYPE_DEFAULT_VIEWPORT_PX,
+                container.clientHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX,
             );
         };
+        const resizeHandler = () => handler();
         this._virtualScrollContainer = container;
         this._virtualScrollHandler = handler;
         container.addEventListener('scroll', handler, { passive: true });
+        if (typeof ResizeObserver !== 'undefined') {
+            this._virtualResizeObserver = new ResizeObserver(resizeHandler);
+            this._virtualResizeObserver.observe(container);
+        }
+        else if (typeof window !== 'undefined') {
+            this._virtualWindowResizeHandler = resizeHandler;
+            window.addEventListener('resize', resizeHandler, { passive: true });
+        }
     }
 
-    private _teardownVirtualizationPrototype(): void {
+    private _teardownVirtualization(): void {
         if (this._virtualScrollContainer && this._virtualScrollHandler)
             this._virtualScrollContainer.removeEventListener('scroll', this._virtualScrollHandler);
+        this._virtualResizeObserver?.disconnect();
+        if (this._virtualWindowResizeHandler && typeof window !== 'undefined')
+            window.removeEventListener('resize', this._virtualWindowResizeHandler);
 
         this._virtualScrollContainer = null;
         this._virtualScrollHandler = null;
-        this._virtualizationPrototypeEnabled = false;
+        this._virtualResizeObserver = null;
+        this._virtualWindowResizeHandler = null;
+        this._virtualizationEnabled = false;
         this._virtualBlocks = [];
         this._virtualOffsets = [0];
         this._virtualWindowStart = 0;
         this._virtualWindowEnd = 0;
         this._virtualBeforeSpacer = null;
+        this._virtualMiddleSpacer = null;
         this._virtualAfterSpacer = null;
         this._virtualLastScrollTop = 0;
-        this._virtualLastViewportHeight = VIRTUAL_RENDERER_PROTOTYPE_DEFAULT_VIEWPORT_PX;
+        this._virtualLastViewportHeight = VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX;
     }
 
     private _rebuildVirtualOffsets(state: TState[]): void {
@@ -421,7 +453,7 @@ export class ScrollPage extends Parent {
     }
 
     private _virtualPinnedRange(): { start: number; end: number } | null {
-        if (!this._virtualizationPrototypeEnabled)
+        if (!this._virtualizationEnabled)
             return null;
 
         const indexes: number[] = [];
@@ -447,65 +479,168 @@ export class ScrollPage extends Parent {
         };
     }
 
-    private _applyVirtualWindow(start: number, end: number): void {
-        if (!this._virtualizationPrototypeEnabled || !this.domNode)
-            return;
-
+    private _buildVirtualRanges(
+        start: number,
+        end: number,
+        pinned: IVirtualRange | null,
+    ): IVirtualRange[] {
         const totalBlocks = this._virtualBlocks.length;
         const safeStart = Math.max(0, Math.min(start, totalBlocks));
         const safeEnd = Math.max(safeStart, Math.min(end, totalBlocks));
-        const desired = new Set(this._virtualBlocks.slice(safeStart, safeEnd));
+        const ranges: IVirtualRange[] = [{ start: safeStart, end: safeEnd }];
 
-        for (const block of this._virtualBlocks) {
-            if (!desired.has(block) && block.domNode?.parentNode === this.domNode)
-                this.domNode.removeChild(block.domNode);
+        if (pinned && pinned.end > pinned.start) {
+            const pinnedStart = Math.max(0, Math.min(pinned.start, totalBlocks));
+            const pinnedEnd = Math.max(pinnedStart, Math.min(pinned.end, totalBlocks));
+            if (pinnedEnd > pinnedStart)
+                ranges.push({ start: pinnedStart, end: pinnedEnd });
         }
 
+        ranges.sort((left, right) => left.start - right.start);
+        const mergedRanges: IVirtualRange[] = [];
+        for (const range of ranges) {
+            const previous = mergedRanges.at(-1);
+            if (previous && range.start <= previous.end)
+                previous.end = Math.max(previous.end, range.end);
+            else
+                mergedRanges.push({ ...range });
+        }
+        return mergedRanges;
+    }
+
+    private _collectVirtualBlocks(ranges: IVirtualRange[]): Set<Parent> {
+        const desired = new Set<Parent>();
+        for (const range of ranges) {
+            for (let index = range.start; index < range.end; index += 1)
+                desired.add(this._virtualBlocks[index]);
+        }
+        return desired;
+    }
+
+    private _removeBlocksOutsideVirtualRanges(desired: Set<Parent>): void {
+        for (const block of this._virtualBlocks) {
+            const node = block.domNode;
+            if (!desired.has(block) && node && node.parentNode === this.domNode)
+                this.domNode!.removeChild(node);
+        }
+    }
+
+    private _buildVirtualDomSequence(ranges: IVirtualRange[]): Node[] | null {
+        const before = this._virtualBeforeSpacer;
+        const middle = this._virtualMiddleSpacer;
         const after = this._virtualAfterSpacer;
-        if (!after)
+        if (!before || !middle || !after)
+            return null;
+
+        const totalBlocks = this._virtualBlocks.length;
+        const totalHeight = this._virtualOffsets[totalBlocks] ?? 0;
+        const firstRange = ranges[0] ?? { start: 0, end: 0 };
+        const lastRange = ranges.at(-1) ?? firstRange;
+        before.style.height = `${this._virtualOffsets[firstRange.start] ?? 0}px`;
+        after.style.height = `${Math.max(
+            0,
+            totalHeight - (this._virtualOffsets[lastRange.end] ?? totalHeight),
+        )}px`;
+
+        const sequence: Node[] = [before];
+        for (let rangeIndex = 0; rangeIndex < ranges.length; rangeIndex += 1) {
+            const range = ranges[rangeIndex];
+            for (let index = range.start; index < range.end; index += 1) {
+                const node = this._virtualBlocks[index]?.domNode;
+                if (node)
+                    sequence.push(node);
+            }
+
+            const nextRange = ranges[rangeIndex + 1];
+            if (nextRange) {
+                const gapHeight = Math.max(
+                    0,
+                    (this._virtualOffsets[nextRange.start] ?? 0)
+                    - (this._virtualOffsets[range.end] ?? 0),
+                );
+                middle.style.height = `${gapHeight}px`;
+                sequence.push(middle);
+            }
+        }
+        sequence.push(after);
+        return sequence;
+    }
+
+    private _notifyVirtualBlockMounted(node: HTMLElement): void {
+        if (node.classList.contains('mu-virtual-render-placeholder'))
             return;
-        let ref: Node = after;
-        for (let index = safeEnd - 1; index >= safeStart; index -= 1) {
-            const node = this._virtualBlocks[index]?.domNode;
-            if (!node)
-                continue;
-            if (node.parentNode !== this.domNode)
-                this.domNode.insertBefore(node, ref);
+
+        node.querySelectorAll<HTMLElement>('[data-image-lazy="pending"]').forEach((image) => {
+            image.dispatchEvent(new Event(VIRTUAL_BLOCK_MOUNT_EVENT));
+        });
+    }
+
+    private _syncVirtualDomSequence(sequence: Node[]): void {
+        let ref: Node | null = null;
+        for (let index = sequence.length - 1; index >= 0; index -= 1) {
+            const node = sequence[index];
+            const wasConnected = node.parentNode === this.domNode;
+            if (!wasConnected || node.nextSibling !== ref)
+                this.domNode!.insertBefore(node, ref);
+            if (!wasConnected && node instanceof HTMLElement)
+                this._notifyVirtualBlockMounted(node);
             ref = node;
         }
+    }
 
-        const beforeHeight = this._virtualOffsets[safeStart] ?? 0;
-        const totalHeight = this._virtualOffsets[totalBlocks] ?? 0;
-        const afterHeight = Math.max(0, totalHeight - (this._virtualOffsets[safeEnd] ?? totalHeight));
-        if (this._virtualBeforeSpacer)
-            this._virtualBeforeSpacer.style.height = `${beforeHeight}px`;
-        after.style.height = `${afterHeight}px`;
-        this._virtualWindowStart = safeStart;
-        this._virtualWindowEnd = safeEnd;
+    private _applyVirtualWindow(
+        start: number,
+        end: number,
+        pinned: IVirtualRange | null = null,
+    ): void {
+        if (!this._virtualizationEnabled || !this.domNode)
+            return;
+
+        const ranges = this._buildVirtualRanges(start, end, pinned);
+        this._removeBlocksOutsideVirtualRanges(this._collectVirtualBlocks(ranges));
+        const middle = this._virtualMiddleSpacer;
+        const sequence = this._buildVirtualDomSequence(ranges);
+        if (!middle || !sequence)
+            return;
+
+        if (ranges.length < 2 && middle.parentNode === this.domNode)
+            this.domNode.removeChild(middle);
+        this._syncVirtualDomSequence(sequence);
+        this._virtualWindowStart = Math.max(0, Math.min(start, this._virtualBlocks.length));
+        this._virtualWindowEnd = Math.max(
+            this._virtualWindowStart,
+            Math.min(end, this._virtualBlocks.length),
+        );
     }
 
     updateVirtualWindowForViewport(scrollTop: number, viewportHeight: number): void {
-        if (!this._virtualizationPrototypeEnabled)
+        if (!this._virtualizationEnabled)
             return;
 
-        const height = Math.max(1, viewportHeight || VIRTUAL_RENDERER_PROTOTYPE_DEFAULT_VIEWPORT_PX);
+        const height = Math.max(1, viewportHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX);
         this._virtualLastScrollTop = Math.max(0, scrollTop);
         this._virtualLastViewportHeight = height;
-        const overscan = height * VIRTUAL_RENDERER_PROTOTYPE_OVERSCAN_VIEWPORTS;
+        const overscan = height * VIRTUAL_RENDERER_OVERSCAN_VIEWPORTS;
         const startOffset = Math.max(0, this._virtualLastScrollTop - overscan);
         const endOffset = this._virtualLastScrollTop + height + overscan;
-        let start = this._virtualIndexAtOffset(startOffset);
-        let end = Math.min(this._virtualBlocks.length, this._virtualIndexAtOffset(endOffset) + 1);
-        const pinned = this._virtualPinnedRange();
-        if (pinned) {
-            start = Math.min(start, pinned.start);
-            end = Math.max(end, pinned.end);
+        const start = this._virtualIndexAtOffset(startOffset);
+        const end = Math.min(this._virtualBlocks.length, this._virtualIndexAtOffset(endOffset) + 1);
+        this._applyVirtualWindow(start, end, this._virtualPinnedRange());
+
+        // Replacing large DOM gaps with spacers can make Chromium's native
+        // scroll anchoring choose the still-connected active block and pull the
+        // viewport back toward it. The requested scrollTop is the user's source
+        // of truth; restore it after the window mutation when layout adjusted it.
+        if (
+            this._virtualScrollContainer
+            && Math.abs(this._virtualScrollContainer.scrollTop - this._virtualLastScrollTop) > 1
+        ) {
+            this._virtualScrollContainer.scrollTop = this._virtualLastScrollTop;
         }
-        this._applyVirtualWindow(start, end);
     }
 
     ensureVirtualSelectionRange(anchorPath: TBlockPath, focusPath: TBlockPath): void {
-        if (!this._virtualizationPrototypeEnabled)
+        if (!this._virtualizationEnabled)
             return;
         const anchorIndex = this._virtualIndexFromPath(anchorPath);
         const focusIndex = this._virtualIndexFromPath(focusPath);
@@ -517,28 +652,34 @@ export class ScrollPage extends Parent {
         );
     }
 
-    getVirtualizationPrototypeSnapshot(): IVirtualizationPrototypeSnapshot {
+    getVirtualizationSnapshot(): IVirtualizationSnapshot {
         const totalBlocks = this._virtualBlocks.length;
         const totalEstimatedHeight = this._virtualOffsets[totalBlocks] ?? 0;
         return {
-            enabled: this._virtualizationPrototypeEnabled,
+            enabled: this._virtualizationEnabled,
             totalBlocks,
-            mountedBlocks: this._virtualizationPrototypeEnabled
+            mountedBlocks: this._virtualizationEnabled
                 ? this._virtualBlocks.filter(block => block.domNode?.parentNode === this.domNode).length
                 : this.children.length,
             windowStart: this._virtualWindowStart,
             windowEnd: this._virtualWindowEnd,
-            beforeHeight: this._virtualizationPrototypeEnabled
+            beforeHeight: this._virtualizationEnabled
                 ? this._virtualOffsets[this._virtualWindowStart] ?? 0
                 : 0,
-            afterHeight: this._virtualizationPrototypeEnabled
+            afterHeight: this._virtualizationEnabled
                 ? Math.max(
                         0,
                         totalEstimatedHeight - (this._virtualOffsets[this._virtualWindowEnd] ?? totalEstimatedHeight),
                     )
                 : 0,
             totalEstimatedHeight,
+            viewportHeight: this._virtualLastViewportHeight,
+            renderCacheEntries: this._renderCache.size,
         };
+    }
+
+    getVirtualizationPrototypeSnapshot(): IVirtualizationSnapshot {
+        return this.getVirtualizationSnapshot();
     }
 
     private _startProgressiveRender(
@@ -920,7 +1061,7 @@ export class ScrollPage extends Parent {
         const previousProgressiveStates = this._progressiveStates;
         const previousProgressiveIndex = this._progressiveIndex;
         const previousCloneBlocks = this._cloneProgressiveBlocks;
-        const previousWasVirtualized = this._virtualizationPrototypeEnabled;
+        const previousWasVirtualized = this._virtualizationEnabled;
         const targetIsCurrent = renderCacheKey !== null && renderCacheKey === previousKey;
         let targetEntry: IRenderedCacheEntry | null = null;
         if (!targetIsCurrent) {
@@ -935,7 +1076,7 @@ export class ScrollPage extends Parent {
         }
 
         this._cancelProgressiveRender();
-        this._teardownVirtualizationPrototype();
+        this._teardownVirtualization();
         const detached = this._detachRenderedBlocks();
 
         const cacheEntry = previousWasVirtualized
@@ -954,10 +1095,10 @@ export class ScrollPage extends Parent {
             this._queueDetachedBlocks(detached);
 
         this._renderCacheKey = renderCacheKey;
-        if (state.length > PROGRESSIVE_RENDER_THRESHOLD && isVirtualRendererPrototypeEnabled()) {
+        if (state.length > PROGRESSIVE_RENDER_THRESHOLD && shouldUseVirtualization(this.muya)) {
             if (targetEntry)
                 this._queueDetachedBlocks(targetEntry.blocks);
-            this._mountVirtualizationPrototype(state, cloneBlocks);
+            this._mountVirtualization(state, cloneBlocks);
         }
         else if (targetEntry) {
             this._restoreRenderedCacheEntry(state, targetEntry, progressiveStartDelayMs);
@@ -974,7 +1115,7 @@ export class ScrollPage extends Parent {
     /** Keep the render-cache state aligned after an incremental tree update. */
     setRenderedState(state: TState[]): void {
         this._renderedState = state;
-        if (this._virtualizationPrototypeEnabled) {
+        if (this._virtualizationEnabled) {
             const blocks: Parent[] = [];
             this.children.forEach(child => blocks.push(child as Parent));
             this._virtualBlocks = blocks;
@@ -1049,7 +1190,7 @@ export class ScrollPage extends Parent {
 
     override dispose(): void {
         this._cancelProgressiveRender();
-        this._teardownVirtualizationPrototype();
+        this._teardownVirtualization();
         if (this._detachedDisposalFrameId !== null)
             cancelAnimationFrame(this._detachedDisposalFrameId);
         const scheduler = idleScheduler();

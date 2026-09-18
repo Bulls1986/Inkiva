@@ -1,5 +1,5 @@
 import type Renderer from './index';
-import { CLASS_NAMES } from '../../config';
+import { CLASS_NAMES, VIRTUAL_BLOCK_MOUNT_EVENT } from '../../config';
 import { getUniqueId } from '../../utils';
 import { findScrollContainer, insertAfter, operateClassName } from '../../utils/dom';
 import { loadImage } from '../../utils/image';
@@ -67,11 +67,16 @@ function observeInViewport(
     id: string,
     callback: () => void,
     observerDelayMs = INITIAL_IMAGE_LAYOUT_SETTLE_MS,
+    ownerRoot: HTMLElement | null = null,
 ): void {
     let observer: IntersectionObserver | null = null;
     let scrollContainer: HTMLElement | null = null;
 
     const isInScrollport = (imageText: HTMLElement): boolean => {
+        const detectedScrollContainer = findScrollContainer(imageText);
+        scrollContainer = detectedScrollContainer === imageText
+            ? null
+            : detectedScrollContainer;
         const targetRect = imageText.getBoundingClientRect();
         // Lightweight hosts and happy-dom can report no layout box even when
         // the observer explicitly says the target intersects. Keep that
@@ -104,8 +109,10 @@ function observeInViewport(
             return;
         }
 
-        const imageText = document.getElementById(id);
-        if (!imageText || !isInScrollport(imageText))
+        const imageText = document.getElementById(id)
+            ?? ownerRoot?.querySelector<HTMLElement>(`#${id}`)
+            ?? null;
+        if (!imageText || !imageText.isConnected || !isInScrollport(imageText))
             return;
 
         observer?.disconnect();
@@ -115,16 +122,21 @@ function observeInViewport(
     };
 
     const installObserver = () => {
-        const imageText = document.getElementById(id);
-        if (!imageText) {
+        const imageText = document.getElementById(id)
+            ?? ownerRoot?.querySelector<HTMLElement>(`#${id}`)
+            ?? null;
+        if (!imageText)
+            return;
+
+        // A virtualized block may still be detached here. Keep the placeholder
+        // cold and arm a one-shot mount listener; ScrollPage dispatches it only
+        // after the owning top-level block has entered the live DOM.
+        if (!imageText.isConnected) {
+            imageText.setAttribute('data-image-lazy', 'pending');
+            imageText.addEventListener(VIRTUAL_BLOCK_MOUNT_EVENT, installObserver, { once: true });
             return;
         }
 
-        // Muya's desktop host scrolls the contenteditable root, not the
-        // browser viewport. An implicit viewport observer can therefore mark
-        // a document image visible while it is clipped by the editor's
-        // scrollport. Resolve the actual scroll container after the wrapper
-        // is mounted and use it as the observer root.
         const detectedScrollContainer = findScrollContainer(imageText);
         scrollContainer = detectedScrollContainer === imageText
             ? null
@@ -145,7 +157,9 @@ function observeInViewport(
     // delayed. The performance gate and the renderer both use this state to
     // distinguish an intentionally deferred image from an eager load.
     setTimeout(() => {
-        const imageText = document.getElementById(id);
+        const imageText = document.getElementById(id)
+            ?? ownerRoot?.querySelector<HTMLElement>(`#${id}`)
+            ?? null;
         imageText?.setAttribute('data-image-lazy', 'pending');
     }, 0);
 
@@ -179,6 +193,7 @@ export default function loadImageAsync(
     attrs: Record<string, string>,
     className?: string,
     imageClass?: string,
+    ownerRoot: HTMLElement | null = null,
 ) {
     const { src, isUnknownType } = imageInfo;
     let id: string;
@@ -248,7 +263,7 @@ export default function loadImageAsync(
         }
         else {
             isViewportLazy = true;
-            observeInViewport(id, startLoad);
+            observeInViewport(id, startLoad, INITIAL_IMAGE_LAYOUT_SETTLE_MS, ownerRoot);
         }
     }
     else if (typeof IntersectionObserver !== 'undefined') {
@@ -265,10 +280,12 @@ export default function loadImageAsync(
             height: cached.height ?? 0,
         };
         observeInViewport(id, () => {
-            const imageText = document.getElementById(id);
+            const imageText = document.getElementById(id)
+                ?? ownerRoot?.querySelector<HTMLElement>(`#${id}`)
+                ?? null;
             if (imageText)
                 mountLoadedImage(imageText, cachedImage, attrs, className, imageClass);
-        }, 0);
+        }, 0, ownerRoot);
     }
     else {
         id = cached.id;
