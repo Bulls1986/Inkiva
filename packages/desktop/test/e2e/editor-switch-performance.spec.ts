@@ -10,6 +10,7 @@ type EditorMetrics = {
   setContentCalls: number
   setContentSources: string[]
   markdownSerializationCalls: number
+  markdownSerializationRevisions: number[]
 }
 
 const readEditorMetrics = (page: Page): Promise<EditorMetrics> =>
@@ -19,7 +20,12 @@ const readEditorMetrics = (page: Page): Promise<EditorMetrics> =>
         __inkiva_e2e_editor_metrics__?: EditorMetrics
       }
     ).__inkiva_e2e_editor_metrics__
-    return state ?? { setContentCalls: 0, setContentSources: [], markdownSerializationCalls: 0 }
+    return state ?? {
+      setContentCalls: 0,
+      setContentSources: [],
+      markdownSerializationCalls: 0,
+      markdownSerializationRevisions: []
+    }
   })
 
 const resetEditorMetrics = (page: Page): Promise<void> =>
@@ -33,6 +39,7 @@ const resetEditorMetrics = (page: Page): Promise<void> =>
       state.setContentCalls = 0
       state.setContentSources = []
       state.markdownSerializationCalls = 0
+      state.markdownSerializationRevisions = []
     }
   })
 
@@ -144,6 +151,31 @@ test.describe('editor switch rebuild performance', () => {
       await expect
         .poll(() => readEditorText(page), { timeout: 10000 })
         .toContain('edited')
+    } finally {
+      await app.close()
+    }
+  })
+
+  test('serializes a saved revision only once across deferred enrichment', async() => {
+    const { app, page } = await launchWithMarkdown('# Base\n')
+
+    try {
+      await placeCaretInEditor(page)
+      await resetEditorMetrics(page)
+      // Race save against the normal 80ms snapshot debounce so the save path
+      // must capture the pending revision itself.
+      await page.keyboard.type(' saved-once', { delay: 0 })
+      await sendIpcToRenderer(app, 'mt::editor-ask-file-save')
+
+      // A slower CI runner may legitimately serialize an intermediate revision
+      // if the 80ms debounce expires while the synthetic typing is still in
+      // progress. The invariant is per revision: persistence capture and the
+      // later full enrichment must never serialize the SAME revision twice.
+      await page.waitForTimeout(350)
+      const metrics = await readEditorMetrics(page)
+      expect(metrics.markdownSerializationRevisions.length).toBeGreaterThan(0)
+      expect(new Set(metrics.markdownSerializationRevisions).size)
+        .toBe(metrics.markdownSerializationRevisions.length)
     } finally {
       await app.close()
     }

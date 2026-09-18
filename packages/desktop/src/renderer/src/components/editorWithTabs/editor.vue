@@ -140,7 +140,8 @@ import { SyntheticHistory, type IFileHistoryLike } from './syntheticHistory'
 import { isStaleEditorEvent } from './editorEventGuard'
 import {
   EditorSnapshotScheduler,
-  getEditorMutationPolicy
+  getEditorMutationPolicy,
+  type EditorSnapshotMode
 } from './editorHotPath'
 import {
   rendererPerformance,
@@ -324,6 +325,12 @@ const flushActiveEditor = () => {
   if (id) editorSnapshotScheduler.flush(id)
 }
 
+const flushActiveEditorForSave = () => {
+  const id = currentFile.value?.id
+  editor.value?.flush()
+  if (id) editorSnapshotScheduler.flush(id, 'persistence')
+}
+
 // A tab switch must persist the last queued edit before replacing the Muya
 // document, but it does not need to deep-clone the whole block tree in the
 // switch handler. Keep the Markdown/history snapshot and invalidate the
@@ -331,7 +338,7 @@ const flushActiveEditor = () => {
 const flushActiveEditorForTabSwitch = () => {
   const id = currentFile.value?.id
   editor.value?.flush()
-  if (id) editorSnapshotScheduler.flush(id, false)
+  if (id) editorSnapshotScheduler.flush(id, 'switch')
 }
 
 // The engine's undo/redo history (`getHistory()`) has a different shape than
@@ -340,6 +347,7 @@ const flushActiveEditorForTabSwitch = () => {
 // per-tab map here for restoration across in-session tab switches, and feed the
 // store a SYNTHETIC desktop-shaped history.
 const engineHistoryByTab = new Map<string, unknown>()
+const serializedMarkdownByTab = new Map<string, { revision: number; markdown: string }>()
 
 // The WYSIWYG caret captured the instant the user switches INTO source mode.
 // Focus moves to CodeMirror while source mode is up, so by the time the tab is
@@ -375,7 +383,7 @@ const makeSyntheticHistory = (id: string, content: string): IFileHistoryLike => 
   return getSyntheticHistory(id, content).build(content)
 }
 
-const recordEditorMarkdownSerialization = (): void => {
+const recordEditorMarkdownSerialization = (revision?: number): void => {
   if (window.electron?.process?.env?.PERF_TESTING !== 'true') return
 
   const globalState = globalThis as typeof globalThis & {
@@ -383,43 +391,64 @@ const recordEditorMarkdownSerialization = (): void => {
       setContentCalls: number
       setContentSources: EditorSetContentSource[]
       markdownSerializationCalls: number
+      markdownSerializationRevisions: number[]
     }
   }
   const metrics = (globalState.__inkiva_e2e_editor_metrics__ ??= {
     setContentCalls: 0,
     setContentSources: [],
-    markdownSerializationCalls: 0
+    markdownSerializationCalls: 0,
+    markdownSerializationRevisions: []
   })
   metrics.markdownSerializationCalls = (metrics.markdownSerializationCalls ?? 0) + 1
+  metrics.markdownSerializationRevisions ??= []
+  if (typeof revision === 'number') metrics.markdownSerializationRevisions.push(revision)
 }
 
-const serializeEditorMarkdown = (instance: MuyaInstance): string => {
-  recordEditorMarkdownSerialization()
+const serializeEditorMarkdown = (instance: MuyaInstance, revision?: number): string => {
+  recordEditorMarkdownSerialization(revision)
   return instance.getMarkdown()
+}
+
+const serializeEditorMarkdownForRevision = (
+  id: string,
+  revision: number,
+  instance: MuyaInstance
+): string => {
+  const cached = serializedMarkdownByTab.get(id)
+  if (cached?.revision === revision) return cached.markdown
+
+  const markdown = serializeEditorMarkdown(instance, revision)
+  serializedMarkdownByTab.set(id, { revision, markdown })
+  return markdown
 }
 
 const captureEditorSnapshot = (
   id: string,
   revision: number,
-  includeBlocks = true
+  mode: EditorSnapshotMode = 'full'
 ): void => {
   if (!currentFile.value || currentFile.value.id !== id || !editor.value) return
 
-  const markdown = serializeEditorMarkdown(editor.value)
+  const markdown = serializeEditorMarkdownForRevision(id, revision, editor.value)
   const engineHistory = editor.value.getHistory()
   engineHistoryByTab.set(id, engineHistory)
+  const includeDerivedMetadata = mode !== 'persistence'
+  const includeBlocks = mode === 'full'
   editorStore.LISTEN_FOR_CONTENT_CHANGE({
     id,
     revision,
     markdown,
-    wordCount: muyaWordCount(markdown),
+    // Manual save only needs durable Markdown/history/caret. Reuse this same
+    // revision's serialized Markdown when the scheduler enriches UI metadata
+    // later, keeping word counting off the disk-write critical path.
+    wordCount: includeDerivedMetadata ? muyaWordCount(markdown) : undefined,
     cursor: serializeCursor(editor.value.getSelection()),
     // Synthetic, desktop-shaped history so the store's save/dirty tracking
     // keeps working (the engine history shape is incompatible).
     history: makeSyntheticHistory(id, markdown),
-    // A switch-boundary flush only needs Markdown/history/caret. Clear the
-    // reusable block cache so a subsequent activation cannot reuse a stale
-    // state that predates the last edit.
+    // Persistence/switch snapshots invalidate reusable blocks immediately. A
+    // deferred full enrichment repopulates them without reserializing Markdown.
     blocks: includeBlocks ? editor.value.getState() : null
   })
 }
@@ -430,6 +459,9 @@ const captureEditorSnapshot = (
 const pruneClosedTabState = (liveTabIds: Set<string>): void => {
   for (const id of engineHistoryByTab.keys()) {
     if (!liveTabIds.has(id)) engineHistoryByTab.delete(id)
+  }
+  for (const id of serializedMarkdownByTab.keys()) {
+    if (!liveTabIds.has(id)) serializedMarkdownByTab.delete(id)
   }
   for (const id of syntheticHistoryByTab.keys()) {
     if (!liveTabIds.has(id)) syntheticHistoryByTab.delete(id)
@@ -1774,14 +1806,17 @@ const recordEditorSetContent = (source: EditorSetContentSource): void => {
       setContentCalls: number
       setContentSources: EditorSetContentSource[]
       markdownSerializationCalls: number
+      markdownSerializationRevisions: number[]
     }
   }
   const metrics = (globalState.__inkiva_e2e_editor_metrics__ ??= {
     setContentCalls: 0,
     setContentSources: [],
-    markdownSerializationCalls: 0
+    markdownSerializationCalls: 0,
+    markdownSerializationRevisions: []
   })
   metrics.markdownSerializationCalls ??= 0
+  metrics.markdownSerializationRevisions ??= []
   metrics.setContentCalls += 1
   metrics.setContentSources.push(source)
 }
@@ -2408,6 +2443,7 @@ onMounted(() => {
   bus.on('image-uploaded', handleUploadedImage)
   bus.on('file-changed', handleFileChange)
   bus.on('flush-active-editor', flushActiveEditor)
+  bus.on('flush-active-editor-for-save', flushActiveEditorForSave)
   bus.on('flush-active-editor-for-tab-switch', flushActiveEditorForTabSwitch)
   bus.on('editor-blur', blurEditor)
   bus.on('editor-focus', focusEditor)
@@ -2447,7 +2483,7 @@ onMounted(() => {
     const revision = editorStore.MARK_CONTENT_DIRTY(id)
     editorSnapshotScheduler.request(
       id,
-      (includeBlocks) => captureEditorSnapshot(id, revision, includeBlocks),
+      (mode) => captureEditorSnapshot(id, revision, mode),
       policy.snapshot === 'immediate'
     )
 
@@ -2585,6 +2621,7 @@ onBeforeUnmount(() => {
   bus.off('image-uploaded', handleUploadedImage)
   bus.off('file-changed', handleFileChange)
   bus.off('flush-active-editor', flushActiveEditor)
+  bus.off('flush-active-editor-for-save', flushActiveEditorForSave)
   bus.off('flush-active-editor-for-tab-switch', flushActiveEditorForTabSwitch)
   bus.off('editor-blur', blurEditor)
   bus.off('editor-focus', focusEditor)

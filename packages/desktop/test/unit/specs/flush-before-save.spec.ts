@@ -33,8 +33,10 @@ import { EditorSnapshotScheduler } from '@/components/editorWithTabs/editorHotPa
 // #3803: the store snapshots `currentFile.markdown` (refreshed only on the
 // engine's deferred rAF `json-change`) to send to the main process. A keystroke
 // typed in the same frame as Cmd+S was therefore dropped from the saved file.
-// The save/move/rename paths now emit `flush-active-editor` first, which the
-// editor synchronously commits into `currentFile.markdown` before it is read.
+// The save paths emit `flush-active-editor-for-save` first, which the editor
+// synchronously commits the persistence snapshot into `currentFile.markdown`
+// before it is read. Move/rename keep the generic flush because they may need
+// the broader editor snapshot for non-save behavior.
 //
 // The bug lives at the `const { …, markdown } = this.currentFile` READ, which
 // sits between the flush and the send — so an emit-order assertion (flush < send)
@@ -79,6 +81,14 @@ function onFlushCommit(store: ReturnType<typeof useEditorStore>) {
   return () => bus.off('flush-active-editor', handler)
 }
 
+function onSaveFlushCommit(store: ReturnType<typeof useEditorStore>) {
+  const handler = () => {
+    if (store.currentFile) store.currentFile.markdown = FLUSHED
+  }
+  bus.on('flush-active-editor-for-save', handler)
+  return () => bus.off('flush-active-editor-for-save', handler)
+}
+
 // Global invocation order of a given emitted event, located by event name (not
 // array position) so an unrelated earlier emit can't mask a moved flush.
 function emitOrderOf(emitSpy: ReturnType<typeof vi.spyOn>, event: string): number | undefined {
@@ -102,7 +112,7 @@ describe('editor store — flush pending edits before saving (#3803)', () => {
   it('FILE_SAVE sends the flushed markdown, not the stale pre-flush snapshot', () => {
     const store = useEditorStore()
     seedCurrentFile(store)
-    detach = onFlushCommit(store)
+    detach = onSaveFlushCommit(store)
     const sendSpy = vi.spyOn(window.electron.ipcRenderer, 'send')
 
     store.FILE_SAVE()
@@ -112,10 +122,21 @@ describe('editor store — flush pending edits before saving (#3803)', () => {
     expect(call?.[MARKDOWN_ARG]).toBe(FLUSHED)
   })
 
+  it('FILE_SAVE uses the persistence-only flush event', () => {
+    const store = useEditorStore()
+    seedCurrentFile(store)
+    const emitSpy = vi.spyOn(bus, 'emit')
+
+    store.FILE_SAVE()
+
+    expect(emitSpy).toHaveBeenCalledWith('flush-active-editor-for-save')
+    expect(emitSpy).not.toHaveBeenCalledWith('flush-active-editor')
+  })
+
   it('FILE_SAVE supersedes delayed autosave work with the manual snapshot', () => {
     const store = useEditorStore()
     seedCurrentFile(store)
-    detach = onFlushCommit(store)
+    detach = onSaveFlushCommit(store)
     const cancelSpy = vi.spyOn(AutosaveQueue.prototype, 'cancel')
     const sendSpy = vi.spyOn(window.electron.ipcRenderer, 'send')
 
@@ -134,7 +155,7 @@ describe('editor store — flush pending edits before saving (#3803)', () => {
   it('FILE_SAVE_AS sends the flushed markdown, not the stale pre-flush snapshot', () => {
     const store = useEditorStore()
     seedCurrentFile(store)
-    detach = onFlushCommit(store)
+    detach = onSaveFlushCommit(store)
     const sendSpy = vi.spyOn(window.electron.ipcRenderer, 'send')
 
     store.FILE_SAVE_AS()
@@ -144,10 +165,21 @@ describe('editor store — flush pending edits before saving (#3803)', () => {
     expect(call?.[MARKDOWN_ARG]).toBe(FLUSHED)
   })
 
+  it('FILE_SAVE_AS uses the persistence-only flush event', () => {
+    const store = useEditorStore()
+    seedCurrentFile(store)
+    const emitSpy = vi.spyOn(bus, 'emit')
+
+    store.FILE_SAVE_AS()
+
+    expect(emitSpy).toHaveBeenCalledWith('flush-active-editor-for-save')
+    expect(emitSpy).not.toHaveBeenCalledWith('flush-active-editor')
+  })
+
   it('FILE_SAVE_AS supersedes delayed autosave work with the manual snapshot', () => {
     const store = useEditorStore()
     seedCurrentFile(store)
-    detach = onFlushCommit(store)
+    detach = onSaveFlushCommit(store)
     const cancelSpy = vi.spyOn(AutosaveQueue.prototype, 'cancel')
     const sendSpy = vi.spyOn(window.electron.ipcRenderer, 'send')
 
