@@ -19,7 +19,7 @@ permissions:
 jobs:
   reference-p0:
     name: Reference Windows P0 Milk Gate
-    runs-on: windows-latest
+    runs-on: [self-hosted, Windows, X64, reference-low-end]
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4.3.1
@@ -84,7 +84,7 @@ jobs:
   reference-large-shards:
     name: Reference Windows ${{ matrix.level }} / ${{ matrix.shard }}
     needs: reference-p0
-    runs-on: windows-latest
+    runs-on: [self-hosted, Windows, X64, reference-low-end]
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -163,7 +163,7 @@ jobs:
     name: Reference Windows P1/P2 Large Gates
     needs: [reference-p0, reference-large-shards]
     if: always()
-    runs-on: windows-latest
+    runs-on: [self-hosted, Windows, X64, reference-low-end]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4.3.1
@@ -233,7 +233,7 @@ jobs:
   reference-p3:
     name: Reference Windows P3 Extreme Gate
     if: github.event_name == 'workflow_dispatch' && inputs.run_p3 == true
-    runs-on: windows-latest
+    runs-on: [self-hosted, Windows, X64, reference-low-end]
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4.3.1

@@ -8,6 +8,16 @@ test('the release workflow shards blocking P1/P2 gates and keeps opt-in P3', asy
     'utf8'
   )
 
+  // The canonical reference profile is Windows 11 on a dedicated
+  // reference-low-end runner. Standard GitHub-hosted x64 Windows runners
+  // are Windows Server images, so routing this gate to windows-latest would
+  // make the environment probe fail before any measurements are collected.
+  assert.doesNotMatch(workflow, /runs-on:\s*windows-latest/)
+  const referenceRunnerMatches = workflow.match(
+    /runs-on:\s*\[self-hosted, Windows, X64, reference-low-end\]/g
+  )
+  assert.equal(referenceRunnerMatches?.length, 4)
+
   assert.match(workflow, /reference-large-shards:/)
   assert.match(workflow, /fail-fast: false/)
   assert.match(workflow, /level: P1, shard: doc-50k/)
