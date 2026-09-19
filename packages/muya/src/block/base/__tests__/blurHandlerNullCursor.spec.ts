@@ -16,6 +16,8 @@ interface IFormatBlock {
     checkNeedRender: () => boolean;
     blurHandler: () => void;
     setCursor: (start: number, end: number, needUpdate?: boolean) => void;
+    update: () => void;
+    domNode: HTMLElement | null;
 }
 
 const bootedHosts: HTMLElement[] = [];
@@ -88,5 +90,23 @@ describe('format.checkNeedRender / blurHandler with a null selection', () => {
         block.setCursor(2, 2, true);
 
         expect(block.checkNeedRender()).toBe(true);
+    });
+
+    it('does not throw when blur/update races a virtualized block whose DOM is dematerialized', () => {
+        const muya = bootMuya('# **Heading**\n');
+        const block = firstFormat(muya);
+        block.setCursor(3, 3, true);
+
+        // Reproduce the lifetime boundary from #151: the content block object
+        // remains active, but virtualization has released its render target
+        // before the subsequent focus/blur transition asks it to patch.
+        Object.defineProperty(block, 'domNode', {
+            configurable: true,
+            value: null,
+            writable: true,
+        });
+
+        expect(() => block.update()).not.toThrow();
+        expect(() => block.blurHandler()).not.toThrow();
     });
 });

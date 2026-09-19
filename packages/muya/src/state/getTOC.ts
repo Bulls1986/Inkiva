@@ -10,6 +10,7 @@ export interface ITocItem {
     lvl: number;
     slug: string;
     githubSlug: string;
+    blockIndex: number;
 }
 
 interface IHeadingBlock extends Parent {
@@ -50,10 +51,13 @@ export function getTOC(muya: Muya): ITocItem[] {
     const items: ITocItem[] = [];
     const { superSubScript, footnote } = muya.options;
 
+    let blockIndex = 0;
     for (const node of scrollPage.children.iterator()) {
         const { blockName } = node;
-        if (blockName !== 'atx-heading' && blockName !== 'setext-heading')
+        if (blockName !== 'atx-heading' && blockName !== 'setext-heading') {
+            blockIndex += 1;
             continue;
+        }
 
         const block = node as IHeadingBlock;
         const head = block.children.head as Content | null;
@@ -102,7 +106,9 @@ export function getTOC(muya: Muya): ITocItem[] {
             lvl: block.meta.level,
             slug: stableSlug(block),
             githubSlug: rendered.githubSlug,
+            blockIndex,
         });
+        blockIndex += 1;
     }
 
     return items;

@@ -42,6 +42,7 @@ declare module '@muyajs/core' {
     lvl: number
     slug: string
     githubSlug: string
+    blockIndex: number
   }
 
   // The editor instance surface is kept permissive (`any`) — every member

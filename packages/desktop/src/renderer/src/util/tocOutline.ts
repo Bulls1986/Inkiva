@@ -1,6 +1,10 @@
 import type { KeyedTocNode } from './tocKeys'
 import type { EditorLayoutChange } from './editorLayout'
-import { TOP_LEVEL_HEADINGS_SELECTOR, TOC_HEADING_SLUG_ATTRIBUTE } from './tocNavigation'
+import {
+  TOP_LEVEL_HEADINGS_SELECTOR,
+  TOC_HEADING_SLUG_ATTRIBUTE,
+  VIRTUAL_BLOCK_INDEX_ATTRIBUTE
+} from './tocNavigation'
 
 export { TOC_HEADING_SLUG_ATTRIBUTE }
 
@@ -11,6 +15,7 @@ export interface TocPosition {
 
 interface TocSlugLike {
   slug?: unknown
+  blockIndex?: unknown
 }
 
 const normalizeQuery = (query: unknown): string =>
@@ -91,7 +96,14 @@ export function syncTocHeadingAnchors(container: Element, toc: readonly TocSlugL
   for (let index = 0; index < headings.length; index += 1) {
     const heading = headings[index]
     heading.removeAttribute(TOC_HEADING_SLUG_ATTRIBUTE)
-    const slug = toc[index]?.slug
+    const virtualBlockIndexAttribute = heading.getAttribute(VIRTUAL_BLOCK_INDEX_ATTRIBUTE)
+    const virtualBlockIndex = virtualBlockIndexAttribute === null
+      ? null
+      : Number(virtualBlockIndexAttribute)
+    const tocItem = virtualBlockIndex !== null && Number.isInteger(virtualBlockIndex)
+      ? toc.find((item) => item.blockIndex === virtualBlockIndex)
+      : toc[index]
+    const slug = tocItem?.slug
     if (typeof slug === 'string' && slug.length > 0) {
       heading.setAttribute(TOC_HEADING_SLUG_ATTRIBUTE, slug)
     }
@@ -147,7 +159,7 @@ export interface TocScrollSync {
 }
 
 interface CachedTocPosition extends TocPosition {
-  heading: Element
+  heading: Element | null
   block: Element | null
   blockIndex: number
 }
@@ -175,7 +187,8 @@ const cancelFrame = (handle: number): void => {
 export function createTocScrollSync(
   container: HTMLElement,
   onActiveChange: (slug: string | null) => void,
-  activationOffset = 40
+  activationOffset = 40,
+  getVirtualBlockOffset?: (blockIndex: number) => number | null
 ): TocScrollSync {
   let toc: readonly TocSlugLike[] = []
   let positions: CachedTocPosition[] = []
@@ -185,9 +198,58 @@ export function createTocScrollSync(
   let attached = false
   let destroyed = false
 
+  const findActiveVirtualSlug = (): string | null => {
+    if (!getVirtualBlockOffset) return null
+    const target = container.scrollTop + activationOffset
+    let low = 0
+    let high = toc.length - 1
+    let best: string | null = null
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2)
+      const item = toc[mid]
+      const slug = item?.slug
+      const blockIndex = item?.blockIndex
+      if (
+        typeof slug !== 'string' ||
+        slug.length === 0 ||
+        typeof blockIndex !== 'number' ||
+        !Number.isInteger(blockIndex)
+      ) {
+        // TOC entries produced by Muya are ordered and complete, but keep the
+        // fallback path robust for external/legacy callers with partial items.
+        return findActiveTocSlug(
+          positions.map((position) => ({
+            ...position,
+            top: getVirtualBlockOffset(position.blockIndex) ?? position.top
+          })),
+          container.scrollTop,
+          activationOffset
+        )
+      }
+
+      const top = getVirtualBlockOffset(blockIndex)
+      if (top === null) return best
+      if (top <= target) {
+        best = slug
+        low = mid + 1
+      } else {
+        high = mid - 1
+      }
+    }
+
+    return best
+  }
+
   const updateActive = (): void => {
     if (destroyed) return
-    const nextSlug = findActiveTocSlug(positions, container.scrollTop, activationOffset)
+    // Virtual offsets evolve as mounted blocks replace estimates with exact
+    // measurements. Never use the snapshot captured by `rebuild()` on the
+    // scroll hot path; resolve the current numeric offsets directly instead.
+    // This stays layout-free and uses O(log headings) offset lookups.
+    const nextSlug = getVirtualBlockOffset
+      ? findActiveVirtualSlug()
+      : findActiveTocSlug(positions, container.scrollTop, activationOffset)
     if (nextSlug === activeSlug) return
     activeSlug = nextSlug
     onActiveChange(nextSlug)
@@ -202,6 +264,24 @@ export function createTocScrollSync(
     const root = Array.from(container.children).find((child) =>
       child instanceof HTMLElement && child.classList.contains('mu-container'))
     syncTocHeadingAnchors(container, toc)
+    if (getVirtualBlockOffset) {
+      positions = toc.reduce<CachedTocPosition[]>((result, item) => {
+        const slug = item.slug
+        const blockIndex = item.blockIndex
+        if (
+          typeof slug !== 'string' ||
+          slug.length === 0 ||
+          typeof blockIndex !== 'number' ||
+          !Number.isInteger(blockIndex)
+        ) return result
+        const top = getVirtualBlockOffset(blockIndex)
+        if (top === null) return result
+        result.push({ slug, top, heading: null, block: null, blockIndex })
+        return result
+      }, [])
+      updateActive()
+      return
+    }
     positions = headings.reduce<CachedTocPosition[]>((result, heading, index) => {
       const slug = toc[index]?.slug
       if (typeof slug !== 'string' || slug.length === 0) return result
@@ -256,6 +336,11 @@ export function createTocScrollSync(
   const reconcile = (changes: readonly EditorLayoutChange[]): void => {
     if (destroyed || changes.length === 0) return
 
+    if (getVirtualBlockOffset) {
+      rebuild()
+      return
+    }
+
     // Insertion/removal changes the heading-to-block mapping. Rebuild once for
     // that structural boundary; ordinary diagram resizes stay on the local
     // numeric cache path below.
@@ -279,6 +364,7 @@ export function createTocScrollSync(
       if (!change.next) continue
       for (const position of positions) {
         if (position.block !== change.element) continue
+        if (!position.heading) continue
         rootRect ??= container.getBoundingClientRect()
         const rect = position.heading.getBoundingClientRect()
         position.top = rect.top - rootRect.top + container.scrollTop
