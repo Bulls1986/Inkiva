@@ -39,6 +39,7 @@
     "test:unit": "vitest run test/unit",
     "test:lifecycle": "vitest run test/unit/specs/image-path-autocomplete.spec.ts test/unit/specs/watcher-lifecycle.spec.ts",
     "test:e2e": "playwright test test/e2e --config=test/e2e/playwright.config.ts",
+    "test:e2e:virtualization": "playwright test test/e2e --config=test/e2e/playwright.config.ts --grep @virtualization-core",
     "test:e2e:perf": "cross-env INKIVA_RUN_PERF=true playwright test test/e2e --config=test/e2e/playwright.config.ts --grep @perf",
     "test:e2e:perf:fast": "cross-env INKIVA_RUN_PERF_FAST_GATE=true INKIVA_PERF_MODE=pr-smoke playwright test test/e2e/performance-fast-gate.spec.ts --config=test/e2e/playwright.config.ts --grep @perf-fast-gate",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",

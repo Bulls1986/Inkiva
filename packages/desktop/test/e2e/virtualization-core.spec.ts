@@ -73,7 +73,7 @@ const expectBoundedVirtualization = async(page: Page): Promise<void> => {
   expect(snapshot.materializedBlocks).toBeLessThan(snapshot.totalBlocks / 2)
 }
 
-test.describe('Render Surface 2.0 — Electron core interaction gate', () => {
+test.describe('@virtualization-core Render Surface 2.0 — Electron core interaction gate', () => {
   let app: ElectronApplication
   let page: Page
 
@@ -119,6 +119,30 @@ test.describe('Render Surface 2.0 — Electron core interaction gate', () => {
     await sendIpcToRenderer(app, 'mt::editor-edit-action', 'undo')
     await expect.poll(() => readStoreMarkdown(page), { timeout: 5000 }).toContain('paragraph 0')
     await expect.poll(() => readStoreMarkdown(page), { timeout: 5000 }).toContain(NEEDLE)
+    await expectBoundedVirtualization(page)
+    await expectNoRendererErrors(app)
+  })
+
+  test('native Ctrl/Cmd+Z undoes a normal edit without moving the virtual viewport', async() => {
+    const first = page.locator('.mu-paragraph-content').filter({ hasText: /^paragraph 0$/ }).first()
+    await expect(first).toBeVisible({ timeout: 5000 })
+    await first.click()
+    await page.keyboard.press('End')
+    await page.keyboard.type(' edited')
+    await expect.poll(() => readStoreMarkdown(page), { timeout: 5000 }).toContain('paragraph 0 edited')
+
+    const beforeUndo = await page.locator('.editor-component').evaluate((node) => (node as HTMLElement).scrollTop)
+    await app.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0]
+      if (!win || win.isDestroyed()) throw new Error('No focused editor window found')
+      const modifier = process.platform === 'darwin' ? 'meta' : 'control'
+      win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Z', modifiers: [modifier] })
+      win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Z', modifiers: [modifier] })
+    })
+
+    await expect.poll(() => readStoreMarkdown(page), { timeout: 5000 }).not.toContain('paragraph 0 edited')
+    const afterUndo = await page.locator('.editor-component').evaluate((node) => (node as HTMLElement).scrollTop)
+    expect(Math.abs(afterUndo - beforeUndo)).toBeLessThanOrEqual(2)
     await expectBoundedVirtualization(page)
     await expectNoRendererErrors(app)
   })

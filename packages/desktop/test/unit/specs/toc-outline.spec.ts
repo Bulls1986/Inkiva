@@ -106,6 +106,118 @@ describe('TOC outline utilities', () => {
     )
   })
 
+  it('binds virtualized headings by document block index instead of mounted order', () => {
+    const container = document.createElement('div')
+    container.innerHTML = `
+      <div class="mu-container">
+        <h2 data-virtual-block-index="40">Middle</h2>
+        <h2 data-virtual-block-index="80">Later</h2>
+      </div>
+    `
+    syncTocHeadingAnchors(container, [
+      { slug: 'uid-first', blockIndex: 2 },
+      { slug: 'uid-middle', blockIndex: 40 },
+      { slug: 'uid-later', blockIndex: 80 }
+    ])
+
+    const headings = container.querySelectorAll('.mu-container > h2')
+    expect(headings[0].getAttribute(TOC_HEADING_SLUG_ATTRIBUTE)).toBe('uid-middle')
+    expect(headings[1].getAttribute(TOC_HEADING_SLUG_ATTRIBUTE)).toBe('uid-later')
+  })
+
+  it('tracks active virtualized headings from document-level offsets', () => {
+    const container = document.createElement('div')
+    container.scrollTop = 850
+    const onActiveChange = vi.fn()
+    const offsets = new Map([[2, 0], [40, 800], [80, 1600]])
+    const sync = createTocScrollSync(
+      container,
+      onActiveChange,
+      40,
+      (blockIndex) => offsets.get(blockIndex) ?? null
+    )
+    sync.update([
+      { slug: 'uid-first', blockIndex: 2 },
+      { slug: 'uid-middle', blockIndex: 40 },
+      { slug: 'uid-later', blockIndex: 80 }
+    ])
+    sync.attach()
+    sync.refresh()
+
+    expect(onActiveChange).toHaveBeenLastCalledWith('uid-middle')
+    sync.destroy()
+  })
+
+  it('falls back to DOM heading positions when the virtual offset provider is inactive', () => {
+    const container = document.createElement('div')
+    const root = document.createElement('div')
+    const firstHeading = document.createElement('h1')
+    const secondHeading = document.createElement('h2')
+    root.className = 'mu-container'
+    root.append(firstHeading, secondHeading)
+    container.append(root)
+    document.body.append(container)
+    container.scrollTop = 0
+
+    const rect = (top: number): DOMRect => ({
+      top,
+      bottom: top + 40,
+      height: 40,
+      left: 0,
+      right: 700,
+      width: 700,
+      x: 0,
+      y: top,
+      toJSON: () => ({})
+    } as DOMRect)
+    vi.spyOn(container, 'getBoundingClientRect').mockReturnValue(rect(0))
+    vi.spyOn(firstHeading, 'getBoundingClientRect').mockReturnValue(rect(0))
+    vi.spyOn(secondHeading, 'getBoundingClientRect').mockReturnValue(rect(500))
+    const onActiveChange = vi.fn()
+    const sync = createTocScrollSync(container, onActiveChange, 40, () => null)
+    sync.update([
+      { slug: 'uid-first', blockIndex: 0 },
+      { slug: 'uid-second', blockIndex: 1 }
+    ])
+    sync.attach()
+    sync.refresh()
+
+    expect(onActiveChange).toHaveBeenLastCalledWith('uid-first')
+    sync.destroy()
+    container.remove()
+  })
+
+  it('reads current virtual offsets on scroll after measured geometry changes', async() => {
+    const container = document.createElement('div')
+    container.scrollTop = 850
+    const onActiveChange = vi.fn()
+    const offsets = new Map([[2, 0], [40, 800], [80, 1600]])
+    const sync = createTocScrollSync(
+      container,
+      onActiveChange,
+      40,
+      (blockIndex) => offsets.get(blockIndex) ?? null
+    )
+    sync.update([
+      { slug: 'uid-first', blockIndex: 2 },
+      { slug: 'uid-middle', blockIndex: 40 },
+      { slug: 'uid-later', blockIndex: 80 }
+    ])
+    sync.attach()
+    sync.refresh()
+    expect(onActiveChange).toHaveBeenLastCalledWith('uid-middle')
+
+    // Exact block measurements can move virtual offsets without rebuilding the
+    // desktop TOC cache. The next scroll frame must use the live offsets.
+    offsets.set(40, 400)
+    offsets.set(80, 800)
+    container.dispatchEvent(new Event('scroll'))
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+
+    expect(onActiveChange).toHaveBeenLastCalledWith('uid-later')
+    sync.destroy()
+  })
+
   it('shifts cached headings locally when a preceding diagram changes size', () => {
     const container = document.createElement('div')
     const root = document.createElement('div')

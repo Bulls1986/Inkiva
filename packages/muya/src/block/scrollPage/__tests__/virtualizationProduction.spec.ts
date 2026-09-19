@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Muya } from '../../../muya';
 import { MarkdownToState } from '../../../state/markdownToState';
 import { PROGRESSIVE_RENDER_THRESHOLD } from '../index';
@@ -104,5 +104,69 @@ describe('stage C1 virtualization production contract', () => {
         const snapshot = scrollPage.getVirtualizationSnapshot();
         expect(snapshot.renderCacheEntries).toBe(0);
         expect(snapshot.mountedBlocks).toBeLessThan(totalBlocks);
+    });
+
+    it('preserves measured geometry for unchanged blocks across an incremental edit', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + 80;
+        const muya = new Muya(host, {
+            markdown: paragraphs(totalBlocks),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const internals = scrollPage as unknown as {
+            _virtualBlocks: object[];
+            _virtualMeasuredHeights: Map<number, number>;
+        };
+        const preservedBlock = internals._virtualBlocks[5];
+        internals._virtualMeasuredHeights.set(5, 321);
+
+        const first = scrollPage.firstContentInDescendant()!;
+        first.setCursor(first.text.length, first.text.length, true);
+        first.text = `${first.text} edited`;
+        muya.editor.flush();
+
+        await vi.waitFor(() => expect(muya.editor.history.canUndo()).toBe(true));
+
+        const nextIndex = internals._virtualBlocks.indexOf(preservedBlock);
+        expect(nextIndex).toBeGreaterThanOrEqual(0);
+        expect(internals._virtualMeasuredHeights.get(nextIndex)).toBe(321);
+
+        muya.undo();
+        await vi.waitFor(() => expect(muya.getMarkdown()).not.toContain('production 0 edited'));
+        expect(internals._virtualMeasuredHeights.get(
+            internals._virtualBlocks.indexOf(preservedBlock),
+        )).toBe(321);
+    });
+
+    it('ignores blank-root clicks when the logical tail block is dematerialized', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + 180;
+        const muya = new Muya(host, {
+            markdown: paragraphs(totalBlocks),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        scrollPage.updateVirtualWindowForViewport(
+            scrollPage.getVirtualizationSnapshot().totalEstimatedHeight * 0.5,
+            600,
+        );
+
+        const last = scrollPage.lastChild!;
+        expect(last.domNode).toBeNull();
+        expect(() => scrollPage.domNode!.dispatchEvent(new MouseEvent('click', {
+            bubbles: true,
+            clientY: 10_000,
+        }))).not.toThrow();
     });
 });

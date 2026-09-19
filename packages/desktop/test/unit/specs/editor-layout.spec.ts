@@ -230,6 +230,29 @@ describe('createEditorLayoutReconciler', () => {
     )
   })
 
+  it('reports geometry changes without writing scroll when scroll ownership is deferred', async() => {
+    const fixture = makeFixture()
+    fixture.container.scrollTop = 500
+    fixture.setRect(fixture.diagram, -400, 100)
+    const onChange = vi.fn()
+    reconciler = createEditorLayoutReconciler(fixture.container, {
+      onChange,
+      shouldDeferScroll: () => true
+    })
+    const resizeObserver = ResizeObserverDouble.instances[0]
+
+    fixture.setRect(fixture.diagram, -400, 260)
+    fixture.setScrollHeight(1160)
+    resizeObserver.emit(fixture.diagram)
+    await flushLayoutFrame()
+
+    expect(fixture.container.scrollTop).toBe(500)
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange.mock.calls[0][0][0]).toEqual(
+      expect.objectContaining({ delta: 160 })
+    )
+  })
+
   it('reports an error-state shrink and a removed block, then ignores its stale observer callback', async() => {
     const fixture = makeFixture()
     const changes: EditorLayoutChange[][] = []
