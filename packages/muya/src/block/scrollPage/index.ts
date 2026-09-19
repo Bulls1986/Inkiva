@@ -473,6 +473,7 @@ export class ScrollPage extends Parent {
 
         const container = findScrollContainer(this.muya.domNode);
         const contentWidth = () => this.domNode?.clientWidth || container.clientWidth || undefined;
+        let observedContentWidth = contentWidth();
         const handler = () => {
             const resizeTarget = this._virtualResizeCorrectionTarget;
             if (resizeTarget !== null && Math.abs(container.scrollTop - resizeTarget) > 1) {
@@ -485,6 +486,23 @@ export class ScrollPage extends Parent {
             );
         };
         const resizeHandler = () => {
+            const nextContentWidth = contentWidth();
+            const widthChanged = (
+                observedContentWidth !== undefined
+                && nextContentWidth !== undefined
+                && Math.abs(nextContentWidth - observedContentWidth) > 1
+            );
+            observedContentWidth = nextContentWidth;
+
+            if (!widthChanged) {
+                this._rebuildVirtualOffsets(this._virtualStates, nextContentWidth);
+                this.updateVirtualWindowForViewport(
+                    container.scrollTop,
+                    container.clientHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX,
+                );
+                return;
+            }
+
             // During a responsive reflow Chromium may programmatically reveal
             // the focused caret between ResizeObserver callbacks. While the
             // resize correction is active, keep the original logical viewport
@@ -492,7 +510,7 @@ export class ScrollPage extends Parent {
             const previousScrollTop = this._virtualResizeCorrectionTarget ?? container.scrollTop;
             const anchorIndex = this._virtualIndexAtOffset(previousScrollTop);
             const anchorOffset = previousScrollTop - (this._virtualOffsets[anchorIndex] ?? 0);
-            this._rebuildVirtualOffsets(this._virtualStates, contentWidth());
+            this._rebuildVirtualOffsets(this._virtualStates, nextContentWidth);
             const correctedScrollTop = Math.max(
                 0,
                 (this._virtualOffsets[anchorIndex] ?? 0) + anchorOffset,
