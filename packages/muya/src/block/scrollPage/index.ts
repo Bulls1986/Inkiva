@@ -192,14 +192,15 @@ export class ScrollPage extends Parent {
     private _virtualResizeCorrectionFrameId: number | null = null;
     private _virtualResizeCorrectionGeneration = 0;
     private _virtualResizeCorrectionTarget: number | null = null;
+    private _virtualResizeCorrectionStartedAt: number | null = null;
     private _virtualResizeInteractionHandler: (() => void) | null = null;
     private _virtualLastScrollTop = 0;
     private _virtualLastViewportHeight = VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX;
 
-    // The desktop keeps at most two non-active tabs warm. Store each warm
-    // document's initial render window here so returning to it only moves
-    // existing visible DOM nodes instead of reconstructing every block on the
-    // switch path; the tail remains interruptible background work.
+    // The desktop keeps at most two non-active tabs warm. Cache the bounded
+    // progressive render window for non-virtualized documents. Virtualized
+    // documents deliberately skip this cache so inactive tabs do not retain
+    // stale DOM; switching them back rebuilds only the bounded viewport window.
     private _renderCache = new Map<string, IRenderedCacheEntry>();
     private _renderCacheKey: string | null = null;
     private _renderedState: TState[] | null = null;
@@ -409,6 +410,7 @@ export class ScrollPage extends Parent {
     private _cancelVirtualResizeCorrection(): void {
         this._virtualResizeCorrectionGeneration += 1;
         this._virtualResizeCorrectionTarget = null;
+        this._virtualResizeCorrectionStartedAt = null;
         if (this._virtualResizeCorrectionFrameId !== null) {
             cancelAnimationFrame(this._virtualResizeCorrectionFrameId);
             this._virtualResizeCorrectionFrameId = null;
@@ -416,10 +418,23 @@ export class ScrollPage extends Parent {
     }
 
     private _settleVirtualResizeScroll(container: HTMLElement, target: number): void {
+        if (
+            this._virtualResizeCorrectionTarget !== null
+            && this._virtualResizeCorrectionStartedAt !== null
+            && this._virtualResizeCorrectionFrameId !== null
+        ) {
+            // Repeated ResizeObserver callbacks are part of the same responsive
+            // reflow. Update the logical anchor without extending the bounded
+            // correction lifetime, otherwise a resize storm can indefinitely
+            // block later legitimate scrolling.
+            this._virtualResizeCorrectionTarget = target;
+            return;
+        }
+
         this._cancelVirtualResizeCorrection();
         this._virtualResizeCorrectionTarget = target;
+        this._virtualResizeCorrectionStartedAt = performance.now();
         const generation = this._virtualResizeCorrectionGeneration;
-        const startedAt = performance.now();
         const settle = () => {
             this._virtualResizeCorrectionFrameId = null;
             if (
@@ -430,8 +445,12 @@ export class ScrollPage extends Parent {
                 return;
             }
 
-            if (Math.abs(container.scrollTop - target) > 1)
-                container.scrollTop = target;
+            const currentTarget = this._virtualResizeCorrectionTarget;
+            const startedAt = this._virtualResizeCorrectionStartedAt;
+            if (currentTarget === null || startedAt === null)
+                return;
+            if (Math.abs(container.scrollTop - currentTarget) > 1)
+                container.scrollTop = currentTarget;
 
             // Focused contenteditable can ask Chromium to reveal a remotely
             // pinned caret for a few frames after responsive reflow. Hold the
@@ -442,6 +461,7 @@ export class ScrollPage extends Parent {
             }
             else {
                 this._virtualResizeCorrectionTarget = null;
+                this._virtualResizeCorrectionStartedAt = null;
             }
         };
         this._virtualResizeCorrectionFrameId = requestAnimationFrame(settle);
@@ -456,14 +476,8 @@ export class ScrollPage extends Parent {
         const handler = () => {
             const resizeTarget = this._virtualResizeCorrectionTarget;
             if (resizeTarget !== null && Math.abs(container.scrollTop - resizeTarget) > 1) {
-                const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
-                const editorOwnsFocus = activeElement instanceof Node
-                    && this.domNode?.contains(activeElement) === true;
-                if (editorOwnsFocus) {
-                    container.scrollTop = resizeTarget;
-                    return;
-                }
-                this._cancelVirtualResizeCorrection();
+                container.scrollTop = resizeTarget;
+                return;
             }
             this.updateVirtualWindowForViewport(
                 container.scrollTop,
@@ -483,10 +497,10 @@ export class ScrollPage extends Parent {
                 0,
                 (this._virtualOffsets[anchorIndex] ?? 0) + anchorOffset,
             );
+            this._settleVirtualResizeScroll(container, correctedScrollTop);
             if (Math.abs(container.scrollTop - correctedScrollTop) > 1)
                 container.scrollTop = correctedScrollTop;
             handler();
-            this._settleVirtualResizeScroll(container, correctedScrollTop);
         };
         const cancelResizeCorrection = () => this._cancelVirtualResizeCorrection();
         this._virtualScrollContainer = container;

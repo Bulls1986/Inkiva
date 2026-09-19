@@ -261,7 +261,7 @@ test.describe('editor switch rebuild performance', () => {
     }
   })
 
-  test('reuses the warm render tree when switching a large document back', async() => {
+  test('keeps warm large-document switches virtualized without retaining stale DOM', async() => {
     const { app, page } = await launchWithMarkdown(createLargeDocument('A'))
 
     try {
@@ -279,7 +279,7 @@ test.describe('editor switch rebuild performance', () => {
         const container = document.querySelector('.editor-component .mu-container')
         ;(
           window as typeof window & { __inkiva_warm_first_block__?: Element }
-        ).__inkiva_warm_first_block__ = container?.firstElementChild ?? undefined
+        ).__inkiva_warm_first_block__ = container?.querySelector('.mu-paragraph') ?? undefined
       })
 
       await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 0)
@@ -288,17 +288,28 @@ test.describe('editor switch rebuild performance', () => {
       await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 1)
       await expect.poll(() => readEditorText(page), { timeout: 10000 }).toContain('B paragraph 0')
 
-      const reused = await page.evaluate(() => {
+      const virtualized = await page.evaluate(() => {
         const container = document.querySelector('.editor-component .mu-container')
-        const firstBlock = container?.firstElementChild
+        const firstBlock = container?.querySelector('.mu-paragraph')
         const previous = (
           window as typeof window & {
             __inkiva_warm_first_block__?: Element
           }
         ).__inkiva_warm_first_block__
-        return !!previous && previous === firstBlock
+        const totalBlocks = Number((container as HTMLElement | null)?.dataset.virtualTotalBlocks ?? 0)
+        const mountedBlocks = Number((container as HTMLElement | null)?.dataset.virtualMountedBlocks ?? 0)
+        return {
+          enabled: (container as HTMLElement | null)?.dataset.virtualizationEnabled === 'true',
+          totalBlocks,
+          mountedBlocks,
+          staleDomRetained: !!previous && previous === firstBlock
+        }
       })
-      expect(reused).toBe(true)
+      expect(virtualized.enabled).toBe(true)
+      expect(virtualized.totalBlocks).toBeGreaterThan(0)
+      expect(virtualized.mountedBlocks).toBeGreaterThan(0)
+      expect(virtualized.mountedBlocks).toBeLessThan(virtualized.totalBlocks)
+      expect(virtualized.staleDomRetained).toBe(false)
     } finally {
       await app.close()
     }
