@@ -66,8 +66,7 @@ const metricCounts = (report: RawPerformanceReport): Map<string, number> => {
         candidate.metadata === null ||
         typeof candidate.metadata !== 'object' ||
         Array.isArray(candidate.metadata)
-      )
-        continue
+      ) { continue }
       const metric = (candidate.metadata as { metric?: unknown }).metric
       if (typeof metric !== 'string' || metric === '') continue
       counts.set(metric, (counts.get(metric) ?? 0) + 1)

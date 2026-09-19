@@ -109,50 +109,49 @@
           @folder-toggle="handleFolderToggle"
         />
         <template v-else>
-        <folder
-          v-for="folder of projectTree.folders"
-          :key="folder.id"
-          :folder="folder"
-          :depth="depth"
-          :collapsed-paths="collapsedPaths"
-          :expanded-paths="expandedPaths"
-          @folder-toggle="handleFolderToggle"
-        />
-        <input
-          v-show="createCacheDirname === projectTree.pathname"
-          ref="input"
-          v-model="createName"
-          placeholder="Enter .md file name"
-          type="text"
-          class="new-input"
-          :style="{ 'margin-left': `${depth * 5 + 15}px` }"
-          @keypress.enter="handleInputEnter"
-        >
-        <file
-          v-for="file of projectTree.files"
-          :key="file.id"
-          :file="file"
-          :depth="depth"
-        />
-        <div
-          v-if="
-            projectTree.files.length === 0 &&
-              projectTree.folders.length === 0 &&
-              createCacheDirname !== projectTree.pathname
-          "
-          class="empty-project"
-        >
-          <span>{{ t('sideBar.tree.emptyProject') }}</span>
-          <div class="centered-group">
-            <button
-              class="button-primary"
-              @click.stop="createFile"
-            >
-              {{ t('sideBar.tree.createFile') }}
-            </button>
+          <folder
+            v-for="folder of projectTree.folders"
+            :key="folder.id"
+            :folder="folder"
+            :depth="depth"
+            :collapsed-paths="collapsedPaths"
+            :expanded-paths="expandedPaths"
+            @folder-toggle="handleFolderToggle"
+          />
+          <input
+            v-show="createCacheDirname === projectTree.pathname"
+            ref="input"
+            v-model="createName"
+            placeholder="Enter .md file name"
+            type="text"
+            class="new-input"
+            :style="{ 'margin-left': `${depth * 5 + 15}px` }"
+            @keypress.enter="handleInputEnter"
+          >
+          <file
+            v-for="file of projectTree.files"
+            :key="file.id"
+            :file="file"
+            :depth="depth"
+          />
+          <div
+            v-if="
+              projectTree.files.length === 0 &&
+                projectTree.folders.length === 0 &&
+                createCacheDirname !== projectTree.pathname
+            "
+            class="empty-project"
+          >
+            <span>{{ t('sideBar.tree.emptyProject') }}</span>
+            <div class="centered-group">
+              <button
+                class="button-primary"
+                @click.stop="createFile"
+              >
+                {{ t('sideBar.tree.createFile') }}
+              </button>
+            </div>
           </div>
-        </div>
-
         </template>
       </div>
     </div>

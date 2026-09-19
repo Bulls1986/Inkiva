@@ -48,7 +48,7 @@ test('parses only shards valid for the selected gate level', () => {
   assert.throws(() => parseLargeGateShard('P1', 'headings'), /shard is unknown/)
 })
 
-test('merged shard coverage remains fail-closed at twenty raw samples', async () => {
+test('merged shard coverage remains fail-closed at twenty raw samples', async() => {
   const { getLargeGateScenario, RUNTIME_COLLECTED_METRICS } = await import('./large-scenarios.js')
   const required = [
     ...new Set([...getLargeGateScenario('P1').metrics, ...RUNTIME_COLLECTED_METRICS])

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-test('the release workflow shards blocking P1/P2 gates and keeps opt-in P3', async () => {
+test('the release workflow shards blocking P1/P2 gates and keeps opt-in P3', async() => {
   const workflow = await readFile(
     new URL('../../.github/workflows/performance-gate.yml', import.meta.url),
     'utf8'

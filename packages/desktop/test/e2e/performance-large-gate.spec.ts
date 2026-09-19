@@ -152,7 +152,7 @@ const captureEnvironment = (directory: string): Record<string, string> => ({
   INKIVA_PERF_RUNNER_LABEL: 'reference-low-end'
 })
 
-const launchCaptured = async (
+const launchCaptured = async(
   args: string[],
   capture: CaptureDirectory,
   waitForEditorTimeout = 180000
@@ -166,7 +166,7 @@ const launchCaptured = async (
   })
 }
 
-const recordSample = async (
+const recordSample = async(
   page: Page,
   metric: string,
   unit: GateUnit,
@@ -191,7 +191,7 @@ const recordSample = async (
   if (!recorded) throw new Error('renderer performance gate bridge is unavailable')
 }
 
-const waitForPaint = async (page: Page): Promise<void> => {
+const waitForPaint = async(page: Page): Promise<void> => {
   await page.evaluate(
     () =>
       new Promise<void>((resolve) => {
@@ -200,7 +200,7 @@ const waitForPaint = async (page: Page): Promise<void> => {
   )
 }
 
-const measurePageAction = async (page: Page, action: () => Promise<void>): Promise<number> => {
+const measurePageAction = async(page: Page, action: () => Promise<void>): Promise<number> => {
   const started = await page.evaluate(() => performance.now())
   await action()
   await waitForPaint(page)
@@ -208,7 +208,7 @@ const measurePageAction = async (page: Page, action: () => Promise<void>): Promi
   return Math.max(0, ended - started)
 }
 
-const installGateProbe = async (page: Page): Promise<void> => {
+const installGateProbe = async(page: Page): Promise<void> => {
   await page.evaluate(() => {
     const state = globalThis as typeof globalThis & { __inkiva_large_gate_probe__?: GateProbe }
     if (state.__inkiva_large_gate_probe__) return
@@ -260,14 +260,14 @@ const installGateProbe = async (page: Page): Promise<void> => {
   })
 }
 
-const readInputCount = async (page: Page): Promise<number> =>
+const readInputCount = async(page: Page): Promise<number> =>
   await page.evaluate(() => {
     const state = (globalThis as typeof globalThis & { __inkiva_large_gate_probe__?: GateProbe })
       .__inkiva_large_gate_probe__
     return state?.inputDurations.length ?? 0
   })
 
-const readLatestInputDuration = async (page: Page): Promise<number | undefined> =>
+const readLatestInputDuration = async(page: Page): Promise<number | undefined> =>
   await page.evaluate(() => {
     const state = (globalThis as typeof globalThis & { __inkiva_large_gate_probe__?: GateProbe })
       .__inkiva_large_gate_probe__
@@ -275,14 +275,14 @@ const readLatestInputDuration = async (page: Page): Promise<number | undefined> 
     return typeof value === 'number' ? value : undefined
   })
 
-const readMaxEventLoopLag = async (page: Page): Promise<number> =>
+const readMaxEventLoopLag = async(page: Page): Promise<number> =>
   await page.evaluate(() => {
     const state = (globalThis as typeof globalThis & { __inkiva_large_gate_probe__?: GateProbe })
       .__inkiva_large_gate_probe__
     return state?.maxEventLoopLag ?? 0
   })
 
-const measureInput = async (page: Page, metric?: string, iteration = 0): Promise<number> => {
+const measureInput = async(page: Page, metric?: string, iteration = 0): Promise<number> => {
   await placeCaretAtTextBoundary(page)
   const beforeCount = await readInputCount(page)
   const inputToken = 'large-gate-input-' + iteration
@@ -311,7 +311,7 @@ const measureInput = async (page: Page, metric?: string, iteration = 0): Promise
   return duration
 }
 
-const measureElementScrollFps = async (page: Page, selector: string): Promise<number> =>
+const measureElementScrollFps = async(page: Page, selector: string): Promise<number> =>
   await page.evaluate(
     (targetSelector) =>
       new Promise<number>((resolve) => {
@@ -341,7 +341,7 @@ const measureElementScrollFps = async (page: Page, selector: string): Promise<nu
     selector
   )
 
-const measureSaveEditorLock = async (
+const measureSaveEditorLock = async(
   page: Page,
   app: ElectronApplication,
   iteration: number
@@ -369,7 +369,7 @@ const measureSaveEditorLock = async (
   return inputWorked ? 0 : 1
 }
 
-const collectFrameDurations = async (page: Page): Promise<number[]> =>
+const collectFrameDurations = async(page: Page): Promise<number[]> =>
   await page.evaluate(
     () =>
       new Promise<number[]>((resolve) => {
@@ -390,7 +390,7 @@ const collectFrameDurations = async (page: Page): Promise<number[]> =>
       })
   )
 
-const readVirtualizationDiagnostics = async (page: Page): Promise<VirtualizationDiagnostics> =>
+const readVirtualizationDiagnostics = async(page: Page): Promise<VirtualizationDiagnostics> =>
   await page.evaluate(() => {
     const root = document.querySelector<HTMLElement>(
       '.mu-container[data-virtualization-enabled="true"]'
@@ -417,7 +417,7 @@ const readVirtualizationDiagnostics = async (page: Page): Promise<Virtualization
     }
   })
 
-const recordVirtualizationDiagnostics = async (
+const recordVirtualizationDiagnostics = async(
   page: Page,
   tier: MarkdownDocumentTier
 ): Promise<void> => {
@@ -467,12 +467,12 @@ const recordVirtualizationDiagnostics = async (
   )
 }
 
-const readCurrentPath = async (page: Page): Promise<string | null> =>
+const readCurrentPath = async(page: Page): Promise<string | null> =>
   await page.evaluate(() => {
     const root = document.querySelector('#app') as
       | (Element & {
-          __vue_app__?: { config?: { globalProperties?: Record<string, unknown> } }
-        })
+        __vue_app__?: { config?: { globalProperties?: Record<string, unknown> } }
+      })
       | null
     const pinia = root?.__vue_app__?.config?.globalProperties?.$pinia as
       | { _s?: Map<string, { currentFile?: { pathname?: string } | null }> }
@@ -480,12 +480,12 @@ const readCurrentPath = async (page: Page): Promise<string | null> =>
     return pinia?._s?.get('editor')?.currentFile?.pathname ?? null
   })
 
-const readCurrentMarkdown = async (page: Page): Promise<string> =>
+const readCurrentMarkdown = async(page: Page): Promise<string> =>
   await page.evaluate(() => {
     const root = document.querySelector('#app') as
       | (Element & {
-          __vue_app__?: { config?: { globalProperties?: Record<string, unknown> } }
-        })
+        __vue_app__?: { config?: { globalProperties?: Record<string, unknown> } }
+      })
       | null
     const pinia = root?.__vue_app__?.config?.globalProperties?.$pinia as
       | { _s?: Map<string, { currentFile?: { markdown?: string } | null }> }
@@ -498,7 +498,7 @@ interface EditorMilestoneRead {
   durations: EditorMilestoneDurations
 }
 
-const readEditorMilestones = async (
+const readEditorMilestones = async(
   page: Page,
   minimumOpenStartAt = 0,
   timeout = 180000
@@ -539,7 +539,7 @@ const readEditorMilestones = async (
   }
 }
 
-const activateFile = async (
+const activateFile = async(
   app: ElectronApplication,
   page: Page,
   filePath: string
@@ -664,7 +664,7 @@ const assertRawCoverage = (directory: string, level: LargeGateLevel): void => {
   }
 }
 
-const collectDocumentTier = async (
+const collectDocumentTier = async(
   level: LargeGateLevel,
   tier: MarkdownDocumentTier,
   capture: CaptureDirectory
@@ -727,7 +727,7 @@ const collectDocumentTier = async (
       const selectionErrorCountBefore = selectionRangeErrors.length
 
       await showSidebarPanel(app!, page, 'files', 180_000)
-      const outlineDuration = await measurePageAction(page, async () => {
+      const outlineDuration = await measurePageAction(page, async() => {
         await showSidebarPanel(app!, page, 'toc', 180_000)
         await expect(
           page.locator('.side-bar-toc [data-testid="toc-node-label"]').first()
@@ -753,7 +753,7 @@ const collectDocumentTier = async (
         await recordSample(page, 'document.50k.lightIndex', 'ms', outlineDuration, 'document-open')
       }
       if (tier === '500k' || (level === 'P3' && tier === '1m')) {
-        const fullOutlineDuration = await measurePageAction(page, async () => {
+        const fullOutlineDuration = await measurePageAction(page, async() => {
           await page.locator('[data-testid="toc-expand-all"]').click()
           await expect(
             page.locator('.side-bar-toc [data-testid="toc-node-label"]').first()
@@ -775,7 +775,7 @@ const collectDocumentTier = async (
         await recordSample(page, 'document.1m.rendererHang', 'count', rendererHang)
       }
 
-      const headingDuration = await measurePageAction(page, async () => {
+      const headingDuration = await measurePageAction(page, async() => {
         await page.locator('.side-bar-toc [data-testid="toc-node-label"]').last().click()
       })
       await recordSample(page, 'document.' + tier + '.headingJump', 'ms', headingDuration)
@@ -799,7 +799,7 @@ const collectDocumentTier = async (
       }
 
       if (tier === '50k' || tier === '500k' || tier === '1m') {
-        const searchDuration = await measurePageAction(page, async () => {
+        const searchDuration = await measurePageAction(page, async() => {
           await sendIpcToRenderer(app!, 'mt::editor-edit-action', 'find')
           const input = page.locator('.search-bar .search input')
           await expect(input).toBeVisible({ timeout: 10000 })
@@ -821,7 +821,7 @@ const collectDocumentTier = async (
 
         const saveToken = 'large-gate-input-' + String(index)
         await expect.poll(() => readCurrentMarkdown(page), { timeout: 180000 }).toContain(saveToken)
-        const saveDuration = await measurePageAction(page, async () => {
+        const saveDuration = await measurePageAction(page, async() => {
           await sendIpcToRenderer(app!, 'mt::editor-ask-file-save')
           await expect
             .poll(() => (fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : ''), {
@@ -834,11 +834,11 @@ const collectDocumentTier = async (
           await recordSample(page, 'document.50k.save', 'ms', saveDuration, 'autosave')
         }
 
-        const normalUndoDuration = await measurePageAction(page, async () => {
+        const normalUndoDuration = await measurePageAction(page, async() => {
           await sendIpcToRenderer(app!, 'mt::editor-edit-action', 'undo')
         })
         await recordSample(page, 'undo.normal', 'ms', normalUndoDuration)
-        const normalRedoDuration = await measurePageAction(page, async () => {
+        const normalRedoDuration = await measurePageAction(page, async() => {
           await sendIpcToRenderer(app!, 'mt::editor-edit-action', 'redo')
         })
         await recordSample(page, 'redo.normal', 'ms', normalRedoDuration)
@@ -846,7 +846,7 @@ const collectDocumentTier = async (
         await placeCaretInEditor(page)
         await page.keyboard.insertText('large-operation-' + 'x'.repeat(512))
         await waitForPaint(page)
-        const largeUndoDuration = await measurePageAction(page, async () => {
+        const largeUndoDuration = await measurePageAction(page, async() => {
           await sendIpcToRenderer(app!, 'mt::editor-edit-action', 'undo')
         })
         await recordSample(page, 'undo.large', 'ms', largeUndoDuration)
@@ -890,7 +890,6 @@ const collectDocumentTier = async (
           )
         }
       }
-
     }
   } finally {
     if (app) {
@@ -901,7 +900,7 @@ const collectDocumentTier = async (
   }
 }
 
-const collectHeadingTier = async (
+const collectHeadingTier = async(
   level: LargeGateLevel,
   headingCount: HeadingStormCount,
   capture: CaptureDirectory
@@ -919,7 +918,7 @@ const collectHeadingTier = async (
     for (let index = 0; index < paths.length; index += 1) {
       const filePath = paths[index] as string
       if (index > 0) await activateFile(app!, page, filePath)
-      const outlineDuration = await measurePageAction(page, async () => {
+      const outlineDuration = await measurePageAction(page, async() => {
         await showSidebarPanel(app!, page, 'toc', 240_000)
         await expect(
           page.locator('.side-bar-toc [data-testid="toc-node-label"]').first()
@@ -930,11 +929,11 @@ const collectHeadingTier = async (
       if (headingCount === 5000) {
         await recordSample(page, 'heading.5k.outlineFirst', 'ms', outlineDuration)
         await recordSample(page, 'heading.5k.index', 'ms', outlineDuration)
-        const clickDuration = await measurePageAction(page, async () => {
+        const clickDuration = await measurePageAction(page, async() => {
           await page.locator('.side-bar-toc [data-testid="toc-node-label"]').first().click()
         })
         await recordSample(page, 'heading.5k.click', 'ms', clickDuration)
-        const searchDuration = await measurePageAction(page, async () => {
+        const searchDuration = await measurePageAction(page, async() => {
           const search = page.locator('[data-testid="toc-search"]')
           await search.fill('Heading 1')
           await expect(
@@ -945,7 +944,7 @@ const collectHeadingTier = async (
           await search.fill('')
         })
         await recordSample(page, 'heading.5k.search', 'ms', searchDuration, 'search')
-        const collapseDuration = await measurePageAction(page, async () => {
+        const collapseDuration = await measurePageAction(page, async() => {
           await page.locator('[data-testid="toc-collapse-all"]').click()
           await page.locator('[data-testid="toc-expand-all"]').click()
         })
@@ -983,7 +982,7 @@ const collectHeadingTier = async (
   }
 }
 
-const collectTreeSamples = async (
+const collectTreeSamples = async(
   level: LargeGateLevel,
   targetNodes: WorkspaceNodeCount,
   hotChildren: number,
@@ -1045,7 +1044,7 @@ const collectTreeSamples = async (
         .filter({ hasText: hotDirectoryName })
         .first()
       await expect(folder).toBeVisible({ timeout: 180000 })
-      const waitForExpandedVirtualTree = async (): Promise<void> => {
+      const waitForExpandedVirtualTree = async(): Promise<void> => {
         try {
           await page.waitForFunction(
             (minimumHeight) => {
@@ -1085,7 +1084,7 @@ const collectTreeSamples = async (
       }
 
       for (let interaction = 0; interaction < interactionSampleCount; interaction += 1) {
-        const expandDuration = await measurePageAction(page, async () => {
+        const expandDuration = await measurePageAction(page, async() => {
           await folder.click()
           await waitForExpandedVirtualTree()
         })
@@ -1096,7 +1095,7 @@ const collectTreeSamples = async (
           await recordSample(page, 'tree.50k.expand5k', 'ms', expandDuration)
         }
 
-        const treeSearchDuration = await measurePageAction(page, async () => {
+        const treeSearchDuration = await measurePageAction(page, async() => {
           await sendIpcToRenderer(app!, 'mt::show-command-palette')
           const input = page.locator('input.search').first()
           await expect(input).toBeVisible({ timeout: 10000 })
@@ -1157,7 +1156,7 @@ const collectTreeSamples = async (
         await sendIpcToRenderer(app!, 'mt::new-untitled-tab', true, '100k workspace tab\n')
         await expect(page.locator('.tabs-container > li')).toHaveCount(2, { timeout: 180000 })
         for (let index = 0; index < SAMPLE_COUNT; index += 1) {
-          const tabSwitchDuration = await measurePageAction(page, async () => {
+          const tabSwitchDuration = await measurePageAction(page, async() => {
             await sendIpcToRenderer(app!, 'mt::switch-tab-by-index', index % 2)
           })
           await recordSample(page, 'tree.100k.tabSwitch', 'ms', tabSwitchDuration)
@@ -1193,7 +1192,7 @@ const collectTreeSamples = async (
       const folderSearchInput = page.locator('.side-bar-search input.search-input')
       await showSidebarPanel(app!, page, 'search', 180_000)
       for (let index = 0; index < SAMPLE_COUNT; index += 1) {
-        const searchDuration = await measurePageAction(page, async () => {
+        const searchDuration = await measurePageAction(page, async() => {
           await folderSearchInput.fill('workspace-target')
           await expect(page.locator('.side-bar-search .search-result-item').first()).toBeVisible({
             timeout: 180000
@@ -1215,7 +1214,7 @@ const collectTreeSamples = async (
   }
 }
 
-const collectMemoryFootprintSamples = async (
+const collectMemoryFootprintSamples = async(
   level: LargeGateLevel,
   capture: CaptureDirectory
 ): Promise<void> => {
@@ -1306,7 +1305,7 @@ const collectMemoryFootprintSamples = async (
   }
 }
 
-const collectTabSamples = async (
+const collectTabSamples = async(
   level: LargeGateLevel,
   capture: CaptureDirectory,
   tabTier: MarkdownDocumentTier = '50k',
@@ -1389,17 +1388,17 @@ const collectTabSamples = async (
       const warmTarget = page.locator(`.tabs-container > li[data-id="${warmId}"]`)
       const coldTarget = page.locator(`.tabs-container > li[data-id="${coldId}"]`)
 
-      const warmDuration = await measurePageAction(page, async () => {
+      const warmDuration = await measurePageAction(page, async() => {
         await warmTarget.click()
         await expect(warmTarget).toHaveClass(/active/)
       })
       await recordSample(page, 'tabs.8.warmSwitch', 'ms', warmDuration)
-      const coldDuration = await measurePageAction(page, async () => {
+      const coldDuration = await measurePageAction(page, async() => {
         await coldTarget.click()
         await expect(coldTarget).toHaveClass(/active/)
       })
       await recordSample(page, 'tabs.8.coldSwitch', 'ms', coldDuration)
-      const switchDuration = await measurePageAction(page, async () => {
+      const switchDuration = await measurePageAction(page, async() => {
         await page
           .locator('.tabs-container > li')
           .nth((index + 1) % 8)
@@ -1420,7 +1419,7 @@ const collectTabSamples = async (
   }
 }
 
-const collectDiagramImageSamples = async (
+const collectDiagramImageSamples = async(
   level: LargeGateLevel,
   capture: CaptureDirectory
 ): Promise<void> => {
@@ -1474,7 +1473,7 @@ const collectDiagramImageSamples = async (
           editorReadyBeforeLoad,
           'diagram'
         )
-        const placeholderDuration = await measurePageAction(page, async () => {
+        const placeholderDuration = await measurePageAction(page, async() => {
           await expect(page.locator('.mu-diagram-block').first()).toBeAttached({ timeout: 180000 })
           await expect(page.locator('.mu-diagram-preview').first()).toBeAttached({
             timeout: 180000
@@ -1561,7 +1560,7 @@ const collectDiagramImageSamples = async (
   }
 }
 
-const collectCombinationSamples = async (
+const collectCombinationSamples = async(
   level: LargeGateLevel,
   capture: CaptureDirectory,
   targetNodes: WorkspaceNodeCount = 50000,
@@ -1582,7 +1581,7 @@ const collectCombinationSamples = async (
     for (const filePath of tabPaths) await activateFile(app!, page, filePath)
     await activateFile(app!, page, comboFile)
     for (let index = 0; index < SAMPLE_COUNT; index += 1) {
-      const hotTabDuration = await measurePageAction(page, async () => {
+      const hotTabDuration = await measurePageAction(page, async() => {
         await page
           .locator('.tabs-container > li')
           .nth(index % 8)
@@ -1614,7 +1613,7 @@ const collectCombinationSamples = async (
   }
 }
 
-const collectVirtualizedMemoryLeakSamples = async (
+const collectVirtualizedMemoryLeakSamples = async(
   level: LargeGateLevel,
   tier: '500k' | '1m',
   capture: CaptureDirectory
@@ -1669,7 +1668,7 @@ const collectVirtualizedMemoryLeakSamples = async (
   }
 }
 
-const collectMemoryLeakSamples = async (
+const collectMemoryLeakSamples = async(
   level: LargeGateLevel,
   capture: CaptureDirectory
 ): Promise<void> => {
@@ -1710,7 +1709,7 @@ const collectMemoryLeakSamples = async (
   }
 }
 
-const collectP1Shard = async (shard: LargeGateShard, capture: CaptureDirectory): Promise<void> => {
+const collectP1Shard = async(shard: LargeGateShard, capture: CaptureDirectory): Promise<void> => {
   if (shard === 'doc-50k') return await collectDocumentTier('P1', '50k', capture)
   if (shard === 'doc-100k') return await collectDocumentTier('P1', '100k', capture)
   if (shard === 'doc-large') {
@@ -1730,7 +1729,7 @@ const collectP1Shard = async (shard: LargeGateShard, capture: CaptureDirectory):
   throw new Error('unsupported P1 large gate shard: ' + shard)
 }
 
-const collectP2Shard = async (shard: LargeGateShard, capture: CaptureDirectory): Promise<void> => {
+const collectP2Shard = async(shard: LargeGateShard, capture: CaptureDirectory): Promise<void> => {
   if (shard === 'doc-50k') return await collectDocumentTier('P2', '50k', capture)
   if (shard === 'doc-large') {
     await collectDocumentTier('P2', '500k', capture)
@@ -1756,7 +1755,7 @@ const collectP2Shard = async (shard: LargeGateShard, capture: CaptureDirectory):
   throw new Error('unsupported P2 large gate shard: ' + shard)
 }
 
-const collectLevel = async (level: LargeGateLevel, capture: CaptureDirectory): Promise<void> => {
+const collectLevel = async(level: LargeGateLevel, capture: CaptureDirectory): Promise<void> => {
   clearCaptureFiles(capture.directory, level)
   const shard = parseLargeGateShard(level, configuredShard)
 
@@ -1811,7 +1810,7 @@ test.describe('@perf-gate-tree-focus focused diagnostic', () => {
   test.skip(!runTreeFocus, 'Run with INKIVA_RUN_PERF_TREE_FOCUS=true')
   test.setTimeout(900_000)
 
-  test('runs the P1 10K tree path without the full large-gate matrix', async () => {
+  test('runs the P1 10K tree path without the full large-gate matrix', async() => {
     const capture = createCaptureDirectory()
     try {
       clearCaptureFiles(capture.directory, 'P1')
@@ -1829,7 +1828,7 @@ test.describe('@perf-gate-tab-focus focused diagnostic', () => {
   test.skip(!runTabFocus, 'Run with INKIVA_RUN_PERF_TAB_FOCUS=true')
   test.setTimeout(900_000)
 
-  test('runs the P1 8-tab interaction path without the full large-gate matrix', async () => {
+  test('runs the P1 8-tab interaction path without the full large-gate matrix', async() => {
     const capture = createCaptureDirectory()
     try {
       clearCaptureFiles(capture.directory, 'P1')
@@ -1846,7 +1845,7 @@ test.describe('@perf-gate-virtual-heap focused diagnostic', () => {
   test.skip(!runVirtualHeapFocus, 'Run with INKIVA_RUN_PERF_VIRTUAL_HEAP_FOCUS=true')
   test.setTimeout(3_600_000)
 
-  test('500k and 1m virtualized open/edit/close cycles have no linear post-GC heap growth', async () => {
+  test('500k and 1m virtualized open/edit/close cycles have no linear post-GC heap growth', async() => {
     const capture = createCaptureDirectory()
     try {
       clearCaptureFiles(capture.directory, 'P1')
@@ -1865,7 +1864,7 @@ test.describe('@perf-gate-large P1/P2/P3 real scenario matrix', () => {
   test.setTimeout(3_600_000)
 
   for (const level of ['P1', 'P2', 'P3'] as const) {
-    test(level + ' collects real large-scenario raw samples', async () => {
+    test(level + ' collects real large-scenario raw samples', async() => {
       test.skip(!enabledLevels.includes(level), 'level is not selected')
       const capture = createCaptureDirectory()
       try {
