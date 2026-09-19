@@ -197,6 +197,20 @@ export function createTocScrollSync(
   let activeHandle: number | null = null
   let attached = false
   let destroyed = false
+  let virtualOffsetsActive = false
+
+  const hasVirtualOffsets = (): boolean => {
+    if (!getVirtualBlockOffset) return false
+    for (const item of toc) {
+      const blockIndex = item.blockIndex
+      if (
+        typeof blockIndex === 'number' &&
+        Number.isInteger(blockIndex) &&
+        getVirtualBlockOffset(blockIndex) !== null
+      ) return true
+    }
+    return false
+  }
 
   const findActiveVirtualSlug = (): string | null => {
     if (!getVirtualBlockOffset) return null
@@ -247,7 +261,7 @@ export function createTocScrollSync(
     // measurements. Never use the snapshot captured by `rebuild()` on the
     // scroll hot path; resolve the current numeric offsets directly instead.
     // This stays layout-free and uses O(log headings) offset lookups.
-    const nextSlug = getVirtualBlockOffset
+    const nextSlug = virtualOffsetsActive
       ? findActiveVirtualSlug()
       : findActiveTocSlug(positions, container.scrollTop, activationOffset)
     if (nextSlug === activeSlug) return
@@ -264,7 +278,8 @@ export function createTocScrollSync(
     const root = Array.from(container.children).find((child) =>
       child instanceof HTMLElement && child.classList.contains('mu-container'))
     syncTocHeadingAnchors(container, toc)
-    if (getVirtualBlockOffset) {
+    virtualOffsetsActive = hasVirtualOffsets()
+    if (virtualOffsetsActive) {
       positions = toc.reduce<CachedTocPosition[]>((result, item) => {
         const slug = item.slug
         const blockIndex = item.blockIndex
@@ -274,7 +289,7 @@ export function createTocScrollSync(
           typeof blockIndex !== 'number' ||
           !Number.isInteger(blockIndex)
         ) return result
-        const top = getVirtualBlockOffset(blockIndex)
+        const top = getVirtualBlockOffset?.(blockIndex) ?? null
         if (top === null) return result
         result.push({ slug, top, heading: null, block: null, blockIndex })
         return result
@@ -336,7 +351,7 @@ export function createTocScrollSync(
   const reconcile = (changes: readonly EditorLayoutChange[]): void => {
     if (destroyed || changes.length === 0) return
 
-    if (getVirtualBlockOffset) {
+    if (virtualOffsetsActive) {
       rebuild()
       return
     }

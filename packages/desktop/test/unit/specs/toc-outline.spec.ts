@@ -148,6 +148,45 @@ describe('TOC outline utilities', () => {
     sync.destroy()
   })
 
+  it('falls back to DOM heading positions when the virtual offset provider is inactive', () => {
+    const container = document.createElement('div')
+    const root = document.createElement('div')
+    const firstHeading = document.createElement('h1')
+    const secondHeading = document.createElement('h2')
+    root.className = 'mu-container'
+    root.append(firstHeading, secondHeading)
+    container.append(root)
+    document.body.append(container)
+    container.scrollTop = 0
+
+    const rect = (top: number): DOMRect => ({
+      top,
+      bottom: top + 40,
+      height: 40,
+      left: 0,
+      right: 700,
+      width: 700,
+      x: 0,
+      y: top,
+      toJSON: () => ({})
+    } as DOMRect)
+    vi.spyOn(container, 'getBoundingClientRect').mockReturnValue(rect(0))
+    vi.spyOn(firstHeading, 'getBoundingClientRect').mockReturnValue(rect(0))
+    vi.spyOn(secondHeading, 'getBoundingClientRect').mockReturnValue(rect(500))
+    const onActiveChange = vi.fn()
+    const sync = createTocScrollSync(container, onActiveChange, 40, () => null)
+    sync.update([
+      { slug: 'uid-first', blockIndex: 0 },
+      { slug: 'uid-second', blockIndex: 1 }
+    ])
+    sync.attach()
+    sync.refresh()
+
+    expect(onActiveChange).toHaveBeenLastCalledWith('uid-first')
+    sync.destroy()
+    container.remove()
+  })
+
   it('reads current virtual offsets on scroll after measured geometry changes', async() => {
     const container = document.createElement('div')
     container.scrollTop = 850
