@@ -465,6 +465,17 @@ test.describe('Render Surface 2.0 — Electron core interaction gate', () => {
     const beforeSidebar = await readViewportAnchor()
     expect(beforeSidebar.index).toBeGreaterThan(100)
     await clickMenuById(app, 'sideBarMenuItem')
+    // Chromium may reveal a focused contenteditable caret well after the
+    // ResizeObserver callback. Simulate that late programmatic reveal after
+    // the sidebar resize has started; unlike wheel/pointer input it must not
+    // replace the logical viewport anchor.
+    await editor.evaluate((node) => {
+      const element = node as HTMLElement
+      window.setTimeout(() => {
+        element.scrollTop = 0
+        element.dispatchEvent(new Event('scroll'))
+      }, 220)
+    })
     await page.waitForTimeout(300)
     const afterSidebar = await readViewportAnchor()
     expect(afterSidebar.width).toBeGreaterThan(beforeSidebar.width)

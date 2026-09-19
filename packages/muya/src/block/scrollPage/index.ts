@@ -41,6 +41,7 @@ const PROGRESSIVE_RENDER_LINE_HEIGHT_PX = 24;
 const VIRTUAL_RENDERER_PROTOTYPE_FLAG = '__INKIVA_VIRTUAL_RENDERER_PROTOTYPE__';
 const VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX = 720;
 const VIRTUAL_RENDERER_OVERSCAN_VIEWPORTS = 2;
+const VIRTUAL_RESIZE_ANCHOR_SETTLE_MS = 320;
 
 interface IVirtualRendererPrototypeGlobal {
     __INKIVA_VIRTUAL_RENDERER_PROTOTYPE__?: boolean;
@@ -173,6 +174,9 @@ export class ScrollPage extends Parent {
     private _cloneProgressiveBlocks = false;
     private _virtualizationEnabled = false;
     private _virtualBlocks: Parent[] = [];
+    private _virtualBlockIndexes = new Map<Parent, number>();
+    private _virtualMountedIndexes = new Set<number>();
+    private _virtualMaterializedIndexes = new Set<number>();
     private _virtualStates: TState[] = [];
     private _virtualOffsets: number[] = [0];
     private _virtualWindowStart = 0;
@@ -376,6 +380,7 @@ export class ScrollPage extends Parent {
         this._virtualBlocks.forEach((block) => {
             block.parent = this;
         });
+        this._reindexVirtualBlocks();
         this.children.append(...this._virtualBlocks);
         this._rebuildVirtualOffsets(state);
 
@@ -432,7 +437,7 @@ export class ScrollPage extends Parent {
             // pinned caret for a few frames after responsive reflow. Hold the
             // logical viewport anchor only during that bounded settle window;
             // real user interaction cancels it immediately below.
-            if (performance.now() - startedAt < 160) {
+            if (performance.now() - startedAt < VIRTUAL_RESIZE_ANCHOR_SETTLE_MS) {
                 this._virtualResizeCorrectionFrameId = requestAnimationFrame(settle);
             }
             else {
@@ -460,7 +465,11 @@ export class ScrollPage extends Parent {
             );
         };
         const resizeHandler = () => {
-            const previousScrollTop = container.scrollTop;
+            // During a responsive reflow Chromium may programmatically reveal
+            // the focused caret between ResizeObserver callbacks. While the
+            // resize correction is active, keep the original logical viewport
+            // target authoritative instead of adopting that transient scroll.
+            const previousScrollTop = this._virtualResizeCorrectionTarget ?? container.scrollTop;
             const anchorIndex = this._virtualIndexAtOffset(previousScrollTop);
             const anchorOffset = previousScrollTop - (this._virtualOffsets[anchorIndex] ?? 0);
             this._rebuildVirtualOffsets(this._virtualStates, contentWidth());
@@ -515,6 +524,9 @@ export class ScrollPage extends Parent {
         this._virtualResizeInteractionHandler = null;
         this._virtualizationEnabled = false;
         this._virtualBlocks = [];
+        this._virtualBlockIndexes.clear();
+        this._virtualMountedIndexes.clear();
+        this._virtualMaterializedIndexes.clear();
         this._virtualStates = [];
         this._virtualOffsets = [0];
         this._virtualWindowStart = 0;
@@ -566,13 +578,29 @@ export class ScrollPage extends Parent {
             : null;
     }
 
+    private _reindexVirtualBlocks(): void {
+        this._virtualBlockIndexes.clear();
+        this._virtualMountedIndexes.clear();
+        this._virtualMaterializedIndexes.clear();
+        for (let index = 0; index < this._virtualBlocks.length; index += 1) {
+            const block = this._virtualBlocks[index];
+            this._virtualBlockIndexes.set(block, index);
+            const node = block.domNode;
+            if (!node)
+                continue;
+            this._virtualMaterializedIndexes.add(index);
+            if (node.parentNode === this.domNode)
+                this._virtualMountedIndexes.add(index);
+        }
+    }
+
     private _virtualPinnedRanges(): IVirtualRange[] {
         if (!this._virtualizationEnabled)
             return [];
 
         const indexes = new Set<number>();
         const activeIndex = this.muya.editor.activeContentBlock?.outMostBlock
-            ? this._virtualBlocks.indexOf(this.muya.editor.activeContentBlock.outMostBlock)
+            ? (this._virtualBlockIndexes.get(this.muya.editor.activeContentBlock.outMostBlock) ?? -1)
             : -1;
         if (activeIndex >= 0)
             indexes.add(activeIndex);
@@ -623,23 +651,26 @@ export class ScrollPage extends Parent {
         return mergedRanges;
     }
 
-    private _collectVirtualBlocks(ranges: IVirtualRange[]): Set<Parent> {
-        const desired = new Set<Parent>();
+    private _collectVirtualIndexes(ranges: IVirtualRange[]): Set<number> {
+        const desired = new Set<number>();
         for (const range of ranges) {
             for (let index = range.start; index < range.end; index += 1)
-                desired.add(this._virtualBlocks[index]);
+                desired.add(index);
         }
         return desired;
     }
 
-    private _removeBlocksOutsideVirtualRanges(desired: Set<Parent>): void {
-        for (let index = 0; index < this._virtualBlocks.length; index += 1) {
+    private _removeBlocksOutsideVirtualRanges(desired: Set<number>): void {
+        for (const index of this._virtualMountedIndexes) {
+            if (desired.has(index))
+                continue;
             const block = this._virtualBlocks[index];
-            if (desired.has(block))
+            if (!block)
                 continue;
 
             if (canDeferVirtualStateDom(this._virtualStates[index])) {
                 block.dematerializeDomTree();
+                this._virtualMaterializedIndexes.delete(index);
                 continue;
             }
 
@@ -691,8 +722,10 @@ export class ScrollPage extends Parent {
             const range = ranges[rangeIndex];
             for (let index = range.start; index < range.end; index += 1) {
                 const node = this._virtualBlocks[index]?.materializeDomTree();
-                if (node)
+                if (node) {
+                    this._virtualMaterializedIndexes.add(index);
                     sequence.push(node);
+                }
             }
 
             const nextRange = ranges[rangeIndex + 1];
@@ -742,12 +775,14 @@ export class ScrollPage extends Parent {
             return;
 
         const ranges = this._buildVirtualRanges(start, end, pinned);
-        this._removeBlocksOutsideVirtualRanges(this._collectVirtualBlocks(ranges));
+        const desiredIndexes = this._collectVirtualIndexes(ranges);
+        this._removeBlocksOutsideVirtualRanges(desiredIndexes);
         const sequence = this._buildVirtualDomSequence(ranges);
         if (!sequence)
             return;
 
         this._syncVirtualDomSequence(sequence);
+        this._virtualMountedIndexes = desiredIndexes;
         this._virtualWindowStart = Math.max(0, Math.min(start, this._virtualBlocks.length));
         this._virtualWindowEnd = Math.max(
             this._virtualWindowStart,
@@ -834,16 +869,13 @@ export class ScrollPage extends Parent {
             enabled: this._virtualizationEnabled,
             totalBlocks,
             mountedBlocks: this._virtualizationEnabled
-                ? this._virtualBlocks.filter(block => block.domNode?.parentNode === this.domNode).length
+                ? this._virtualMountedIndexes.size
                 : this.children.length,
             materializedBlocks: this._virtualizationEnabled
-                ? this._virtualBlocks.filter(block => block.domNode !== null).length
+                ? this._virtualMaterializedIndexes.size
                 : this.children.length,
             retainedDetachedDomBlocks: this._virtualizationEnabled
-                ? this._virtualBlocks.filter((block) => {
-                    const { domNode } = block;
-                    return Boolean(domNode && domNode.parentNode !== this.domNode);
-                }).length
+                ? Math.max(0, this._virtualMaterializedIndexes.size - this._virtualMountedIndexes.size)
                 : 0,
             pendingDetachedBlocks: this._pendingDetachedBlockCount(),
             windowStart: this._virtualWindowStart,
@@ -1338,6 +1370,7 @@ export class ScrollPage extends Parent {
             this.children.forEach(child => blocks.push(child as Parent));
             this._virtualBlocks = blocks;
             this._virtualStates = state;
+            this._reindexVirtualBlocks();
             this._rebuildVirtualOffsets(state);
             this.updateVirtualWindowForViewport(
                 this._virtualLastScrollTop,

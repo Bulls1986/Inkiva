@@ -2,7 +2,7 @@
 
 import type Content from '../../base/content';
 import type Parent from '../../base/parent';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Muya } from '../../../muya';
 import { PROGRESSIVE_RENDER_THRESHOLD } from '../index';
 
@@ -102,6 +102,38 @@ describe('stage C0 top-level virtualization prototype', () => {
         expect(restoredTop.windowStart).toBe(0);
         expect(restoredTop.totalEstimatedHeight).toBe(totalHeight);
         expect(restoredTop.beforeHeight).toBe(0);
+    });
+
+    it('bounds virtual window disposal work by the previously mounted window instead of total blocks', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + 600;
+        const muya = new Muya(host, { markdown: paragraphs(totalBlocks) });
+        mountedEditors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+
+        const scrollPage = muya.editor.scrollPage!;
+        const api = prototype(scrollPage);
+        const initial = api.getVirtualizationPrototypeSnapshot();
+        muya.editor.activeContentBlock = null;
+        muya.editor.selection.clear();
+
+        let dematerializeCalls = 0;
+        for (let index = 0; index < totalBlocks; index += 1) {
+            const block = topLevelBlock(muya, index);
+            const original = block.dematerializeDomTree.bind(block);
+            vi.spyOn(block, 'dematerializeDomTree').mockImplementation(() => {
+                dematerializeCalls += 1;
+                return original();
+            });
+        }
+
+        api.updateVirtualWindowForViewport(initial.totalEstimatedHeight / 2, 600);
+
+        expect(dematerializeCalls).toBeLessThanOrEqual(initial.mountedBlocks);
+        expect(api.getVirtualizationPrototypeSnapshot().mountedBlocks).toBeLessThan(totalBlocks / 2);
     });
 
     it('expands the render window for cross-block selection and Ctrl+A instead of truncating logical selection', async () => {
