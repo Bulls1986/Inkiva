@@ -105,6 +105,18 @@ test.describe('Inkiva title bar responsive layout', () => {
     await expect(status).not.toContainText(LONG_FILENAME)
   })
 
+  test('does not render a decorative divider before the document status', async() => {
+    await setWindowSize(app, 1280)
+    await waitForViewport(page, 1280)
+
+    const border = await page.getByTestId('titlebar-document-status').evaluate((element) => {
+      const style = window.getComputedStyle(element)
+      return { style: style.borderLeftStyle, width: style.borderLeftWidth }
+    })
+
+    expect(border).toEqual({ style: 'none', width: '0px' })
+  })
+
   test('keeps menu, status, and controls collision-free at every supported width', async() => {
     for (const width of SUPPORTED_WIDTHS) {
       await setWindowSize(app, width)

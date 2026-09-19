@@ -584,7 +584,6 @@ div.title > span {
   padding: 0 10px;
   box-sizing: border-box;
   color: var(--text-secondary);
-  border-left: 1px solid var(--border-subtle);
   font-size: var(--font-size-secondary);
   white-space: nowrap;
 }
