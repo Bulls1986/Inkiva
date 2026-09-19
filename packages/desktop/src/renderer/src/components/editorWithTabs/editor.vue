@@ -2440,7 +2440,13 @@ onMounted(() => {
   // reconciler batches those signals and hands the same local changes to TOC
   // cache maintenance and pending tab-scroll restoration.
   editorLayoutReconciler = createEditorLayoutReconciler(container, {
-    shouldDeferScroll: () => pendingScrollRestore !== null,
+    // Render Surface 2.0 owns scroll anchoring while large-document
+    // virtualization is active. The desktop layout reconciler must still
+    // observe geometry for TOC/tab restoration, but must not compete with
+    // Muya by writing scrollTop on diagram/image/table resize.
+    shouldDeferScroll: () =>
+      pendingScrollRestore !== null ||
+      editor.value?.editor?.scrollPage?.getVirtualizationSnapshot().enabled === true,
     onChange: (changes) => {
       schedulePendingScrollRestoreCheck()
       tocScrollSync?.reconcile(changes)

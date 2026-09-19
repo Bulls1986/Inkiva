@@ -180,6 +180,7 @@ export class ScrollPage extends Parent {
     private _virtualMaterializedIndexes = new Set<number>();
     private _virtualStates: TState[] = [];
     private _virtualOffsets: number[] = [0];
+    private _virtualMeasuredHeights = new Map<number, number>();
     private _virtualWindowStart = 0;
     private _virtualWindowEnd = 0;
     private _virtualRevealIndex: number | null = null;
@@ -189,6 +190,7 @@ export class ScrollPage extends Parent {
     private _virtualScrollContainer: HTMLElement | null = null;
     private _virtualScrollHandler: (() => void) | null = null;
     private _virtualResizeObserver: ResizeObserver | null = null;
+    private _virtualBlockResizeObserver: ResizeObserver | null = null;
     private _virtualWindowResizeHandler: (() => void) | null = null;
     private _virtualResizeCorrectionFrameId: number | null = null;
     private _virtualResizeCorrectionGeneration = 0;
@@ -378,6 +380,7 @@ export class ScrollPage extends Parent {
         this._teardownVirtualization();
         this._virtualizationEnabled = true;
         this._virtualStates = state;
+        this._virtualMeasuredHeights.clear();
         this._virtualBlocks = this._createVirtualBlocks(state, cloneBlocks);
         this._virtualBlocks.forEach((block) => {
             block.parent = this;
@@ -514,6 +517,10 @@ export class ScrollPage extends Parent {
             const previousScrollTop = this._virtualResizeCorrectionTarget ?? container.scrollTop;
             const anchorIndex = this._virtualIndexAtOffset(previousScrollTop);
             const anchorOffset = previousScrollTop - (this._virtualOffsets[anchorIndex] ?? 0);
+            // Width changes invalidate measured text/table/media geometry. Keep
+            // the logical anchor, rebuild from width-aware estimates, then let
+            // mounted blocks repopulate exact measurements via ResizeObserver.
+            this._virtualMeasuredHeights.clear();
             this._rebuildVirtualOffsets(this._virtualStates, nextContentWidth);
             const correctedScrollTop = Math.max(
                 0,
@@ -533,6 +540,9 @@ export class ScrollPage extends Parent {
         for (const eventName of ['wheel', 'touchstart', 'pointerdown', 'mousedown', 'keydown'] as const)
             container.addEventListener(eventName, cancelResizeCorrection, { passive: true });
         if (typeof ResizeObserver !== 'undefined') {
+            this._virtualBlockResizeObserver = new ResizeObserver(entries => {
+                this._measureVirtualBlockHeights(entries);
+            });
             this._virtualResizeObserver = new ResizeObserver(resizeHandler);
             this._virtualResizeObserver.observe(container);
             // Editor max-width changes only resize the Markdown surface while
@@ -556,12 +566,14 @@ export class ScrollPage extends Parent {
         }
         this._cancelVirtualResizeCorrection();
         this._virtualResizeObserver?.disconnect();
+        this._virtualBlockResizeObserver?.disconnect();
         if (this._virtualWindowResizeHandler && typeof window !== 'undefined')
             window.removeEventListener('resize', this._virtualWindowResizeHandler);
 
         this._virtualScrollContainer = null;
         this._virtualScrollHandler = null;
         this._virtualResizeObserver = null;
+        this._virtualBlockResizeObserver = null;
         this._virtualWindowResizeHandler = null;
         this._virtualResizeInteractionHandler = null;
         this._virtualizationEnabled = false;
@@ -571,6 +583,7 @@ export class ScrollPage extends Parent {
         this._virtualMaterializedIndexes.clear();
         this._virtualStates = [];
         this._virtualOffsets = [0];
+        this._virtualMeasuredHeights.clear();
         this._virtualWindowStart = 0;
         this._virtualWindowEnd = 0;
         this._virtualRevealIndex = null;
@@ -589,9 +602,61 @@ export class ScrollPage extends Parent {
     private _rebuildVirtualOffsets(state: TState[], viewportWidth?: number): void {
         const offsets = Array.from<number>({ length: state.length + 1 });
         offsets[0] = 0;
-        for (let index = 0; index < state.length; index += 1)
-            offsets[index + 1] = offsets[index] + estimateStateHeight(state[index], viewportWidth);
+        for (let index = 0; index < state.length; index += 1) {
+            const measuredHeight = this._virtualMeasuredHeights.get(index);
+            offsets[index + 1] = offsets[index] + (
+                measuredHeight ?? estimateStateHeight(state[index], viewportWidth)
+            );
+        }
         this._virtualOffsets = offsets;
+    }
+
+    private _measureVirtualBlockHeights(entries: readonly ResizeObserverEntry[]): void {
+        if (!this._virtualizationEnabled || !this._virtualScrollContainer)
+            return;
+
+        const container = this._virtualScrollContainer;
+        let changed = false;
+
+        for (const entry of entries) {
+            const node = entry.target;
+            if (!(node instanceof HTMLElement) || node.parentElement !== this.domNode)
+                continue;
+
+            const block = node[BLOCK_DOM_PROPERTY];
+            if (!(block instanceof Parent))
+                continue;
+            const index = this._virtualBlockIndexes.get(block);
+            if (index === undefined)
+                continue;
+
+            const height = entry.borderBoxSize?.[0]?.blockSize
+                ?? node.getBoundingClientRect().height;
+            if (!Number.isFinite(height) || height <= 0)
+                continue;
+            const previous = this._virtualMeasuredHeights.get(index);
+            if (previous !== undefined && Math.abs(previous - height) < 0.5)
+                continue;
+
+            this._virtualMeasuredHeights.set(index, height);
+            changed = true;
+        }
+
+        if (!changed)
+            return;
+
+        // Async block growth (diagram render completion, image decode, table
+        // reflow, etc.) must update virtual geometry without replaying an old
+        // viewport anchor. During wheel scrolling the browser's current
+        // scrollTop is authoritative. Writing a derived anchor here can move
+        // the viewport back to an earlier diagram as soon as a later block is
+        // measured. Width-driven responsive reflow has its own bounded anchor
+        // correction in resizeHandler; block measurement deliberately does not.
+        this._rebuildVirtualOffsets(this._virtualStates, this.domNode?.clientWidth || container.clientWidth || undefined);
+        this.updateVirtualWindowForViewport(
+            container.scrollTop,
+            container.clientHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX,
+        );
     }
 
     private _virtualIndexAtOffset(offset: number): number {
@@ -711,14 +776,18 @@ export class ScrollPage extends Parent {
                 continue;
 
             if (canDeferVirtualStateDom(this._virtualStates[index])) {
+                if (block.domNode)
+                    this._virtualBlockResizeObserver?.unobserve(block.domNode);
                 block.dematerializeDomTree();
                 this._virtualMaterializedIndexes.delete(index);
                 continue;
             }
 
             const node = block.domNode;
-            if (node && node.parentNode === this.domNode)
+            if (node && node.parentNode === this.domNode) {
+                this._virtualBlockResizeObserver?.unobserve(node);
                 this.domNode!.removeChild(node);
+            }
         }
     }
 
@@ -789,6 +858,8 @@ export class ScrollPage extends Parent {
     private _notifyVirtualBlockMounted(node: HTMLElement): void {
         if (node.classList.contains('mu-virtual-render-placeholder'))
             return;
+
+        this._virtualBlockResizeObserver?.observe(node);
 
         node.querySelectorAll<HTMLElement>('[data-image-lazy="pending"]').forEach((image) => {
             image.dispatchEvent(new Event(VIRTUAL_BLOCK_MOUNT_EVENT));
@@ -1410,6 +1481,9 @@ export class ScrollPage extends Parent {
             this.children.forEach(child => blocks.push(child as Parent));
             this._virtualBlocks = blocks;
             this._virtualStates = state;
+            // Incremental edits can insert/remove/reorder blocks, so index-keyed
+            // measurements from the prior revision are no longer authoritative.
+            this._virtualMeasuredHeights.clear();
             this._reindexVirtualBlocks();
             this._rebuildVirtualOffsets(state);
             this.updateVirtualWindowForViewport(
