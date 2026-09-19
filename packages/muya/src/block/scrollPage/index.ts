@@ -140,7 +140,8 @@ function estimateStateHeight(state: TState, viewportWidth?: number): number {
     }
 
     if ('children' in state && Array.isArray(state.children)) {
-        const childrenHeight = state.children.reduce(
+        const children = state.children as TState[];
+        const childrenHeight = children.reduce(
             (height, child) => height + estimateStateHeight(child, viewportWidth),
             0,
         );

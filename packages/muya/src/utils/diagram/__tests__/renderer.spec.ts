@@ -53,9 +53,10 @@ describe('renderDiagram adapter', () => {
     it('stages Vega-Lite output, commits it, and finalizes the old view', async () => {
         const oldView = { finalize: vi.fn() };
         const newView = { finalize: vi.fn() };
+        let renderCount = 0;
         const render = vi.fn((target: HTMLElement) => {
             target.innerHTML = '<svg data-chart="new"></svg>';
-            const view = render.mock.calls.length === 1 ? oldView : newView;
+            const view = renderCount++ === 0 ? oldView : newView;
             return Promise.resolve({ view });
         });
         loadRenderer.mockResolvedValue(render);

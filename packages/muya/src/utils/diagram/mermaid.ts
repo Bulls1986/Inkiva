@@ -48,7 +48,7 @@ function registerMermaidIconPacks(mermaid: Mermaid) {
     registeredMermaidInstances.add(mermaid);
 }
 
-function getNextRenderId() {
+function getNextRenderId(): string {
     const id = `muya-mermaid-${++renderId}`;
     if (typeof document !== 'undefined' && document.getElementById(id))
         return getNextRenderId();
