@@ -144,6 +144,77 @@ describe('stage C1 virtualization production contract', () => {
         )).toBe(321);
     });
 
+    it('updates one measured block advance without rebuilding every virtual offset', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + 80;
+        const muya = new Muya(host, {
+            markdown: paragraphs(totalBlocks),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const internals = scrollPage as unknown as {
+            _virtualBlocks: Array<{ domNode: HTMLElement | null }>;
+            _measureVirtualBlockHeights: (entries: readonly ResizeObserverEntry[]) => void;
+            _rebuildVirtualOffsets: (...args: unknown[]) => void;
+        };
+        const firstNode = internals._virtualBlocks[0]?.domNode;
+        const secondNode = internals._virtualBlocks[1]?.domNode;
+        expect(firstNode?.parentElement).toBe(scrollPage.domNode);
+        expect(secondNode?.parentElement).toBe(scrollPage.domNode);
+        if (!firstNode || !secondNode) throw new Error('expected adjacent mounted virtual blocks');
+
+        vi.spyOn(firstNode, 'getBoundingClientRect').mockReturnValue({ top: 10 } as DOMRect);
+        vi.spyOn(secondNode, 'getBoundingClientRect').mockReturnValue({ top: 75 } as DOMRect);
+        const rebuild = vi.spyOn(internals, '_rebuildVirtualOffsets');
+
+        internals._measureVirtualBlockHeights([{ target: firstNode } as unknown as ResizeObserverEntry]);
+
+        expect(rebuild).not.toHaveBeenCalled();
+        expect(scrollPage.getVirtualBlockOffset(1)).toBeCloseTo(65, 4);
+    });
+
+    it('materializes only entering blocks when a virtual window shifts', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + 160;
+        const muya = new Muya(host, {
+            markdown: paragraphs(totalBlocks),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const snapshot = scrollPage.getVirtualizationSnapshot();
+        const internals = scrollPage as unknown as {
+            _virtualBlocks: Array<{ materializeDomTree: () => HTMLElement | null; domNode: HTMLElement | null }>;
+            _applyVirtualWindow: (start: number, end: number, pinned?: readonly { start: number; end: number }[]) => void;
+        };
+        expect(snapshot.windowEnd + 1).toBeLessThan(totalBlocks);
+        const stayingIndex = Math.max(snapshot.windowStart + 1, snapshot.windowEnd - 2);
+        const enteringIndex = snapshot.windowEnd;
+        const stayingBlock = internals._virtualBlocks[stayingIndex];
+        const enteringBlock = internals._virtualBlocks[enteringIndex];
+        expect(stayingBlock?.domNode?.parentElement).toBe(scrollPage.domNode);
+        expect(enteringBlock?.domNode?.parentElement).not.toBe(scrollPage.domNode);
+        if (!stayingBlock || !enteringBlock) throw new Error('expected virtual window blocks');
+
+        const stayingMaterialize = vi.spyOn(stayingBlock, 'materializeDomTree');
+        const enteringMaterialize = vi.spyOn(enteringBlock, 'materializeDomTree');
+        internals._applyVirtualWindow(snapshot.windowStart + 1, snapshot.windowEnd + 1, []);
+
+        expect(stayingMaterialize).not.toHaveBeenCalled();
+        expect(enteringMaterialize).toHaveBeenCalledTimes(1);
+        expect(stayingBlock.domNode?.parentElement).toBe(scrollPage.domNode);
+        expect(enteringBlock.domNode?.parentElement).toBe(scrollPage.domNode);
+    });
+
     it('ignores blank-root clicks when the logical tail block is dematerialized', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);

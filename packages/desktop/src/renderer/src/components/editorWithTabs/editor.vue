@@ -303,6 +303,8 @@ let editorPerformanceGeneration = 0
 // The engine has no `scroll` event; we listen on the scroll container directly.
 let scrollHandler: ((e: Event) => void) | null = null
 let scrollPerformanceEndTimer: ReturnType<typeof setTimeout> | null = null
+let scrollPositionPersistTimer: ReturnType<typeof setTimeout> | null = null
+let pendingScrollPosition: { id: string; scrollTop: number } | null = null
 let tocScrollSync: ReturnType<typeof createTocScrollSync> | null = null
 let editorLayoutReconciler: ReturnType<typeof createEditorLayoutReconciler> | null = null
 const tocRefreshScheduler = createTocRefreshScheduler()
@@ -317,13 +319,36 @@ const inputParseProbe = createInputParseProbe({
   }
 })
 
+const flushPendingScrollPosition = (): void => {
+  if (scrollPositionPersistTimer !== null) {
+    clearTimeout(scrollPositionPersistTimer)
+    scrollPositionPersistTimer = null
+  }
+  const pending = pendingScrollPosition
+  pendingScrollPosition = null
+  if (pending) editorStore.updateScrollPosition(pending.id, pending.scrollTop)
+}
+
+const scheduleScrollPositionPersistence = (id: string, scrollTop: number): void => {
+  pendingScrollPosition = { id, scrollTop }
+  if (scrollPositionPersistTimer !== null) return
+  scrollPositionPersistTimer = setTimeout(() => {
+    scrollPositionPersistTimer = null
+    const pending = pendingScrollPosition
+    pendingScrollPosition = null
+    if (pending) editorStore.updateScrollPosition(pending.id, pending.scrollTop)
+  }, 120)
+}
+
 const flushActiveEditor = () => {
+  flushPendingScrollPosition()
   const id = currentFile.value?.id
   editor.value?.flush()
   if (id) editorSnapshotScheduler.flush(id)
 }
 
 const flushActiveEditorForSave = () => {
+  flushPendingScrollPosition()
   const id = currentFile.value?.id
   editor.value?.flush()
   if (id) editorSnapshotScheduler.flush(id, 'persistence')
@@ -334,6 +359,7 @@ const flushActiveEditorForSave = () => {
 // switch handler. Keep the Markdown/history snapshot and invalidate the
 // reusable blocks cache; an idle snapshot can repopulate blocks later.
 const flushActiveEditorForTabSwitch = () => {
+  flushPendingScrollPosition()
   const id = currentFile.value?.id
   editor.value?.flush()
   if (id) editorSnapshotScheduler.flush(id, 'switch')
@@ -1552,13 +1578,7 @@ const scrollToHeader = (slug: unknown) => {
     virtualization?.enabled === true &&
     typeof tocItem?.blockIndex === 'number'
   ) {
-    const offset = scrollPage.getVirtualBlockOffset?.(tocItem.blockIndex)
-    if (typeof offset === 'number') {
-      container.scrollTop = offset
-      scrollPage.updateVirtualWindowForViewport?.(offset, container.clientHeight)
-      window.requestAnimationFrame(() => {
-        scrollElementIntoView(resolveTocHeadingElement(container, editorStore.listToc, slug))
-      })
+    if (scrollPage.scrollVirtualBlockIntoView?.(tocItem.blockIndex, 8)) {
       return
     }
   }
@@ -2566,7 +2586,7 @@ onMounted(() => {
       return
     }
     if (currentFile.value) {
-      editorStore.updateScrollPosition(currentFile.value.id, container.scrollTop)
+      scheduleScrollPositionPersistence(currentFile.value.id, container.scrollTop)
     }
 
     if (rendererPerformance.enabled) {
@@ -2723,6 +2743,8 @@ onBeforeUnmount(() => {
     container?.removeEventListener('scroll', scrollHandler)
   }
   scrollHandler = null
+
+  flushPendingScrollPosition()
 
   if (scrollPerformanceEndTimer !== null) {
     clearTimeout(scrollPerformanceEndTimer)
