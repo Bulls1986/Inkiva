@@ -101,7 +101,7 @@ test.describe('Stage C0 virtualization prototype', () => {
             };
         });
 
-        expect(selectAll.mounted).toBe(TOTAL_BLOCKS);
+        expect(selectAll.mounted).toBeLessThan(TOTAL_BLOCKS / 2);
         expect(selectAll.lastConnected).toBe(true);
         expect(selectAll.rangeCount).toBe(1);
         expect(selectAll.text).toContain(`paragraph ${TOTAL_BLOCKS - 1}`);

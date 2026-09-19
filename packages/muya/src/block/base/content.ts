@@ -650,7 +650,7 @@ class Content extends TreeNode {
      */
     setCursor(begin: number, end: number, needUpdate = false) {
         const path = this.path;
-        this.scrollPage?.ensureVirtualSelectionRange(path, path);
+        this.scrollPage?.ensureVirtualSelectionRange?.(path, path);
         const anchor = { offset: begin, block: this, path };
         const focus = { offset: end, block: this, path };
 

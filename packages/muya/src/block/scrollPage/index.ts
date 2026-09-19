@@ -456,8 +456,14 @@ export class ScrollPage extends Parent {
         const handler = () => {
             const resizeTarget = this._virtualResizeCorrectionTarget;
             if (resizeTarget !== null && Math.abs(container.scrollTop - resizeTarget) > 1) {
-                container.scrollTop = resizeTarget;
-                return;
+                const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
+                const editorOwnsFocus = activeElement instanceof Node
+                    && this.domNode?.contains(activeElement) === true;
+                if (editorOwnsFocus) {
+                    container.scrollTop = resizeTarget;
+                    return;
+                }
+                this._cancelVirtualResizeCorrection();
             }
             this.updateVirtualWindowForViewport(
                 container.scrollTop,
@@ -903,8 +909,6 @@ export class ScrollPage extends Parent {
         const { domNode } = this;
         if (!domNode)
             return;
-
-        domNode.dataset.pendingDetachedBlocks = String(this._pendingDetachedBlockCount());
 
         if (!this._virtualizationEnabled) {
             delete domNode.dataset.virtualizationEnabled;
