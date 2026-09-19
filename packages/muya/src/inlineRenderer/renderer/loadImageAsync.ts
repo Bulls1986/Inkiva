@@ -109,7 +109,7 @@ function observeInViewport(
             return;
         }
 
-        const imageText = document.getElementById(id)
+        const imageText = (typeof document !== 'undefined' ? document.getElementById(id) : null)
             ?? ownerRoot?.querySelector<HTMLElement>(`#${id}`)
             ?? null;
         if (!imageText || !imageText.isConnected || !isInScrollport(imageText))
@@ -122,7 +122,7 @@ function observeInViewport(
     };
 
     const installObserver = () => {
-        const imageText = document.getElementById(id)
+        const imageText = (typeof document !== 'undefined' ? document.getElementById(id) : null)
             ?? ownerRoot?.querySelector<HTMLElement>(`#${id}`)
             ?? null;
         if (!imageText)
@@ -157,7 +157,7 @@ function observeInViewport(
     // delayed. The performance gate and the renderer both use this state to
     // distinguish an intentionally deferred image from an eager load.
     setTimeout(() => {
-        const imageText = document.getElementById(id)
+        const imageText = (typeof document !== 'undefined' ? document.getElementById(id) : null)
             ?? ownerRoot?.querySelector<HTMLElement>(`#${id}`)
             ?? null;
         imageText?.setAttribute('data-image-lazy', 'pending');
