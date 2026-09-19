@@ -67,6 +67,7 @@ interface FastGateProbe {
   expectedAt: number
   intervalId: number
   inputObserver?: PerformanceObserver
+  recordInputEntries?: (entries: PerformanceEntry[]) => void
 }
 
 interface RendererActionMeasurement {
@@ -271,10 +272,16 @@ const measureFolderSearch = async(
     }
     measurement.cleanup = cleanup
 
+    const normalizeResultPath = (value: string): string => {
+      const normalized = value.replace(/\\/g, '/')
+      return /^[a-z]:\//i.test(normalized) ? normalized.toLowerCase() : normalized
+    }
+    const normalizedExpectedPath = normalizeResultPath(expectedResultPath)
     const hasExpectedResult = (): boolean =>
-      Array.from(searchRoot.querySelectorAll<HTMLElement>('.search-result[title]')).some(
-        (item) => item.getAttribute('title') === expectedResultPath
-      )
+      Array.from(searchRoot.querySelectorAll<HTMLElement>('.search-result[title]')).some((item) => {
+        const title = item.getAttribute('title')
+        return title !== null && normalizeResultPath(title) === normalizedExpectedPath
+      })
 
     const complete = (): void => {
       const startedAt = measurement.startedAt
@@ -304,9 +311,19 @@ const measureFolderSearch = async(
       })
       timeoutId = window.setTimeout(() => {
         if (measurement.durationMs !== undefined) return
-        measurement.error = 'expected folder result was not rendered'
+        const renderedPaths = Array.from(
+          searchRoot.querySelectorAll<HTMLElement>('.search-result[title]')
+        )
+          .map((item) => item.getAttribute('title'))
+          .filter((title): title is string => title !== null)
+          .slice(0, 5)
+        measurement.error =
+          'expected folder result was not rendered; input=' +
+          JSON.stringify(input.value) +
+          '; renderedPaths=' +
+          JSON.stringify(renderedPaths)
         cleanup()
-      }, 60_000)
+      }, 10_000)
       onResultMutation()
     }
 
@@ -486,47 +503,11 @@ const installFastGateProbe = async(page: Page): Promise<void> => {
     if (state.__inkiva_fast_gate_probe__) return
 
     const inputDurations: number[] = []
-    let inputObserver: PerformanceObserver | undefined
-    try {
-      inputObserver = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          if (
-            entry.entryType === 'event' &&
-            ['beforeinput', 'compositionend', 'input', 'keydown', 'keyup', 'paste'].includes(
-              entry.name
-            )
-          ) {
-            const timing = entry as PerformanceEntry & { processingStart?: unknown }
-            const latency =
-              typeof timing.processingStart === 'number' &&
-              Number.isFinite(timing.processingStart) &&
-              timing.processingStart >= entry.startTime
-                ? timing.processingStart - entry.startTime
-                : entry.duration
-            if (Number.isFinite(latency) && latency >= 0) inputDurations.push(latency)
-          }
-        }
-      })
-      inputObserver.observe({
-        type: 'event',
-        buffered: true,
-        durationThreshold: 0
-      } as PerformanceObserverInit)
-    } catch {
-      try {
-        inputObserver?.disconnect()
-      } catch {
-        // Unsupported observer entries remain missing so the evaluator fails closed.
-      }
-      inputObserver = undefined
-    }
-
     const probe: FastGateProbe = {
       inputDurations,
       maxEventLoopLag: 0,
       expectedAt: performance.now() + 16,
-      intervalId: 0,
-      inputObserver
+      intervalId: 0
     }
     state.__inkiva_fast_gate_probe__ = probe
     probe.intervalId = window.setInterval(() => {
@@ -536,6 +517,65 @@ const installFastGateProbe = async(page: Page): Promise<void> => {
     }, 16)
   })
 }
+
+const armFastGateInputProbe = async(page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & {
+      __inkiva_fast_gate_probe__?: FastGateProbe
+    }
+    const probe = state.__inkiva_fast_gate_probe__
+    if (!probe) throw new Error('fast-gate probe is not installed')
+
+    probe.inputObserver?.disconnect()
+    const observer = new PerformanceObserver((list) => {
+      probe.recordInputEntries?.(list.getEntries())
+    })
+    probe.recordInputEntries = (entries) => {
+      for (const entry of entries) {
+        if (
+          entry.entryType === 'event' &&
+          ['beforeinput', 'compositionend', 'input', 'keydown', 'keyup', 'paste'].includes(
+            entry.name
+          )
+        ) {
+          const timing = entry as PerformanceEntry & { processingStart?: unknown }
+          const latency =
+            typeof timing.processingStart === 'number' &&
+            Number.isFinite(timing.processingStart) &&
+            timing.processingStart >= entry.startTime
+              ? timing.processingStart - entry.startTime
+              : entry.duration
+          if (Number.isFinite(latency) && latency >= 0) {
+            probe.inputDurations.push(latency)
+            observer.disconnect()
+            probe.inputObserver = undefined
+            return
+          }
+        }
+      }
+    }
+
+    probe.inputObserver = observer
+    observer.observe({
+      type: 'event',
+      buffered: false,
+      durationThreshold: 0
+    } as PerformanceObserverInit)
+  })
+}
+
+const drainFastGateInputProbe = async(page: Page): Promise<number> =>
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & {
+      __inkiva_fast_gate_probe__?: FastGateProbe
+    }
+    const probe = state.__inkiva_fast_gate_probe__
+    const observer = probe?.inputObserver
+    if (observer && probe?.recordInputEntries) {
+      probe.recordInputEntries(observer.takeRecords())
+    }
+    return probe?.inputDurations.length ?? 0
+  })
 
 const readInputCount = async(page: Page): Promise<number> =>
   await page.evaluate(() => {
@@ -578,17 +618,11 @@ const resetFastGateProbe = async(page: Page): Promise<void> => {
 const measureInput = async(page: Page, iteration: number): Promise<number> => {
   await placeCaretInEditor(page)
   const beforeCount = await readInputCount(page)
+  await armFastGateInputProbe(page)
   await page.keyboard.insertText('fast-gate-input-' + String(iteration))
-  await page.waitForFunction(
-    (minimumCount) => {
-      const state = globalThis as typeof globalThis & {
-        __inkiva_fast_gate_probe__?: FastGateProbe
-      }
-      return (state.__inkiva_fast_gate_probe__?.inputDurations.length ?? 0) > minimumCount
-    },
-    beforeCount,
-    { timeout: 5_000 }
-  )
+  await expect
+    .poll(() => drainFastGateInputProbe(page), { timeout: 5_000 })
+    .toBeGreaterThan(beforeCount)
   const duration = await readLatestInputDuration(page)
   if (duration === undefined) {
     throw new Error('Event Timing did not produce a real fast-gate input sample')

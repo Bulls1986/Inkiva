@@ -41,6 +41,14 @@ test('large collection contract requires raw samples and a P0 baseline for P2', 
   })
 })
 
+test('P1 requires bounded virtualized large-document heap stability samples', async() => {
+  const { getLargeGateScenario } = await import('./large-scenarios.js')
+  const metrics = getLargeGateScenario('P1').metrics
+
+  assert.ok(metrics.includes('virtualization.500k.heapLinearGrowth20'))
+  assert.ok(metrics.includes('virtualization.1m.heapLinearGrowth20'))
+})
+
 test('large release levels require real 200-cycle memory samples', async() => {
   const { getLargeGateScenario } = await import('./large-scenarios.js')
 

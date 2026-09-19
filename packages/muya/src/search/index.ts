@@ -33,18 +33,20 @@ export class Search {
     reset() {
         this._searchGeneration += 1;
         this._value = '';
+        this._scrollPage?.setVirtualRevealPath(null);
         this.matches = [];
         this.index = -1;
     }
 
     private _updateMatchHighlights(matches: readonly IMatch[], isClear = false) {
-        const { index } = this;
+        const activeMatch = this.matches[this.index];
         const len = matches.length;
         const matchesMap = new Map<Content, IHighlight[]>();
 
         for (let i = 0; i < len; i++) {
-            const { block, start, end } = matches[i];
-            const active = i === index;
+            const match = matches[i];
+            const { block, start, end } = match;
+            const active = match === activeMatch;
             const highlight: IHighlight = { start, end, active };
             const highlights = matchesMap.get(block);
 
@@ -60,7 +62,19 @@ export class Search {
         for (const [block, highlights] of matchesMap.entries()) {
             const isActive = highlights.some(h => h.active);
 
-            block.update(undefined, isClear ? [] : highlights);
+            if (isActive && !isClear)
+                this._scrollPage?.setVirtualRevealPath(block.path);
+
+            // Virtualized documents keep the complete logical Content tree but
+            // may intentionally leave offscreen blocks without DOM. Preserve
+            // their logical match ranges and only render highlights once the
+            // block is materialized. The active Find target is special: mount
+            // it first so focus/caret/highlight continue to use native DOM
+            // Selection semantics.
+            if (!block.domNode && isActive && !isClear)
+                this._scrollPage?.ensureVirtualSelectionRange(block.path, block.path);
+            if (block.domNode)
+                block.update(undefined, isClear ? [] : highlights);
 
             if (block.parent?.active && !isActive)
                 block.blurHandler();
@@ -71,6 +85,8 @@ export class Search {
     }
 
     private _updateMatches(isClear = false) {
+        if (isClear)
+            this._scrollPage?.setVirtualRevealPath(null);
         this._updateMatchHighlights(this.matches, isClear);
     }
 

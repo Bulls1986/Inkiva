@@ -2349,6 +2349,7 @@ onMounted(() => {
     superSubScript: superSubScript.value,
     footnote: footnote.value,
     disableHtml: !isHtmlEnabled.value,
+    virtualizeLargeDocuments: true,
     isGitlabCompatibilityEnabled: isGitlabCompatibilityEnabled.value,
     hideQuickInsertHint: hideQuickInsertHint.value,
     hideLinkPopup: hideLinkPopup.value,

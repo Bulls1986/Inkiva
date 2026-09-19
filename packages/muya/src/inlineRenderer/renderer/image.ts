@@ -108,7 +108,13 @@ export default function image(
 
     if (src) {
         ({ id, isSuccess, url: resolvedUrl, width: naturalWidth, height: naturalHeight, isViewportLazy }
-            = this.loadImageAsync(imageSrc, token.attrs));
+            = this.loadImageAsync(
+                imageSrc,
+                token.attrs,
+                undefined,
+                undefined,
+                block.outMostBlock?.domNode ?? block.domNode ?? null,
+            ));
     }
 
     // What the rendered <img> actually points at. For local files this is the

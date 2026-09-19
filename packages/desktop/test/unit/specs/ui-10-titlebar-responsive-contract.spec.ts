@@ -28,6 +28,12 @@ describe('Inkiva UI-10 title bar responsive contract', () => {
     expect(titleBar).not.toContain('right: 160px')
   })
 
+  it('keeps the document status zone free of a decorative divider', () => {
+    const titleBar = read('components/titleBar/index.vue')
+
+    expect(titleBar).not.toContain('  border-left: 1px solid var(--border-subtle);')
+  })
+
   it('defines explicit compact priorities for document, statistics, and menu content', () => {
     const titleBar = read('components/titleBar/index.vue')
 

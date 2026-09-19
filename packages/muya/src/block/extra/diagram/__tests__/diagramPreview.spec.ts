@@ -369,6 +369,12 @@ describe('diagramPreview — Mermaid auto-rendering', () => {
 describe('diagramPreview — viewport lazy rendering', () => {
     it('does not start the renderer until the preview intersects the viewport', async () => {
         vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const frames: FrameRequestCallback[] = [];
+        vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+            frames.push(callback);
+            return frames.length;
+        }));
+        vi.stubGlobal('cancelAnimationFrame', vi.fn());
         const render = vi.fn().mockResolvedValue({
             svg: '<svg data-rendered="lazy"></svg>',
         });
@@ -391,6 +397,16 @@ describe('diagramPreview — viewport lazy rendering', () => {
         expect(loadRendererMock).not.toHaveBeenCalled();
 
         observer.trigger(true);
+        expect(loadRendererMock).not.toHaveBeenCalled();
+        for (let index = 0; index < 4; index += 1) {
+            const frame = frames.shift();
+            expect(frame).toBeDefined();
+            frame!(performance.now());
+            expect(loadRendererMock).not.toHaveBeenCalled();
+        }
+        const finalFrame = frames.shift();
+        expect(finalFrame).toBeDefined();
+        finalFrame!(performance.now());
         await new Promise<void>(resolve =>
             setTimeout(resolve, DIAGRAM_RENDER_DEBOUNCE_MS + 50));
 

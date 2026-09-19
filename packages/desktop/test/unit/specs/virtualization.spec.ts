@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { it } from 'vitest'
 import { calculateVirtualWindow } from '@/util/virtualization'
 import { createTocRowModel, flattenTocRows } from '@/util/tocVirtualization'
-import { createTreeRowModel, flattenTreeRows } from '@/util/treeVirtualization'
+import { createTreeRowModel, flattenTreeRows, hasMoreThanTreeRows } from '@/util/treeVirtualization'
 
 type TestFile = {
   id: string
@@ -20,6 +20,7 @@ type TestFolder = {
   isDirectory: true
   isFile: false
   isMarkdown: false
+  isCollapsed?: boolean
   folders: TestFolder[]
   files: TestFile[]
 }
@@ -76,6 +77,24 @@ it('tree flattening includes only visible descendants and preserves folder-first
   assert.deepEqual(
     collapsed.map((row) => row.node.pathname),
     ['workspace/docs', 'workspace/readme.md']
+  )
+})
+
+it('tree virtualization threshold respects explicit expansion overrides', () => {
+  const hotFolder = {
+    ...folder('workspace/hot'),
+    isCollapsed: true,
+    files: Array.from({ length: 301 }, (_, index) => file('workspace/hot/file-' + index + '.md'))
+  }
+  const root = {
+    ...folder('workspace'),
+    folders: [hotFolder]
+  }
+
+  assert.equal(hasMoreThanTreeRows(root, 300), false)
+  assert.equal(
+    hasMoreThanTreeRows(root, 300, new Set(), new Set([hotFolder.pathname])),
+    true
   )
 })
 

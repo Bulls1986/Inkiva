@@ -52,6 +52,7 @@
         "test": "vitest run",
         "test:lifecycle": "vitest run src/__tests__/muyaLifecycle.spec.ts src/utils/diagram/__tests__/coordinator.spec.ts",
         "test:watch": "vitest",
+        "bench:c1-history-inverse": "node --import tsx perf/c1HistoryInverseBenchmark.ts",
         "test:spec": "vitest run --config vitest.spec.config.ts",
         "test:spec:commonmark": "vitest run --config vitest.spec.config.ts test/spec/commonmark.spec.ts",
         "test:spec:gfm": "vitest run --config vitest.spec.config.ts test/spec/gfm.spec.ts",

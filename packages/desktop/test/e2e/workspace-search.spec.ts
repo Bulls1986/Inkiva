@@ -35,8 +35,8 @@ const createWorkspace = (fileCount = 0): string => {
   return root
 }
 
-const readCurrentPath = (page: Page): Promise<string | null> =>
-  page.evaluate(() => {
+const readCurrentPath = async(page: Page): Promise<string | null> => {
+  const currentPath = await page.evaluate(() => {
     const root = document.querySelector('#app') as
       | (Element & {
         __vue_app__?: {
@@ -49,6 +49,8 @@ const readCurrentPath = (page: Page): Promise<string | null> =>
       | undefined
     return pinia?._s?.get('editor')?.currentFile?.pathname ?? null
   })
+  return currentPath ? path.normalize(currentPath) : null
+}
 
 const focusWindow = async(app: ElectronApplication, page: Page): Promise<void> => {
   await page.bringToFront()

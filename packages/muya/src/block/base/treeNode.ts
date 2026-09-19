@@ -8,6 +8,22 @@ import type Parent from './parent';
 import { BLOCK_DOM_PROPERTY } from '../../config';
 import { createDomNode } from '../../utils/dom';
 
+let blockDomCreationDeferralDepth = 0;
+
+export function withDeferredBlockDomCreation<T>(callback: () => T): T {
+    blockDomCreationDeferralDepth += 1;
+    try {
+        return callback();
+    }
+    finally {
+        blockDomCreationDeferralDepth -= 1;
+    }
+}
+
+function isBlockDomCreationDeferred(): boolean {
+    return blockDomCreationDeferralDepth > 0;
+}
+
 class TreeNode implements ILinkedNode {
     prev: Nullable<TreeNode> = null;
 
@@ -119,6 +135,9 @@ class TreeNode implements ILinkedNode {
      * create domNode
      */
     createDomNode() {
+        if (isBlockDomCreationDeferred())
+            return;
+
         const { tagName, classList, attributes, datasets } = this;
 
         const domNode = createDomNode(tagName, {
@@ -134,6 +153,17 @@ class TreeNode implements ILinkedNode {
         domNode[BLOCK_DOM_PROPERTY] = this as unknown as Parent | Content;
 
         this.domNode = domNode;
+    }
+
+    materializeDomTree(): Nullable<HTMLElement> {
+        if (!this.domNode)
+            this.createDomNode();
+        return this.domNode;
+    }
+
+    dematerializeDomTree(): void {
+        this.domNode?.remove();
+        this.domNode = null;
     }
 
     // Get previous content block in block tree.

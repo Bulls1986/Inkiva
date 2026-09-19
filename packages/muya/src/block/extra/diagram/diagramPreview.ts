@@ -40,6 +40,7 @@ class DiagramPreview extends Parent {
     private _clickSubscription: Subscription | null = null;
     private _viewportObserver: IntersectionObserver | null = null;
     private _viewportObserveTimer: ReturnType<typeof setTimeout> | null = null;
+    private _viewportRenderFrameId: number | null = null;
     private _isViewportReady = false;
     private _renderAttempts = 0;
     private _applyHeightHint() {
@@ -134,13 +135,7 @@ class DiagramPreview extends Parent {
             this.domNode?.removeAttribute('data-diagram-lazy');
             this._viewportObserver?.disconnect();
             this._viewportObserver = null;
-            // Keep the first visible frame cheap. The editor's editable
-            // milestone and the placeholder measurement both happen across
-            // the first paint boundaries; starting Mermaid/Vega here would
-            // block them. `update()` uses the normal 200 ms render scheduler,
-            // while an explicit focus/blur action still calls the immediate
-            // path and remains responsive.
-            void this.update();
+            this._scheduleViewportRenderAfterPaint();
         }, { rootMargin: '0px' });
 
         this._viewportObserveTimer = setTimeout(() => {
@@ -151,6 +146,31 @@ class DiagramPreview extends Parent {
 
             this._viewportObserver?.observe(this.domNode);
         }, 0);
+    }
+
+    private _scheduleViewportRenderAfterPaint() {
+        // A visible diagram only needs its lightweight placeholder during the
+        // editor's first useful paints. Defer background Mermaid/Vega work
+        // until four paint boundaries have completed, then let the normal
+        // debounce schedule the renderer. This keeps diagram work behind the
+        // editor's first-screen/interactive/editable milestones without
+        // slowing explicit focus/blur rendering.
+        let remainingPaints = 4;
+        const waitForPaint = () => {
+            if (this._disposed)
+                return;
+
+            if (remainingPaints <= 0) {
+                this._viewportRenderFrameId = null;
+                void this.update();
+                return;
+            }
+
+            remainingPaints -= 1;
+            this._viewportRenderFrameId = requestAnimationFrame(waitForPaint);
+        };
+
+        this._viewportRenderFrameId = requestAnimationFrame(waitForPaint);
     }
 
     /**
@@ -351,6 +371,9 @@ class DiagramPreview extends Parent {
         this._code = code;
         this._applyHeightHint();
 
+        if (this._viewportRenderFrameId !== null)
+            cancelAnimationFrame(this._viewportRenderFrameId);
+        this._viewportRenderFrameId = null;
         if (this._renderTimer !== null)
             clearTimeout(this._renderTimer);
         this._renderTimer = null;
@@ -434,6 +457,9 @@ class DiagramPreview extends Parent {
         if (this._viewportObserveTimer !== null)
             clearTimeout(this._viewportObserveTimer);
         this._viewportObserveTimer = null;
+        if (this._viewportRenderFrameId !== null)
+            cancelAnimationFrame(this._viewportRenderFrameId);
+        this._viewportRenderFrameId = null;
         this._viewportObserver?.disconnect();
         this._viewportObserver = null;
         this._activeRenderHandle?.dispose();

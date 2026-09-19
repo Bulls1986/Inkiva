@@ -82,6 +82,30 @@ class Parent extends TreeNode {
         super.dispose();
     }
 
+    override materializeDomTree(): Nullable<HTMLElement> {
+        const domNode = super.materializeDomTree();
+        if (!domNode)
+            return null;
+
+        this.attachments.forEach((node) => {
+            const attachmentDom = node.materializeDomTree();
+            if (attachmentDom && attachmentDom.parentNode !== domNode)
+                domNode.appendChild(attachmentDom);
+        });
+        this.children.forEach((node) => {
+            const childDom = node.materializeDomTree();
+            if (childDom && childDom.parentNode !== domNode)
+                domNode.appendChild(childDom);
+        });
+        return domNode;
+    }
+
+    override dematerializeDomTree(): void {
+        this.attachments.forEach(node => node.dematerializeDomTree());
+        this.children.forEach(node => node.dematerializeDomTree());
+        super.dematerializeDomTree();
+    }
+
     private _getJsonPath() {
         const { path } = this;
         if (this.isContainerBlock)
@@ -135,10 +159,12 @@ class Parent extends TreeNode {
             node.parent = this;
             const { domNode } = node;
             const anchor = this.domInsertionAnchor;
-            if (anchor)
-                this.domNode!.insertBefore(domNode!, anchor);
-            else
-                this.domNode!.appendChild(domNode!);
+            if (this.domNode && domNode) {
+                if (anchor)
+                    this.domNode.insertBefore(domNode, anchor);
+                else
+                    this.domNode.appendChild(domNode);
+            }
         });
 
         this.children.append(...(args as Parent[]));
@@ -161,7 +187,8 @@ class Parent extends TreeNode {
         nodes.forEach((node) => {
             node.parent = this;
             const { domNode } = node;
-            this.domNode!.appendChild(domNode!);
+            if (this.domNode && domNode)
+                this.domNode.appendChild(domNode);
         });
 
         this.attachments.append(...nodes);

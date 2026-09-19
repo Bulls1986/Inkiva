@@ -833,6 +833,22 @@
           "limit": 0
         },
         {
+          "id": "virtualization-500k-heap-linear-growth-20-count",
+          "metric": "virtualization.500k.heapLinearGrowth20",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "virtualization-1m-heap-linear-growth-20-count",
+          "metric": "virtualization.1m.heapLinearGrowth20",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
           "id": "stability-crash-count",
           "metric": "stability.crash",
           "unit": "count",
@@ -891,6 +907,38 @@
         {
           "id": "memory-closed-tabs-editor-dom-count",
           "metric": "memory.closedTabsEditorDom",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "virtualization-50k-mounted-ratio-max",
+          "metric": "virtualization.50k.mountedRatio",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.5
+        },
+        {
+          "id": "virtualization-50k-materialized-ratio-max",
+          "metric": "virtualization.50k.materializedRatio",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.5
+        },
+        {
+          "id": "virtualization-50k-detached-dom-max",
+          "metric": "virtualization.50k.retainedDetachedDomBlocks",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "virtualization-50k-selection-range-exception-max",
+          "metric": "virtualization.50k.selectionRangeException",
           "unit": "count",
           "statistic": "max",
           "operator": "eq",
@@ -1707,6 +1755,38 @@
           "statistic": "max",
           "operator": "eq",
           "limit": 0
+        },
+        {
+          "id": "virtualization-500k-mounted-ratio-max",
+          "metric": "virtualization.500k.mountedRatio",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.5
+        },
+        {
+          "id": "virtualization-500k-materialized-ratio-max",
+          "metric": "virtualization.500k.materializedRatio",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.5
+        },
+        {
+          "id": "virtualization-500k-detached-dom-max",
+          "metric": "virtualization.500k.retainedDetachedDomBlocks",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "virtualization-500k-selection-range-exception-max",
+          "metric": "virtualization.500k.selectionRangeException",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
         }
       ],
       "degradation": {
@@ -2320,6 +2400,38 @@
         {
           "id": "stability-renderer-hang-count",
           "metric": "stability.rendererHang",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "virtualization-1m-mounted-ratio-max",
+          "metric": "virtualization.1m.mountedRatio",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.5
+        },
+        {
+          "id": "virtualization-1m-materialized-ratio-max",
+          "metric": "virtualization.1m.materializedRatio",
+          "unit": "ratio",
+          "statistic": "max",
+          "operator": "lt",
+          "limit": 0.5
+        },
+        {
+          "id": "virtualization-1m-detached-dom-max",
+          "metric": "virtualization.1m.retainedDetachedDomBlocks",
+          "unit": "count",
+          "statistic": "max",
+          "operator": "eq",
+          "limit": 0
+        },
+        {
+          "id": "virtualization-1m-selection-range-exception-max",
+          "metric": "virtualization.1m.selectionRangeException",
           "unit": "count",
           "statistic": "max",
           "operator": "eq",

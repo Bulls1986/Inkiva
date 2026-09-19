@@ -318,14 +318,15 @@ const sidebarPanelIndexes: Record<SidebarPanel, number> = {
 
 export const ensureSidebarVisible = async(
   app: ElectronApplication,
-  page: Page
+  page: Page,
+  timeout = 5000
 ): Promise<void> => {
-  await page.waitForSelector('.side-bar', { state: 'attached', timeout: 5000 })
+  await page.waitForSelector('.side-bar', { state: 'attached', timeout })
   const sidebar = page.locator('.side-bar')
   if (await sidebar.isVisible()) return
 
   await clickMenuById(app, 'sideBarMenuItem')
-  await expect(sidebar).toBeVisible({ timeout: 5000 })
+  await expect(sidebar).toBeVisible({ timeout })
 }
 
 // The default right column is the ToC. Calling the ToC menu item blindly is
@@ -335,9 +336,10 @@ export const ensureSidebarVisible = async(
 export const showSidebarPanel = async(
   app: ElectronApplication,
   page: Page,
-  panel: SidebarPanel
+  panel: SidebarPanel,
+  timeout = 5000
 ): Promise<void> => {
-  await ensureSidebarVisible(app, page)
+  await ensureSidebarVisible(app, page, timeout)
   const selector = sidebarPanelSelectors[panel]
   const panelLocator = page.locator(selector)
   if (!(await panelLocator.isVisible())) {
@@ -345,7 +347,7 @@ export const showSidebarPanel = async(
       .nth(sidebarPanelIndexes[panel])
       .click()
   }
-  await expect(panelLocator).toBeVisible({ timeout: 5000 })
+  await expect(panelLocator).toBeVisible({ timeout })
 }
 
 export const waitForEditor = async(page: Page, timeout = 15000): Promise<void> => {
@@ -390,7 +392,11 @@ export const waitForWorkspaceReady = async(page: Page): Promise<void> => {
     null,
     { timeout: 15000 }
   )
-  await page.waitForSelector('.command-palette', { state: 'attached', timeout: 15000 })
+  // Readiness is defined by initialized application/project stores plus the
+  // registered quick-open command above. The command-palette wrapper is a UI
+  // implementation detail (Element Plus may teleport/remount its dialog), so
+  // requiring that hidden wrapper to remain attached makes unrelated workspace
+  // tests flaky without proving any additional workspace capability.
 }
 
 export const enterSourceMode = async(page: Page, app: ElectronApplication): Promise<void> => {

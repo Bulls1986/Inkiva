@@ -54,6 +54,10 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
       'document.50k.headingJump',
       'document.50k.searchFirst',
       'document.50k.save',
+      'virtualization.50k.mountedRatio',
+      'virtualization.50k.materializedRatio',
+      'virtualization.50k.retainedDetachedDomBlocks',
+      'virtualization.50k.selectionRangeException',
       'document.100k.firstScreen',
       'document.100k.editable',
       'document.100k.outlineFirst',
@@ -98,18 +102,15 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
       'undo.fullDomRebuild',
       'memory.single50kDelta',
       'memory.tabs8Delta',
-      'memory.closedTabsEditorDom'
+      'memory.closedTabsEditorDom',
+      'virtualization.500k.heapLinearGrowth20',
+      'virtualization.1m.heapLinearGrowth20'
     ]
   },
   {
     id: 'p2-documents-headings',
     level: 'P2',
-    fixtures: [
-      '500k-markdown',
-      '5k-heading-storm',
-      '10k-heading-storm',
-      '1m-markdown'
-    ],
+    fixtures: ['500k-markdown', '5k-heading-storm', '10k-heading-storm', '1m-markdown'],
     metrics: [
       'document.50k.firstScreen',
       'document.50k.editable',
@@ -127,6 +128,10 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
       'document.500k.headingJump',
       'document.500k.input',
       'document.500k.frame',
+      'virtualization.500k.mountedRatio',
+      'virtualization.500k.materializedRatio',
+      'virtualization.500k.retainedDetachedDomBlocks',
+      'virtualization.500k.selectionRangeException',
       'heading.5k.outlineFirst',
       'heading.5k.index',
       'heading.5k.click',
@@ -218,6 +223,10 @@ export const LARGE_GATE_SCENARIOS: readonly LargeGateScenario[] = [
       'document.1m.headingJump',
       'document.1m.input',
       'document.1m.rendererHang',
+      'virtualization.1m.mountedRatio',
+      'virtualization.1m.materializedRatio',
+      'virtualization.1m.retainedDetachedDomBlocks',
+      'virtualization.1m.selectionRangeException',
       'heading.5k.outlineFirst',
       'heading.5k.index',
       'heading.5k.click',

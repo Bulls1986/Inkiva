@@ -6,7 +6,7 @@ import type { Nullable } from '../types';
 import type Selection from './index';
 import type { IAnchorFocusInfo, INodeOffset, ISelection } from './types';
 import { BLOCK_DOM_PROPERTY } from '../config';
-import { isHTMLElement, isMouseEvent } from '../utils';
+import { isMouseEvent } from '../utils';
 import {
     buildSelectionAffiliation,
     endpointBlockInfo,
@@ -147,9 +147,10 @@ class TextSelection {
             { offset: 0, block: aBlock, path: aBlock.path },
             { offset: fBlock.text.length, block: fBlock, path: fBlock.path },
         );
-        const activeEle = this._doc.activeElement;
-        if (isHTMLElement(activeEle) && activeEle.classList.contains('mu-content'))
-            activeEle.blur();
+        // Keep the editor focused after a whole-document selection. Clipboard
+        // and cross-block Delete/Backspace are document-level handlers guarded
+        // by muya.hasFocus(); blurring here leaves a valid logical selection but
+        // makes the very next edit key fall through to the browser.
     }
 
     getSelection(): ISelection | null {
@@ -438,6 +439,12 @@ class TextSelection {
 
             return;
         }
+
+        // Keep the logical selection independent from the virtual DOM surface.
+        // Only the native Range endpoints need live DOM; intermediate selected
+        // blocks remain represented by spacers and the model-aware clipboard /
+        // edit paths operate on the complete logical block tree.
+        scrollPage?.ensureVirtualSelectionRange(anchorPath, focusPath);
 
         const anchorEndpoint = this._resolveEndpoint(anchorBlock, anchorPath);
         const focusEndpoint = this._resolveEndpoint(focusBlock, focusPath);

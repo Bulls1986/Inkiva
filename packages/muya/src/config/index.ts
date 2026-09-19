@@ -4,6 +4,7 @@ import { en } from '../locales/en';
 export const VOID_HTML_TAGS = voidHtmlTags;
 export const HTML_TAGS = htmlTags;
 export const BLOCK_DOM_PROPERTY = '__MUYA_BLOCK__';
+export const VIRTUAL_BLOCK_MOUNT_EVENT = 'muya:virtual-block-mounted';
 
 /**
  * [genUpper2LowerKeyHash generate constants map hash, the value is lowercase of the key,
@@ -355,6 +356,8 @@ export const MUYA_DEFAULT_OPTIONS = {
     autoMoveCheckedToEnd: false,
     // Whether HTML rendering is disabled or not.
     disableHtml: false,
+    // Embedders opt in when their surrounding scroll/selection integration is production-ready.
+    virtualizeLargeDocuments: false,
     locale: en,
 };
 

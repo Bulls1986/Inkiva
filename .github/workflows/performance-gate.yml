@@ -19,7 +19,7 @@ permissions:
 jobs:
   reference-p0:
     name: Reference Windows P0 Milk Gate
-    runs-on: windows-latest
+    runs-on: [self-hosted, Windows, X64, reference-low-end]
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4.3.1
@@ -81,11 +81,90 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  reference-large-shards:
+    name: Reference Windows ${{ matrix.level }} / ${{ matrix.shard }}
+    needs: reference-p0
+    runs-on: [self-hosted, Windows, X64, reference-low-end]
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { level: P1, shard: doc-50k }
+          - { level: P1, shard: doc-100k }
+          - { level: P1, shard: doc-large }
+          - { level: P1, shard: tree }
+          - { level: P1, shard: tabs-open }
+          - { level: P1, shard: tabs-switch }
+          - { level: P1, shard: memory-footprint }
+          - { level: P1, shard: memory-leak }
+          - { level: P2, shard: doc-50k }
+          - { level: P2, shard: doc-large }
+          - { level: P2, shard: headings }
+          - { level: P2, shard: tree }
+          - { level: P2, shard: tabs-open }
+          - { level: P2, shard: tabs-switch }
+          - { level: P2, shard: memory-footprint }
+          - { level: P2, shard: diagrams }
+          - { level: P2, shard: combination }
+          - { level: P2, shard: memory-leak }
+    steps:
+      - uses: actions/checkout@v4.3.1
+        with:
+          fetch-depth: 1
+
+      - uses: ./.github/actions/setup
+
+      - name: Validate reference hardware and test mode
+        shell: bash
+        run: pnpm exec tsx scripts/verifyPerformanceEnvironment.ts --output perf-results/reference-environment.json --observation-output perf-results/reference-observation.json
+        env:
+          INKIVA_PERF_OFFLINE: 'true'
+          INKIVA_PERF_RUNNER_LABEL: reference-low-end
+
+      - name: Run postinstall
+        run: pnpm tsx scripts/postinstall.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm_config_user_agent: pnpm
+          USE_ELECTRON_CLANG: '0'
+
+      - name: Build app
+        run: pnpm build
+
+      - name: Collect sharded real measurements
+        run: pnpm test:e2e:gate:large
+        env:
+          INKIVA_PERF_CAPTURE: 'true'
+          INKIVA_PERF_OFFLINE: 'true'
+          INKIVA_PERF_RUNNER_LABEL: reference-low-end
+          INKIVA_PERF_GATE_LEVELS: ${{ matrix.level }}
+          INKIVA_PERF_GATE_SHARD: ${{ matrix.shard }}
+          INKIVA_RUN_PERF_LARGE_GATE: 'true'
+          INKIVA_PERF_REPORT_DIR: ${{ github.workspace }}/perf-results/raw-large
+
+      - name: Require shard raw artifact
+        shell: pwsh
+        run: |
+          $artifact = 'perf-results/raw-large/${{ matrix.level }}.raw.json'
+          if (-not (Test-Path $artifact)) {
+            throw ('Large-gate shard did not produce raw data: ' + $artifact)
+          }
+
+      - name: Upload shard raw artifact
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: perf-large-${{ matrix.level }}-${{ matrix.shard }}
+          path: perf-results/raw-large/${{ matrix.level }}.raw.json
+          if-no-files-found: error
+          retention-days: 7
+
   reference-large:
     name: Reference Windows P1/P2 Large Gates
-    needs: reference-p0
-    runs-on: windows-latest
-    timeout-minutes: 180
+    needs: [reference-p0, reference-large-shards]
+    if: always()
+    runs-on: [self-hosted, Windows, X64, reference-low-end]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4.3.1
         with:
@@ -115,53 +194,31 @@ jobs:
           }
           Copy-Item $baseline.FullName 'perf-results/P0.report.json'
 
-      - name: Run postinstall
-        run: pnpm tsx scripts/postinstall.ts
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          npm_config_user_agent: pnpm
-          USE_ELECTRON_CLANG: '0'
-
-      - name: Build app
-        run: pnpm build
+      - name: Download P1/P2 shard artifacts
+        uses: actions/download-artifact@v4.3.0
+        with:
+          pattern: perf-large-*
+          path: perf-results/shards
 
       - name: Validate performance gate contracts
         run: pnpm test:perf:gate
 
-      - name: Collect P1/P2 real measurements
-        run: pnpm test:e2e:gate:large
-        env:
-          INKIVA_PERF_CAPTURE: 'true'
-          INKIVA_PERF_OFFLINE: 'true'
-          INKIVA_PERF_RUNNER_LABEL: reference-low-end
-          INKIVA_PERF_GATE_LEVELS: P1,P2
-          INKIVA_RUN_PERF_LARGE_GATE: 'true'
-          INKIVA_PERF_REPORT_DIR: ${{ github.workspace }}/perf-results/raw-large
+      - name: Merge P1 shard artifacts and require complete raw coverage
+        run: pnpm exec tsx scripts/mergePerformanceGateShards.ts --input-root perf-results/shards --level P1 --output perf-results/raw-large/P1.raw.json
+
+      - name: Merge P2 shard artifacts and require complete raw coverage
+        run: pnpm exec tsx scripts/mergePerformanceGateShards.ts --input-root perf-results/shards --level P2 --output perf-results/raw-large/P2.raw.json
 
       - name: Build P1 metadata
-        if: always()
         run: pnpm exec tsx scripts/writePerformanceGateMetadata.ts --environment perf-results/reference-environment.json --level P1 --output perf-results/P1.metadata.json
 
       - name: Build P2 metadata
-        if: always()
         run: pnpm exec tsx scripts/writePerformanceGateMetadata.ts --environment perf-results/reference-environment.json --level P2 --output perf-results/P2.metadata.json
 
-      - name: Require P1/P2 raw artifacts
-        if: always()
-        shell: pwsh
-        run: |
-          foreach ($artifact in @('P1.raw.json', 'P2.raw.json')) {
-            if (-not (Test-Path ('perf-results/raw-large/' + $artifact))) {
-              throw ($artifact + ' is missing; the official large gate cannot evaluate.')
-            }
-          }
-
       - name: Evaluate P1 release gate
-        if: always()
         run: pnpm exec tsx perf/gate/evaluate.ts --input perf-results/raw-large/P1.raw.json --metadata perf-results/P1.metadata.json --thresholds perf/gate/thresholds.json --report-output perf-results/P1.report.json --output perf-results/P1.evaluation.json --reference
 
       - name: Evaluate P2 release gate against P0
-        if: always()
         run: pnpm exec tsx perf/gate/evaluate.ts --input perf-results/raw-large/P2.raw.json --metadata perf-results/P2.metadata.json --thresholds perf/gate/thresholds.json --report-output perf-results/P2.report.json --output perf-results/P2.evaluation.json --baseline perf-results/P0.report.json --reference
 
       - name: Upload P1/P2 gate artifacts
@@ -173,11 +230,10 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-
   reference-p3:
     name: Reference Windows P3 Extreme Gate
     if: github.event_name == 'workflow_dispatch' && inputs.run_p3 == true
-    runs-on: windows-latest
+    runs-on: [self-hosted, Windows, X64, reference-low-end]
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4.3.1

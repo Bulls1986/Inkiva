@@ -36,6 +36,8 @@ export interface IMuyaOptions {
     isGitlabCompatibilityEnabled: boolean;
     autoMoveCheckedToEnd: boolean;
     disableHtml: boolean;
+    /** Enable top-level block virtualization for large documents. */
+    virtualizeLargeDocuments: boolean;
     locale: {
         name: string;
         resource: {

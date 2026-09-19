@@ -28,6 +28,10 @@ export interface MemoryLeakCycleOptions {
   warmupCycleCount?: number
   /** Override the evaluation windows while preserving the default long-gate profile. */
   evaluationOptions?: MemoryLeakSeriesOptions
+  /** Record every post-GC heap sample for focused diagnostics. */
+  recordHeapSamples?: boolean
+  /** Wait for ScrollPage detached-block disposal before taking a heap sample. */
+  waitForDetachedDisposal?: boolean
 }
 
 const waitForPaint = async(page: Page): Promise<void> => {
@@ -120,7 +124,8 @@ const openEditSwitchClose = async(
   page: Page,
   firstPath: string,
   cyclePath: string,
-  index: number
+  index: number,
+  waitForDetachedDisposal = false
 ): Promise<void> => {
   await sendIpcFromRenderer(page, 'mt::open-file', cyclePath, {})
   await waitForActiveTab(page, cyclePath)
@@ -160,6 +165,17 @@ const openEditSwitchClose = async(
     cyclePath,
     { timeout: 10_000 }
   )
+
+  if (waitForDetachedDisposal) {
+    await page.waitForFunction(
+      () => {
+        const root = document.querySelector<HTMLElement>('.mu-container')
+        return root != null && Number(root.dataset.pendingDetachedBlocks ?? -1) === 0
+      },
+      null,
+      { timeout: 30_000 }
+    )
+  }
 }
 
 export const collectMemoryLeakCycleSamples = async(
@@ -179,11 +195,27 @@ export const collectMemoryLeakCycleSamples = async(
       warmupCycleCount: options.warmupCycleCount
     })
     for (let index = 0; index < cyclePlan.warmupCycleCount; index += 1) {
-      await openEditSwitchClose(app, page, firstPath, cyclePath, index)
+      await openEditSwitchClose(
+        app,
+        page,
+        firstPath,
+        cyclePath,
+        index,
+        options.waitForDetachedDisposal
+      )
     }
     for (let index = 0; index < cyclePlan.measuredCycleCount; index += 1) {
-      await openEditSwitchClose(app, page, firstPath, cyclePath, cyclePlan.warmupCycleCount + index)
-      heapSamples.push(await sampler.sample())
+      await openEditSwitchClose(
+        app,
+        page,
+        firstPath,
+        cyclePath,
+        cyclePlan.warmupCycleCount + index,
+        options.waitForDetachedDisposal
+      )
+      const heapSample = await sampler.sample()
+      heapSamples.push(heapSample)
+      if (options.recordHeapSamples) await recordSample('memory.heapUsed', 'bytes', heapSample)
 
       if (heapSamples.length < longWindowSize) continue
       const evaluation = evaluateMemoryLeakSeries(heapSamples, evaluationOptions)

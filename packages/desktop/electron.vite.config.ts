@@ -80,6 +80,7 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src/renderer/src'),
+        '@muyajs/core': resolve(__dirname, '../muya/src/index.ts'),
         common: resolve(__dirname, 'src/common'),
         muya: resolve(__dirname, '../muyajs'),
         '@shared': resolve(__dirname, 'src/shared'),

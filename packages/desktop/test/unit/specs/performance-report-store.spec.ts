@@ -1,7 +1,10 @@
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
   PerformanceReportStore,
+  PerformanceReportWriter,
   type PerformanceReportFileSystem
 } from 'main_renderer/performance/report-store'
 import {
@@ -137,6 +140,33 @@ describe('PerformanceReportStore', () => {
     expect(editor.traces[0].events.map((event) => event.phase)).toEqual(['editor', 'search'])
     expect(diagrams.traces[0].events.map((event) => event.phase)).toEqual(['diagram'])
     expect(memory.traces[0].events.map((event) => event.phase)).toEqual(['memory'])
+  })
+
+  it('publishes complete JSON atomically with the default filesystem writer', async() => {
+    const directory = await mkdtemp(join(tmpdir(), 'inkiva-perf-report-'))
+    try {
+      const writer = new PerformanceReportWriter({ enabled: true, outputDirectory: directory })
+      const report = {
+        schemaVersion: PERFORMANCE_TRACE_SCHEMA_VERSION,
+        generatedAtEpochMs: 12_345,
+        traces: [createTrace(['startup'])]
+      }
+
+      await expect(writer.write(report)).resolves.toMatchObject({
+        ok: true,
+        status: 'written',
+        written: true
+      })
+
+      const files = await readdir(directory)
+      expect(files).toEqual(['startup.json'])
+      await expect(readFile(join(directory, 'startup.json'), 'utf8')).resolves.toSatisfy((content) => {
+        expect(() => JSON.parse(content)).not.toThrow()
+        return true
+      })
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   })
 
   it('returns a directory error without hiding it or attempting a write', async() => {

@@ -149,6 +149,7 @@ class History {
                 prevDoc: TState[];
                 doc: TState[];
                 mutationKind?: DocumentMutationKind;
+                inverseOp?: JSONOpList;
             }) => {
                 const { op, source, mutationKind } = change;
                 if (this._ignoreChange)
@@ -162,12 +163,19 @@ class History {
                     return;
 
                 if (!this._options.userOnly || source === 'user') {
+                    // Read the lazy inverse only after the ignore/source checks.
+                    // Undo/redo rebuilds suppress History and therefore avoid
+                    // even the cheap operation-path inversion work.
+                    const inverseOp = change.inverseOp;
                     this._record(
                         op,
-                        mutationKind === 'text-only' || mutationKind === 'diagram'
+                        inverseOp !== undefined
+                        || mutationKind === 'text-only'
+                        || mutationKind === 'diagram'
                             ? undefined
                             : change.prevDoc,
                         mutationKind,
+                        inverseOp,
                     );
                 }
                 else {
@@ -322,6 +330,7 @@ class History {
         op: JSONOpList,
         doc: TState[] | undefined,
         mutationKind?: DocumentMutationKind,
+        inverseOp?: JSONOpList,
     ) {
         if (op.length === 0)
             return;
@@ -329,7 +338,13 @@ class History {
         let selection = this._getLastSelection();
         this._stack.redo = [];
         let undoOperation: JSONOpList;
-        if (
+        if (inverseOp !== undefined) {
+            // JSONState computed this directly against its authoritative
+            // pre-change state. Prefer it over materializing `change.prevDoc`,
+            // which deep-clones the complete document for structural edits.
+            undoOperation = inverseOp;
+        }
+        else if (
             (mutationKind === 'text-only' || mutationKind === 'diagram')
             && !containsContextualRemoval(op)
         ) {
