@@ -424,11 +424,14 @@ export class ScrollPage extends Parent {
             && this._virtualResizeCorrectionStartedAt !== null
             && this._virtualResizeCorrectionFrameId !== null
         ) {
-            // Repeated ResizeObserver callbacks are part of the same responsive
-            // reflow. Update the logical anchor without extending the bounded
-            // correction lifetime, otherwise a resize storm can indefinitely
-            // block later legitimate scrolling.
+            // A later width change may start before the previous correction
+            // window expires (for example 60% -> 100% editor width). Treat the
+            // latest ResizeObserver callback as the new end of the reflow so a
+            // late Chromium caret reveal cannot win immediately afterwards.
+            // Real wheel/pointer/key interaction still cancels correction below,
+            // so extending the bounded settle period does not trap user scroll.
             this._virtualResizeCorrectionTarget = target;
+            this._virtualResizeCorrectionStartedAt = performance.now();
             return;
         }
 
