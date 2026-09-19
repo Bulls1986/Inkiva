@@ -540,7 +540,7 @@ export class ScrollPage extends Parent {
         for (const eventName of ['wheel', 'touchstart', 'pointerdown', 'mousedown', 'keydown'] as const)
             container.addEventListener(eventName, cancelResizeCorrection, { passive: true });
         if (typeof ResizeObserver !== 'undefined') {
-            this._virtualBlockResizeObserver = new ResizeObserver(entries => {
+            this._virtualBlockResizeObserver = new ResizeObserver((entries) => {
                 this._measureVirtualBlockHeights(entries);
             });
             this._virtualResizeObserver = new ResizeObserver(resizeHandler);
