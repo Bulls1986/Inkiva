@@ -171,13 +171,15 @@ test.describe('Stage C1 virtualization productionization', () => {
 
         let previous = 0;
         let maxSeen = 0;
-        let renderedDiagrams = 0;
+        const renderedDiagramSvgs = new Set<string>();
         for (let step = 0; step < 80; step += 1) {
             await page.mouse.wheel(0, 360);
             await page.waitForTimeout(40);
             const sample = await page.evaluate(() => ({
                 scrollTop: document.querySelector<HTMLElement>('#editor')!.scrollTop,
-                renderedDiagrams: document.querySelectorAll('.mu-diagram-preview > svg').length,
+                renderedDiagramSvgs: Array.from(
+                    document.querySelectorAll<SVGElement>('.mu-diagram-preview > svg'),
+                ).map(svg => svg.outerHTML),
             }));
 
             // A small sub-pixel adjustment is harmless, but the viewport must
@@ -186,10 +188,13 @@ test.describe('Stage C1 virtualization productionization', () => {
             expect(sample.scrollTop).toBeGreaterThanOrEqual(previous - 2);
             previous = sample.scrollTop;
             maxSeen = Math.max(maxSeen, sample.scrollTop);
-            renderedDiagrams = Math.max(renderedDiagrams, sample.renderedDiagrams);
+            sample.renderedDiagramSvgs.forEach(svg => renderedDiagramSvgs.add(svg));
         }
 
-        expect(renderedDiagrams).toBeGreaterThanOrEqual(2);
+        // Virtualization may never keep both diagrams mounted at once. Across
+        // the downward traversal we must nevertheless encounter two distinct
+        // rendered SVG results, proving the wheel path crossed both diagrams.
+        expect(renderedDiagramSvgs.size).toBeGreaterThanOrEqual(2);
         expect(maxSeen).toBeGreaterThan(5_000);
         expect(previous).toBeGreaterThan(maxSeen - 800);
     });
