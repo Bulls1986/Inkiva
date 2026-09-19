@@ -73,7 +73,7 @@ const expectBoundedVirtualization = async(page: Page): Promise<void> => {
   expect(snapshot.materializedBlocks).toBeLessThan(snapshot.totalBlocks / 2)
 }
 
-test.describe('Render Surface 2.0 — Electron core interaction gate', () => {
+test.describe('@virtualization-core Render Surface 2.0 — Electron core interaction gate', () => {
   let app: ElectronApplication
   let page: Page
 
