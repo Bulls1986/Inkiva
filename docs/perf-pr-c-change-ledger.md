@@ -330,14 +330,45 @@ A simplified 50K trace later reached **55 FPS**, close to the machine ceiling, w
 
 These files are diagnostic artifacts only. Do not stage/commit them unless one is intentionally converted into a clean permanent regression test.
 
+### Formal Fast Gate bottom-up trace — recurring failure captured
+
+The formal Fast Gate path itself is now traced. Sample index `1` reproduced at **19 FPS** with runtime monitoring and the normal pre-scroll workload still enabled. Raw trace snapshot:
+
+- `perf-results/diagnostic-snapshots/2026-09-21-render-trace/formal-fast-index-1-19fps-trace.json`
+- SHA256: `BF884F16D9A75B2C682F1A60BA684C36805C51DA574677FE1C02ACBA8BCAC1A4`
+
+The 1.202 s scroll window did **not** show sustained Renderer-main saturation. Blink work was small overall: Layout total ~1.78 ms and Paint total ~8.38 ms. Instead, `BeginMainThreadFrame` contained two exceptional gaps while normal intervals outside them were ~17-18 ms:
+
+1. **242.108 ms gap**
+   - GPU main task ~247.6 ms.
+   - `RendererRasterWorker` ~247.57 ms.
+   - `RasterDecoderImpl::DoEndRasterCHROMIUM::Flush` ~247.44 ms.
+   - CPU-side RasterTask submissions were individually tiny (~0.05-0.18 ms); the stall is waiting in the GPU flush, not JS/Layout/Paint CPU work.
+
+2. **480.168 ms gap**
+   - `SkiaOutputSurfaceImplOnGpu::SwapBuffers` ~478.51 ms.
+   - `DXGISwapChainImageBacking::Present` ~478.16 ms for dirty rect `288,98 912x702`.
+   - Viz records `Swap throttled` with `max_pending_swaps=1`, `pending_swaps=1` while the Present is blocked.
+   - `DCompPresenter::Present` returns at the end of the gap and the pipeline immediately resumes normal ~17-18 ms cadence.
+
+The stall is visible consistently across the pipeline: Renderer BeginMainFrame, Compositor send/commit, Viz DrawAndSwap, GPU SwapBuffers/Present all show the same ~480 ms hole. This rules out Vue/Muya main-thread CPU as the direct cause of that gap.
+
+Comparison with the standalone ~54 FPS trace is important:
+
+- standalone POC `DXGISwapChainImageBacking::Present` max was only ~0.57 ms, including comparable large dirty rects;
+- standalone GPU raster max was ~13.26 ms;
+- formal trace GPU raster max was ~247.57 ms;
+- formal trace per-task GPU `used_bytes` peak was ~30.16 MB versus ~18.81 MB in the POC, but the POC submitted **more total raster bytes** during its window (~1.42 GB vs ~0.75 GB). Total GPU work alone therefore does not explain the stall.
+
+Immediately before the first raster stall, Blink paints the editor surface with a clip extending roughly from y=720 to y=9422. Raster activity includes layer IDs `5`, `9`, `10`, and `65`. This is evidence for a large raster batch, but the exact layer-to-DOM/render-surface mapping is **not yet proven**.
+
 ### Exact next diagnostic action
 
-Do **not** return to broad A/B guessing. Instrument the **formal Fast Gate's own `measureElementScrollFps()` execution path** with the same Chromium `contentTracing` + `disabled-by-default-devtools.timeline.invalidationTracking` categories. Capture the actual 19–48 FPS workload, then for every frame exceeding the local frame budget trace backward in this order:
+Do **not** return to broad source-level guessing. Continue from the GPU evidence:
 
-`Presentation / BeginFrame -> Compositor -> ProxyMain::BeginMainFrame -> Renderer Main -> Style/Layout/Paint -> invalidation node/reason -> DOM mutation / FunctionCall -> Inkiva/Muya source`.
+1. Map raster layer IDs `5/9/10/65` and source frame `163` back to compositor layer bounds / paint sources / editor segment DOM.
+2. Determine whether the ~30 MB raster batch is caused by Segment geometry/paint containment or by unrelated Fast Gate UI state.
+3. Separately classify the 478 ms DXGI/DComp Present stall: determine whether it is reproducibly triggered by the same render-surface state or is runner/DWM/driver backpressure independent of Inkiva code.
+4. Only after the causal layer/source is identified, add a minimal regression test, implement the code fix, rebuild, rerun the formal same-workload Fast Gate, and judge by threshold evaluation.
 
-The required final diagnosis is a repeatable chain of the form:
-
-`formal-gate scroll frame -> specific recurring mutation/state transition -> Blink invalidation -> layout/style/paint cost -> missed frame deadline`.
-
-Do not claim the FPS root cause is resolved until this chain explains the recurring formal-gate slow samples and the same-workload Fast Gate verifies the fix.
+Do not claim the FPS root cause is resolved merely because the pipeline stall is localized to GPU raster/presentation; the remaining work is to identify the Inkiva-controlled trigger, if one exists.
