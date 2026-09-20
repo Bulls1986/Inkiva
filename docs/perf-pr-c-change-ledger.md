@@ -643,3 +643,41 @@ This is not new evidence against overscan=1. `packages/desktop/test/e2e/VIRTUALI
 All other `42` virtualization-core cases passed, including selection, IME/composition, Undo/Redo, source-mode round-trip, width reflow, sidebar/max-width anchor preservation, Find, outline navigation, diagrams, editing operations, local images, history, Save, Source/Focus/Sidebar shortcuts, and CJK cases.
 
 Decision: retain overscan=1 as a bounded raster-pressure reduction; do not weaken or suppress the known Zoom guard and do not fold an unrelated keybinding fix into this performance change. This does **not** make PR-C complete: the formal Fast Gate still fails first-screen, editable, scroll-FPS minimum, and diagram-placeholder thresholds, with scroll bimodality the dominant unresolved renderer-surface issue.
+
+### Formal-context compositor attribution and DirectComposition A/B
+
+The clean overscan=1 Fast Gate raw capture was first correlated against its own one-second scroll samples. Across all twenty samples, the scroll measurement window contained **zero Long Tasks**, and `core.main.block` did not correlate with low FPS. Examples include a `25 FPS` sample with only ~`21.6 ms` maximum main-block time and a `29 FPS` sample with only ~`3.9 ms`, while a `57 FPS` sample reached ~`67.6 ms`. This rules out Renderer Main / JS / TOC / Pinia saturation as the dominant cause of the remaining low mode.
+
+A disposable formal-context Chromium trace POC then reproduced the real per-sample ordering:
+
+`activate 50K -> input -> completed save -> folder-search hit -> clear search -> canonical 1 s rAF scroll`
+
+Trace begin/end marks bounded the exact scroll measurement window. The baseline ten-sample result was:
+
+| Sample | FPS | max DXGI Present in scroll window |
+| ---: | ---: | ---: |
+| 0 | 41 | 292.33 ms |
+| 1 | 42 | 278.17 ms |
+| 2 | 56 | 0.47 ms |
+| 3 | 56 | 0.39 ms |
+| 4 | 33 | 458.69 ms |
+| 5 | 31 | 488.08 ms |
+| 6 | 56 | 0.50 ms |
+| 7 | 56 | 0.43 ms |
+| 8 | 36 | 401.26 ms |
+| 9 | 56 | 0.46 ms |
+
+The low group maps one-for-one to `DXGISwapChainImageBacking::Present` stalls of roughly `278–488 ms`; the `56 FPS` group stays below `1 ms` Present time. Renderer style/layout/paint work in the same low samples remained only a few milliseconds. Large `DoEndRasterCHROMIUM::Flush` spans can also appear in high-FPS samples, so raster duration alone is not the discriminant; the Windows DXGI/DirectComposition presentation stall is.
+
+The ten baseline trace files are preserved locally at:
+
+`perf-results/diagnostic-snapshots/2026-09-21-formal-scroll-trace-baseline/`
+
+A diagnostic-only launch with Chromium `--disable-direct-composition` confirmed the attribution. The switch was verified active at runtime and DXGI/DComp Present events disappeared from the marked scroll window. The first run produced `53, 49, 59, 60, 59 FPS` before an unrelated temporary-file save `EPERM rename` stopped the workload prior to sample 5. An unchanged second run completed all ten samples:
+
+`58, 60, 57, 49, 60, 60, 54, 60, 60, 56 FPS`
+
+This removes the catastrophic `31–42 FPS` DComp low mode but still reaches only `49 FPS` minimum, below the unchanged local requirement of `>=55 FPS`. Therefore **global DirectComposition disable is rejected as a product solution** and will not be promoted to the formal Fast Gate.
+
+Current diagnosis: the remaining bimodality is rooted in the Windows Chromium GPU -> DXGI/DirectComposition presentation path, not editor-main-thread work. The next app-controlled experiment should reduce compositor damage/presentation pressure at the virtual render-surface boundary (segment-level paint/compositing containment) rather than disable a global graphics backend.
+
