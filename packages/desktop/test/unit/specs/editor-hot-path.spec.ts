@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   EditorSnapshotScheduler,
   classifyEditorMutation,
-  getEditorMutationPolicy
+  getEditorMutationPolicy,
+  shouldCaptureEditorBlocks
 } from '@/components/editorWithTabs/editorHotPath'
 
 describe('editor hot path mutation policy', () => {
@@ -47,6 +48,20 @@ describe('editor hot path mutation policy', () => {
       refreshToc: false,
       renderDiagram: true
     })
+  })
+})
+
+describe('editor snapshot block-cache policy', () => {
+  it('never clones the full block tree for a virtualized document', () => {
+    expect(shouldCaptureEditorBlocks('full', true)).toBe(false)
+    expect(shouldCaptureEditorBlocks('switch', true)).toBe(false)
+    expect(shouldCaptureEditorBlocks('persistence', true)).toBe(false)
+  })
+
+  it('keeps the small-document full snapshot cache', () => {
+    expect(shouldCaptureEditorBlocks('full', false)).toBe(true)
+    expect(shouldCaptureEditorBlocks('switch', false)).toBe(false)
+    expect(shouldCaptureEditorBlocks('persistence', false)).toBe(false)
   })
 })
 

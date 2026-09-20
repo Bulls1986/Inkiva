@@ -195,6 +195,7 @@ export function createTocScrollSync(
   let activeSlug: string | null = null
   let rebuildHandle: number | null = null
   let activeHandle: number | null = null
+  let activeGeneration = 0
   let attached = false
   let destroyed = false
   let virtualOffsetsActive = false
@@ -326,10 +327,27 @@ export function createTocScrollSync(
   }
 
   const scheduleActiveUpdate = (): void => {
-    if (destroyed || activeHandle !== null) return
-    activeHandle = requestFrame(() => {
+    if (destroyed) return
+
+    const generation = ++activeGeneration
+    if (activeHandle !== null) {
+      cancelFrame(activeHandle)
       activeHandle = null
-      updateActive()
+    }
+
+    // Updating `activeTocSlug` invalidates the reactive outline tree. During a
+    // continuous scroll that used to happen once per frame, consuming most of
+    // the renderer frame budget on large outlines. Treat each scroll event as a
+    // candidate viewport and commit only after two consecutive paint boundaries
+    // stay on the same generation. A newer scroll cancels the old generation,
+    // while a scrollbar jump still updates the outline within two paints.
+    activeHandle = requestFrame(() => {
+      if (destroyed || generation !== activeGeneration) return
+      activeHandle = requestFrame(() => {
+        if (destroyed || generation !== activeGeneration) return
+        activeHandle = null
+        updateActive()
+      })
     })
   }
 
@@ -404,6 +422,7 @@ export function createTocScrollSync(
     if (destroyed) return
     destroyed = true
     if (rebuildHandle !== null) cancelFrame(rebuildHandle)
+    activeGeneration += 1
     if (activeHandle !== null) cancelFrame(activeHandle)
     rebuildHandle = null
     activeHandle = null

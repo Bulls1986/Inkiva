@@ -120,6 +120,11 @@ type ClearTimer = (timer: TimerHandle) => void
 
 export type EditorSnapshotMode = 'full' | 'switch' | 'persistence'
 
+export const shouldCaptureEditorBlocks = (
+  mode: EditorSnapshotMode,
+  virtualizationEnabled: boolean
+): boolean => mode === 'full' && !virtualizationEnabled
+
 interface SnapshotEntry {
   capture: (mode?: EditorSnapshotMode) => void
   debounceTimer: TimerHandle | null

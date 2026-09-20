@@ -4,6 +4,7 @@ export interface EditorPerformanceMilestoneScheduleOptions {
   markFirstScreen: () => void
   markInteractive: () => void
   markEditable: () => void
+  prewarmFrame?: () => void
   notifyMainProcess?: () => void
 }
 
@@ -21,6 +22,7 @@ export const scheduleEditorPerformanceMilestones = ({
   markFirstScreen,
   markInteractive,
   markEditable,
+  prewarmFrame,
   notifyMainProcess
 }: EditorPerformanceMilestoneScheduleOptions): void => {
   requestFrame(() => {
@@ -34,6 +36,15 @@ export const scheduleEditorPerformanceMilestones = ({
           if (!isCurrent()) return
           markEditable()
           notifyMainProcess?.()
+          if (!prewarmFrame) return
+          requestFrame(() => {
+            if (!isCurrent()) return
+            prewarmFrame()
+            requestFrame(() => {
+              if (!isCurrent()) return
+              prewarmFrame()
+            })
+          })
         })
       })
     })

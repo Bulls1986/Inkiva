@@ -64,8 +64,7 @@ interface FastFixtures {
 interface FastGateProbe {
   inputDurations: number[]
   maxEventLoopLag: number
-  expectedAt: number
-  intervalId: number
+  longTaskObserver?: PerformanceObserver
   inputObserver?: PerformanceObserver
   recordInputEntries?: (entries: PerformanceEntry[]) => void
 }
@@ -505,16 +504,23 @@ const installFastGateProbe = async(page: Page): Promise<void> => {
     const inputDurations: number[] = []
     const probe: FastGateProbe = {
       inputDurations,
-      maxEventLoopLag: 0,
-      expectedAt: performance.now() + 16,
-      intervalId: 0
+      maxEventLoopLag: 0
     }
     state.__inkiva_fast_gate_probe__ = probe
-    probe.intervalId = window.setInterval(() => {
-      const now = performance.now()
-      probe.maxEventLoopLag = Math.max(probe.maxEventLoopLag, Math.max(0, now - probe.expectedAt))
-      probe.expectedAt = now + 16
-    }, 16)
+
+    try {
+      const longTaskObserver = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.entryType !== 'longtask' || !Number.isFinite(entry.duration)) continue
+          probe.maxEventLoopLag = Math.max(probe.maxEventLoopLag, Math.max(0, entry.duration))
+        }
+      })
+      longTaskObserver.observe({ type: 'longtask', buffered: false } as PerformanceObserverInit)
+      probe.longTaskObserver = longTaskObserver
+    } catch {
+      // Stability measurement is fail-closed when Long Tasks are unavailable.
+      probe.maxEventLoopLag = Number.POSITIVE_INFINITY
+    }
   })
 }
 
@@ -610,8 +616,7 @@ const resetFastGateProbe = async(page: Page): Promise<void> => {
     }
     const probe = state.__inkiva_fast_gate_probe__
     if (!probe) return
-    probe.maxEventLoopLag = 0
-    probe.expectedAt = performance.now() + 16
+    probe.maxEventLoopLag = probe.longTaskObserver ? 0 : Number.POSITIVE_INFINITY
   })
 }
 

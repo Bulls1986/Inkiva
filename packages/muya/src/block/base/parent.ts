@@ -31,6 +31,22 @@ class Parent extends TreeNode {
         return null;
     }
 
+    /**
+     * Mount a logical child into this parent's current DOM representation.
+     * Most blocks map logical and DOM parentage 1:1. ScrollPage overrides this
+     * hook while segment virtualization is active because top-level blocks live
+     * inside presentation-only segment wrappers even though their logical parent
+     * remains the ScrollPage.
+     */
+    protected insertChildDomBefore(newNode: Parent, refNode: Nullable<Parent>): void {
+        const parentDom = this.domNode;
+        const childDom = newNode.domNode;
+        if (!parentDom || !childDom)
+            return;
+        const domRef = refNode?.domNode ?? this.domInsertionAnchor;
+        parentDom.insertBefore(childDom, domRef ?? null);
+    }
+
     get active() {
         return this._active;
     }
@@ -242,11 +258,8 @@ class Parent extends TreeNode {
     ) {
         newNode.parent = this;
         this.children.insertBefore(newNode, refNode);
-        const domRef = refNode?.domNode ?? this.domInsertionAnchor;
-        this.domNode!.insertBefore(
-            newNode.domNode!,
-            domRef ?? null,
-        );
+        this.childStructureDidMutate();
+        this.insertChildDomBefore(newNode, refNode);
 
         if (source === 'user') {
             // dispatch json1 operation

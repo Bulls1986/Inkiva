@@ -41,7 +41,7 @@ const PROGRESSIVE_RENDER_LINE_HEIGHT_PX = 24;
 const VIRTUAL_RENDERER_PROTOTYPE_FLAG = '__INKIVA_VIRTUAL_RENDERER_PROTOTYPE__';
 const VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX = 720;
 const VIRTUAL_RENDERER_OVERSCAN_VIEWPORTS = 2;
-const VIRTUAL_RESIZE_ANCHOR_SETTLE_MS = 320;
+export const VIRTUAL_RENDERER_SEGMENT_BLOCKS = 64;
 
 interface IVirtualRendererPrototypeGlobal {
     __INKIVA_VIRTUAL_RENDERER_PROTOTYPE__?: boolean;
@@ -61,6 +61,11 @@ interface IVirtualizationSnapshot {
     totalEstimatedHeight: number;
     viewportHeight: number;
     renderCacheEntries: number;
+    segmentSize: number;
+    totalSegments: number;
+    mountedSegments: number;
+    windowStartSegment: number;
+    windowEndSegment: number;
 }
 
 interface IVirtualRange {
@@ -369,31 +374,40 @@ export class ScrollPage extends Parent {
     private _virtualMaterializedIndexes = new Set<number>();
     private _virtualStates: TState[] = [];
     private _virtualOffsetIndex = new VirtualOffsetIndex();
+    private _virtualSegmentOffsetIndex = new VirtualOffsetIndex();
     private _virtualMeasuredHeights = new Map<number, number>();
     private _virtualGeometryRevision = 0;
+    private _virtualGeometryWidth: number | null = null;
     private _virtualAppliedGeometryRevision = -1;
     private _virtualStructureRevision = 0;
     private _virtualAppliedStructureRevision = -1;
+    private _virtualStructureDirty = false;
     private _virtualWindowStart = 0;
     private _virtualWindowEnd = 0;
     private _virtualRevealIndex: number | null = null;
     private _virtualNavigationTarget: { index: number; viewportOffset: number } | null = null;
     private _virtualBeforeSpacer: HTMLElement | null = null;
     private _virtualGapSpacers: HTMLElement[] = [];
+    private _virtualSegmentNodes = new Map<number, HTMLElement>();
     private _virtualAfterSpacer: HTMLElement | null = null;
     private _virtualScrollContainer: HTMLElement | null = null;
     private _virtualScrollHandler: (() => void) | null = null;
+    private _virtualScrollEndHandler: (() => void) | null = null;
     private _virtualResizeObserver: ResizeObserver | null = null;
     private _virtualBlockResizeObserver: ResizeObserver | null = null;
+    private _virtualBlockMeasurementDeferred = false;
+    private _virtualScrollHydrationFrameId: number | null = null;
+    private _virtualScrollHydrationGeneration = 0;
     private _virtualWindowResizeHandler: (() => void) | null = null;
     private _virtualResizeCorrectionFrameId: number | null = null;
     private _virtualResizeCorrectionGeneration = 0;
     private _virtualResizeCorrectionTarget: number | null = null;
-    private _virtualResizeCorrectionStartedAt: number | null = null;
     private _virtualResizeAnchorIndex: number | null = null;
     private _virtualResizeAnchorOffset: number | null = null;
     private _virtualViewportAnchorIndex: number | null = null;
     private _virtualViewportAnchorOffset: number | null = null;
+    private _virtualViewportAnchorExact = false;
+    private _virtualUserScrollIntent = false;
     private _virtualResizeInteractionHandler: (() => void) | null = null;
     private _virtualLastScrollTop = 0;
     private _virtualLastViewportHeight = VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX;
@@ -486,8 +500,58 @@ export class ScrollPage extends Parent {
         return this._progressiveStates !== null;
     }
 
+    protected override childStructureDidMutate(): void {
+        if (this._virtualizationEnabled)
+            this._virtualStructureDirty = true;
+    }
+
     protected override get domInsertionAnchor(): Nullable<Node> {
         return this._virtualAfterSpacer ?? this._progressiveSpacer;
+    }
+
+    protected override insertChildDomBefore(newNode: Parent, refNode: Nullable<Parent>): void {
+        if (!this._virtualizationEnabled) {
+            super.insertChildDomBefore(newNode, refNode);
+            return;
+        }
+
+        const root = this.domNode;
+        const childDom = newNode.domNode;
+        if (!root || !childDom)
+            return;
+
+        const segmentFor = (node: Nullable<Parent>): HTMLElement | null => {
+            const dom = node?.domNode;
+            const parent = dom?.parentElement;
+            return dom && parent?.classList.contains('mu-virtual-segment') && root.contains(dom)
+                ? parent
+                : null;
+        };
+
+        const refSegment = segmentFor(refNode);
+        const refDom = refNode?.domNode;
+        if (refSegment && refDom) {
+            refSegment.insertBefore(childDom, refDom);
+            return;
+        }
+
+        // `children.insertBefore` has already linked the new node, so `prev`
+        // describes the logical predecessor even when the explicit ref sibling
+        // is currently dematerialized. Keep the temporary DOM placement beside
+        // that mounted predecessor; the next JsonState flush rebuilds segment
+        // membership from the authoritative logical order.
+        const previous = newNode.prev;
+        const previousSegment = segmentFor(previous);
+        const previousDom = previous?.domNode;
+        if (previousSegment && previousDom) {
+            previousSegment.insertBefore(childDom, previousDom.nextSibling);
+            return;
+        }
+
+        // No mounted virtual neighbor exists. Preserve the historical fallback
+        // ahead of the root tail placeholder; once the pending state operation
+        // flushes, updateVirtualWindowForViewport places it in the right segment.
+        super.insertChildDomBefore(newNode, refNode);
     }
 
     whenRenderComplete(): Promise<void> {
@@ -603,6 +667,7 @@ export class ScrollPage extends Parent {
         after.style.userSelect = 'none';
         this._virtualBeforeSpacer = before;
         this._virtualGapSpacers = [];
+        this._virtualSegmentNodes.clear();
         this._virtualAfterSpacer = after;
         this.domNode!.replaceChildren(before, after);
 
@@ -618,7 +683,6 @@ export class ScrollPage extends Parent {
     private _cancelVirtualResizeCorrection(): void {
         this._virtualResizeCorrectionGeneration += 1;
         this._virtualResizeCorrectionTarget = null;
-        this._virtualResizeCorrectionStartedAt = null;
         this._virtualResizeAnchorIndex = null;
         this._virtualResizeAnchorOffset = null;
         if (this._virtualResizeCorrectionFrameId !== null) {
@@ -627,20 +691,31 @@ export class ScrollPage extends Parent {
         }
     }
 
+    releaseVirtualResizeCorrectionForNavigation(): void {
+        if (!this._virtualizationEnabled)
+            return;
+        this._virtualViewportAnchorExact = false;
+        this._cancelVirtualResizeCorrection();
+    }
+
     private _captureVirtualViewportAnchor(container: HTMLElement): { index: number; viewportOffset: number } {
         const containerTop = container.getBoundingClientRect().top;
         let bestIndex: number | null = null;
         let bestViewportOffset = 0;
         let bestDistance = Number.POSITIVE_INFINITY;
 
-        for (const child of Array.from(this.domNode?.children ?? [])) {
-            if (!(child instanceof HTMLElement) || child.classList.contains('mu-virtual-render-placeholder'))
-                continue;
+        const mountedBlocks = this.domNode?.querySelectorAll<HTMLElement>('[data-virtual-block-index]') ?? [];
+        for (const child of Array.from(mountedBlocks)) {
             const rawIndex = child.dataset.virtualBlockIndex;
             if (rawIndex === undefined)
                 continue;
             const index = Number(rawIndex);
             if (!Number.isInteger(index))
+                continue;
+            // Selection/caret ranges may pin offscreen blocks outside the primary
+            // viewport window. They must never compete for the viewport anchor:
+            // pinned DOM exists for editing semantics, not because it is visible.
+            if (index < this._virtualWindowStart || index >= this._virtualWindowEnd)
                 continue;
             const viewportOffset = child.getBoundingClientRect().top - containerTop;
             const distance = Math.abs(viewportOffset);
@@ -661,43 +736,45 @@ export class ScrollPage extends Parent {
         };
     }
 
+    private _virtualResizeScrollTopFromMountedAnchor(
+        container: HTMLElement,
+        index: number,
+        viewportOffset: number,
+    ): number | null {
+        const node = this._virtualBlocks[index]?.domNode;
+        if (!(node instanceof HTMLElement) || !this.domNode?.contains(node))
+            return null;
+        const currentViewportOffset = node.getBoundingClientRect().top - container.getBoundingClientRect().top;
+        if (!Number.isFinite(currentViewportOffset))
+            return null;
+        return Math.max(0, container.scrollTop + currentViewportOffset - viewportOffset);
+    }
+
     private _rememberVirtualViewportAnchor(container: HTMLElement): void {
-        // Scroll fires on every animation frame. Do not scan mounted DOM or
-        // call getBoundingClientRect() here: that forces synchronous layout and
-        // cuts virtualized scroll throughput roughly in half on large documents.
-        // The current offset table is already sufficient to preserve the same
-        // logical block + intra-block viewport position across a later reflow.
-        // _captureVirtualViewportAnchor() remains the exact DOM fallback for a
-        // resize that arrives before any scroll-derived anchor has been stored.
+        // Scroll fires on every animation frame. Keep the hot path layout-read
+        // free and remember an approximate logical anchor immediately. The
+        // authoritative DOM anchor is captured by the hydration boundary below;
+        // width reflow also captures live DOM geometry when this anchor is not exact.
         const index = this._virtualIndexAtOffset(container.scrollTop);
         this._virtualViewportAnchorIndex = index;
         this._virtualViewportAnchorOffset = this._virtualOffsetAt(index) - container.scrollTop;
+        this._virtualViewportAnchorExact = false;
     }
 
     private _settleVirtualResizeScroll(container: HTMLElement, target: number): void {
-        if (
-            this._virtualResizeCorrectionTarget !== null
-            && this._virtualResizeCorrectionStartedAt !== null
-            && this._virtualResizeCorrectionFrameId !== null
-        ) {
-            // A later width change may start before the previous correction
-            // window expires (for example 60% -> 100% editor width). Treat the
-            // latest ResizeObserver callback as the new end of the reflow so a
-            // late Chromium caret reveal cannot win immediately afterwards.
-            // Real wheel/pointer/key interaction still cancels correction below,
-            // so extending the bounded settle period does not trap user scroll.
+        if (this._virtualResizeCorrectionTarget !== null) {
             this._virtualResizeCorrectionTarget = target;
-            this._virtualResizeCorrectionStartedAt = performance.now();
-            return;
+            if (this._virtualResizeCorrectionFrameId !== null)
+                return;
         }
-
-        const anchorIndex = this._virtualResizeAnchorIndex;
-        const anchorOffset = this._virtualResizeAnchorOffset;
-        this._cancelVirtualResizeCorrection();
-        this._virtualResizeAnchorIndex = anchorIndex;
-        this._virtualResizeAnchorOffset = anchorOffset;
-        this._virtualResizeCorrectionTarget = target;
-        this._virtualResizeCorrectionStartedAt = performance.now();
+        else {
+            const anchorIndex = this._virtualResizeAnchorIndex;
+            const anchorOffset = this._virtualResizeAnchorOffset;
+            this._cancelVirtualResizeCorrection();
+            this._virtualResizeAnchorIndex = anchorIndex;
+            this._virtualResizeAnchorOffset = anchorOffset;
+            this._virtualResizeCorrectionTarget = target;
+        }
         const generation = this._virtualResizeCorrectionGeneration;
         const settle = () => {
             this._virtualResizeCorrectionFrameId = null;
@@ -709,28 +786,104 @@ export class ScrollPage extends Parent {
                 return;
             }
 
-            const currentTarget = this._virtualResizeCorrectionTarget;
-            const startedAt = this._virtualResizeCorrectionStartedAt;
-            if (currentTarget === null || startedAt === null)
+            let currentTarget = this._virtualResizeCorrectionTarget;
+            if (currentTarget === null)
                 return;
+            if (
+                this._virtualResizeAnchorIndex !== null
+                && this._virtualResizeAnchorOffset !== null
+            ) {
+                const liveTarget = this._virtualResizeScrollTopFromMountedAnchor(
+                    container,
+                    this._virtualResizeAnchorIndex,
+                    this._virtualResizeAnchorOffset,
+                );
+                if (liveTarget !== null) {
+                    currentTarget = liveTarget;
+                    this._virtualResizeCorrectionTarget = liveTarget;
+                }
+            }
             if (Math.abs(container.scrollTop - currentTarget) > 1)
                 container.scrollTop = currentTarget;
-
-            // Focused contenteditable can ask Chromium to reveal a remotely
-            // pinned caret for a few frames after responsive reflow. Hold the
-            // logical viewport anchor only during that bounded settle window;
-            // real user interaction cancels it immediately below.
-            if (performance.now() - startedAt < VIRTUAL_RESIZE_ANCHOR_SETTLE_MS) {
-                this._virtualResizeCorrectionFrameId = requestAnimationFrame(settle);
-            }
-            else {
-                this._virtualResizeCorrectionTarget = null;
-                this._virtualResizeCorrectionStartedAt = null;
-                this._virtualResizeAnchorIndex = null;
-                this._virtualResizeAnchorOffset = null;
-            }
         };
         this._virtualResizeCorrectionFrameId = requestAnimationFrame(settle);
+    }
+
+    private _deferVirtualBlockMeasurement(): void {
+        if (!this._virtualBlockResizeObserver)
+            return;
+        this._virtualBlockMeasurementDeferred = true;
+    }
+
+    private _resumeVirtualBlockMeasurement(): void {
+        const observer = this._virtualBlockResizeObserver;
+        if (!observer || !this._virtualBlockMeasurementDeferred)
+            return;
+        this._virtualBlockMeasurementDeferred = false;
+        if (!this._virtualizationEnabled || this._virtualBlockResizeObserver !== observer)
+            return;
+        for (const index of this._virtualMountedIndexes) {
+            const node = this._virtualBlocks[index]?.domNode;
+            if (node instanceof HTMLElement && this.domNode?.contains(node))
+                observer.observe(node);
+        }
+    }
+
+    private _hydrateVirtualWindowAtCurrentViewport(container: HTMLElement): void {
+        if (!this._virtualizationEnabled || this._virtualScrollContainer !== container)
+            return;
+        this._virtualScrollHydrationGeneration += 1;
+        if (this._virtualScrollHydrationFrameId !== null) {
+            cancelAnimationFrame(this._virtualScrollHydrationFrameId);
+            this._virtualScrollHydrationFrameId = null;
+        }
+        this.updateVirtualWindowForViewport(
+            container.scrollTop,
+            container.clientHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX,
+        );
+        this._resumeVirtualBlockMeasurement();
+        // Hydration is already the debounced "scroll settled" boundary. Once the
+        // target window is mounted, capture the authoritative DOM anchor in the
+        // same turn so a subsequent responsive width change cannot land between
+        // window hydration and a separate anchor-settle timer.
+        if (
+            this._virtualResizeCorrectionTarget === null
+            && this._virtualNavigationTarget === null
+        ) {
+            const exact = this._captureVirtualViewportAnchor(container);
+            this._virtualViewportAnchorIndex = exact.index;
+            this._virtualViewportAnchorOffset = exact.viewportOffset;
+            this._virtualViewportAnchorExact = true;
+            this._virtualUserScrollIntent = false;
+        }
+    }
+
+    private _scheduleVirtualWindowHydration(container: HTMLElement): void {
+        this._virtualLastScrollTop = Math.max(0, container.scrollTop);
+        this._virtualLastViewportHeight = container.clientHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX;
+        const generation = ++this._virtualScrollHydrationGeneration;
+        if (this._virtualScrollHydrationFrameId !== null) {
+            cancelAnimationFrame(this._virtualScrollHydrationFrameId);
+            this._virtualScrollHydrationFrameId = null;
+        }
+        // `scrollend` remains the authoritative completion signal when Chromium
+        // delivers it, but direct/programmatic scrollTop changes do not reliably
+        // produce a scrollend event. Keep a generation-invalidated double-rAF
+        // backup on every engine: continuous scrolling supersedes these frames,
+        // while two stable paint boundaries establish the exact viewport anchor
+        // without reintroducing an arbitrary wall-clock settle delay.
+        this._virtualScrollHydrationFrameId = requestAnimationFrame(() => {
+            if (generation !== this._virtualScrollHydrationGeneration)
+                return;
+            this._virtualScrollHydrationFrameId = requestAnimationFrame(() => {
+                if (generation !== this._virtualScrollHydrationGeneration)
+                    return;
+                this._virtualScrollHydrationFrameId = null;
+                if (!this._virtualizationEnabled || this._virtualScrollContainer !== container)
+                    return;
+                this._hydrateVirtualWindowAtCurrentViewport(container);
+            });
+        });
     }
 
     private _attachVirtualScrollListener(): void {
@@ -742,10 +895,34 @@ export class ScrollPage extends Parent {
         let observedContentWidth = contentWidth();
         let observedViewportHeight = container.clientHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX;
         const handler = () => {
-            const resizeTarget = this._virtualResizeCorrectionTarget;
-            if (resizeTarget !== null && Math.abs(container.scrollTop - resizeTarget) > 1) {
-                container.scrollTop = resizeTarget;
+            // scrollend owns the expensive hydration boundary on current Chromium.
+            const currentContentWidth = contentWidth();
+            const contentWidthChangePending = (
+                observedContentWidth !== undefined
+                && currentContentWidth !== undefined
+                && Math.abs(currentContentWidth - observedContentWidth) > 1
+            );
+            if (
+                contentWidthChangePending
+                && this._virtualResizeCorrectionTarget === null
+                && !this._virtualUserScrollIntent
+            ) {
+                // Responsive layout can emit scroll before ResizeObserver. Keep
+                // the pre-reflow exact anchor intact for the resize callback;
+                // treating this synthetic scroll as navigation would capture an
+                // already-reflowed viewport and lose the user's logical position.
+                this._deferVirtualBlockMeasurement();
                 return;
+            }
+            const resizeTarget = this._virtualResizeCorrectionTarget;
+            if (resizeTarget !== null) {
+                if (Math.abs(container.scrollTop - resizeTarget) > 1) {
+                    container.scrollTop = resizeTarget;
+                    return;
+                }
+            }
+            else {
+                this._deferVirtualBlockMeasurement();
             }
 
             // A virtual TOC jump keeps its logical block authoritative while
@@ -759,12 +936,50 @@ export class ScrollPage extends Parent {
                     this._virtualNavigationTarget = null;
             }
 
-            this.updateVirtualWindowForViewport(
-                container.scrollTop,
-                container.clientHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX,
-            );
-            if (this._virtualResizeCorrectionTarget === null)
+            // An exact viewport anchor describes the viewport that existed when
+            // it was captured; it must not silently remain authoritative after a
+            // later programmatic scroll. User wheel/pointer input already clears
+            // this state explicitly, but TOC/find/test harnesses can move
+            // scrollTop directly. Adopt that new viewport before any later width
+            // reflow can turn the stale anchor into a resize-correction target.
+            if (
+                this._virtualResizeCorrectionTarget === null
+                && this._virtualNavigationTarget === null
+                && this._virtualViewportAnchorExact
+                && this._virtualViewportAnchorIndex !== null
+                && this._virtualViewportAnchorOffset !== null
+            ) {
+                const anchoredScrollTop = Math.max(
+                    0,
+                    this._virtualOffsetAt(this._virtualViewportAnchorIndex)
+                    - this._virtualViewportAnchorOffset,
+                );
+                if (Math.abs(container.scrollTop - anchoredScrollTop) > 2)
+                    this._virtualViewportAnchorExact = false;
+            }
+
+            this._scheduleVirtualWindowHydration(container);
+            if (
+                this._virtualResizeCorrectionTarget === null
+                && (
+                    this._virtualUserScrollIntent
+                    || this._virtualNavigationTarget !== null
+                    || !this._virtualViewportAnchorExact
+                )
+            ) {
                 this._rememberVirtualViewportAnchor(container);
+            }
+        };
+        const scrollEndHandler = () => {
+            if (!this._virtualizationEnabled || this._virtualScrollContainer !== container)
+                return;
+            // Chromium can emit `scrollend` after each discrete programmatic
+            // scrollTop write, including the rAF-driven fast-gate workload. Treat
+            // it as a candidate completion signal, not permission to mutate the
+            // render surface synchronously. The shared generation-aware two-paint
+            // boundary is invalidated by any newer scroll and hydrates only once
+            // the viewport actually stays stable.
+            this._scheduleVirtualWindowHydration(container);
         };
         const resizeHandler = () => {
             const nextContentWidth = contentWidth();
@@ -796,20 +1011,34 @@ export class ScrollPage extends Parent {
             // the focused caret between ResizeObserver callbacks. While the
             // resize correction is active, keep the original logical viewport
             // target authoritative instead of adopting that transient scroll.
+            // A segment keeps the scroll hot path free of layout reads, so the
+            // remembered viewport index is intentionally approximate. Width
+            // reflow is rare and already invalidates geometry; capture the exact
+            // mounted DOM anchor once at the start of the resize correction.
+            // Subsequent callbacks reuse _virtualResizeAnchor* so a late caret
+            // reveal cannot replace the original user viewport anchor.
+            const rememberedAnchor = (
+                this._virtualViewportAnchorExact
+                &&
+                this._virtualViewportAnchorIndex !== null
+                && this._virtualViewportAnchorOffset !== null
+            )
+                ? {
+                    index: this._virtualViewportAnchorIndex,
+                    viewportOffset: this._virtualViewportAnchorOffset,
+                }
+                : null;
             const capturedAnchor = (
                 this._virtualResizeAnchorIndex === null
                 || this._virtualResizeAnchorOffset === null
-            ) && (
-                this._virtualViewportAnchorIndex === null
-                || this._virtualViewportAnchorOffset === null
-            )
+            ) && rememberedAnchor === null
                 ? this._captureVirtualViewportAnchor(container)
                 : null;
             const anchorIndex = this._virtualResizeAnchorIndex
-                ?? this._virtualViewportAnchorIndex
+                ?? rememberedAnchor?.index
                 ?? capturedAnchor!.index;
             const anchorOffset = this._virtualResizeAnchorOffset
-                ?? this._virtualViewportAnchorOffset
+                ?? rememberedAnchor?.viewportOffset
                 ?? capturedAnchor!.viewportOffset;
             this._virtualResizeAnchorIndex = anchorIndex;
             this._virtualResizeAnchorOffset = anchorOffset;
@@ -818,9 +1047,22 @@ export class ScrollPage extends Parent {
             // mounted blocks repopulate exact measurements via ResizeObserver.
             this._virtualMeasuredHeights.clear();
             this._rebuildVirtualOffsets(this._virtualStates, nextContentWidth);
-            const correctedScrollTop = Math.max(
-                0,
-                this._virtualOffsetAt(anchorIndex) - anchorOffset,
+            // The prefix index now describes the new width, but the live before/
+            // after spacers still carry the old geometry. Refresh the currently
+            // mounted segment first so an exact DOM anchor read does not mix new
+            // logical offsets with stale spacer positions and clamp to the end.
+            this._applyVirtualWindow(
+                this._virtualWindowStart,
+                this._virtualWindowEnd,
+                [{ start: anchorIndex, end: anchorIndex + 1 }],
+            );
+            const correctedScrollTop = this._virtualResizeScrollTopFromMountedAnchor(
+                container,
+                anchorIndex,
+                anchorOffset,
+            ) ?? this._virtualNavigationScrollTop(
+                container,
+                { index: anchorIndex, viewportOffset: anchorOffset },
             );
             if (correctedScrollTop <= 1 && container.scrollTop <= 1) {
                 // At the document top there is no viewport anchor to preserve.
@@ -840,16 +1082,25 @@ export class ScrollPage extends Parent {
                 container.scrollTop = correctedScrollTop;
             handler();
         };
-        const cancelResizeCorrection = () => this._cancelVirtualResizeCorrection();
+        const cancelResizeCorrection = () => {
+            this._virtualUserScrollIntent = true;
+            this._virtualViewportAnchorExact = false;
+            this._cancelVirtualResizeCorrection();
+        };
         this._virtualScrollContainer = container;
         this._virtualScrollHandler = handler;
+        this._virtualScrollEndHandler = scrollEndHandler;
         this._virtualResizeInteractionHandler = cancelResizeCorrection;
         this._rebuildVirtualOffsets(this._virtualStates, contentWidth());
         container.addEventListener('scroll', handler, { passive: true });
+        if ('onscrollend' in container)
+            container.addEventListener('scrollend', scrollEndHandler, { passive: true });
         for (const eventName of ['wheel', 'touchstart', 'pointerdown', 'mousedown', 'keydown'] as const)
             container.addEventListener(eventName, cancelResizeCorrection, { passive: true });
         if (typeof ResizeObserver !== 'undefined') {
             this._virtualBlockResizeObserver = new ResizeObserver((entries) => {
+                if (this._virtualBlockMeasurementDeferred)
+                    return;
                 this._measureVirtualBlockHeights(entries);
             });
             this._virtualResizeObserver = new ResizeObserver(resizeHandler);
@@ -869,6 +1120,8 @@ export class ScrollPage extends Parent {
     private _teardownVirtualization(): void {
         if (this._virtualScrollContainer && this._virtualScrollHandler)
             this._virtualScrollContainer.removeEventListener('scroll', this._virtualScrollHandler);
+        if (this._virtualScrollContainer && this._virtualScrollEndHandler)
+            this._virtualScrollContainer.removeEventListener('scrollend', this._virtualScrollEndHandler);
         if (this._virtualScrollContainer && this._virtualResizeInteractionHandler) {
             for (const eventName of ['wheel', 'touchstart', 'pointerdown', 'mousedown', 'keydown'] as const)
                 this._virtualScrollContainer.removeEventListener(eventName, this._virtualResizeInteractionHandler);
@@ -876,25 +1129,37 @@ export class ScrollPage extends Parent {
         this._cancelVirtualResizeCorrection();
         this._virtualResizeObserver?.disconnect();
         this._virtualBlockResizeObserver?.disconnect();
+        this._virtualScrollHydrationGeneration += 1;
+        if (this._virtualScrollHydrationFrameId !== null) {
+            cancelAnimationFrame(this._virtualScrollHydrationFrameId);
+            this._virtualScrollHydrationFrameId = null;
+        }
+        this._virtualBlockMeasurementDeferred = false;
         if (this._virtualWindowResizeHandler && typeof window !== 'undefined')
             window.removeEventListener('resize', this._virtualWindowResizeHandler);
 
         this._virtualScrollContainer = null;
         this._virtualScrollHandler = null;
+        this._virtualScrollEndHandler = null;
         this._virtualResizeObserver = null;
         this._virtualBlockResizeObserver = null;
         this._virtualWindowResizeHandler = null;
         this._virtualResizeInteractionHandler = null;
         this._virtualViewportAnchorIndex = null;
         this._virtualViewportAnchorOffset = null;
+        this._virtualViewportAnchorExact = false;
+        this._virtualUserScrollIntent = false;
         this._virtualizationEnabled = false;
+        this._virtualStructureDirty = false;
         this._virtualBlocks = [];
         this._virtualBlockIndexes.clear();
         this._virtualMountedIndexes.clear();
         this._virtualMaterializedIndexes.clear();
         this._virtualStates = [];
         this._virtualOffsetIndex.clear();
+        this._virtualSegmentOffsetIndex.clear();
         this._virtualMeasuredHeights.clear();
+        this._virtualGeometryWidth = null;
         this._virtualWindowStart = 0;
         this._virtualWindowEnd = 0;
         this._virtualRevealIndex = null;
@@ -905,6 +1170,9 @@ export class ScrollPage extends Parent {
                 this.domNode?.removeChild(spacer);
         }
         this._virtualGapSpacers = [];
+        for (const segmentNode of this._virtualSegmentNodes.values())
+            segmentNode.remove();
+        this._virtualSegmentNodes.clear();
         this._virtualAfterSpacer = null;
         this._virtualLastScrollTop = 0;
         this._virtualLastViewportHeight = VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX;
@@ -912,6 +1180,8 @@ export class ScrollPage extends Parent {
     }
 
     private _rebuildVirtualOffsets(state: TState[], viewportWidth?: number): void {
+        if (viewportWidth !== undefined && Number.isFinite(viewportWidth) && viewportWidth > 0)
+            this._virtualGeometryWidth = viewportWidth;
         const typography: IVirtualTypography = {
             fontSize: this.muya.options.fontSize,
             lineHeight: this.muya.options.lineHeight,
@@ -925,6 +1195,7 @@ export class ScrollPage extends Parent {
                 ?? estimateVirtualBlockAdvance(state, index, viewportWidth, typography);
         });
         this._virtualOffsetIndex.reset(advances);
+        this._rebuildVirtualSegmentOffsets();
         this._virtualGeometryRevision += 1;
     }
 
@@ -932,12 +1203,100 @@ export class ScrollPage extends Parent {
         return this._virtualOffsetIndex.offsetAt(index);
     }
 
+    private _virtualSegmentCount(): number {
+        return Math.ceil(this._virtualBlocks.length / VIRTUAL_RENDERER_SEGMENT_BLOCKS);
+    }
+
+    private _virtualSegmentStartBlock(segmentIndex: number): number {
+        return Math.max(0, Math.min(
+            this._virtualBlocks.length,
+            segmentIndex * VIRTUAL_RENDERER_SEGMENT_BLOCKS,
+        ));
+    }
+
+    private _virtualSegmentEndBlock(segmentIndex: number): number {
+        return Math.max(0, Math.min(
+            this._virtualBlocks.length,
+            (segmentIndex + 1) * VIRTUAL_RENDERER_SEGMENT_BLOCKS,
+        ));
+    }
+
+    private _rebuildVirtualSegmentOffsets(): void {
+        const heights: number[] = [];
+        for (let segment = 0; segment < this._virtualSegmentCount(); segment += 1) {
+            const start = this._virtualSegmentStartBlock(segment);
+            const end = this._virtualSegmentEndBlock(segment);
+            heights.push(Math.max(0, this._virtualOffsetAt(end) - this._virtualOffsetAt(start)));
+        }
+        this._virtualSegmentOffsetIndex.reset(heights);
+    }
+
+    private _updateVirtualSegmentOffsetForBlock(blockIndex: number): void {
+        if (this._virtualBlocks.length === 0)
+            return;
+        const segment = Math.max(0, Math.min(
+            this._virtualSegmentCount() - 1,
+            Math.floor(blockIndex / VIRTUAL_RENDERER_SEGMENT_BLOCKS),
+        ));
+        const start = this._virtualSegmentStartBlock(segment);
+        const end = this._virtualSegmentEndBlock(segment);
+        this._virtualSegmentOffsetIndex.update(
+            segment,
+            Math.max(0, this._virtualOffsetAt(end) - this._virtualOffsetAt(start)),
+        );
+    }
+
+    private _virtualSegmentIndexAtOffset(offset: number): number {
+        return this._virtualSegmentOffsetIndex.indexAtOffset(offset);
+    }
+
+    private _virtualIndexAtOffsetWithinSegment(offset: number, segmentIndex: number): number {
+        const start = this._virtualSegmentStartBlock(segmentIndex);
+        const end = this._virtualSegmentEndBlock(segmentIndex);
+        if (end <= start)
+            return start;
+
+        let low = start;
+        let high = end - 1;
+        while (low < high) {
+            const middle = Math.floor((low + high + 1) / 2);
+            if (this._virtualOffsetAt(middle) <= offset)
+                low = middle;
+            else
+                high = middle - 1;
+        }
+        return low;
+    }
+
     private _measureVirtualBlockHeights(entries: readonly ResizeObserverEntry[]): void {
         if (!this._virtualizationEnabled || !this._virtualScrollContainer)
             return;
 
         const container = this._virtualScrollContainer;
+        const liveContentWidth = this.domNode?.clientWidth || container.clientWidth || undefined;
+        if (
+            this._virtualGeometryWidth !== null
+            && liveContentWidth !== undefined
+            && Math.abs(liveContentWidth - this._virtualGeometryWidth) > 1
+            && this._virtualResizeCorrectionTarget === null
+        ) {
+            // Block ResizeObserver callbacks can run before the root/content
+            // ResizeObserver that owns width reflow. At that point the DOM is
+            // already post-reflow while the virtual prefix geometry and exact
+            // viewport anchor still describe the pre-reflow surface. Measuring
+            // or recapturing an anchor here would overwrite the authoritative
+            // pre-reflow anchor with a post-reflow one. Let the width resize
+            // transaction rebuild geometry first; later measurements refine it.
+            return;
+        }
+
         let changed = false;
+        const measurementAnchor = (
+            this._virtualNavigationTarget === null
+            && this._virtualResizeCorrectionTarget === null
+        )
+            ? this._captureVirtualViewportAnchor(container)
+            : null;
         const previousMaxScrollTop = Math.max(
             0,
             container.scrollHeight - container.clientHeight,
@@ -947,8 +1306,14 @@ export class ScrollPage extends Parent {
 
         for (const entry of entries) {
             const node = entry.target;
-            if (!(node instanceof HTMLElement) || node.parentElement !== this.domNode)
+            const segment = node instanceof HTMLElement ? node.parentElement : null;
+            if (
+                !(node instanceof HTMLElement)
+                || !segment?.classList.contains('mu-virtual-segment')
+                || segment.parentElement !== this.domNode
+            ) {
                 continue;
+            }
 
             const block = node[BLOCK_DOM_PROPERTY];
             if (!(block instanceof Parent))
@@ -964,7 +1329,7 @@ export class ScrollPage extends Parent {
             // advance to the logical next block in one contiguous DOM region.
             if (
                 !nextNode
-                || nextNode.parentElement !== this.domNode
+                || nextNode.parentElement !== segment
                 || nextNode.previousElementSibling !== node
             ) {
                 continue;
@@ -982,6 +1347,7 @@ export class ScrollPage extends Parent {
 
             this._virtualMeasuredHeights.set(index, advance);
             this._virtualOffsetIndex.update(index, advance);
+            this._updateVirtualSegmentOffsetForBlock(index);
             changed = true;
         }
 
@@ -1007,26 +1373,37 @@ export class ScrollPage extends Parent {
             && this._virtualResizeAnchorIndex !== null
             && this._virtualResizeAnchorOffset !== null
         ) {
-            const correctedScrollTop = Math.max(
-                0,
-                this._virtualOffsetAt(this._virtualResizeAnchorIndex)
-                - this._virtualResizeAnchorOffset,
+            const correctedScrollTop = this._virtualResizeScrollTopFromMountedAnchor(
+                container,
+                this._virtualResizeAnchorIndex,
+                this._virtualResizeAnchorOffset,
+            ) ?? this._virtualNavigationScrollTop(
+                container,
+                {
+                    index: this._virtualResizeAnchorIndex,
+                    viewportOffset: this._virtualResizeAnchorOffset,
+                },
             );
             this._settleVirtualResizeScroll(container, correctedScrollTop);
             if (Math.abs(container.scrollTop - correctedScrollTop) > 1)
                 container.scrollTop = correctedScrollTop;
         }
-        else if (
-            this._virtualViewportAnchorIndex !== null
-            && this._virtualViewportAnchorOffset !== null
-        ) {
-            const correctedScrollTop = Math.max(
+        else if (measurementAnchor) {
+            const correctedScrollTop = this._virtualResizeScrollTopFromMountedAnchor(
+                container,
+                measurementAnchor.index,
+                measurementAnchor.viewportOffset,
+            ) ?? Math.max(
                 0,
-                this._virtualOffsetAt(this._virtualViewportAnchorIndex)
-                - this._virtualViewportAnchorOffset,
+                this._virtualOffsetAt(measurementAnchor.index)
+                - measurementAnchor.viewportOffset,
             );
             if (Math.abs(container.scrollTop - correctedScrollTop) > 1)
                 container.scrollTop = correctedScrollTop;
+            this._virtualViewportAnchorIndex = measurementAnchor.index;
+            this._virtualViewportAnchorOffset = measurementAnchor.viewportOffset;
+            this._virtualViewportAnchorExact = true;
+            this._virtualUserScrollIntent = false;
         }
         this.updateVirtualWindowForViewport(
             container.scrollTop,
@@ -1080,7 +1457,7 @@ export class ScrollPage extends Parent {
             if (!node)
                 continue;
             this._virtualMaterializedIndexes.add(index);
-            if (node.parentNode === this.domNode)
+            if (this.domNode?.contains(node))
                 this._virtualMountedIndexes.add(index);
         }
     }
@@ -1105,6 +1482,12 @@ export class ScrollPage extends Parent {
             indexes.add(focusIndex);
         if (this._virtualRevealIndex !== null)
             indexes.add(this._virtualRevealIndex);
+        if (
+            this._virtualResizeCorrectionTarget !== null
+            && this._virtualResizeAnchorIndex !== null
+        ) {
+            indexes.add(this._virtualResizeAnchorIndex);
+        }
 
         return [...indexes]
             .sort((left, right) => left - right)
@@ -1119,13 +1502,15 @@ export class ScrollPage extends Parent {
         const totalBlocks = this._virtualBlocks.length;
         const safeStart = Math.max(0, Math.min(start, totalBlocks));
         const safeEnd = Math.max(safeStart, Math.min(end, totalBlocks));
-        const ranges: IVirtualRange[] = [{ start: safeStart, end: safeEnd }];
+        const ranges: IVirtualRange[] = safeEnd > safeStart
+            ? [{ start: safeStart, end: safeEnd }]
+            : [];
 
         for (const pinnedRange of pinned) {
             if (pinnedRange.end <= pinnedRange.start)
                 continue;
-            const pinnedStart = Math.max(0, Math.min(pinnedRange.start, totalBlocks));
-            const pinnedEnd = Math.max(pinnedStart, Math.min(pinnedRange.end, totalBlocks));
+            const pinnedStart = Math.max(0, Math.min(pinnedRange.start, this._virtualBlocks.length));
+            const pinnedEnd = Math.max(pinnedStart, Math.min(pinnedRange.end, this._virtualBlocks.length));
             if (pinnedEnd > pinnedStart)
                 ranges.push({ start: pinnedStart, end: pinnedEnd });
         }
@@ -1134,7 +1519,11 @@ export class ScrollPage extends Parent {
         const mergedRanges: IVirtualRange[] = [];
         for (const range of ranges) {
             const previous = mergedRanges.at(-1);
-            if (previous && range.start <= previous.end)
+            const sharesSegment = previous
+                ? Math.floor(Math.max(previous.start, previous.end - 1) / VIRTUAL_RENDERER_SEGMENT_BLOCKS)
+                    === Math.floor(range.start / VIRTUAL_RENDERER_SEGMENT_BLOCKS)
+                : false;
+            if (previous && (range.start <= previous.end || sharesSegment))
                 previous.end = Math.max(previous.end, range.end);
             else
                 mergedRanges.push({ ...range });
@@ -1151,28 +1540,173 @@ export class ScrollPage extends Parent {
         return desired;
     }
 
-    private _removeBlocksOutsideVirtualRanges(desired: Set<number>): void {
-        for (const index of this._virtualMountedIndexes) {
-            if (desired.has(index))
-                continue;
+    private _virtualSegmentNode(segmentIndex: number): HTMLElement {
+        let segment = this._virtualSegmentNodes.get(segmentIndex);
+        if (segment)
+            return segment;
+
+        segment = document.createElement('div');
+        segment.className = 'mu-virtual-segment';
+        segment.dataset.virtualSegmentIndex = String(segmentIndex);
+        segment.setAttribute('role', 'presentation');
+        segment.style.display = 'contents';
+        this._virtualSegmentNodes.set(segmentIndex, segment);
+        return segment;
+    }
+
+    private _detachVirtualSegment(segmentIndex: number): void {
+        const root = this.domNode;
+        const segment = this._virtualSegmentNodes.get(segmentIndex);
+        if (!root || !segment)
+            return;
+
+        // The segment wrapper is the root-level mutation boundary. Removing it
+        // disconnects every block in the segment with one child-list mutation.
+        if (segment.parentNode === root)
+            root.removeChild(segment);
+
+        const start = this._virtualSegmentStartBlock(segmentIndex);
+        const end = this._virtualSegmentEndBlock(segmentIndex);
+        for (let index = start; index < end; index += 1) {
             const block = this._virtualBlocks[index];
             if (!block)
                 continue;
-
+            if (block.domNode)
+                this._virtualBlockResizeObserver?.unobserve(block.domNode);
             if (canDeferVirtualStateDom(this._virtualStates[index])) {
-                if (block.domNode)
-                    this._virtualBlockResizeObserver?.unobserve(block.domNode);
                 block.dematerializeDomTree();
+                this._virtualMaterializedIndexes.delete(index);
+            }
+        }
+    }
+
+    private _removeBlocksOutsideVirtualRanges(desired: Set<number>): void {
+        const desiredSegments = new Set<number>();
+        for (const index of desired)
+            desiredSegments.add(Math.floor(index / VIRTUAL_RENDERER_SEGMENT_BLOCKS));
+
+        const mountedSegments = new Set<number>();
+        for (const index of this._virtualMountedIndexes)
+            mountedSegments.add(Math.floor(index / VIRTUAL_RENDERER_SEGMENT_BLOCKS));
+
+        for (const segmentIndex of mountedSegments) {
+            if (!desiredSegments.has(segmentIndex))
+                this._detachVirtualSegment(segmentIndex);
+        }
+
+        // Structural edits/undo can resurrect block objects whose DOM still
+        // belongs to an already-detached segment. They are not in
+        // _virtualMountedIndexes, so segment detach alone cannot reclaim them.
+        // Keep the materialized set bounded by dropping cheap detached DOM that
+        // is outside the newly desired segments. This scan is over the bounded
+        // materialized set during normal scrolling and over restored blocks only
+        // after structural edits; it never walks the whole document per frame.
+        for (const index of [...this._virtualMaterializedIndexes]) {
+            if (desired.has(index))
+                continue;
+            const block = this._virtualBlocks[index];
+            if (!block?.domNode) {
                 this._virtualMaterializedIndexes.delete(index);
                 continue;
             }
-
-            const node = block.domNode;
-            if (node && node.parentNode === this.domNode) {
-                this._virtualBlockResizeObserver?.unobserve(node);
-                this.domNode!.removeChild(node);
-            }
+            if (!canDeferVirtualStateDom(this._virtualStates[index]))
+                continue;
+            this._virtualBlockResizeObserver?.unobserve(block.domNode);
+            block.dematerializeDomTree();
+            this._virtualMaterializedIndexes.delete(index);
         }
+    }
+
+    private _virtualSegmentSpacer(
+        segment: HTMLElement,
+        side: 'before' | 'after',
+    ): HTMLElement {
+        const selector = `.mu-virtual-segment-placeholder-${side}`;
+        let spacer = segment.querySelector<HTMLElement>(`:scope > ${selector}`);
+        if (spacer)
+            return spacer;
+
+        spacer = document.createElement('div');
+        spacer.className = `mu-virtual-render-placeholder mu-virtual-segment-placeholder ${selector.slice(1)}`;
+        spacer.setAttribute('aria-hidden', 'true');
+        spacer.style.pointerEvents = 'none';
+        spacer.style.userSelect = 'none';
+        return spacer;
+    }
+
+    private _syncVirtualSegmentContents(
+        segmentIndex: number,
+        range: IVirtualRange,
+    ): HTMLElement {
+        const segment = this._virtualSegmentNode(segmentIndex);
+        const segmentStart = this._virtualSegmentStartBlock(segmentIndex);
+        const segmentEnd = this._virtualSegmentEndBlock(segmentIndex);
+        const localStart = Math.max(segmentStart, range.start);
+        const localEnd = Math.min(segmentEnd, range.end);
+        const sequence: Node[] = [];
+
+        if (localStart > segmentStart) {
+            const before = this._virtualSegmentSpacer(segment, 'before');
+            const height = `${Math.max(0, this._virtualOffsetAt(localStart) - this._virtualOffsetAt(segmentStart))}px`;
+            if (before.style.height !== height)
+                before.style.height = height;
+            sequence.push(before);
+        }
+
+        const previousState = this._virtualStates[localStart - 1];
+        const firstState = this._virtualStates[localStart];
+        if (
+            localStart > 0
+            && firstState?.name === 'paragraph'
+            && previousState
+            && virtualHeadingLevel(previousState) !== null
+        )
+            segment.dataset.virtualPreviousHeading = 'true';
+        else
+            delete segment.dataset.virtualPreviousHeading;
+
+        for (let index = localStart; index < localEnd; index += 1) {
+            const block = this._virtualBlocks[index];
+            if (!block)
+                continue;
+            let node = block.domNode;
+            if (!node) {
+                node = block.materializeDomTree();
+                if (node)
+                    this._virtualMaterializedIndexes.add(index);
+            }
+            if (!node)
+                continue;
+            if (node.dataset.virtualBlockIndex !== String(index))
+                node.dataset.virtualBlockIndex = String(index);
+            sequence.push(node);
+        }
+
+        if (localEnd < segmentEnd) {
+            const after = this._virtualSegmentSpacer(segment, 'after');
+            const height = `${Math.max(0, this._virtualOffsetAt(segmentEnd) - this._virtualOffsetAt(localEnd))}px`;
+            if (after.style.height !== height)
+                after.style.height = height;
+            sequence.push(after);
+        }
+
+        const desiredNodes = new Set(sequence);
+        for (const child of Array.from(segment.childNodes)) {
+            if (!desiredNodes.has(child))
+                child.remove();
+        }
+
+        let ref: Node | null = null;
+        for (let index = sequence.length - 1; index >= 0; index -= 1) {
+            const node = sequence[index];
+            const wasConnected = node.parentNode === segment;
+            if (!wasConnected || node.nextSibling !== ref)
+                segment.insertBefore(node, ref);
+            if (!wasConnected && segment.isConnected && node instanceof HTMLElement)
+                this._notifyVirtualBlockMounted(node);
+            ref = node;
+        }
+        return segment;
     }
 
     private _virtualGapSpacer(index: number): HTMLElement {
@@ -1196,19 +1730,41 @@ export class ScrollPage extends Parent {
             return null;
 
         const totalHeight = this._virtualOffsetIndex.total();
-        const firstRange = ranges[0] ?? { start: 0, end: 0 };
-        const lastRange = ranges.at(-1) ?? firstRange;
-        const beforeHeight = `${this._virtualOffsetAt(firstRange.start)}px`;
+        const segmentRanges = new Map<number, IVirtualRange>();
+        for (const range of ranges) {
+            if (range.end <= range.start)
+                continue;
+            const startSegment = Math.floor(range.start / VIRTUAL_RENDERER_SEGMENT_BLOCKS);
+            const endSegment = Math.floor((range.end - 1) / VIRTUAL_RENDERER_SEGMENT_BLOCKS);
+            for (let segmentIndex = startSegment; segmentIndex <= endSegment; segmentIndex += 1) {
+                const localRange = {
+                    start: Math.max(range.start, this._virtualSegmentStartBlock(segmentIndex)),
+                    end: Math.min(range.end, this._virtualSegmentEndBlock(segmentIndex)),
+                };
+                const existing = segmentRanges.get(segmentIndex);
+                if (existing) {
+                    existing.start = Math.min(existing.start, localRange.start);
+                    existing.end = Math.max(existing.end, localRange.end);
+                }
+                else {
+                    segmentRanges.set(segmentIndex, localRange);
+                }
+            }
+        }
+        const mountedSegments = [...segmentRanges.keys()].sort((left, right) => left - right);
+        const firstSegment = mountedSegments[0] ?? 0;
+        const lastSegment = mountedSegments.at(-1) ?? firstSegment;
+        const beforeHeight = `${this._virtualOffsetAt(this._virtualSegmentStartBlock(firstSegment))}px`;
         const afterHeight = `${Math.max(
             0,
-            totalHeight - this._virtualOffsetAt(lastRange.end),
+            totalHeight - this._virtualOffsetAt(this._virtualSegmentEndBlock(lastSegment)),
         )}px`;
         if (before.style.height !== beforeHeight)
             before.style.height = beforeHeight;
         if (after.style.height !== afterHeight)
             after.style.height = afterHeight;
 
-        const requiredGapCount = Math.max(0, ranges.length - 1);
+        const requiredGapCount = Math.max(0, mountedSegments.length - 1);
         for (let index = requiredGapCount; index < this._virtualGapSpacers.length; index += 1) {
             const spacer = this._virtualGapSpacers[index];
             if (spacer?.parentNode === this.domNode)
@@ -1216,33 +1772,19 @@ export class ScrollPage extends Parent {
         }
 
         const sequence: Node[] = [before];
-        for (let rangeIndex = 0; rangeIndex < ranges.length; rangeIndex += 1) {
-            const range = ranges[rangeIndex];
-            for (let index = range.start; index < range.end; index += 1) {
-                const block = this._virtualBlocks[index];
-                if (!block)
-                    continue;
-                let node = block.domNode;
-                if (!node) {
-                    node = block.materializeDomTree();
-                    if (node)
-                        this._virtualMaterializedIndexes.add(index);
-                }
-                if (node) {
-                    if (node instanceof HTMLElement && node.dataset.virtualBlockIndex !== String(index))
-                        node.dataset.virtualBlockIndex = String(index);
-                    sequence.push(node);
-                }
-            }
+        for (let segmentOrder = 0; segmentOrder < mountedSegments.length; segmentOrder += 1) {
+            const segmentIndex = mountedSegments[segmentOrder];
+            const range = segmentRanges.get(segmentIndex)!;
+            sequence.push(this._syncVirtualSegmentContents(segmentIndex, range));
 
-            const nextRange = ranges[rangeIndex + 1];
-            if (nextRange) {
+            const nextSegment = mountedSegments[segmentOrder + 1];
+            if (nextSegment !== undefined) {
                 const gapHeight = Math.max(
                     0,
-                    this._virtualOffsetAt(nextRange.start)
-                    - this._virtualOffsetAt(range.end),
+                    this._virtualOffsetAt(this._virtualSegmentStartBlock(nextSegment))
+                    - this._virtualOffsetAt(this._virtualSegmentEndBlock(segmentIndex)),
                 );
-                const spacer = this._virtualGapSpacer(rangeIndex);
+                const spacer = this._virtualGapSpacer(segmentOrder);
                 const gapHeightPx = `${gapHeight}px`;
                 if (spacer.style.height !== gapHeightPx)
                     spacer.style.height = gapHeightPx;
@@ -1257,7 +1799,8 @@ export class ScrollPage extends Parent {
         if (node.classList.contains('mu-virtual-render-placeholder'))
             return;
 
-        this._virtualBlockResizeObserver?.observe(node);
+        if (!this._virtualBlockMeasurementDeferred)
+            this._virtualBlockResizeObserver?.observe(node);
 
         node.querySelectorAll<HTMLElement>('[data-image-lazy="pending"]').forEach((image) => {
             image.dispatchEvent(new Event(VIRTUAL_BLOCK_MOUNT_EVENT));
@@ -1265,17 +1808,26 @@ export class ScrollPage extends Parent {
     }
 
     private _syncVirtualDomSequence(sequence: Node[]): void {
+        const root = this.domNode!;
         const structureChanged = this._virtualAppliedStructureRevision !== this._virtualStructureRevision;
         let ref: Node | null = null;
         for (let index = sequence.length - 1; index >= 0; index -= 1) {
             const node = sequence[index];
-            const wasConnected = node.parentNode === this.domNode;
+            const wasConnected = node.parentNode === root;
             const isSpacer = node instanceof HTMLElement
                 && node.classList.contains('mu-virtual-render-placeholder');
+            const isSegment = node instanceof HTMLElement
+                && node.classList.contains('mu-virtual-segment');
+
             if (!wasConnected || ((structureChanged || isSpacer) && node.nextSibling !== ref))
-                this.domNode!.insertBefore(node, ref);
-            if (!wasConnected && node instanceof HTMLElement)
-                this._notifyVirtualBlockMounted(node);
+                root.insertBefore(node, ref);
+
+            if (!wasConnected && isSegment) {
+                for (const child of Array.from(node.children)) {
+                    if (child instanceof HTMLElement)
+                        this._notifyVirtualBlockMounted(child);
+                }
+            }
             ref = node;
         }
     }
@@ -1290,7 +1842,12 @@ export class ScrollPage extends Parent {
         if (!this._virtualizationEnabled || !this.domNode)
             return;
 
-        const ranges = preparedRanges ?? this._buildVirtualRanges(start, end, pinned);
+        const primaryRange = {
+            start: Math.max(0, Math.min(start, this._virtualBlocks.length)),
+            end: Math.max(0, Math.min(end, this._virtualBlocks.length)),
+        };
+        primaryRange.end = Math.max(primaryRange.start, primaryRange.end);
+        const ranges = preparedRanges ?? this._buildVirtualRanges(primaryRange.start, primaryRange.end, pinned);
         const desiredIndexes = preparedDesiredIndexes ?? this._collectVirtualIndexes(ranges);
         this._removeBlocksOutsideVirtualRanges(desiredIndexes);
         const sequence = this._buildVirtualDomSequence(ranges);
@@ -1301,11 +1858,8 @@ export class ScrollPage extends Parent {
         this._virtualMountedIndexes = desiredIndexes;
         this._virtualAppliedGeometryRevision = this._virtualGeometryRevision;
         this._virtualAppliedStructureRevision = this._virtualStructureRevision;
-        this._virtualWindowStart = Math.max(0, Math.min(start, this._virtualBlocks.length));
-        this._virtualWindowEnd = Math.max(
-            this._virtualWindowStart,
-            Math.min(end, this._virtualBlocks.length),
-        );
+        this._virtualWindowStart = primaryRange.start;
+        this._virtualWindowEnd = primaryRange.end;
         this._publishVirtualizationDiagnostics();
     }
 
@@ -1316,11 +1870,22 @@ export class ScrollPage extends Parent {
         const height = Math.max(1, viewportHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX);
         this._virtualLastScrollTop = Math.max(0, scrollTop);
         this._virtualLastViewportHeight = height;
+        // Top-level tree mutations become authoritative in setRenderedState().
+        // Until then `_virtualBlocks` still describes the previous structure;
+        // reconciling segments against it can detach a freshly inserted caret
+        // node and permanently collapse Chromium's native Range to the wrapper.
+        if (this._virtualStructureDirty)
+            return;
         const overscan = height * VIRTUAL_RENDERER_OVERSCAN_VIEWPORTS;
         const startOffset = Math.max(0, this._virtualLastScrollTop - overscan);
         const endOffset = this._virtualLastScrollTop + height + overscan;
-        const start = this._virtualIndexAtOffset(startOffset);
-        const end = Math.min(this._virtualBlocks.length, this._virtualIndexAtOffset(endOffset) + 1);
+        const startSegment = this._virtualSegmentIndexAtOffset(startOffset);
+        const endSegment = this._virtualSegmentIndexAtOffset(endOffset);
+        const start = this._virtualIndexAtOffsetWithinSegment(startOffset, startSegment);
+        const end = Math.min(
+            this._virtualBlocks.length,
+            this._virtualIndexAtOffsetWithinSegment(endOffset, endSegment) + 1,
+        );
         const pinned = this._virtualPinnedRanges();
         const ranges = this._buildVirtualRanges(start, end, pinned);
         const desiredIndexes = this._collectVirtualIndexes(ranges);
@@ -1357,9 +1922,29 @@ export class ScrollPage extends Parent {
         );
     }
 
+    private _virtualPathMatchesCurrentStructure(path: TBlockPath): boolean {
+        const index = path[0];
+        if (typeof index !== 'number' || index < 0)
+            return false;
+        const logicalBlock = this.find(index) as Parent | null;
+        return logicalBlock !== null && logicalBlock === this._virtualBlocks[index];
+    }
+
     ensureVirtualSelectionRange(anchorPath: TBlockPath, focusPath: TBlockPath): void {
         if (!this._virtualizationEnabled)
             return;
+        // A top-level edit mutates `children` synchronously, while `_virtualBlocks`
+        // is refreshed from the authoritative rendered state on the following
+        // state flush. Re-applying a window against that stale index would evict
+        // the freshly inserted/replaced DOM node before setCursor() can establish
+        // its native Range. Preserve the live mutation until setRenderedState()
+        // reindexes the virtual surface.
+        if (
+            !this._virtualPathMatchesCurrentStructure(anchorPath)
+            || !this._virtualPathMatchesCurrentStructure(focusPath)
+        ) {
+            return;
+        }
         const anchorIndex = this._virtualIndexFromPath(anchorPath);
         const focusIndex = this._virtualIndexFromPath(focusPath);
         if (anchorIndex === null || focusIndex === null)
@@ -1391,6 +1976,10 @@ export class ScrollPage extends Parent {
     getVirtualizationSnapshot(): IVirtualizationSnapshot {
         const totalBlocks = this._virtualBlocks.length;
         const totalEstimatedHeight = this._virtualOffsetIndex.total();
+        const mountedSegments = new Set<number>();
+        for (const index of this._virtualMountedIndexes)
+            mountedSegments.add(Math.floor(index / VIRTUAL_RENDERER_SEGMENT_BLOCKS));
+        const totalSegments = this._virtualSegmentCount();
         return {
             enabled: this._virtualizationEnabled,
             totalBlocks,
@@ -1418,6 +2007,15 @@ export class ScrollPage extends Parent {
             totalEstimatedHeight,
             viewportHeight: this._virtualLastViewportHeight,
             renderCacheEntries: this._renderCache.size,
+            segmentSize: VIRTUAL_RENDERER_SEGMENT_BLOCKS,
+            totalSegments,
+            mountedSegments: this._virtualizationEnabled ? mountedSegments.size : 0,
+            windowStartSegment: totalSegments > 0
+                ? Math.min(totalSegments - 1, Math.floor(this._virtualWindowStart / VIRTUAL_RENDERER_SEGMENT_BLOCKS))
+                : 0,
+            windowEndSegment: this._virtualWindowEnd > 0
+                ? Math.min(totalSegments, Math.ceil(this._virtualWindowEnd / VIRTUAL_RENDERER_SEGMENT_BLOCKS))
+                : 0,
         };
     }
 
@@ -1433,7 +2031,7 @@ export class ScrollPage extends Parent {
         // real DOM position is authoritative. This automatically includes the
         // spacer boundary and collapsed margins that an estimate cannot know
         // exactly, so TOC navigation lands on the requested logical block.
-        if (blockNode && blockNode.parentElement === this.domNode) {
+        if (blockNode && this.domNode?.contains(blockNode)) {
             const containerTop = container.getBoundingClientRect().top;
             const blockTop = blockNode.getBoundingClientRect().top;
             const exactScrollTop
@@ -1515,6 +2113,11 @@ export class ScrollPage extends Parent {
                 'virtualPendingDetachedBlocks',
                 'virtualWindowStart',
                 'virtualWindowEnd',
+                'virtualSegmentSize',
+                'virtualTotalSegments',
+                'virtualMountedSegments',
+                'virtualWindowStartSegment',
+                'virtualWindowEndSegment',
             ] as const) {
                 if (domNode.dataset[key] !== undefined)
                     delete domNode.dataset[key];
@@ -1535,6 +2138,11 @@ export class ScrollPage extends Parent {
         setDiagnostic('virtualPendingDetachedBlocks', String(snapshot.pendingDetachedBlocks));
         setDiagnostic('virtualWindowStart', String(snapshot.windowStart));
         setDiagnostic('virtualWindowEnd', String(snapshot.windowEnd));
+        setDiagnostic('virtualSegmentSize', String(snapshot.segmentSize));
+        setDiagnostic('virtualTotalSegments', String(snapshot.totalSegments));
+        setDiagnostic('virtualMountedSegments', String(snapshot.mountedSegments));
+        setDiagnostic('virtualWindowStartSegment', String(snapshot.windowStartSegment));
+        setDiagnostic('virtualWindowEndSegment', String(snapshot.windowEndSegment));
     }
 
     private _startProgressiveRender(
@@ -1970,6 +2578,29 @@ export class ScrollPage extends Parent {
         }
     }
 
+    private _authoritativeVirtualViewport(): { scrollTop: number; viewportHeight: number } {
+        const container = this._virtualScrollContainer;
+        if (!container) {
+            return {
+                scrollTop: this._virtualLastScrollTop,
+                viewportHeight: this._virtualLastViewportHeight,
+            };
+        }
+
+        let scrollTop = Math.max(0, container.scrollTop);
+        if (this._virtualResizeCorrectionTarget !== null) {
+            scrollTop = this._virtualResizeCorrectionTarget;
+        }
+        else if (this._virtualNavigationTarget !== null) {
+            scrollTop = this._virtualNavigationScrollTop(container, this._virtualNavigationTarget);
+        }
+
+        return {
+            scrollTop,
+            viewportHeight: container.clientHeight || this._virtualLastViewportHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX,
+        };
+    }
+
     /** Keep the render-cache state aligned after an incremental tree update. */
     setRenderedState(state: TState[]): void {
         this._renderedState = state;
@@ -1997,10 +2628,15 @@ export class ScrollPage extends Parent {
             }
             this._reindexVirtualBlocks();
             this._rebuildVirtualOffsets(state);
-            this.updateVirtualWindowForViewport(
-                this._virtualLastScrollTop,
-                this._virtualLastViewportHeight,
-            );
+            this._virtualStructureDirty = false;
+            // Structural edits can flush state before Chromium dispatches the
+            // scroll event from a preceding programmatic reveal. The live
+            // container is therefore the source of truth unless an explicit
+            // resize/navigation transaction owns the viewport. Replaying the
+            // cached scrollTop here can remount the document top and evict the
+            // just-created caret block.
+            const viewport = this._authoritativeVirtualViewport();
+            this.updateVirtualWindowForViewport(viewport.scrollTop, viewport.viewportHeight);
             return;
         }
 

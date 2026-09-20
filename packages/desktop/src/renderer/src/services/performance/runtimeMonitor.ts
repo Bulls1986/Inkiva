@@ -30,6 +30,13 @@ export interface RuntimePerformanceClock {
   memory?: RuntimePerformanceMemory
 }
 
+export interface RuntimeFrameSample {
+  timestamp: number
+  duration: number
+  forcedReflows: number
+  longTaskObserverAvailable: boolean
+}
+
 export interface RuntimePerformanceMonitorOptions {
   recorder: RuntimePerformanceRecorder
   performance?: RuntimePerformanceClock
@@ -43,6 +50,7 @@ export interface RuntimePerformanceMonitorOptions {
   memorySampleIntervalMs?: number
   eventLoopSampleIntervalMs?: number
   memoryWindowSize?: number
+  frameSampleSink?: (sample: RuntimeFrameSample) => void
 }
 
 const INPUT_EVENT_NAMES = new Set([
@@ -120,6 +128,7 @@ export class RuntimePerformanceMonitor {
 
   private readonly memorySampleIntervalMs: number
   private readonly eventLoopSampleIntervalMs: number
+  private readonly frameSampleSink?: (sample: RuntimeFrameSample) => void
   private readonly setTimer: (
     callback: () => void,
     delayMs: number
@@ -160,6 +169,7 @@ export class RuntimePerformanceMonitor {
       1,
       Math.floor(options.eventLoopSampleIntervalMs ?? 16)
     )
+    this.frameSampleSink = options.frameSampleSink
     this.eventLoopLagTracker = new EventLoopLagTracker(this.eventLoopSampleIntervalMs)
     this.memoryGrowthTracker = new MemoryGrowthTracker({ windowSize: options.memoryWindowSize })
   }
@@ -357,20 +367,28 @@ export class RuntimePerformanceMonitor {
       if (this.disposed) return
       if (this.lastFrameTimestamp !== undefined) {
         const duration = Math.max(0, timestamp - this.lastFrameTimestamp)
-        this.record('core.frame.duration', 'ms', duration, { phase: 'editor' })
-        this.record('core.frame.over16_7', 'ratio', duration > 16.7 ? 1 : 0, { phase: 'editor' })
-        this.record('core.frame.over33', 'ratio', duration > 33 ? 1 : 0, { phase: 'editor' })
-        this.record('core.forcedReflow', 'count', this.layoutTracker.consumeForcedReflows(), {
-          phase: 'editor'
-        })
-        this.record(
-          'core.interactive.longTaskObserver',
-          'count',
-          this.recorder.longTaskObserverAvailable === true ? 1 : 0,
-          { phase: 'editor' }
-        )
-        this.record('core.interactive.longTask', 'count', 0, { phase: 'editor' })
-        this.record('core.gc.over50', 'count', 0, { phase: 'memory' })
+        const forcedReflows = this.layoutTracker.consumeForcedReflows()
+        if (this.frameSampleSink) {
+          this.frameSampleSink({
+            timestamp,
+            duration,
+            forcedReflows,
+            longTaskObserverAvailable: this.recorder.longTaskObserverAvailable === true
+          })
+        } else {
+          this.record('core.frame.duration', 'ms', duration, { phase: 'editor' })
+          this.record('core.frame.over16_7', 'ratio', duration > 16.7 ? 1 : 0, { phase: 'editor' })
+          this.record('core.frame.over33', 'ratio', duration > 33 ? 1 : 0, { phase: 'editor' })
+          this.record('core.forcedReflow', 'count', forcedReflows, { phase: 'editor' })
+          this.record(
+            'core.interactive.longTaskObserver',
+            'count',
+            this.recorder.longTaskObserverAvailable === true ? 1 : 0,
+            { phase: 'editor' }
+          )
+          this.record('core.interactive.longTask', 'count', 0, { phase: 'editor' })
+          this.record('core.gc.over50', 'count', 0, { phase: 'memory' })
+        }
       }
       this.lastFrameTimestamp = timestamp
       this.frameHandle = requestAnimationFrame(sampleFrame)

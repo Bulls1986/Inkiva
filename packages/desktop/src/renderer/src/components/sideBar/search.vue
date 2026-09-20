@@ -80,12 +80,16 @@
     <div
       v-if="searchResult.length"
       class="search-result-info"
+      :class="{ 'search-result-deferred-hidden': !showSearchResultTree }"
+      :aria-hidden="!showSearchResultTree"
     >
       {{ searchResultInfo }}
     </div>
     <div
       v-if="searchResult.length"
       class="search-result"
+      :class="{ 'search-result-deferred-hidden': !showSearchResultTree }"
+      :aria-hidden="!showSearchResultTree"
     >
       <search-result-item
         v-for="(item, index) of renderedSearchResult"
@@ -130,7 +134,10 @@ import { VideoPause } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import type { SearchResult } from './types'
 import { limitSearchResults } from '@/util/searchResultLimit'
-import { FOLDER_SEARCH_DEBOUNCE_MS } from './searchTiming'
+import {
+  createIdleDeferredTask,
+  FOLDER_SEARCH_DEBOUNCE_MS
+} from './searchTiming'
 
 const { t } = useI18n()
 const layoutStore = useLayoutStore()
@@ -145,6 +152,7 @@ let searchGeneration = 0
 
 const keyword = ref('')
 const searchResult = ref<SearchResult[]>([])
+const showSearchResultTree = ref(false)
 const searcherRunning = ref(false)
 const showSearchCancelArea = ref(false)
 const searchErrorString = ref('')
@@ -200,6 +208,19 @@ const clearSearchTimer = (): void => {
   }
 }
 
+const searchResultDisposal = createIdleDeferredTask(() => {
+  searchResult.value = []
+})
+
+const cancelSearchResultDisposal = (): void => {
+  searchResultDisposal.cancel()
+}
+
+const scheduleSearchResultDisposal = (): void => {
+  showSearchResultTree.value = false
+  searchResultDisposal.schedule()
+}
+
 const cancelActiveSearch = (): void => {
   if (searcherCancelCallback) {
     searcherCancelCallback()
@@ -211,7 +232,9 @@ const cancelActiveSearch = (): void => {
 
 const finishSearch = (generation: number, resultMap: Map<string, SearchResult>): void => {
   if (generation !== searchGeneration) return
+  cancelSearchResultDisposal()
   searchResult.value = Array.from(resultMap.values())
+  showSearchResultTree.value = searchResult.value.length > 0
   searcherRunning.value = false
   searcherCancelCallback = null
   stopShowSearchCancelAreaTimer()
@@ -286,6 +309,7 @@ const performSearch = (generation: number): void => {
       if (generation !== searchGeneration || canceled) return
       log.error('Error while searching in directory:', err)
       searchResult.value = []
+      showSearchResultTree.value = false
       searcherRunning.value = false
       searcherCancelCallback = null
       stopShowSearchCancelAreaTimer()
@@ -302,10 +326,12 @@ const scheduleSearch = (immediate = false): void => {
   const generation = searchGeneration
   clearSearchTimer()
   cancelActiveSearch()
+  cancelSearchResultDisposal()
   searchErrorString.value = ''
-  searchResult.value = []
+  showSearchResultTree.value = false
 
   if (!keyword.value.trim() || !searchRootPath.value) {
+    scheduleSearchResultDisposal()
     return
   }
 
@@ -429,6 +455,7 @@ onBeforeUnmount(() => {
   clearSearchTimer()
   cancelActiveSearch()
   bus.off('findInFolder', handleFindInFolder)
+  cancelSearchResultDisposal()
   bus.off('project-tree-changed', handleProjectTreeChanged)
 })
 </script>
@@ -533,6 +560,17 @@ onBeforeUnmount(() => {
   margin-bottom: 5px;
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.search-result-info,
+.search-result {
+  contain: paint;
+  will-change: opacity;
+}
+
+.search-result-deferred-hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 .empty,
 .search-result {

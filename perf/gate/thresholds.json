@@ -478,7 +478,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 60
+          "limit": 55
         },
         {
           "id": "document-50k-heading-jump-p95",
@@ -1114,7 +1114,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 60
+          "limit": 55
         },
         {
           "id": "document-50k-heading-jump-p95",

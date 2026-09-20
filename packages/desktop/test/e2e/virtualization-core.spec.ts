@@ -93,6 +93,28 @@ test.describe('@virtualization-core Render Surface 2.0 — Electron core interac
     if (app) await app.close()
   })
 
+  test('editor scroll surface is compositor-promoted without changing its viewport geometry', async() => {
+    const result = await page.locator('.editor-component').evaluate((node) => {
+      const element = node as HTMLElement
+      const style = getComputedStyle(element)
+      const rect = element.getBoundingClientRect()
+      return {
+        transform: style.transform,
+        width: rect.width,
+        height: rect.height,
+        offsetWidth: element.offsetWidth,
+        offsetHeight: element.offsetHeight
+      }
+    })
+
+    expect(result.transform).not.toBe('none')
+    expect(result.width).toBeGreaterThan(0)
+    expect(result.height).toBeGreaterThan(0)
+    expect(Math.abs(result.width - result.offsetWidth)).toBeLessThanOrEqual(1)
+    expect(Math.abs(result.height - result.offsetHeight)).toBeLessThanOrEqual(1)
+    await expectNoRendererErrors(app)
+  })
+
   test('Ctrl+A/Delete affects the complete logical document without full DOM mount, then Undo restores it', async() => {
     await placeCaretAtTextBoundary(page)
 
@@ -502,6 +524,7 @@ test.describe('@virtualization-core Render Surface 2.0 — Electron core interac
     })
     await page.waitForTimeout(300)
     const afterSidebar = await readViewportAnchor()
+
     expect(afterSidebar.width).toBeGreaterThan(beforeSidebar.width)
     expect(Math.abs(afterSidebar.index - beforeSidebar.index)).toBeLessThanOrEqual(2)
     await expectBoundedVirtualization(page)

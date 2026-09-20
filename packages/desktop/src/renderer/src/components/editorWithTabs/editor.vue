@@ -142,6 +142,7 @@ import { isStaleEditorEvent } from './editorEventGuard'
 import {
   EditorSnapshotScheduler,
   getEditorMutationPolicy,
+  shouldCaptureEditorBlocks,
   type EditorSnapshotMode
 } from './editorHotPath'
 import { rendererPerformance, rendererPerformanceMonitor } from '@/services/performance/runtime'
@@ -331,7 +332,7 @@ const flushPendingScrollPosition = (): void => {
 
 const scheduleScrollPositionPersistence = (id: string, scrollTop: number): void => {
   pendingScrollPosition = { id, scrollTop }
-  if (scrollPositionPersistTimer !== null) return
+  if (scrollPositionPersistTimer !== null) clearTimeout(scrollPositionPersistTimer)
   scrollPositionPersistTimer = setTimeout(() => {
     scrollPositionPersistTimer = null
     const pending = pendingScrollPosition
@@ -462,7 +463,10 @@ const captureEditorSnapshot = (
     })
   )
   const includeDerivedMetadata = mode !== 'persistence'
-  const includeBlocks = mode === 'full'
+  const virtualizationEnabled = Boolean(
+    instance.editor?.scrollPage?.getVirtualizationPrototypeSnapshot?.().enabled
+  )
+  const includeBlocks = shouldCaptureEditorBlocks(mode, virtualizationEnabled)
   const wordCount = includeDerivedMetadata
     ? documentRevisionSnapshots.getWordCount(id, revision, () => muyaWordCount(markdown))
     : undefined
@@ -1372,18 +1376,9 @@ const getScrollContainer = (): HTMLElement | null =>
 type PendingScrollRestore = {
   container: HTMLElement
   target: number
-  startedAt: number
-  expectedScrollTop: number
-  lastMaxScrollTop: number | null
-  stableSince: number | null
-  timer: ReturnType<typeof setTimeout> | null
   frame: number | null
   removeInteractionListeners: () => void
 }
-
-const SCROLL_RESTORE_FALLBACK_MS = 250
-const SCROLL_RESTORE_SETTLE_MS = 1000
-const SCROLL_RESTORE_TIMEOUT_MS = 3000
 
 // The editor rebuilds its block tree synchronously, but diagrams and other
 // media can change the document height after their asynchronous render. Do not
@@ -1397,7 +1392,6 @@ const clearPendingScrollRestore = (): void => {
   const pending = pendingScrollRestore
   if (!pending) return
 
-  if (pending.timer !== null) clearTimeout(pending.timer)
   if (pending.frame !== null) cancelAnimationFrame(pending.frame)
   pending.removeInteractionListeners()
   pendingScrollRestore = null
@@ -1414,41 +1408,19 @@ const checkPendingScrollRestore = (): void => {
     return
   }
 
-  if (pending.timer !== null) {
-    clearTimeout(pending.timer)
-    pending.timer = null
-  }
-
   const maxScrollTop = getMaxScrollTop(container)
   const restoredScrollTop = Math.min(pending.target, maxScrollTop)
-  pending.expectedScrollTop = restoredScrollTop
   if (container.scrollTop !== restoredScrollTop) {
     container.scrollTop = restoredScrollTop
   }
 
-  const now = Date.now()
-  if (pending.lastMaxScrollTop !== maxScrollTop) {
-    pending.lastMaxScrollTop = maxScrollTop
-    pending.stableSince = maxScrollTop >= pending.target ? now : null
-  } else if (maxScrollTop < pending.target) {
-    pending.stableSince = null
-  }
-
-  const timedOut = now - pending.startedAt >= SCROLL_RESTORE_TIMEOUT_MS
-  const targetIsStable =
-    pending.stableSince !== null && now - pending.stableSince >= SCROLL_RESTORE_SETTLE_MS
-  if (pending.target === 0 || targetIsStable || timedOut) {
-    // A stale position can belong to a document that is now shorter. Persist
-    // the actual boundary after the retry window so the next switch does not
-    // repeat the same clamp cycle.
-    if (maxScrollTop < pending.target && currentFile.value?.id) {
-      editorStore.updateScrollPosition(currentFile.value.id, restoredScrollTop)
-    }
+  // A restore remains pending only while the requested offset is outside the
+  // current real scroll range. Async diagram/image/table geometry is already
+  // reported by editorLayoutReconciler, which schedules the next check. Keeping
+  // this dormant state costs no polling and avoids guessing a settle timeout.
+  if (maxScrollTop >= pending.target) {
     clearPendingScrollRestore()
-    return
   }
-
-  pending.timer = setTimeout(checkPendingScrollRestore, SCROLL_RESTORE_FALLBACK_MS)
 }
 
 const schedulePendingScrollRestoreCheck = (): void => {
@@ -1485,6 +1457,7 @@ const scrollToCursor = (duration = 300) => {
     if (!container) return
     const y = getCursorY()
     if (y == null) return
+    editor.value?.editor?.scrollPage?.releaseVirtualResizeCorrectionForNavigation?.()
     animatedScrollTo(container, container.scrollTop + y - STANDAR_Y, duration)
   })
 }
@@ -1496,6 +1469,7 @@ const scrollToCords = (y: number) => {
   // Cancel any restore state from the previous document before reusing the
   // editor root for this document.
   clearPendingScrollRestore()
+  editor.value?.editor?.scrollPage?.releaseVirtualResizeCorrectionForNavigation?.()
 
   const target = Math.max(0, y)
   if (target === 0) {
@@ -1511,15 +1485,10 @@ const scrollToCords = (y: number) => {
   const pending: PendingScrollRestore = {
     container,
     target,
-    startedAt: Date.now(),
     // The old document may still occupy a large DOM tree here. Defer the
     // first scrollHeight read until the rAF after the new surface is mounted,
     // when the container is hidden and the browser can calculate one final
     // layout for the replacement document.
-    expectedScrollTop: target,
-    lastMaxScrollTop: null,
-    stableSince: null,
-    timer: null,
     frame: null,
     removeInteractionListeners: () => {}
   }
@@ -1554,6 +1523,7 @@ const scrollToCords = (y: number) => {
 const scrollElementIntoView = (anchor: Element | null | undefined, duration = 300) => {
   const container = getScrollContainer()
   if (!container || !anchor) return
+  editor.value?.editor?.scrollPage?.releaseVirtualResizeCorrectionForNavigation?.()
   const { y } = anchor.getBoundingClientRect()
   animatedScrollTo(container, container.scrollTop + y - STANDAR_Y, duration)
 }
@@ -1989,8 +1959,40 @@ const markEditorInteractive = (documentId?: string): void => {
   })
 }
 
+const createMountedBlockPrewarmer = (generation: number): (() => void) => {
+  let nodes: HTMLElement[] | null = null
+  let cursor = 0
+  let passesRemaining = 2
+
+  return () => {
+    if (generation !== editorPerformanceGeneration) return
+    const container = getScrollContainer()
+    if (!container) return
+
+    nodes ??= Array.from(container.querySelectorAll<HTMLElement>('[data-virtual-block-index]'))
+    if (cursor >= nodes.length) return
+
+    const remaining = nodes.length - cursor
+    const budget = Math.max(1, Math.ceil(remaining / Math.max(1, passesRemaining)))
+    passesRemaining = Math.max(0, passesRemaining - 1)
+    const end = Math.min(nodes.length, cursor + budget)
+    let checksum = 0
+    for (; cursor < end; cursor += 1) {
+      const node = nodes[cursor]
+      const rect = node.getBoundingClientRect()
+      checksum += rect.width + rect.height + node.offsetWidth
+    }
+
+    // Keep the reads observable to the optimizer without publishing diagnostics
+    // or mutating editor state. Split the work across milestone frames so the
+    // prewarm cannot create a new long task before editable.
+    if (checksum < 0) container.dataset.editorPrewarm = String(checksum)
+  }
+}
+
 const scheduleEditorMilestones = (documentId?: string, notifyMainProcess = false): void => {
   const generation = editorPerformanceGeneration
+  const prewarmMountedBlocks = createMountedBlockPrewarmer(generation)
   scheduleEditorPerformanceMilestones({
     requestFrame: (callback) => {
       window.requestAnimationFrame(callback)
@@ -1998,6 +2000,7 @@ const scheduleEditorMilestones = (documentId?: string, notifyMainProcess = false
     isCurrent: () => generation === editorPerformanceGeneration,
     markFirstScreen: () => markEditorFirstScreen(documentId),
     markInteractive: () => markEditorInteractive(documentId),
+    prewarmFrame: prewarmMountedBlocks,
     markEditable: () => {
       const element = getEditorPerformanceElement()
       if (element) {
@@ -2829,6 +2832,10 @@ onBeforeUnmount(() => {
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   background: var(--surface-editor);
+  /* Keep the large Markdown scroll surface on an independent compositor layer.
+     Without this identity transform Chromium marks the editor RepaintsOnScroll,
+     forcing main-thread repaint work instead of accelerated scrolling. */
+  transform: translateZ(0);
 }
 
 .editor-component .mu-container {
@@ -2842,7 +2849,8 @@ onBeforeUnmount(() => {
   text-rendering: optimizeLegibility;
 }
 
-.editor-component .mu-container > h1:first-child {
+.editor-component .mu-container > h1:first-child,
+.editor-component .mu-container > .mu-virtual-segment[data-virtual-segment-index='0'] > h1:first-child {
   margin-top: 0;
 }
 

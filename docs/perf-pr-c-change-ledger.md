@@ -1,0 +1,254 @@
+# PR-C / PERF-NEXT-03 Change Ledger
+
+> Baseline: `234ebd6481a96ea1ea4e3ea4ecc40ebfe4a0b4d7` (`234ebd6`, `perf(editor): stabilize virtual scroll hot path`)
+>
+> Branch: `perf/pr-c-segment-virtualization`
+>
+> Scope freeze: Segment Virtualization correctness + performance gate only. Do not add unrelated fixes while closing PR-C.
+
+## 1. Current state
+
+Tracked diff against the baseline currently contains 39 modified files, approximately `+2550/-381`.
+The largest implementation/test changes are concentrated in:
+
+- `packages/muya/src/block/scrollPage/index.ts` — Segment Virtualization core and viewport/selection/resize coordination.
+- `packages/muya/src/block/scrollPage/__tests__/virtualizationProduction.spec.ts` — virtualization production contracts.
+
+Current rebuilt Electron correctness result:
+
+- Core combined suite: **30/31 PASS**.
+- Editing operations: **4/4 PASS**.
+- Outline/scroll synchronization: **3/3 PASS**.
+- Current blocker: width reflow / sidebar resize viewport-anchor preservation.
+  - Repeated 3 times independently: **3/3 reproduce exactly 3-block drift**.
+  - Required contract remains **<= 2 blocks**.
+  - Do not weaken the assertion.
+  - This is the same class of issue previously addressed by commit `0264e1f fix(editor): stabilize virtualized editing and navigation`: the authoritative resize anchor must represent the pre-reflow viewport.
+  - Current Segment/hot-path changes split approximate vs exact anchors and can capture exact DOM geometry too late, after width reflow.
+
+Important validation rule discovered during this work:
+
+- Electron E2E launches the prebuilt `packages/desktop/out` bundle.
+- Playwright config does **not** rebuild it automatically.
+- Any Muya/renderer source change must therefore be followed by a desktop build before Electron E2E evidence is considered current.
+- Several earlier Enter failures were stale-bundle evidence and were invalidated after rebuilding. With the rebuilt bundle the distant Enter -> caret -> immediate typing scenario passes.
+
+## 2. Scope categories
+
+### A. Segment Virtualization core — KEEP
+
+These files implement the primary PR-C architecture and must remain in the same complete change chain.
+
+| File | Role | Status |
+| --- | --- | --- |
+| `packages/muya/src/block/scrollPage/index.ts` | Segment windowing, block/segment geometry, viewport hydration, selection pinning, navigation, resize/anchor coordination, structural mutation handling | KEEP; current blocker lives here |
+| `packages/muya/src/block/scrollPage/__tests__/virtualizationProduction.spec.ts` | Core virtualization contracts and regression coverage | KEEP |
+| `packages/muya/src/block/base/parent.ts` | Parent/child structural hooks required by virtualized top-level mutations | KEEP |
+| `packages/muya/src/block/base/treeNode.ts` | Tree mutation support used by virtualized structure updates | KEEP |
+| `packages/muya/src/assets/styles/blockSyntax.css` | Virtual segment/render surface styling | KEEP |
+| `packages/muya/src/inlineRenderer/index.ts` | Inline hot-path adjustment associated with large-document rendering | KEEP, verify final diff |
+| `packages/muya/src/inlineRenderer/__tests__/plainTextFastPath.spec.ts` | Inline fast-path regression coverage | KEEP if implementation diff remains |
+
+### B. Editor integration and compatibility — KEEP if directly required by Segment behavior
+
+| File | Role | Status |
+| --- | --- | --- |
+| `packages/desktop/src/renderer/src/components/editorWithTabs/editor.vue` | Desktop integration, navigation/restore/layout hooks, virtual surface lifecycle | KEEP; review final diff for unrelated residue |
+| `packages/desktop/src/renderer/src/components/editorWithTabs/editorHotPath.ts` | Editor hot-path support | KEEP if directly exercised by PR-C |
+| `packages/desktop/src/renderer/src/util/editorLayout.ts` | Layout reconciliation needed by virtual scroll/restore behavior | KEEP |
+| `packages/desktop/src/renderer/src/util/tocNavigation.ts` | TOC navigation compatibility with virtual blocks | KEEP |
+| `packages/desktop/test/e2e/virtualization-core.spec.ts` | Main Electron correctness contract | KEEP |
+| `packages/desktop/test/e2e/virtualization-outline-scroll.spec.ts` | Segment-aware outline/viewport contract | KEEP |
+| `packages/desktop/test/unit/specs/editor-hot-path.spec.ts` | Integration regression | KEEP if implementation remains |
+| `packages/desktop/test/unit/specs/editor-layout.spec.ts` | Layout/restore regression | KEEP |
+
+### C. Diagram compatibility — KEEP only because virtual scrolling must not trigger heavy/render rollback behavior
+
+| File | Role | Status |
+| --- | --- | --- |
+| `packages/muya/src/block/extra/diagram/diagramPreview.ts` | Event/paint-driven diagram stabilization during virtual scrolling; preserves existing 200ms render debounce | KEEP |
+| `packages/muya/src/block/extra/diagram/__tests__/diagramPreview.spec.ts` | Diagram scheduling/recovery regressions | KEEP |
+
+Focused validation already observed: **25/25 PASS**.
+
+### D. Workspace search / ripgrep work — REVIEW SCOPE
+
+This is performance-related and was touched while removing newly-added speculative timing behavior, but it is not the Segment core. Keep only changes that are required by the same PR-C performance gate or were already part of this branch before scope freeze.
+
+| File | Role | Status |
+| --- | --- | --- |
+| `packages/desktop/src/renderer/src/components/sideBar/search.vue` | Workspace search result lifecycle / disposal | REVIEW |
+| `packages/desktop/src/renderer/src/components/sideBar/searchTiming.ts` | Existing 50ms debounce exposure plus idle-deferred disposal; no newly-added 500ms correctness deadline | REVIEW |
+| `packages/desktop/src/main/ipc/ripgrep.ts` | Search IPC path | REVIEW |
+| `packages/desktop/test/unit/specs/workspace-search.spec.ts` | Search regression/performance contracts | REVIEW |
+| `packages/desktop/test/unit/specs/ripgrep-ipc-protocol.spec.ts` | IPC regression | REVIEW |
+
+Focused validation previously observed: **8/8 PASS** for the focused workspace-search suite.
+
+Do not change existing/config-linked search timing merely because it contains a millisecond value.
+
+### E. Performance instrumentation / gate transport — REVIEW, likely KEEP as measurement integrity work
+
+| File | Role | Status |
+| --- | --- | --- |
+| `packages/desktop/src/main/ipc/performance.ts` | Performance IPC batching/transport | REVIEW |
+| `packages/desktop/src/main/performance/index.ts` | Main-process performance capture | REVIEW |
+| `packages/desktop/src/renderer/src/services/performance/gateBridge.ts` | Gate bridge | REVIEW |
+| `packages/desktop/src/renderer/src/services/performance/runtime.ts` | Renderer performance event transport | REVIEW |
+| `packages/desktop/src/renderer/src/services/performance/runtimeMonitor.ts` | Runtime monitor sampling | REVIEW |
+| `packages/desktop/src/shared/types/ipc.ts` | Performance IPC protocol types | REVIEW |
+| `packages/desktop/src/shared/types/performance.ts` | Performance event types | REVIEW |
+| `packages/desktop/src/renderer/src/services/performance/batchedSink.ts` | **UNTRACKED, INTENDED** generic bounded batched sink so instrumentation does not perturb measured frame hot path | REVIEW |
+| `packages/desktop/test/unit/specs/performance-batch-sink.spec.ts` | **UNTRACKED, INTENDED** batch transport tests | REVIEW |
+| `packages/desktop/test/unit/specs/performance-gate-bridge.spec.ts` | Gate bridge tests | REVIEW |
+| `packages/desktop/test/unit/specs/runtime-performance-monitor.spec.ts` | Runtime monitor tests | REVIEW |
+| `packages/desktop/test/unit/specs/performance-coordinator.spec.ts` | Performance coordinator tests | REVIEW |
+
+Known correction already made: renderer frame transport must honor the existing configured sample interval. A custom idle scheduler that bypassed the configured interval was removed.
+
+Focused batch-sink validation previously observed: **3/3 PASS**.
+
+### F. Startup/background-work measurement — REVIEW SCOPE
+
+| File | Role | Status |
+| --- | --- | --- |
+| `packages/desktop/src/renderer/src/main.ts` | Startup background work changes | REVIEW |
+| `packages/desktop/src/renderer/src/components/editorWithTabs/editorPerformanceMilestones.ts` | Startup/editor performance milestones | REVIEW |
+| `packages/desktop/test/unit/specs/editor-performance-milestones.spec.ts` | Milestone contract | REVIEW |
+| `packages/desktop/test/unit/specs/editor-startup-background-work.spec.ts` | **UNTRACKED, INTENDED** ensures editor renderer does not preload Preferences modules | REVIEW |
+
+This group should remain only if it is required by the PR-C measured performance path. Otherwise move it to a follow-up PR rather than silently retaining it.
+
+### G. Fast Gate / thresholds / runner — KEEP only as gate infrastructure required to validate PR-C
+
+| File | Role | Status |
+| --- | --- | --- |
+| `packages/desktop/test/e2e/performance-fast-gate.spec.ts` | Fast Gate workload/collection | KEEP if required by current PR-C metrics |
+| `perf/soak/fast-runner.spec.ts` | Fast performance runner | KEEP if required |
+| `perf/soak/thresholds-fast.json` | Fast Gate thresholds | KEEP, audit threshold diff before commit |
+| `perf/gate/thresholds.json` | General performance thresholds | REVIEW; no unrelated threshold weakening |
+| `packages/desktop/test/unit/specs/editor-performance-milestones.spec.ts` | Supporting gate contract | see startup group |
+
+Temporary machine policy currently used by Fast Gate:
+
+- `document.50k.scrollFps >= 55` is a machine-specific temporary fast-gate floor previously approved during this PR-C investigation.
+- The product/normal target remains **60 FPS**.
+- This relaxation must be called out explicitly in PR evidence; it must not be presented as the final product target.
+
+No other threshold may be weakened to make PR-C pass.
+
+### H. Temporary / diagnostic — DELETE BEFORE COMMIT
+
+| Path | Status | Reason |
+| --- | --- | --- |
+| `packages/desktop/test/e2e/segment-scroll-poc.spec.ts` | TEMP/DELETE | Current resize-anchor diagnostic only; uses logging and explicit wall-clock waits |
+| `perf-results/` | NEVER COMMIT | Raw/local generated performance output |
+
+## 3. Timing audit outcome
+
+Only **new/uncommitted** time restrictions were in scope for the timing audit. Existing configuration-linked or baseline timing remains untouched unless the dirty branch broke its semantics.
+
+Removed/reworked newly-added timing behavior:
+
+- resize correction 320ms expiry -> state/transaction-driven correction.
+- search result disposal 500ms -> paint boundary + idle disposal.
+- virtual viewport anchor 80ms -> hydration lifecycle exact capture.
+- virtual block measurement 80ms -> defer/resume lifecycle.
+- scroll restore 250/1000/3000ms -> event/layout-driven restore with no polling timeout.
+- diagram new 300ms scroll-stable / interaction-quiet windows -> interaction revision + stable paint boundaries.
+- virtual scroll hydration 80ms -> `scrollend` on current Chromium, double-rAF fallback otherwise.
+- dirty snapshot persistence override 5000ms -> removed; baseline scheduler behavior restored.
+
+Explicitly preserved baseline/config-linked timing:
+
+- folder-search 50ms debounce.
+- search-cancel 500ms UX anti-flicker behavior.
+- snapshot scheduler 80/500/200ms semantics.
+- TOC refresh debounce 75ms.
+- diagram render debounce 200ms.
+- configured performance sample interval.
+
+Final production numeric-timer scan after the audit left only the search idle fallback `setTimeout(run, 0)`, used when `requestIdleCallback` is unavailable; it is asynchronous fallback scheduling, not a correctness deadline.
+
+## 4. Current correctness evidence
+
+Evidence that remains valid:
+
+- Muya TypeScript: PASS.
+- Desktop vue-tsc: PASS.
+- Virtualization production unit suite: previously **23/23 PASS** after hydration refactor; rerun after final anchor fix.
+- Diagram Preview: **25/25 PASS**.
+- Performance batched sink: **3/3 PASS**.
+- Workspace Search focused suite: **8/8 PASS**.
+- Distant Enter -> immediate typing on rebuilt Electron bundle: PASS.
+- Full virtualization editing operations on rebuilt Electron bundle: **4/4 PASS**.
+- Outline/scroll synchronization on rebuilt Electron bundle: **3/3 PASS**.
+- Combined rebuilt core Electron suite: **30/31 PASS**.
+
+Current blocking test:
+
+`virtualization-core.spec.ts` — “sidebar and editor max-width changes preserve the virtual viewport anchor”
+
+- repeated independently 3 times;
+- all 3 runs fail with exactly 3-block drift;
+- assertion remains <=2 blocks;
+- root-cause direction: pre-reflow authoritative anchor semantics were weakened by approximate/exact anchor lifecycle introduced for Segment/hot-path optimization.
+
+## 5. Required validation sequence from now on
+
+After **any** Muya or renderer source modification:
+
+1. Run focused unit/contract tests for the changed path.
+2. Run `packages/desktop` build so `out` reflects current source.
+3. Run the focused Electron E2E scenario.
+4. When the anchor blocker is green, rerun the 31-case core Electron group.
+5. Only after **31/31 PASS**, run Fast Gate.
+6. Judge Fast Gate by final threshold evaluation/report, not by a green test process alone.
+7. Review raw performance output, Before/After evidence, stability and remaining limitations.
+8. Remove temporary diagnostics and `perf-results/`.
+9. Review the full diff and untracked files again.
+10. Only then create clean commits, push, and update the PR.
+
+## 6. Proposed commit chain inside PR-C
+
+Do not commit until the anchor blocker and core regression suite are green.
+
+1. **C1 — Render Surface 2.0 core**
+   - ScrollPage segment virtualization.
+   - Parent/tree structural support.
+   - segment styling / inline hot-path pieces.
+   - virtualization production unit contracts.
+
+2. **C2 — Editor correctness and integration**
+   - selection/editing/navigation/scroll restore/layout integration.
+   - TOC/outline compatibility.
+   - Electron correctness tests.
+
+3. **C3 — Async peripheral compatibility**
+   - diagram virtual-scroll scheduling.
+   - search/ripgrep changes only if final scope review confirms they are required.
+
+4. **C4 — Measurement integrity and Fast Gate**
+   - performance batching/transport.
+   - gate bridge/runtime monitor.
+   - fast-gate workload and threshold files.
+   - startup/background work only if final scope review confirms direct PR-C dependency.
+
+5. **C5 — Final evidence / documentation**
+   - this ledger updated to final status.
+   - PR description updated with actual Before/After data, final threshold evaluation, limitations, and CI links.
+
+## 7. Definition of done
+
+PR-C is not complete merely because Segment Virtualization works locally.
+
+It is complete only when:
+
+- all core editing/selection/navigation/IME/undo/redo/TOC/diagram/search scenarios required by the PR are green;
+- rebuilt Electron core suite is fully green;
+- Fast Gate final threshold evaluation passes under the declared policy;
+- performance Before/After is measured with the same environment/workload/statistics;
+- no timer/test/threshold is weakened to hide a failure;
+- no temporary diagnostic or raw perf output is committed;
+- all final files can be mapped to a documented PR-C responsibility;
+- remaining limitations are explicitly recorded.

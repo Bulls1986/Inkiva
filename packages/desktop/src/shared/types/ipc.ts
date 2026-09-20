@@ -34,8 +34,15 @@ import type { BufferedState as BufferedStateType } from './bufferedState'
 import type { MenuTemplate, MenuPopupPosition } from './menu'
 import type { ShortcutStyle } from './preferences'
 import type { UpdateStatus } from '../../main/update/types'
-import { type PERFORMANCE_EVENT_CHANNEL } from './performance'
-import type { PerformanceEvent, PerformanceBootInfo } from './performance'
+import {
+  type PERFORMANCE_EVENT_CHANNEL,
+  type PERFORMANCE_FRAME_SAMPLE_CHANNEL
+} from './performance'
+import type {
+  PerformanceEvent,
+  PerformanceBootInfo,
+  PerformanceFrameSampleBatch
+} from './performance'
 import type {
   ApplyRenameRepairRequest,
   ApplyRenameRepairResult,
@@ -164,7 +171,8 @@ export interface IpcInvokeChannels {
 
 export interface IpcSendChannels {
   [WINDOW_INITIAL_SHELL_READY_CHANNEL]: []
-  [PERFORMANCE_EVENT_CHANNEL]: [event: PerformanceEvent]
+  [PERFORMANCE_EVENT_CHANNEL]: [payload: PerformanceEvent | PerformanceEvent[]]
+  [PERFORMANCE_FRAME_SAMPLE_CHANNEL]: [payload: PerformanceFrameSampleBatch]
   'app-create-editor-window': [config?: unknown]
   'app-create-settings-window': []
   'app-open-directory-by-id': [windowId: number, dirPath: string]
