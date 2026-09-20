@@ -490,3 +490,39 @@ There is also an uncommitted `VIRTUAL_RENDERER_OVERSCAN_VIEWPORTS: 2 -> 1` exper
 3. Validate CPU-raster + GPU-compositor mode across the Fast Gate metric families without changing sample count, workload, threshold, or statistics. Because long monolithic Runner jobs have been unreliable, persist each metric-family raw output before moving to the next family and merge/evaluate only after all required samples exist.
 4. If CPU raster stabilizes scroll but regresses CPU, startup, diagram, memory, or stability, reject it as the product solution and continue with narrower Chromium/Skia/Windows raster policy investigation.
 5. If all hard metrics remain within policy, only then consider a Windows-scoped Electron rendering-policy change, followed by packaged Windows integration and correctness regression coverage.
+
+### Overscan 2 -> 1 raster-pressure experiment — 2026-09-21
+
+A narrower product-side experiment is now under validation before considering any global Chromium raster-policy change.
+
+Temporary source change:
+
+- `VIRTUAL_RENDERER_OVERSCAN_VIEWPORTS: 2 -> 1`;
+- `VIRTUAL_RENDERER_SEGMENT_BLOCKS` remains `64`;
+- no threshold, sample count, workload, or statistics change.
+
+Observed 50K formal-index focused snapshots after rebuilding the desktop bundle:
+
+- overscan=2 baseline typically materialized/mounted **40 blocks**;
+- overscan=1 materializes/mounts **26 blocks** with the same `909` total blocks and one mounted segment;
+- editor scroll height remains approximately 53.8k px, so this is a smaller visible-content raster window rather than a collapsed logical document.
+
+Focused scroll samples with overscan=1 completed at **57 / 57 FPS**, matching the local ~56-57 FPS ceiling. A third attempted sample was cancelled by the Runner before producing a performance value and is not counted.
+
+Correctness evidence with overscan=1:
+
+- Muya `virtualizationProduction.spec.ts`: **28/28 PASS**;
+- Electron width-reflow focused rerun: PASS;
+- width-reflow repeat stability: **3/3 PASS**;
+- Electron virtualization-core full run reached **12/15 PASS with zero assertion failures** before an external Runner stop;
+- the three remaining cases were rerun directly and **3/3 PASS** (scroll-position persistence, content-height-only resize, and Find + top-bottom-top bounded/no-blank behavior).
+
+One earlier full virtualization-core run produced a single width-reflow ratio failure (`1.0235` vs required `>1.35`), but the same unchanged assertion subsequently passed once and then **3/3** in serial repeat. The test threshold was not weakened. Treat this as a timing/stability observation that remains covered by the unchanged test, not as permission to ignore future recurrence.
+
+Interpretation so far:
+
+- reducing overscan materially reduces mounted visible Markdown content (`40 -> 26` blocks), which directly targets the GPU-raster trigger identified by hidden-content A/B;
+- focused performance and correctness are promising, but the optimization is **not complete** until the unchanged 20-sample Fast Gate finishes and the final threshold evaluator passes;
+- a full 20-sample overscan=1 Gate was started with no diagnostic rendering switches, but WebCodex/Runner issued `stop_requested` immediately after Playwright began and no valid sample set was produced. This is infrastructure cancellation, not a gate pass/failure.
+
+Do not commit the overscan constant change as a completed optimization yet. Next validation must obtain same-workload repeated GPU-raster evidence and a valid full Fast Gate before finalizing the production change.
