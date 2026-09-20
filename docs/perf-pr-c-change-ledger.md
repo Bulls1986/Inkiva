@@ -426,3 +426,67 @@ Current implication: large scroll geometry alone is not sufficient to reproduce 
 3. If browser paint containment/content-visibility stabilizes the samples near the local 55-57 FPS ceiling, convert the finding into the narrowest segment-level production strategy and add a regression contract before implementation.
 4. If it does not, continue bottom-up from the remaining DXGI/DComp stall; do not change the Fast Gate workload or threshold.
 5. After the render-side diagnosis is complete, restore all temporary Fast Gate tracing/A-B code, rerun the 31-case Electron correctness group, then run one clean single-instance formal Fast Gate and evaluate the threshold report.
+
+### Content-visibility A/B and diagnostic mutual-exclusion update
+
+The recovery step above has now been exercised far enough to reject one tempting render-side shortcut.
+
+First, the diagnostic infrastructure itself had a correctness flaw: each temporary runner used its own lock file, so `.pr-c-fast-trace.cjs`, `.pr-c-paired-layer.cjs`, `.pr-c-full-gpu-raster-off.cjs`, and the formal runner could still overlap. This contaminated GPU/DWM samples even though each script was individually single-instance. The known temporary runners were changed to share `.pr-c-perf-exclusive.lock`. These are diagnostic-only files and remain untracked; the change exists to protect local evidence, not as product code.
+
+The `INKIVA_DIAG_CONTENT_VISIBILITY_AUTO` selector was verified before interpretation:
+
+- target selector: `.mu-container [data-virtual-block-index]`;
+- the diagnostic surface snapshot reports the same 50K geometry and virtualization state for baseline and A/B runs;
+- observed snapshot: `virtualBlocks=40`, `mountedBlocks=40`, `totalBlocks=909`, one mounted segment, editor scroll height ~53.8k px.
+
+A mutex-protected paired run then produced:
+
+- baseline pair 0: **57 FPS**;
+- block `content-visibility:auto` pair 0: **26 FPS**;
+- baseline pair 1: **56 FPS**.
+
+The outer diagnostic process terminated before completing all three requested pairs, so this is **not** a full statistical A/B result. However, it is already sufficient to show that simply applying `content-visibility:auto` to the currently mounted virtual blocks is not an immediate stabilization fix; in the observed paired sample it materially regressed scroll FPS while mounted-block count and geometry remained unchanged.
+
+Do not promote block-level `content-visibility:auto` to production from the earlier hidden-content result. The next diagnosis should continue bottom-up from the remaining intermittent GPU raster / DXGI-DComp Present stall. Preserve the shared diagnostic lock so future samples are not invalidated by concurrent Electron/performance jobs.
+
+### GPU-raster path isolation update
+
+Further same-workload A/B narrows the remaining intermittent stall to Chromium's GPU raster path rather than virtual-window state.
+
+Runtime surface snapshots from fresh-app formal index=1 repeats show that a **26 FPS** sample and a **57 FPS** sample can have the same observable editor state:
+
+- `scrollHeight=53807`, viewport `904x702`;
+- `totalBlocks=909`, `mountedBlocks=40`, `materializedBlocks=40`;
+- one mounted segment, virtual window `0..40`;
+- `descendantCount=282`, three top-level children and three placeholders;
+- the same `translateZ(0)` compositor transform.
+
+Additional diagnostics:
+
+- keeping the normal scroll container/geometry/compositor layer but hiding `.mu-container` with `visibility:hidden` produced **57 / 57 / 57 / 57 FPS**;
+- removing the editor compositor layer is consistently worse in paired evidence: baseline `57 / 57 / 29` versus transform-off `23 / 21 / 24`;
+- replacing the transform with `will-change: scroll-position` produced **25 / 22 / 15 / 33 FPS**;
+- making editor text transparent did not remove the stall (`41 / 31 FPS` before the diagnostic runner was interrupted);
+- block-level `content-visibility:auto` is already rejected above.
+
+Most importantly, the same formal index=1 path with only Chromium `--disable-gpu-rasterization` changed produced **57 / 57 / 56 FPS** in three completed no-trace repeats before the outer runner interrupted the fourth repeat. The runtime surface snapshot remained the same as the normal GPU-raster path. This aligns with the persisted 19 FPS trace where the first exceptional gap sits in `RasterDecoderImpl::DoEndRasterCHROMIUM::Flush` for ~247 ms.
+
+Current interpretation:
+
+- the recurring FPS bimodality is not explained by main-thread JS/Layout/Paint saturation;
+- it is not explained by different Segment/window/mounted-DOM state;
+- visible editor content must participate for the stall to reproduce;
+- disabling Chromium GPU rasterization removes the observed low-FPS mode in the completed repeats while preserving GPU compositing;
+- this is **diagnostic evidence, not yet a production fix**. CPU raster may carry startup/CPU/memory/diagram costs that have not yet passed the complete formal Fast Gate.
+
+A full GPU-raster-off Fast Gate was attempted, but WebCodex/Runner long-job recovery produced delayed serial invocations that repeatedly reset the report directory. Those attempts are invalid performance evidence and were cleaned up. Do not infer a full-gate pass from the 57/57/56 targeted samples.
+
+There is also an uncommitted `VIRTUAL_RENDERER_OVERSCAN_VIEWPORTS: 2 -> 1` experiment in the worktree. It has no validated Before/After evidence yet and must not be committed or described as an optimization until rebuilt and measured under the same workload.
+
+### Updated next validation
+
+1. Keep the search-disposal fix from `7ecad05`; its BODY-raster causal chain is independently closed.
+2. Preserve one shared `.pr-c-perf-exclusive.lock` for every temporary performance runner.
+3. Validate CPU-raster + GPU-compositor mode across the Fast Gate metric families without changing sample count, workload, threshold, or statistics. Because long monolithic Runner jobs have been unreliable, persist each metric-family raw output before moving to the next family and merge/evaluate only after all required samples exist.
+4. If CPU raster stabilizes scroll but regresses CPU, startup, diagram, memory, or stability, reject it as the product solution and continue with narrower Chromium/Skia/Windows raster policy investigation.
+5. If all hard metrics remain within policy, only then consider a Windows-scoped Electron rendering-policy change, followed by packaged Windows integration and correctness regression coverage.
