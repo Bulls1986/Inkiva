@@ -681,3 +681,24 @@ This removes the catastrophic `31–42 FPS` DComp low mode but still reaches onl
 
 Current diagnosis: the remaining bimodality is rooted in the Windows Chromium GPU -> DXGI/DirectComposition presentation path, not editor-main-thread work. The next app-controlled experiment should reduce compositor damage/presentation pressure at the virtual render-surface boundary (segment-level paint/compositing containment) rather than disable a global graphics backend.
 
+### Post-attribution containment and mutation exclusions
+
+The precise baseline traces also show that the pathological Present calls **start after scrolling begins**, rather than being old search-clear work that merely overlaps the measurement window. Representative long Present start offsets from `INKIVA_SCROLL_BEGIN` are:
+
+- sample 0: `+33.021 ms`, duration `292.334 ms`
+- sample 1: `+244.368 ms`, duration `278.174 ms`
+- sample 4: `+267.039 ms`, duration `458.694 ms`
+- sample 5: `+228.364 ms`, duration `488.076 ms`
+- sample 8: `+249.933 ms`, duration `401.263 ms`
+
+This excludes a search-disposal tail as the remaining trigger.
+
+Three further runtime-only A/Bs were then executed without changing product code:
+
+1. **Segment paint containment** — forcing `.mu-virtual-segment { display:block; contain:paint }` changed editor geometry from `54627` to `54470 px` scroll height and still produced low samples around `42/41/43 FPS` with `~263–289 ms` DXGI Present stalls. Rejected: no performance fix and document geometry changes.
+2. **Root segment-mutation correlation** — a direct `.mu-container` child-list observer marked segment attach/detach events during the exact one-second scroll window. All ten samples reported **zero segment mutations**, including `23/32/34/36/38 FPS` low samples with `~345–476 ms` Present stalls. Therefore continuous-scroll low mode is not caused by virtual-segment hydration/removal.
+3. **Editor viewport paint containment** — forcing `.editor-component { contain:paint }` also changed scroll height from `54627` to `54470 px` and yielded `43,56,57,56,56,44,56,41,57,42 FPS`; the `44/41/42 FPS` samples still carried `~260/298/286 ms` Present stalls. Rejected for both geometry change and failure to remove low mode.
+
+The remaining stall therefore exists on an already-composited scrolling surface even when there is no Renderer Long Task and no virtual-root DOM mutation. The next diagnostic target is the Chromium compositor layer/tree itself: verify whether the current `.editor-component { transform: translateZ(0) }` promotes the full ~54k-pixel document PictureLayer/backing and whether a viewport-sized promotion boundary can preserve accelerated scrolling without the giant presentation surface.
+
+
