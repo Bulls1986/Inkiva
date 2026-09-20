@@ -526,3 +526,53 @@ Interpretation so far:
 - a full 20-sample overscan=1 Gate was started with no diagnostic rendering switches, but WebCodex/Runner issued `stop_requested` immediately after Playwright began and no valid sample set was produced. This is infrastructure cancellation, not a gate pass/failure.
 
 Do not commit the overscan constant change as a completed optimization yet. Next validation must obtain same-workload repeated GPU-raster evidence and a valid full Fast Gate before finalizing the production change.
+
+### Clean overscan=2 formal baseline after diagnostic isolation
+
+The performance runner itself is now isolated enough to establish a trustworthy full baseline:
+
+- duplicate WebCodex workflow sessions that were concurrently dispatching PR-C diagnostics were identified and closed;
+- an orphan overscan Vitest process was terminated;
+- `performance-fast-gate.spec.ts`, `scrollPage/index.ts`, and the virtualization production test were restored to committed state;
+- `VIRTUAL_RENDERER_OVERSCAN_VIEWPORTS` was confirmed at the committed value `2` and remained stable before build;
+- the Electron bundle was rebuilt from that clean state;
+- the Fast Gate was launched through a supervisor-owned detached process with a unique idempotency key, no tracing, no `INKIVA_DIAG_*` flags, one Playwright worker, and the original 20-sample workload;
+- wrapper self-recording completed with child status `0`; Playwright reported `1 passed (4.0m)` and produced a ~19.7 MB raw capture;
+- final judgement used the unchanged `perf/soak/thresholds-fast.json` evaluator, not the green Playwright process.
+
+Durable local snapshot:
+
+- directory: `perf-results/diagnostic-snapshots/2026-09-21-clean-overscan2/`
+- raw SHA256: `5DE254B3402A3EE401ABD0CD1E7812AC8622DEE5EE82ABEA5403AC0512C456D7`
+- evaluation SHA256: `C28A0D894A4C5DB2F279D18556F7FBDBB1907625F4C3BDC2C7569D2D59ABAB30`
+- report SHA256: `85F8713A866CD1235EDE6615537A0E8160E570A020A00BEE581CAEA81036156C`
+
+The clean overscan=2 evaluator **FAILS** five hard metrics:
+
+- `document.50k.firstScreen`: p95 **231.245 ms**, target `<200 ms`;
+- `document.50k.editable`: p95 **536.965 ms**, target `<250 ms`;
+- `document.50k.scrollFps`: min **22 FPS**, target `>=55 FPS` on this runner;
+- `diagram.placeholder`: p95 **50.300 ms**, target `<50 ms`;
+- `search.folder.firstBatch`: p95 **510.870 ms**, target `<300 ms`.
+
+Passing evidence in the same run includes:
+
+- `save.50k`: p95 about **75.21 ms**, max **77.30 ms**, comfortably below `<100 ms`;
+- input latency: p95 about **0.80 ms**, p99 about **1.51 ms**, max **2.10 ms**;
+- memory linear growth and crash/renderer-crash/OOM/CPU-runaway/renderer-hang metrics remain zero.
+
+The failure distribution is strongly intermittent rather than uniformly slow. Scroll samples are:
+
+`38, 57, 57, 24, 45, 46, 57, 57, 28, 22, 43, 31, 57, 24, 45, 23, 57, 57, 56, 22`
+
+Eight samples reach `56-57 FPS`, while the low mode falls as far as 22 FPS. First-screen/editable/search show the same outlier character: most search samples are around 155-176 ms but two rise to ~509/543 ms; editable includes 98-231 ms normal samples plus ~384/511/1025 ms spikes. This remains consistent with intermittent raster/presentation stalls rather than sustained renderer-main saturation.
+
+The search-disposal fix from `7ecad05` remains valid despite the full-gate failure: its specific trace chain (`search-result` DOM removal -> BODY invalidation -> raster_id 37 -> ~247 ms GPU flush) was eliminated, and later traces show `searchInvalidations=0` during scroll. The remaining bimodality is a separate problem.
+
+Earlier GPU-raster-off notes must not be interpreted as a proposed fix. A later mutex-protected paired experiment, performed under the same then-current source state, produced baseline `56 / 56 / 56 FPS` versus `--disable-gpu-rasterization` `37 / 34 / 57 FPS`. That controlled comparison rejects CPU raster as a general stabilization solution. It is diagnostic-only and is not comparable as the formal overscan=2 baseline because the source state at that time still contained the temporary overscan=1 experiment.
+
+### Next validation from the clean baseline
+
+The narrowest evidence-backed product experiment remains overscan `2 -> 1`: it reduces mounted/materialized Markdown blocks from roughly `40 -> 26` without changing total logical blocks, segment size, document height, workload, threshold, sample count, or statistics. Focused overscan=1 runs already reached the local ceiling and correctness evidence is promising, but no valid full Gate exists yet.
+
+Next step is therefore one clean full 20-sample Fast Gate with only `VIRTUAL_RENDERER_OVERSCAN_VIEWPORTS=1` changed, using the same detached/self-recording execution path and the unchanged evaluator. The experiment is accepted only if it improves the formal distribution without correctness regressions; otherwise restore overscan=2 and continue deeper render-surface work.
