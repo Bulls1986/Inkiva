@@ -183,16 +183,9 @@ Evidence that remains valid:
 - Distant Enter -> immediate typing on rebuilt Electron bundle: PASS.
 - Full virtualization editing operations on rebuilt Electron bundle: **4/4 PASS**.
 - Outline/scroll synchronization on rebuilt Electron bundle: **3/3 PASS**.
-- Combined rebuilt core Electron suite: **30/31 PASS**.
-
-Current blocking test:
-
-`virtualization-core.spec.ts` — “sidebar and editor max-width changes preserve the virtual viewport anchor”
-
-- repeated independently 3 times;
-- all 3 runs fail with exactly 3-block drift;
-- assertion remains <=2 blocks;
-- root-cause direction: pre-reflow authoritative anchor semantics were weakened by approximate/exact anchor lifecycle introduced for Segment/hot-path optimization.
+- Combined rebuilt core Electron suite: **31/31 PASS**.
+- Muya virtualization production contracts: **28/28 PASS** after the Chromium `scrollend` stable-paint regression was added.
+- The earlier width-reflow viewport-anchor blocker is resolved; the <=2-block assertion was not weakened.
 
 ## 5. Required validation sequence from now on
 
@@ -252,3 +245,99 @@ It is complete only when:
 - no temporary diagnostic or raw perf output is committed;
 - all final files can be mapped to a documented PR-C responsibility;
 - remaining limitations are explicitly recorded.
+
+## 8. Render Trace Recovery Checkpoint — 2026-09-21
+
+This section is deliberately written as a session-recovery handoff. If the active chat/session is lost, resume from this section instead of repeating broad profiling.
+
+### Repository checkpoint
+
+- Branch: `perf/pr-c-segment-virtualization`
+- Stable code checkpoint: `058e793` — `perf(editor): stabilize segmented render surface`
+- The checkpoint contains the validated Segment Virtualization/renderer/performance changes and regression tests.
+- Temporary diagnostic E2E files and raw `perf-results/` are intentionally **not** part of that commit.
+
+### Current correctness evidence
+
+- Rebuilt Electron core suite: **31/31 PASS**.
+- Muya virtualization production contracts: **28/28 PASS**.
+- Chromium `scrollend` no longer hydrates synchronously. It uses the generation-aware two-paint stable boundary, so continuous programmatic scrolling does not execute `_hydrateVirtualWindowAtCurrentViewport()` / `_applyVirtualWindow()` every frame.
+
+### Current formal Fast Gate result
+
+The latest valid run was protected by the single-instance lock and completed as one Playwright workload (`1 passed`, approximately 3.9 minutes). The Playwright process completing is only sample collection; final threshold evaluation still **FAILS**.
+
+Hard failures from `perf-results/formal-fast-evaluation.json`:
+
+- `document.50k.scrollFps`: **min 19 FPS**, required `>=55 FPS` on this machine. Twenty samples: `20, 29, 23, 48, 45, 31, 19, 28, 22, 30, 19, 31, 26, 22, 46, 29, 23, 45, 23, 45`.
+- `diagram.placeholder`: **p95 53.675 ms**, required `<50 ms`.
+- `search.folder.firstBatch`: **p95 325.665 ms**, required `<300 ms`.
+
+The first-screen/editable/input/save/stability metrics did not appear in the final violation set in this run. Do not call the Fast Gate passed until the evaluator returns success.
+
+### Hardware / DOM ceiling evidence
+
+Repeated A/B diagnostics established the local Chromium/rAF ceiling at roughly **56–57 FPS**:
+
+- idle rAF: ~56 FPS;
+- blank scroller: ~56 FPS;
+- 50K document DOM with all business scroll listeners blocked: ~56 FPS;
+- 50K document with virtualization handlers retained but active-TOC store writes suppressed: ~56 FPS in the diagnostic workload.
+
+Therefore the persistent 19–48 FPS in the formal Fast Gate is **not explained by the machine refresh ceiling or by the mere existence of the 50K DOM**. The remaining problem is additional work/state in the formal Fast Gate scenario.
+
+### Bottom-up Chromium/Electron trace evidence
+
+Tracing method: Electron `contentTracing`, following the frame backward from presentation/compositor into `CrRendererMain`, Blink lifecycle, invalidation tracking, and finally DOM/JS causes. This replaces broad source-level hotspot guessing.
+
+First captured slow frame:
+
+- `RunTask`: **42.62 ms**
+- `ProxyMain::BeginMainFrame`: **42.39 ms**
+- `Document::UpdateStyleAndLayout` / Forced Style & Layout: **~33.81 ms**
+- `Layout`: **31.84 ms**
+- `InlineNode::ShapeTextIncludingFirstLine`: **28.77 ms**
+- the frame was a full layout: **1027 layout objects**, 19 dirty objects.
+
+With invalidation tracking enabled, that cold slow frame traced to:
+
+- `SPAN id='mu-4' class='mu-inline-image mu-image-fail'`
+- reasons included `Style changed`, `Removed from layout`, and `Added to layout`;
+- its success/fail/close icon descendants also entered/left layout in the same frame.
+
+The 50K fixture includes `![A placeholder image](fixture-image.png)`, whose source does not exist. Its first visible load transitions `loading -> fail`, causing that full Blink layout/text-shaping event.
+
+### Important exclusion: failed image is not the persistent scroll root cause
+
+A dedicated virtual-remount diagnostic scrolled top -> bottom -> top three times. The failed image remained the same wrapper `mu-4` and its `data-image-load-start` timestamp never changed. It did **not** retry on Segment remount.
+
+Therefore the failed-image trace explains a real cold long frame but **does not explain the formal Fast Gate's 20 continuously low scroll samples**. Do not optimize failed-image retry merely to chase the FPS gate without new evidence.
+
+### Why the simplified trace is insufficient
+
+A simplified 50K trace later reached **55 FPS**, close to the machine ceiling, while the formal Fast Gate still produced all 20 scroll samples between 19 and 48 FPS. This proves a meaningful state/workload difference exists between the standalone POC and the real gate.
+
+### Raw/local evidence locations (never commit raw outputs)
+
+- Latest Chromium trace: `packages/desktop/test-results/perf-trace/segment-scroll-trace.json`
+- Latest formal Fast Gate raw capture: `perf-results/formal-fast-capture/fast.raw.json`
+- Latest formal evaluation: `perf-results/formal-fast-evaluation.json`
+- Latest formal report: `perf-results/formal-fast-report.json`
+- Durable local snapshot directory: `perf-results/diagnostic-snapshots/2026-09-21-render-trace/`.
+- Snapshot SHA256 manifest: `perf-results/diagnostic-snapshots/2026-09-21-render-trace/SHA256SUMS.txt`; it currently covers the Chromium trace, formal Fast Gate raw capture, evaluator output, and report.
+- Temporary tracing POC: `packages/desktop/test/e2e/segment-render-trace-poc.spec.ts`
+- Other temporary attribution POCs: `packages/desktop/test/e2e/segment-scroll-poc.spec.ts`, `segment-scroll-attribution-poc.spec.ts`, `segment-toc-reactivity-poc.spec.ts`, `segment-image-remount-poc.spec.ts`.
+
+These files are diagnostic artifacts only. Do not stage/commit them unless one is intentionally converted into a clean permanent regression test.
+
+### Exact next diagnostic action
+
+Do **not** return to broad A/B guessing. Instrument the **formal Fast Gate's own `measureElementScrollFps()` execution path** with the same Chromium `contentTracing` + `disabled-by-default-devtools.timeline.invalidationTracking` categories. Capture the actual 19–48 FPS workload, then for every frame exceeding the local frame budget trace backward in this order:
+
+`Presentation / BeginFrame -> Compositor -> ProxyMain::BeginMainFrame -> Renderer Main -> Style/Layout/Paint -> invalidation node/reason -> DOM mutation / FunctionCall -> Inkiva/Muya source`.
+
+The required final diagnosis is a repeatable chain of the form:
+
+`formal-gate scroll frame -> specific recurring mutation/state transition -> Blink invalidation -> layout/style/paint cost -> missed frame deadline`.
+
+Do not claim the FPS root cause is resolved until this chain explains the recurring formal-gate slow samples and the same-workload Fast Gate verifies the fix.
