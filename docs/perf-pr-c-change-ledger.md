@@ -372,3 +372,57 @@ Do **not** return to broad source-level guessing. Continue from the GPU evidence
 4. Only after the causal layer/source is identified, add a minimal regression test, implement the code fix, rebuild, rerun the formal same-workload Fast Gate, and judge by threshold evaluation.
 
 Do not claim the FPS root cause is resolved merely because the pipeline stall is localized to GPU raster/presentation; the remaining work is to identify the Inkiva-controlled trigger, if one exists.
+
+### Search-disposal GPU stall — causal chain closed and fixed
+
+Layer mapping and source-frame correlation closed the first ~247 ms GPU stall:
+
+- layer `5` = `BODY` (1200x800);
+- layer `9` = custom scrollbar (8x702);
+- layer `10` = editor `DIV.editor-component` PictureLayer, roughly 904x53.8k with a 904x702 visible viewport;
+- layer `65` = `SPAN.tab-filename` (261x50).
+
+For source frame `163`, `raster_chromium_id=37` maps to a **BODY layer 5 tile**. GPU `raster_id=37` is the exact task whose `DoEndRasterCHROMIUM::Flush` blocks for ~247 ms.
+
+The formal Fast Gate order is `folder search -> clear search input -> immediate editor scroll`. In the failing 19 FPS trace, ~223-226 ms after scrolling starts Vue removes the previous search-result DOM (`search-result`, `highlight`, `matches`, `filename`, `match-count`, `file-info`, etc.). That cleanup invalidates BODY and is followed by source-frame 163 BODY raster, then the ~247 ms GPU flush.
+
+This is therefore a real Editor-First violation: browser-idle cleanup from the search sidebar can run while the user is actively scrolling the editor.
+
+Fix implemented without adding a millisecond timeout:
+
+- new `services/editorInteraction.ts` keeps a monotonic editor-scroll revision;
+- the editor scroll handler increments the revision at the beginning of every scroll event;
+- `createIdleDeferredTask` accepts an optional priority-revision getter;
+- search-result disposal requires two consecutive stable paint boundaries, then rechecks the revision at idle time;
+- if editor scrolling changes the revision, disposal is requeued instead of mutating sidebar DOM during the scroll;
+- callers that do not supply a revision getter retain the previous one-rAF-then-idle behavior.
+
+Test-first evidence:
+
+- new unit contract initially failed because the old implementation entered idle despite a revision change;
+- after the fix, `workspace-search.spec.ts`: **9/9 PASS**;
+- desktop rebuild: **PASS**.
+
+Formal index=1 trace after the fix confirms the causal effect:
+
+- `searchInvalidations=0` inside the scroll window;
+- the previous ~247 ms BODY raster stall disappears; observed GPU raster max in the persisted follow-up trace is ~3.19 ms;
+- one run reaches **56 FPS**, equal to the local ~56-57 FPS ceiling.
+
+A second run still reaches only **39 FPS**, but its only exceptional gap is a ~359.6 ms `DXGISwapChainImageBacking::Present`; search invalidation remains zero and raster remains low. Therefore the search-disposal fix removes one independent product-controlled stall, while a separate intermittent DXGI/DComp presentation stall remains.
+
+### Presentation-stall isolation status
+
+Removing the editor's `translateZ(0)` compositor hint is **not** a sufficient fix. One transform-off sample reaches 57 FPS with no stall, but another reaches 25 FPS and still shows ~295 ms GPU raster stalls plus ~151 ms Present stall. Do not remove the transform based on the favorable sample.
+
+The stronger content-isolation diagnostic keeps the normal ~53.8k editor scroll geometry but sets `.mu-container` to `visibility:hidden`. The first two completed repeats reach **56 FPS** and **55 FPS**; the compositor layer tree still contains the huge editor scroll layer, but its content picture layer no longer draws Markdown content. A third repeat did not leave independently recoverable output because the diagnostic runner lost the outer job handle; do not treat two samples as final statistical proof.
+
+Current implication: large scroll geometry alone is not sufficient to reproduce the stall; visible editor content raster is a likely necessary condition. This still requires a visible-content containment A/B before changing production rendering architecture.
+
+### Updated exact next diagnostic action
+
+1. Run the existing `INKIVA_DIAG_CONTENT_VISIBILITY_AUTO` A/B with normal visible editor content and the same formal Fast Gate index=1 path, using sequential repeats only.
+2. Verify the selector actually targets the virtualized rendered blocks/segments before interpreting the result.
+3. If browser paint containment/content-visibility stabilizes the samples near the local 55-57 FPS ceiling, convert the finding into the narrowest segment-level production strategy and add a regression contract before implementation.
+4. If it does not, continue bottom-up from the remaining DXGI/DComp stall; do not change the Fast Gate workload or threshold.
+5. After the render-side diagnosis is complete, restore all temporary Fast Gate tracing/A-B code, rerun the 31-case Electron correctness group, then run one clean single-instance formal Fast Gate and evaluate the threshold report.

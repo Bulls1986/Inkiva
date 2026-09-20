@@ -134,6 +134,7 @@ import { VideoPause } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import type { SearchResult } from './types'
 import { limitSearchResults } from '@/util/searchResultLimit'
+import { getEditorScrollInteractionRevision } from '@/services/editorInteraction'
 import {
   createIdleDeferredTask,
   FOLDER_SEARCH_DEBOUNCE_MS
@@ -208,9 +209,13 @@ const clearSearchTimer = (): void => {
   }
 }
 
-const searchResultDisposal = createIdleDeferredTask(() => {
-  searchResult.value = []
-})
+const searchResultDisposal = createIdleDeferredTask(
+  () => {
+    searchResult.value = []
+  },
+  window,
+  getEditorScrollInteractionRevision
+)
 
 const cancelSearchResultDisposal = (): void => {
   searchResultDisposal.cancel()

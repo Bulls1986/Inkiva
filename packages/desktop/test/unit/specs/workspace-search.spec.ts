@@ -49,6 +49,42 @@ describe('workspace search primitives', () => {
     expect(dispose).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps deferred search disposal behind a stable editor-scroll revision boundary', () => {
+    const dispose = vi.fn()
+    const frames: FrameRequestCallback[] = []
+    let idle: ((deadline: IdleDeadline) => void) | null = null
+    let editorScrollRevision = 0
+    const target = {
+      requestAnimationFrame: vi.fn((callback: FrameRequestCallback) => {
+        frames.push(callback)
+        return frames.length
+      }),
+      cancelAnimationFrame: vi.fn(),
+      requestIdleCallback: vi.fn((callback: (deadline: IdleDeadline) => void) => {
+        idle = callback
+        return 10
+      }),
+      cancelIdleCallback: vi.fn()
+    } as unknown as Window
+    const task = createIdleDeferredTask(dispose, target, () => editorScrollRevision)
+
+    task.schedule()
+    expect(frames).toHaveLength(1)
+
+    frames.shift()?.(0)
+    editorScrollRevision += 1
+    frames.shift()?.(16)
+    expect(idle).toBeNull()
+    expect(dispose).not.toHaveBeenCalled()
+
+    frames.shift()?.(32)
+    frames.shift()?.(48)
+    expect(idle).not.toBeNull()
+    idle?.({ didTimeout: false, timeRemaining: () => 8 } as IdleDeadline)
+
+    expect(dispose).toHaveBeenCalledTimes(1)
+  })
+
   it('cancels stale deferred disposal when a new search generation takes ownership', () => {
     const dispose = vi.fn()
     const cancelIdleCallback = vi.fn()

@@ -148,6 +148,7 @@ import {
 import { rendererPerformance, rendererPerformanceMonitor } from '@/services/performance/runtime'
 import { createInputParseProbe } from '@/services/performance/inputParse'
 import { scheduleEditorPerformanceMilestones } from './editorPerformanceMilestones'
+import { markEditorScrollInteraction } from '@/services/editorInteraction'
 
 // Importing the engine entrypoint auto-injects its editor CSS (the muya.ts
 // module imports its stylesheets at load time). Inkiva owns the application
@@ -2580,6 +2581,7 @@ onMounted(() => {
   // The engine does not emit `scroll`; listen on the scroll container directly
   // so the desktop can persist each tab's scroll position.
   scrollHandler = () => {
+    markEditorScrollInteraction()
     const pending = pendingScrollRestore
     if (pending) {
       // A layout pass can clamp scrollTop while diagrams or media settle. The
