@@ -155,6 +155,41 @@ describe('stage C1 virtualization production contract', () => {
         );
     });
 
+    it('bounds the primary materialized window to one viewport of overscan per side', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + 320;
+        const muya = new Muya(host, {
+            markdown: paragraphs(totalBlocks),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const targetIndex = 180;
+        const viewportHeight = 600;
+        const targetOffset = scrollPage.getVirtualBlockOffset(targetIndex);
+        const nextOffset = scrollPage.getVirtualBlockOffset(targetIndex + 1);
+        if (targetOffset === null || nextOffset === null)
+            throw new Error('expected virtual target offsets');
+
+        scrollPage.updateVirtualWindowForViewport(targetOffset, viewportHeight);
+        const snapshot = scrollPage.getVirtualizationSnapshot();
+        const startOffset = scrollPage.getVirtualBlockOffset(snapshot.windowStart);
+        const lastMountedOffset = scrollPage.getVirtualBlockOffset(snapshot.windowEnd - 1);
+        if (startOffset === null || lastMountedOffset === null)
+            throw new Error('expected mounted virtual window offsets');
+
+        const blockAdvance = nextOffset - targetOffset;
+        const roundingTolerance = Math.max(1, blockAdvance * 2);
+        expect(targetOffset - startOffset).toBeLessThanOrEqual(viewportHeight + roundingTolerance);
+        expect(lastMountedOffset - (targetOffset + viewportHeight)).toBeLessThanOrEqual(
+            viewportHeight + roundingTolerance,
+        );
+    });
+
     it('keeps a collapsed active block pinned without expanding the DOM across the whole gap', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);

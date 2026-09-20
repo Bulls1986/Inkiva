@@ -576,3 +576,70 @@ Earlier GPU-raster-off notes must not be interpreted as a proposed fix. A later 
 The narrowest evidence-backed product experiment remains overscan `2 -> 1`: it reduces mounted/materialized Markdown blocks from roughly `40 -> 26` without changing total logical blocks, segment size, document height, workload, threshold, sample count, or statistics. Focused overscan=1 runs already reached the local ceiling and correctness evidence is promising, but no valid full Gate exists yet.
 
 Next step is therefore one clean full 20-sample Fast Gate with only `VIRTUAL_RENDERER_OVERSCAN_VIEWPORTS=1` changed, using the same detached/self-recording execution path and the unchanged evaluator. The experiment is accepted only if it improves the formal distribution without correctness regressions; otherwise restore overscan=2 and continue deeper render-surface work.
+
+### Clean overscan=1 formal gate
+
+The planned isolated experiment was executed from the clean overscan=2 baseline with only `VIRTUAL_RENDERER_OVERSCAN_VIEWPORTS` changed from `2` to `1`. Segment size stayed at `64`; the Fast Gate workload, twenty-sample count, one-worker execution, offline mode, capture settings, thresholds, and statistics were unchanged. No `INKIVA_DIAG_*` or trace-only flags were present, and no competing WebCodex job or performance lock existed before launch.
+
+Correctness/build evidence before the formal Gate:
+
+- `packages/muya/src/block/scrollPage/__tests__/virtualizationProduction.spec.ts`: `29/29` passed, including the new one-viewport-overscan production contract.
+- Electron desktop bundle rebuilt successfully with `electron-vite build` (`38.98 s`).
+- Two earlier `run_shell` attempts timed out before Vitest/build emitted any output; rerunning the same work through Runner-native `run_process` completed successfully. Treat those shell timeouts as execution-channel failures, not product regressions.
+
+Formal collection:
+
+- wrapper status: `0`
+- Playwright: `1 passed (4.0m)`
+- twenty real samples per declared Fast Gate metric
+- final judgement: unchanged `perf/soak/thresholds-fast.json` evaluator
+- durable snapshot: `perf-results/diagnostic-snapshots/2026-09-21-clean-overscan1/`
+- raw SHA256: `84D8CFD11DFD8FACE833E0E44B3C427CBCAD15613102DB5AF38BF53573478705`
+- evaluation SHA256: `0EA8007FB6E88D67387700468904ED9B8E46A9244B652F450D187692348FAE1A`
+- report SHA256: `533727F09DD6DE1245549C20A98DF9DA93C093FAD2633EDF249001C38B0A658A`
+
+The evaluator still FAILS, but the failure set narrows from five hard metrics to four:
+
+| Metric | clean overscan=2 | clean overscan=1 | Threshold | Result |
+| --- | ---: | ---: | ---: | --- |
+| `document.50k.firstScreen` p95 | 231.245 ms | 229.255 ms | < 200 ms | FAIL |
+| `document.50k.editable` p95 | 536.965 ms | 289.645 ms | < 250 ms | FAIL |
+| `document.50k.scrollFps` min | 22 FPS | 25 FPS | >= 55 FPS | FAIL |
+| `diagram.placeholder` p95 | 50.300 ms | 55.910 ms | < 50 ms | FAIL |
+| `search.folder.firstBatch` p95 | 510.870 ms | 282.430 ms | < 300 ms | PASS |
+| `save.50k` p95 | ~75.21 ms | 74.235 ms | < 100 ms | PASS |
+
+The overscan=1 scroll samples are:
+
+`37, 57, 57, 41, 45, 45, 56, 29, 30, 56, 28, 57, 44, 26, 56, 25, 45, 45, 57, 31`
+
+The low-mode stall remains: p95 is still `57 FPS`, but minimum is only `25 FPS`. Overscan reduction therefore does not solve the compositor/raster bimodality by itself.
+
+Other passing evidence in the same run:
+
+- input latency: p95 `1.115 ms`, p99 `1.700 ms`, max `2.300 ms`
+- save: p95 `74.235 ms`, max `78.700 ms`
+- search: p95 `282.430 ms`, max `296.300 ms`
+- memory linear growth count: `0`
+- crash / renderer crash / OOM / CPU runaway / renderer hang: all `0`
+- first-screen synchronous diagram renders: `0`
+- offscreen image request/decode: `0 / 0`
+
+Interpretation: overscan=1 is not sufficient to pass the formal Gate, but it materially improves the editable and folder-search distributions and slightly raises the scroll floor while preserving the local unit contract. It also regresses the diagram-placeholder p95 in this sample. Because the formal distribution improves on two previously failing metrics but the core scroll bimodality remains, do not claim PR-C complete. Before deciding to keep the product change, complete the serial Electron virtualization correctness suite with no competing performance work. If correctness is clean, overscan=1 can remain as a bounded raster-pressure reduction while deeper render-surface work targets the remaining intermittent stalls; if correctness regresses, restore overscan=2.
+
+### Overscan=1 Electron correctness follow-up
+
+The full serial `@virtualization-core` Electron suite was run with one worker and no competing performance/Electron job:
+
+- `43` tests total
+- `42` passed
+- `1` failed
+- total runtime: `4.0m`
+
+The only failure was `VIEW-KEY-007: configured Zoom shortcuts preserve the virtualized surface`: `pressCommand('window.zoomIn')` returned true, but `BrowserWindow.webContents.getZoomFactor()` remained `1` for the unchanged 5-second poll. The same case was then rerun alone with `--repeat-each=3`; all `3/3` repeats reproduced the identical failure.
+
+This is not new evidence against overscan=1. `packages/desktop/test/e2e/VIRTUALIZATION_REGRESSION_COVERAGE.md` already records this exact fail-closed Windows/Typora defect: `window.zoomIn = Ctrl+Shift+Plus` is configured, native input succeeds for the other commands, but Zoom In does not trigger the Window Zoom command in Electron E2E. The overscan experiment does not touch keybinding, Window Zoom, preload webFrame, or command-dispatch code, and the failure occurs before the test reaches any virtualization assertion.
+
+All other `42` virtualization-core cases passed, including selection, IME/composition, Undo/Redo, source-mode round-trip, width reflow, sidebar/max-width anchor preservation, Find, outline navigation, diagrams, editing operations, local images, history, Save, Source/Focus/Sidebar shortcuts, and CJK cases.
+
+Decision: retain overscan=1 as a bounded raster-pressure reduction; do not weaken or suppress the known Zoom guard and do not fold an unrelated keybinding fix into this performance change. This does **not** make PR-C complete: the formal Fast Gate still fails first-screen, editable, scroll-FPS minimum, and diagram-placeholder thresholds, with scroll bimodality the dominant unresolved renderer-surface issue.
