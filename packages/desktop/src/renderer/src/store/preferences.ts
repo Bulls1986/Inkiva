@@ -258,11 +258,7 @@ export const usePreferencesStore = defineStore('preferences', {
       Object.keys(preference).forEach((key) => {
         const incoming = (preference as Record<string, unknown>)[key]
         const normalizedIncoming =
-          key === 'editorFontFamily' && incoming === 'Open Sans'
-            ? 'system-ui'
-            : key === 'editorLineWidth'
-              ? normalizeEditorLineWidth(incoming)
-              : incoming
+          key === 'editorLineWidth' ? normalizeEditorLineWidth(incoming) : incoming
         if (
           typeof normalizedIncoming !== 'undefined' &&
           typeof (this as unknown as Record<string, unknown>)[key] !== 'undefined'
