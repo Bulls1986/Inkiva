@@ -781,5 +781,23 @@ Long Present calls can also occur in a nominally high measured sample (for examp
 
 Interpretation: Markdown paint complexity materially **amplifies the frequency** of the DComp/Present problem, but is not a necessary condition; a simple flat moving composited island can still hit the same Windows presentation backpressure. This supports a narrower next experiment: reduce the size of each painted segment island while restoring real Markdown content. The current `64`-block segment produces a local painted layer of roughly `3.5k px`, several viewport heights. Temporarily test a smaller segment size under the same formal-context workload before considering any product architecture change.
 
+### Segment-size 16 experiment rejected before performance measurement
+
+A test-first temporary source experiment changed only `VIRTUAL_RENDERER_SEGMENT_BLOCKS` from `64` to `16`, with overscan remaining `1`. The existing production contract was intentionally left unchanged and run before any Electron performance measurement.
+
+Result: `29` tests total, `25` passed, `4` failed.
+
+Only one failure is the expected explicit contract mismatch (`segmentSize 16` vs `64`). The other three demonstrate real structural regressions from smaller segments:
+
+- a collapsed active block pin now spans `3` mounted segments instead of the bounded `2`;
+- a local window shift crosses a segment boundary, so the segment root is no longer retained as the same root;
+- an exiting range produces `5` root child-list removal records instead of the single batched segment removal.
+
+These failures mean smaller segments trade paint-island size for higher segment-boundary churn and root DOM mutation amplification, directly violating existing Render Surface correctness/performance contracts. The experiment was therefore stopped before desktop build/FPS measurement; no threshold or test assertion was changed.
+
+The source constant was restored to `64`, and the same production suite returned to `29/29 PASS`.
+
+Decision: do not pursue smaller production segments as the next fix. Continue isolating which painted Markdown primitives materially increase DirectComposition/Present stall frequency while preserving the validated 64-block batching model.
+
 
 
