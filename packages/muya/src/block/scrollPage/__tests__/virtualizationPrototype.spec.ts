@@ -173,8 +173,7 @@ describe('stage C0 top-level virtualization prototype', () => {
         expect(copied).toContain('paragraph 0');
         expect(copied).toContain(`paragraph ${totalBlocks - 1}`);
 
-        const active = muya.editor.selection.anchorBlock!;
-        active.domNode!.focus();
+        expect(muya.hasFocus()).toBe(true);
         document.dispatchEvent(new KeyboardEvent('keydown', {
             key: 'Delete',
             bubbles: true,

@@ -143,6 +143,13 @@ class TextSelection {
         if (aBlock == null || fBlock == null)
             return;
 
+        // Select All may be invoked through Electron's accelerator path while
+        // focus is no longer on a contenteditable descendant. Restore editor
+        // ownership before creating the native range so the immediately
+        // following Delete/Backspace is handled by the document-level
+        // clipboard guard instead of falling through to the browser.
+        this._muya.domNode.focus();
+
         this.setSelection(
             { offset: 0, block: aBlock, path: aBlock.path },
             { offset: fBlock.text.length, block: fBlock, path: fBlock.path },
