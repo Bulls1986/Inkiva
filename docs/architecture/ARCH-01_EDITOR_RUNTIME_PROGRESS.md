@@ -114,7 +114,7 @@ Stage 1 implementation commit: `54b1e1a9` (`refactor(editor): add document edito
 
 ### Stage 2 — snapshot scheduler + renderer bus teardown ownership
 
-Status: **complete (local commit), remote push pending verification**
+Status: **complete and pushed**
 
 Test-first evidence:
 
@@ -144,7 +144,7 @@ Implementation commit:
 
 Remote state:
 
-- Earlier `git push -u origin arch/01-editor-runtime` timed out without output. Remote publication is **not** claimed until independently verified.
+- Verified push succeeded; branch now tracks `origin/arch/01-editor-runtime`.
 
 Next:
 
@@ -153,3 +153,45 @@ Next:
 3. migrate those resources behind runtime disposables while preserving cleanup ordering;
 4. run focused unit/typecheck and Electron E2E covering mount/unmount, tab switch and source/WYSIWYG switch;
 5. only after these pass, move final Muya instance destruction behind `DocumentEditorRuntime.dispose()`.
+
+### Stage 3 — presentation resource teardown ownership
+
+Status: **complete, pending stage commit/push**
+
+Test-first evidence:
+
+- Added a structural ownership gate to `editor-switch-protection.spec.ts` requiring `onBeforeUnmount` to delegate presentation-resource cleanup to `editorRuntime.dispose()` rather than directly removing document/input/scroll listeners or destroying TOC/layout resources.
+- Red result: focused suite ran 8 tests with **1 failed / 7 passed** and explicitly reported `document.removeEventListener('keyup', ...)` still present in `onBeforeUnmount`.
+- After migration: runtime/snapshot/structural suites **29/29 passed** across 3 files.
+
+Implemented:
+
+- grouped document keyup, input probe DOM listeners, scroll listener/timer, pending scroll persistence, renderer scroll monitor, TOC scheduler, layout reconciler, TOC scroll sync and pending scroll restore cleanup into `disposeEditorPresentationResources()`;
+- registered that ordered cleanup group with `DocumentEditorRuntime`;
+- removed those individual teardown operations from `onBeforeUnmount`;
+- preserved the previous cleanup order inside the grouped disposable rather than relying on registration-order side effects.
+
+Validation evidence:
+
+- `vue-tsc --noEmit -p packages/desktop/tsconfig.json`: **passed**.
+- focused ESLint initially exposed one real style error (`space-before-function-paren`), which was fixed; rerun **passed** with only the repository's existing `MODULE_TYPELESS_PACKAGE_JSON` warning.
+- Electron Vite build: **passed** using the direct CLI from `packages/desktop`; renderer build completed in 33.33 s.
+- focused `view-modes` E2E after environment repair: **1/1 passed**.
+- full targeted Electron E2E (`editor-switch-performance.spec.ts` + `view-modes.spec.ts`): **13 passed / 1 skipped**, 28.7 s.
+- covered behavior includes tab-switch snapshot reuse, deferred edit race, one-revision save/export/close reuse, warm large-document virtualization, focus/typewriter/source mode switches and source-mode menu state.
+
+Environment incident and resolution:
+
+- The fresh worktree initially reused the main checkout `node_modules` through junctions. Realpath inspection proved Electron/Playwright then resolved through an unrelated `perf-pr-c-stage-c0` worktree.
+- Removed those broad junctions and created a local pnpm layout. The filtered desktop install linked 1511 packages but native `ced` and `native-keymap` postinstall failed because this machine lacks Visual Studio C++ Build Tools.
+- Initial real E2E launch then failed in `beforeAll` because `ced.node` was absent. Existing matching native binaries from the already-working main checkout were copied locally for validation only; a local Electron command bridge likewise points to the already-installed Electron 42.1.0 binary.
+- These environment bridges live under ignored `node_modules` and are not part of the product diff or commit.
+- After repairing only those local runtime prerequisites, the exact targeted E2E suite passed as recorded above. Therefore the earlier E2E timeouts are classified as worktree dependency-environment failures, not product regressions.
+
+Next:
+
+1. commit/push Stage 3 code, tests and this ledger update;
+2. add a final structural gate that `onBeforeUnmount` contains no direct `imageViewer.destroy()` or `editor.value.destroy()` calls;
+3. move image viewer and Muya destruction behind runtime-owned cleanup while preserving final teardown ordering;
+4. rerun the same unit/typecheck/lint/Electron E2E set;
+5. review ARCH-01 success criteria and only then open/update the focused PR.

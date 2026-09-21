@@ -311,7 +311,45 @@ let pendingScrollPosition: { id: string; scrollTop: number } | null = null
 let tocScrollSync: ReturnType<typeof createTocScrollSync> | null = null
 let editorLayoutReconciler: ReturnType<typeof createEditorLayoutReconciler> | null = null
 const tocRefreshScheduler = createTocRefreshScheduler()
+function disposeEditorPresentationResources (): void {
+  document.removeEventListener('keyup', keyup)
+
+  // Engine `on(...)` listeners are torn down by Muya destroy. Runtime-owned
+  // DOM listeners/timers/layout resources are released here as one ordered
+  // group so Vue does not need to understand their individual lifecycle.
+  const inputContainer = getScrollContainer()
+  if (inputContainer) {
+    for (const eventName of ['beforeinput', 'compositionend', 'paste'] as const) {
+      inputContainer.removeEventListener(eventName, inputParseProbe.begin, true)
+    }
+  }
+  inputParseProbe.cancel()
+
+  if (scrollHandler && editor.value) {
+    const container = getScrollContainer()
+    container?.removeEventListener('scroll', scrollHandler)
+  }
+  scrollHandler = null
+
+  flushPendingScrollPosition()
+
+  if (scrollPerformanceEndTimer !== null) {
+    clearTimeout(scrollPerformanceEndTimer)
+    scrollPerformanceEndTimer = null
+  }
+  rendererPerformanceMonitor.endScroll()
+
+  tocRefreshScheduler.cancel()
+  editorLayoutReconciler?.destroy()
+  editorLayoutReconciler = null
+  tocScrollSync?.destroy()
+  tocScrollSync = null
+
+  clearPendingScrollRestore()
+}
+
 const editorRuntime = new DocumentEditorRuntime()
+editorRuntime.registerDisposable(disposeEditorPresentationResources)
 const editorSnapshotScheduler = new EditorSnapshotScheduler()
 editorRuntime.registerDisposable(() => editorSnapshotScheduler.dispose())
 const registerBusHandler = (event: string, handler: any): void => {
@@ -2702,40 +2740,6 @@ onBeforeUnmount(() => {
   editorPerformanceGeneration += 1
   flushActiveEditor()
   editorRuntime.dispose()
-
-  document.removeEventListener('keyup', keyup)
-
-  // Remove the manual scroll listener; engine `on(...)` listeners are torn down
-  // by `destroy()` → `eventCenter.unsubscribeAll()`.
-  const inputContainer = getScrollContainer()
-  if (inputContainer) {
-    for (const eventName of ['beforeinput', 'compositionend', 'paste'] as const) {
-      inputContainer.removeEventListener(eventName, inputParseProbe.begin, true)
-    }
-  }
-  inputParseProbe.cancel()
-
-  if (scrollHandler && editor.value) {
-    const container = getScrollContainer()
-    container?.removeEventListener('scroll', scrollHandler)
-  }
-  scrollHandler = null
-
-  flushPendingScrollPosition()
-
-  if (scrollPerformanceEndTimer !== null) {
-    clearTimeout(scrollPerformanceEndTimer)
-    scrollPerformanceEndTimer = null
-  }
-  rendererPerformanceMonitor.endScroll()
-
-  tocRefreshScheduler.cancel()
-  editorLayoutReconciler?.destroy()
-  editorLayoutReconciler = null
-  tocScrollSync?.destroy()
-  tocScrollSync = null
-
-  clearPendingScrollRestore()
 
   if (imageViewer) {
     imageViewer.destroy()
