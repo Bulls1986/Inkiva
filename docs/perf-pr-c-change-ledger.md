@@ -916,3 +916,17 @@ Final PR-C performance conclusion:
 
 
 
+
+
+### Correctness closeout: Outline active state now prefers mounted geometry
+
+After the performance attribution was closed, the remaining default-backend correctness run reproduced two related failures without changing thresholds:
+
+- OUT-003/OUT-005: clicking `Virtual Heading 42` left the active outline on `Virtual Heading 41`;
+- CN-FIND-006/CN-OUT-003: clicking `中文标题 37` left the active outline on `中文标题 40`.
+
+The navigation path already mounts the requested block and corrects the document scroll position from live DOM geometry. The mismatch came from the desktop TOC active-state path: once virtualization was enabled, it derived the active heading from document-level virtual prefix offsets. Those offsets intentionally contain estimates for unmeasured preceding blocks, so a correct mounted navigation target could still be classified as a neighbouring heading.
+
+The fix keeps the scroll event hot path unchanged. At the existing two-paint settled commit boundary, virtualized TOC synchronization now prefers the real geometry of currently mounted headings and falls back to the prefix-index binary search only when no mounted heading can classify the activation line. A unit regression deliberately supplies stale virtual offsets while placing the mounted target at the real activation line.
+
+Validation status for this stage: implementation and regression test committed; CI/Electron verification is pending and must remain fail-closed. No segment size, workload, threshold, or performance-gate semantics were changed.
