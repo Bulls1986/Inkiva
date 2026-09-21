@@ -1,6 +1,6 @@
 # Inkiva 架构审计（2026-09）
 
-> 审计基线：PR-C 已合并代码树 `f11df84b79c6a10b8a441c8f0e6dbcc84bb57aac`。该代码已于 2026-09-19 合入 `develop`，对应 merge commit `780a1216892789c1c0b6b10a1b3f27964ae955e1`。
+> 审计基线：2026-09-21 远端最新 `develop`，HEAD `b089010f11bb6307e61bcf7a96eb91d6dc9ca5c0`。该基线已包含 PR-C follow-up #153、设置功能门禁 #154 与 PR-C 收口记录 #155。
 >
 > 本文档只做架构审计与后续重构规划，不代表相应重构已经完成。所有图表均使用 Mermaid。
 
@@ -25,8 +25,8 @@ Inkiva 当前已经从原始 MarkText 风格的“功能聚合型桌面应用”
 5. **图表“各管各”的历史问题已经被大幅收敛，但布局与生命周期仍存在双层协调。**  
    `packages/muya/src/utils/diagram/coordinator.ts` 已统一并发、缓存、generation、cancel/dispose 和写回保护；`EditorLayoutReconciler` 只观察顶层 block，避免 SVG/canvas 子树反复 mutation 直接冲击页面布局。当前风险不再是 Mermaid/PlantUML 各自完全独立，而是 **Muya 内图表调度 + Desktop 外层 layout reconciliation + virtualization geometry** 三套机制之间仍依赖协议协同。
 
-6. **搜索与文档智能整体已经异步化，但后台任务治理尚未统一抽象。**  
-   ripgrep 使用 main process handler、searchId、cancel、ack、match batch；这符合“Async Everything Else”。但 search、document intelligence、diagram、snapshot、TOC refresh 等各自维护 scheduler/queue/cancel 语义，缺少统一的后台任务优先级和生命周期模型。
+6. **后台任务优先级模型已经建立，但覆盖尚未闭合。**
+   renderer 已存在 `BackgroundTaskScheduler`，明确 keyboard → maintenance cleanup 的 0–8 级优先级，支持 `interactivePending`、task cancel 和同步 slice 观测；Document Intelligence 与 Quick Open 已接入。当前问题已经从“没有统一优先级模型”转为 **TOC、diagram、autosave、revision snapshot 等领域调度器尚未全部映射到统一 priority/pause/instrumentation policy**。
 
 综合判断：**当前不需要推翻编辑器内核重做架构，但需要进行一轮“边界收敛型重构”。** 下一阶段重点不应继续直接往 `editor.vue` 堆功能，而应把现有已验证的 snapshot、layout、virtualization、history、persistence 能力提升为明确的 runtime/service boundary。
 
@@ -112,7 +112,7 @@ flowchart TB
 - Electron main 已按 `filesystem`、`session`、`windows`、`update`、`documentIntelligence`、`ipc` 等目录拆分。
 - preload 是明确的安全边界，并集中暴露 Electron 能力。
 - renderer 使用 Pinia，但核心编辑运行时仍由 Vue component 自己编排。
-- Muya TS 版本已经成为核心编辑引擎，legacy `packages/muyajs` 仍保留，形成迁移期双引擎结构。
+- Muya TS 版本已经成为核心编辑引擎；legacy `packages/muyajs` 仍保留在依赖/构建/类型边界中，但生产 renderer 未发现实际 legacy runtime import。
 - 大文档渲染已从 progressive render 进一步升级为 top-level block virtualization。
 
 ---
@@ -127,11 +127,13 @@ flowchart TB
 | A-04 | virtualization 与 selection/IME/DOM Range 强耦合 | 观察项 | P1 | 后续任何虚拟化深化都可能破坏编辑语义 |
 | A-05 | 图表 coordinator 已统一，但布局/虚拟化仍是跨层协议 | 部分解决 | P1 | 高度变化、滚动锚点、卸载重挂风险 |
 | A-06 | typed IPC 框架存在，但部分 channel 仍为 `unknown`，renderer 仍直接使用 channel string | 部分解决 | P1 | IPC schema 漂移、重构安全性不足 |
-| A-07 | ripgrep 已具备 cancel/ack/batch，但后台任务缺少统一优先级模型 | 部分解决 | P2 | 多后台任务并发时可能争抢 CPU/IPC |
-| A-08 | Muya + muyajs 双引擎迁移尚未完成 | 未解决 | P1 | 重复逻辑、行为差异、维护成本 |
+| A-07 | 已有统一后台优先级 scheduler，但覆盖范围尚未闭合 | 部分解决 | P2 | TOC/diagram/autosave/snapshot 仍存在独立调度语义 |
+| A-08 | 生产编辑路径已迁移到 `@muyajs/core`，legacy package/dependency/alias/type boundary 仍残留 | 部分解决 | P1 | 构建边界复杂、误用 legacy 的风险仍在 |
 | A-09 | layout observer 生命周期已有 destroy/reset 测试 | 已解决 | P1 风险下降 | 减少 observer 泄漏和重复回调 |
 | A-10 | 性能门禁已较完整，但 reference runner 属于基础设施依赖 | 部分解决 | P1 | “CI 绿色”与“参考机门禁通过”仍必须区分 |
 | A-11 | website 与 desktop 在 monorepo 中但 CI 边界不一致 | 观察项 | P2 | 发布一致性依赖人工/脚本约束 |
+| A-12 | renderer event bus 仍为 `Emitter<Record<string, unknown>>` | 未解决 | P1 | 事件名/payload/时序协议缺少编译期约束 |
+| A-13 | desktop 依赖手写 `@muyajs/core` declaration，`Muya` 暴露 `[key: string]: any` | 未解决 | P1 | 编辑器边界错误容易延迟到 E2E/runtime 暴露 |
 
 ---
 
@@ -186,6 +188,8 @@ window.electron.ipcRenderer.send('mt::...')
 ### 5.2 Renderer 编排：`editor.vue`
 
 这是当前最明显的架构压力点。
+
+在当前 `develop` 上，`editor.vue` 约 2900 行；renderer 全局可检索到约 106 个 `bus.on(...)` 与 154 个 `bus.emit(...)`，其中 `editor.vue` 自身包含 37 个 bus listener。这些数字不是单独的质量判定，但说明核心编排与隐式事件协议已经集中到足以影响修改半径的规模。
 
 从真实代码看，`editor.vue` 同时导入并协调：
 
@@ -444,58 +448,36 @@ Desktop 不需要知道 Mermaid/PlantUML 细节，只应该知道“某个顶层
 
 Document Intelligence 在 main process 独立目录中实现，并且标准 Markdown link parser 明确只解析普通相对 Markdown link，符合“不发明 Inkiva 私有语法”的产品原则。
 
+#### 已建立的后台调度骨架
+
+`packages/desktop/src/renderer/src/util/backgroundScheduler.ts` 已明确 0–8 优先级：keyboard、active editor viewport、tab navigation、visible outline/tree、visible diagram、requested search、background indexing、backlink/metadata/statistics、maintenance cleanup。
+
+它同时提供 task id 去重、cancel、`interactivePending` 和同步 slice 观测；Document Intelligence 与 Quick Open 已真实接入，因此这里已经不是架构空白。
+
 #### 剩余问题
 
-后台任务目前按功能分别拥有：
-
-- search queue/protocol；
-- document intelligence；
-- diagram coordinator；
-- snapshot scheduler；
-- TOC scheduler；
-- autosave queue。
-
-这些模块各自合理，但缺少统一的优先级原则。
-
-建议定义 scheduler policy，而不是统一成一个巨型 scheduler：
-
-1. Editor critical：输入、selection、cursor、undo/redo；
-2. Persistence critical：save/autosave；
-3. Visible derived：TOC、visible diagram、visible image；
-4. Interactive background：search；
-5. Passive background：index/backlink/history prune/update check。
-
-重点是共享优先级语义，而不是共享实现。
+覆盖仍不完整：TOC refresh、diagram coordinator、autosave queue、revision snapshot scheduler 仍各自维护领域调度语义。这里**不建议做巨型统一 scheduler**，而应要求这些领域任务显式映射到统一的 priority / pause / instrumentation policy；autosave 继续保留独立 durability queue。
 
 ---
 
-### 5.8 Muya / muyajs 双引擎
+### 5.8 Muya migration boundary / legacy cleanup
 
-工程说明明确：
+当前生产编辑路径已经以 `@muyajs/core` 为主。本轮扫描 `packages/desktop/src` 没有发现真实 `@marktext/muyajs` 或 `muya/*` runtime import，因此这里不应描述成“两套编辑引擎在生产运行时并行”。
 
-- `packages/muya` 是当前 TypeScript editor engine；
-- `packages/muyajs` 是 legacy engine，正在退出；
-- 仍存在少量 legacy alias/call site。
+真实遗留集中在：
 
-这属于真实架构债务。
+- `packages/desktop/package.json` 仍声明 `@marktext/muyajs` workspace dependency；
+- legacy package 与历史 alias/config 仍保留在 monorepo；
+- desktop 使用手写 `packages/desktop/src/types/muya-core.d.ts` 屏蔽 `@muyajs/core` 类型边界；
+- 该 declaration 中 `Muya` 仍暴露 `[key: string]: any`，插件构造器也大量为 `any`。
 
 #### 风险
 
-只要双引擎仍存在：
-
-- bug fix 可能修一边漏一边；
-- diagram/image/selection 行为可能漂移；
-- build alias 容易掩盖真实依赖；
-- 新开发者无法快速判断 authoritative implementation。
+核心风险不是运行时“双引擎行为漂移”，而是**构建与类型边界仍处于迁移态**：新代码仍可能误用 legacy dependency/alias；desktop typecheck 不能直接验证 Muya 真实 public API；编辑器边界错误容易延迟到 E2E/runtime 才暴露。
 
 #### 建议
 
-单独开迁移 PR，不与性能 PR 混合：
-
-- 建 legacy import inventory；
-- 禁止新增 `@marktext/muyajs` import；
-- 一次迁移一个 capability；
-- 最终删除 legacy package 前跑完整 Markdown compatibility + desktop E2E。
+把后续工作定义为 boundary cleanup：先建立 production/test/config 三类 legacy reference inventory，再让 `@muyajs/core` 输出稳定 public `.d.ts`，随后删除 desktop permissive shim，最后清理 legacy dependency/alias，并跑完整 Markdown compatibility + desktop E2E。
 
 ---
 
@@ -679,19 +661,19 @@ flowchart TB
 
 这是“架构 + 正确性”PR；只有实际降低测得热路径成本时才能称性能优化。
 
-### ARCH-05：Legacy MuyaJS Retirement — P1/P2
+### ARCH-05：Renderer Event Contract Closure — P1
 
-**目标：** 清理 `packages/muyajs` 剩余生产依赖。
+**目标：** 收口 renderer 内部隐式事件协议，而不是一次性重写 event bus。当前 `bus/index.ts` 仍明确使用 `Emitter<Record<string, unknown>>`；先做 event inventory，再把 save/tab/lifecycle/selection 等关键事件迁到 typed contract，纯 UI 低风险事件可继续保留 mitt。
 
-先做 import inventory 和 compatibility tests，再逐项迁移。
+### ARCH-06：Muya Public Type Boundary & Legacy Cleanup — P1/P2
 
-### ARCH-06：Background Work Priority Policy — P2
+**目标：** 让 desktop 直接依赖 `@muyajs/core` 的真实 public typed API，并清理 legacy dependency/alias。先解决 built `.d.ts` / public surface，再删除 desktop 手写 permissive declaration。
 
-**目标：** 明确 search/index/diagram/TOC/update 等后台任务优先级、取消与资源预算。
+### ARCH-07：Background Scheduler Coverage — P2
 
-不要做单一巨型 scheduler；只统一 policy 和 instrumentation。
+**目标：** 在已有 `BackgroundTaskScheduler` 上补齐 policy 覆盖，而不是重新设计 scheduler。重点评估 TOC、visible diagram、index/backlink 等任务是否应接入统一 priority/pause/instrumentation；autosave 继续保留独立 durability queue。
 
-### ARCH-07：Website / Release Boundary Contract — P2
+### ARCH-08：Website / Release Boundary Contract — P2
 
 **目标：** 把 website、desktop version、release notes、artifact contract 的一致性纳入发布 contract。
 
@@ -763,7 +745,8 @@ flowchart TB
 4. `EditorLayoutReconciler` 顶层 block geometry batching；
 5. sandboxed preload + typed IPC single contract；
 6. ripgrep main-process async/cancel/ack 模式；
-7. performance gate fail-closed 原则。
+7. `BackgroundTaskScheduler` 的 0–8 foreground/background 优先级模型；
+8. performance gate fail-closed 原则。
 
 ---
 
