@@ -200,6 +200,7 @@ test.describe.serial('UI-14 visual regression baseline', () => {
     await page.bringToFront()
     await sendIpcToRenderer(app, 'mt::show-command-palette')
     await expect(page.locator('input.search').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.getByTestId('command-palette-option').first()).toBeVisible({ timeout: 5000 })
     await capture(page, 'command-palette')
     await closeCommandPalette(page)
   })

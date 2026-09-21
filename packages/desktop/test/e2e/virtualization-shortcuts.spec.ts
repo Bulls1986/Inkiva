@@ -59,10 +59,10 @@ const pressCommand = async(
   if (!keyCode) throw new Error(`Shortcut ${commandId} has no key: ${accelerator}`)
 
   // Electron accelerator syntax uses the token "Plus" because '+' is the
-  // accelerator separator. sendInputEvent expects the actual key value instead.
-  // Keep this translation in the E2E input adapter so the product keybinding
-  // remains the same one users press physically.
-  const inputKeyCode = keyCode === 'Plus' ? '+' : keyCode
+  // accelerator separator. A physical '+' uses Shift+'=' on the standard desktop
+  // keyboard; keyCode='+' does not traverse Electron's accelerator matching path.
+  // Reproduce that physical chord in the E2E input adapter.
+  const inputKeyCode = keyCode === 'Plus' && modifiers.includes('shift') ? '=' : keyCode
 
   await app.evaluate(({ BrowserWindow }, payload) => {
     const win = BrowserWindow.getAllWindows()[0]

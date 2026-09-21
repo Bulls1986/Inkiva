@@ -418,17 +418,18 @@ test.describe('@virtualization-core Render Surface 2.0 — Electron core interac
         timeout: 5000
       })
       .toBeGreaterThan(0)
-    const restoredCaret = await page.evaluate(() => {
-      const selection = document.getSelection()
-      if (!selection || selection.rangeCount === 0 || !selection.anchorNode) return null
-      const anchor =
-        selection.anchorNode.nodeType === Node.TEXT_NODE
-          ? selection.anchorNode.parentElement
-          : (selection.anchorNode as Element)
-      const paragraph = anchor?.closest('.mu-paragraph-content')
-      return paragraph?.textContent ?? null
-    })
-    expect(restoredCaret).toBe('paragraph 359')
+    const readRestoredCaret = (): Promise<string | null> =>
+      page.evaluate(() => {
+        const selection = document.getSelection()
+        if (!selection || selection.rangeCount === 0 || !selection.anchorNode) return null
+        const anchor =
+          selection.anchorNode.nodeType === Node.TEXT_NODE
+            ? selection.anchorNode.parentElement
+            : (selection.anchorNode as Element)
+        const paragraph = anchor?.closest('.mu-paragraph-content')
+        return paragraph?.textContent ?? null
+      })
+    await expect.poll(() => readRestoredCaret(), { timeout: 5000 }).toBe('paragraph 359')
     await expectBoundedVirtualization(page)
     await expectNoRendererErrors(app)
   })

@@ -40,6 +40,16 @@ test('@perf writes a correlated startup report when performance capture is enabl
       }
     })
     await expect(launched.page.locator('.editor-container')).toBeVisible()
+    await expect
+      .poll(
+        () => launched!.page.locator('[data-editor-editable-at]').first().getAttribute('data-editor-editable-at'),
+        { timeout: 10000 }
+      )
+      .not.toBeNull()
+    // The renderer milestone is forwarded to the main-process trace collector
+    // asynchronously. Yield one event turn before closing so the persisted
+    // report cannot race the IPC delivery.
+    await launched.page.waitForTimeout(100)
   } finally {
     if (launched) await closeElectron(launched.app)
     fs.rmSync(fixtureDirectory, { recursive: true, force: true })

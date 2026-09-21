@@ -842,14 +842,28 @@ export class ScrollPage extends Parent {
             container.clientHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX,
         );
         this._resumeVirtualBlockMeasurement();
+        // A logical navigation target must survive the approximate jump until
+        // the target window has been mounted and measured. Reconcile once more
+        // against real DOM geometry at the hydration boundary; only release the
+        // target after that exact position has settled.
+        if (this._virtualNavigationTarget !== null) {
+            const correctedScrollTop = this._virtualNavigationScrollTop(
+                container,
+                this._virtualNavigationTarget,
+            );
+            if (Math.abs(container.scrollTop - correctedScrollTop) > 1) {
+                container.scrollTop = correctedScrollTop;
+                this._scheduleVirtualWindowHydration(container);
+                return;
+            }
+            this._virtualNavigationTarget = null;
+        }
+
         // Hydration is already the debounced "scroll settled" boundary. Once the
         // target window is mounted, capture the authoritative DOM anchor in the
         // same turn so a subsequent responsive width change cannot land between
         // window hydration and a separate anchor-settle timer.
-        if (
-            this._virtualResizeCorrectionTarget === null
-            && this._virtualNavigationTarget === null
-        ) {
+        if (this._virtualResizeCorrectionTarget === null) {
             const exact = this._captureVirtualViewportAnchor(container);
             this._virtualViewportAnchorIndex = exact.index;
             this._virtualViewportAnchorOffset = exact.viewportOffset;
@@ -930,7 +944,7 @@ export class ScrollPage extends Parent {
             // away from the current target is a new navigation source and
             // releases that programmatic anchor immediately.
             const navigationTarget = this._virtualNavigationTarget;
-            if (navigationTarget) {
+            if (navigationTarget && this._virtualUserScrollIntent) {
                 const expected = this._virtualNavigationScrollTop(container, navigationTarget);
                 if (Math.abs(container.scrollTop - expected) > 2)
                     this._virtualNavigationTarget = null;
