@@ -941,3 +941,10 @@ The failure was in the Electron E2E accelerator adapter. Electron accelerator st
 The E2E adapter now translates only accelerator token `Plus` to the physical `+` key before sending input. Product shortcut definitions and command handling are unchanged; the test still requires the real registered shortcut to change BrowserWindow zoom and then preserve bounded virtualization.
 
 Validation status for this stage: test harness correction committed; CI verification pending. No assertion, timeout, shortcut binding, or product behavior was relaxed.
+
+
+### Validation trigger checkpoint
+
+Correctness closeout implementation HEAD before this checkpoint: `8c6ab2ffc9a4e7ffadd18fedec6cf6a717700c1e`.
+
+The Git-data ref updates used for the two preceding commits updated PR #152 successfully, but GitHub Actions had not created a new pull-request workflow run for that HEAD at the time of this checkpoint. This commit is written through the repository contents path specifically to produce a normal branch commit event and re-establish CI validation on the current correctness changes. Until a workflow run reports against the resulting HEAD, the Outline and Zoom fixes remain **implemented but not validated**.
