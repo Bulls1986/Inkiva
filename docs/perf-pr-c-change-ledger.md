@@ -1003,3 +1003,16 @@ Commits for this audit stage:
 - subsequent Zoom harness commit — decouple product Zoom action verification from Xvfb plus-key synthesis.
 
 Stage status: test-contract corrections are pushed. Full CI on the resulting HEAD is required before deciding which remaining failures are implementation defects. No performance threshold, workload, correctness requirement, or visual tolerance was relaxed.
+
+
+### CI follow-up: rebase onto concurrent HEAD 7a370d0 and close deterministic interaction failures
+
+Before pushing the locally prepared fixes, the remote PR-C branch advanced from `34a05c8` to `7a370d0` with concurrent Trace, Anchor, Zoom and CI-contract commits. The local branch was therefore reset to the remote authoritative HEAD instead of force-pushing or duplicating conflicting implementations. The remote Trace solution uses the existing batched performance transport plus a typed IPC ordering barrier; the remote Zoom test invokes the configured Window-menu accelerator action rather than treating Linux/Xvfb plus-key synthesis as product behavior.
+
+Focused validation on `7a370d0` showed Performance Trace, Zoom and the existing Source-mode test path were healthy after rebuild, while the new virtualized Anchor test exposed a real navigation defect: a modifier click first emits pointer/mouse input and sets `_virtualUserScrollIntent = true`; `scrollVirtualBlockIntoView()` then created a programmatic navigation target without clearing that stale intent, so the first programmatic scroll could be misclassified as user redirection and cancel the target. The observed symptom was a partial jump from scrollTop 0 to 42 instead of landing at the off-DOM target. The production fix now clears stale user-scroll intent when a new logical virtual navigation request is established.
+
+After that production correction the target mounted correctly, exposing a separate test-fixture issue rather than a second product defect: `My Section` was the penultimate block in the document, so the browser's real `maxScrollTop` made the existing “heading top < 500px” assertion physically unreachable near the document bottom. The fixture now adds 40 trailing paragraphs after the destination. This does not lower the assertion, shorten the virtualized prefix, change the >200-block requirement, or relax any timeout/tolerance; it makes the existing near-top landing assertion geometrically reachable.
+
+The Source-mode caret repair not covered by the concurrent remote commits is retained: after `replaceContent()`, caret restoration now runs at the existing `runWhenEditorRenderComplete()` boundary so a later progressive/virtual render pass cannot overwrite the native DOM Selection. The exact paragraph-359 requirement remains unchanged.
+
+Validation on the combined working tree: Electron/Vite desktop build PASS; focused four-failure suite (Anchor, Performance Trace, Source-mode caret, Zoom) 4/4 PASS; desktop `vue-tsc --noEmit -p tsconfig.json` PASS; Muya `tsc --noEmit` PASS. No performance threshold, workload, correctness requirement or visual-diff tolerance was relaxed. The Linux Command Palette visual baseline is still intentionally fail-closed and requires the next Linux CI run for evidence.

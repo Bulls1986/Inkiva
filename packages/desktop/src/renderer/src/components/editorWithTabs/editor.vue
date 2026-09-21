@@ -2158,9 +2158,12 @@ const handleFileChange = (payload: unknown) => {
       editor.value.replaceContent(newMarkdown, preSourceModeSelection)
       preSourceModeSelection = null
       refreshEditorTocWhenReady(id)
-      // Map the CodeMirror `{ line, ch }` cursor onto a block-key cursor so the
-      // WYSIWYG caret lands where the source-mode cursor was (PG2).
-      editor.value.setCursorByOffset(muyaIndexCursor)
+      // `replaceContent` can restart progressive/virtual rendering. Restore the
+      // source-mode caret at the render-complete boundary so a later render pass
+      // cannot overwrite the native DOM Selection on a slower CI machine.
+      runWhenEditorRenderComplete(id, (instance) => {
+        instance.setCursorByOffset(muyaIndexCursor)
+      })
     } else if (isReload) {
       // External disk reload (`loadChange`): the tab is already the live engine
       // document, so record the new on-disk content as a SINGLE invertible undo

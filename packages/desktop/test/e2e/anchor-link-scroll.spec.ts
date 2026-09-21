@@ -37,7 +37,12 @@ const filler = Array.from({ length: 260 }, (_, i) => `Filler paragraph number ${
   '\n\n'
 )
 
-const DOC = `[go](#my-section)\n\n${filler}\n\n## My Section\n\nThe destination paragraph under My Section.\n`
+const trailingFiller = Array.from(
+  { length: 40 },
+  (_, i) => `Trailing paragraph number ${i + 1}.`
+).join('\n\n')
+
+const DOC = `[go](#my-section)\n\n${filler}\n\n## My Section\n\nThe destination paragraph under My Section.\n\n${trailingFiller}\n`
 
 // Read the live scroll container's scrollTop. getScrollContainer() in editor.vue
 // returns muya's root domNode, which is the same element as `.editor-component`

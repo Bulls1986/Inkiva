@@ -2075,6 +2075,11 @@ export class ScrollPage extends Parent {
         }
 
         this._cancelVirtualResizeCorrection();
+        // A new logical navigation request supersedes any pointer/keyboard intent
+        // captured while the user clicked the link/TOC item that initiated it.
+        // Otherwise the first programmatic scroll event can be misclassified as
+        // user redirection and cancel this target before hydration reaches it.
+        this._virtualUserScrollIntent = false;
         this._virtualNavigationTarget = {
             index,
             viewportOffset: Math.max(0, viewportOffset),
