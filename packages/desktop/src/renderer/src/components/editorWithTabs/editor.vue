@@ -1545,6 +1545,23 @@ const scrollToHighlight = () => {
 const scrollToHeader = (slug: unknown) => {
   const container = getScrollContainer()
   if (!container) return
+  const tocItem = editorStore.listToc.find((item) => item.slug === slug)
+  const scrollPage = editor.value?.editor?.scrollPage
+  const virtualization = scrollPage?.getVirtualizationSnapshot?.()
+  if (
+    virtualization?.enabled === true &&
+    typeof tocItem?.blockIndex === 'number'
+  ) {
+    const offset = scrollPage.getVirtualBlockOffset?.(tocItem.blockIndex)
+    if (typeof offset === 'number') {
+      container.scrollTop = offset
+      scrollPage.updateVirtualWindowForViewport?.(offset, container.clientHeight)
+      window.requestAnimationFrame(() => {
+        scrollElementIntoView(resolveTocHeadingElement(container, editorStore.listToc, slug))
+      })
+      return
+    }
+  }
   scrollElementIntoView(resolveTocHeadingElement(container, editorStore.listToc, slug))
 }
 
@@ -2428,9 +2445,14 @@ onMounted(() => {
   // reads layout only during outline/DOM rebuilds; scroll events use a binary
   // search over the cache so diagram nodes and large documents do not trigger
   // a forced layout per event.
-  tocScrollSync = createTocScrollSync(container, (slug) => {
-    editorStore.UPDATE_ACTIVE_TOC(slug)
-  })
+  tocScrollSync = createTocScrollSync(
+    container,
+    (slug) => {
+      editorStore.UPDATE_ACTIVE_TOC(slug)
+    },
+    40,
+    (blockIndex) => editor.value?.editor?.scrollPage?.getVirtualBlockOffset?.(blockIndex) ?? null
+  )
   tocScrollSync.update(listToc.value)
   tocScrollSync.attach()
   tocScrollSync.refresh()
@@ -2440,7 +2462,13 @@ onMounted(() => {
   // reconciler batches those signals and hands the same local changes to TOC
   // cache maintenance and pending tab-scroll restoration.
   editorLayoutReconciler = createEditorLayoutReconciler(container, {
-    shouldDeferScroll: () => pendingScrollRestore !== null,
+    // Render Surface 2.0 owns scroll anchoring while large-document
+    // virtualization is active. The desktop layout reconciler must still
+    // observe geometry for TOC/tab restoration, but must not compete with
+    // Muya by writing scrollTop on diagram/image/table resize.
+    shouldDeferScroll: () =>
+      pendingScrollRestore !== null ||
+      editor.value?.editor?.scrollPage?.getVirtualizationSnapshot().enabled === true,
     onChange: (changes) => {
       schedulePendingScrollRestoreCheck()
       tocScrollSync?.reconcile(changes)

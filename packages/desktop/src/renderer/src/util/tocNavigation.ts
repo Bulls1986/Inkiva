@@ -20,10 +20,11 @@ export const TOP_LEVEL_HEADINGS_SELECTOR =
   '.mu-container > h1, .mu-container > h2, .mu-container > h3, .mu-container > h4, .mu-container > h5, .mu-container > h6'
 
 export const TOC_HEADING_SLUG_ATTRIBUTE = 'data-inkiva-toc-slug'
+export const VIRTUAL_BLOCK_INDEX_ATTRIBUTE = 'data-virtual-block-index'
 
 export const resolveTocHeadingElement = (
   container: Element,
-  listToc: ReadonlyArray<{ slug?: unknown }>,
+  listToc: ReadonlyArray<{ slug?: unknown; blockIndex?: unknown }>,
   slug: unknown
 ): Element | null => {
   const index = listToc.findIndex((item) => item.slug === slug)
@@ -32,5 +33,14 @@ export const resolveTocHeadingElement = (
   const runtimeHeading = Array.from(headings).find(
     (heading) => heading.getAttribute(TOC_HEADING_SLUG_ATTRIBUTE) === slug
   )
-  return runtimeHeading ?? headings[index] ?? null
+  if (runtimeHeading) return runtimeHeading
+
+  const blockIndex = listToc[index]?.blockIndex
+  if (typeof blockIndex === 'number' && Number.isInteger(blockIndex)) {
+    return Array.from(headings).find(
+      (heading) => heading.getAttribute(VIRTUAL_BLOCK_INDEX_ATTRIBUTE) === String(blockIndex)
+    ) ?? null
+  }
+
+  return headings[index] ?? null
 }

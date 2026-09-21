@@ -180,5 +180,6 @@ describe('muya.getTOC()', () => {
         expect(toc).toHaveLength(1);
         expect(toc[0].content).toBe('Only Heading');
         expect(toc[0].lvl).toBe(2);
+        expect(toc[0].blockIndex).toBe(3);
     });
 });

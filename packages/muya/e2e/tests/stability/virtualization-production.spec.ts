@@ -141,4 +141,61 @@ test.describe('Stage C1 virtualization productionization', () => {
         expect(compact.viewportHeight).toBeLessThanOrEqual(320);
         expect(compact.mountedBlocks).toBeLessThanOrEqual(initial.mountedBlocks);
     });
+
+    test('keeps wheel scrolling monotonic across multiple asynchronously rendered diagrams', async ({ page }) => {
+        const tallMermaid = (prefix: string) => [
+            'graph TD',
+            ...Array.from({ length: 18 }, (_, index) =>
+                index === 0
+                    ? `  ${prefix}0[${prefix} 0] --> ${prefix}1[${prefix} 1]`
+                    : index < 17
+                        ? `  ${prefix}${index} --> ${prefix}${index + 1}[${prefix} ${index + 1}]`
+                        : '',
+            ).filter(Boolean),
+        ].join('\n');
+        const spacer = (label: string, count: number) =>
+            Array.from({ length: count }, (_, index) => `${label} ${index}`).join('\n\n');
+        const markdown = [
+            spacer('before-first-diagram', 80),
+            `\`\`\`mermaid\n${tallMermaid('A')}\n\`\`\``,
+            spacer('between-diagrams', 90),
+            `\`\`\`mermaid\n${tallMermaid('B')}\n\`\`\``,
+            spacer('after-second-diagram', 80),
+        ].join('\n\n');
+
+        await page.evaluate(content => window.muya!.setContent(content), markdown);
+        await page.evaluate(() => window.muya!.whenRenderComplete());
+
+        const editor = page.locator('#editor');
+        await editor.hover();
+
+        let previous = 0;
+        let maxSeen = 0;
+        const renderedDiagramSvgs = new Set<string>();
+        for (let step = 0; step < 80; step += 1) {
+            await page.mouse.wheel(0, 360);
+            await page.waitForTimeout(40);
+            const sample = await page.evaluate(() => ({
+                scrollTop: document.querySelector<HTMLElement>('#editor')!.scrollTop,
+                renderedDiagramSvgs: Array.from(
+                    document.querySelectorAll<SVGElement>('.mu-diagram-preview > svg'),
+                ).map(svg => svg.outerHTML),
+            }));
+
+            // A small sub-pixel adjustment is harmless, but the viewport must
+            // never jump back to a previously rendered diagram while the user
+            // is actively wheel-scrolling downward.
+            expect(sample.scrollTop).toBeGreaterThanOrEqual(previous - 2);
+            previous = sample.scrollTop;
+            maxSeen = Math.max(maxSeen, sample.scrollTop);
+            sample.renderedDiagramSvgs.forEach(svg => renderedDiagramSvgs.add(svg));
+        }
+
+        // Virtualization may never keep both diagrams mounted at once. Across
+        // the downward traversal we must nevertheless encounter two distinct
+        // rendered SVG results, proving the wheel path crossed both diagrams.
+        expect(renderedDiagramSvgs.size).toBeGreaterThanOrEqual(2);
+        expect(maxSeen).toBeGreaterThan(5_000);
+        expect(previous).toBeGreaterThan(maxSeen - 800);
+    });
 });

@@ -92,11 +92,18 @@ class InlineRenderer {
 
     patch(block: Format, cursor?: IRenderCursor, highlights: IHighlight[] = []) {
         const { domNode } = block;
+        // Virtualization keeps block/state objects alive while their DOM can be
+        // temporarily dematerialized. Blur/focus transitions may still ask an
+        // offscreen block to re-render; in that state there is intentionally no
+        // render target. The current model text remains authoritative and will
+        // be rendered when the block is materialized again.
+        if (!domNode)
+            return;
         if (canRenderAsPlainText(block.text, cursor, highlights)) {
             // No inline rule can match this text, so avoid the lexer and the
             // renderer entirely. `textContent` also keeps the content safely
             // escaped without paying the HTML parser cost for a huge string.
-            domNode!.textContent = block.text;
+            domNode.textContent = block.text;
             return;
         }
 
@@ -110,7 +117,7 @@ class InlineRenderer {
             block,
             cursor && cursor.block === block ? cursor : {},
         );
-        domNode!.innerHTML = html;
+        domNode.innerHTML = html;
     }
 
     private _collectReferenceDefinitions() {

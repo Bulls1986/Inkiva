@@ -159,4 +159,24 @@ describe('resolveTocHeadingElement', () => {
     const el = resolveTocHeadingElement(container, listToc, 'uid-2')
     expect(el?.textContent).toBe('Top Two')
   })
+
+  it('resolves a mounted virtual heading by document block index, not local DOM order', () => {
+    const container = document.createElement('div')
+    container.className = 'editor-component mu-editor'
+    container.innerHTML = `
+      <div class="mu-container">
+        <h2 data-virtual-block-index="40">Middle Heading</h2>
+        <h2 data-virtual-block-index="80">Later Heading</h2>
+      </div>
+    `
+    const virtualToc = [
+      { slug: 'uid-first', blockIndex: 2 },
+      { slug: 'uid-middle', blockIndex: 40 },
+      { slug: 'uid-later', blockIndex: 80 }
+    ]
+
+    expect(resolveTocHeadingElement(container, virtualToc, 'uid-middle')?.textContent)
+      .toBe('Middle Heading')
+    expect(resolveTocHeadingElement(container, virtualToc, 'uid-first')).toBeNull()
+  })
 })

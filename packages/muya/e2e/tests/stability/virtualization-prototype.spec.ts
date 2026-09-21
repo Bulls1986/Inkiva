@@ -34,32 +34,43 @@ test.describe('Stage C0 virtualization prototype', () => {
         expect(initial.totalBlocks).toBe(TOTAL_BLOCKS);
         expect(initial.mountedBlocks).toBeLessThan(TOTAL_BLOCKS);
 
-        const samples = [];
-        for (const fraction of [0, 0.5, 1, 0]) {
-            await page.evaluate((targetFraction) => {
-                const editor = document.querySelector<HTMLElement>('#editor')!;
-                editor.scrollTop = (editor.scrollHeight - editor.clientHeight) * targetFraction;
-            }, fraction);
-            await page.waitForTimeout(50);
-            samples.push(await page.evaluate(() => {
-                const editor = document.querySelector<HTMLElement>('#editor')!;
-                return {
-                    snapshot: window.muya!.editor.scrollPage!.getVirtualizationPrototypeSnapshot(),
-                    scrollTop: editor.scrollTop,
-                    scrollHeight: editor.scrollHeight,
-                    clientHeight: editor.clientHeight,
-                };
-            }));
-        }
+        const traverse = async () => {
+            const samples = [];
+            for (const fraction of [0, 0.5, 1, 0]) {
+                await page.evaluate((targetFraction) => {
+                    const editor = document.querySelector<HTMLElement>('#editor')!;
+                    editor.scrollTop = (editor.scrollHeight - editor.clientHeight) * targetFraction;
+                }, fraction);
+                await page.waitForTimeout(50);
+                samples.push(await page.evaluate(() => {
+                    const editor = document.querySelector<HTMLElement>('#editor')!;
+                    return {
+                        snapshot: window.muya!.editor.scrollPage!.getVirtualizationPrototypeSnapshot(),
+                        scrollTop: editor.scrollTop,
+                        scrollHeight: editor.scrollHeight,
+                        clientHeight: editor.clientHeight,
+                    };
+                }));
+            }
+            return samples;
+        };
+
+        // The first traversal intentionally lets real block measurements
+        // replace estimates. Geometry must be stable when the same virtual
+        // windows are traversed again.
+        await traverse();
+        const samples = await traverse();
 
         expect(samples[1]!.snapshot.windowStart).toBeGreaterThan(0);
         expect(samples[2]!.snapshot.windowEnd).toBe(TOTAL_BLOCKS);
         expect(samples[3]!.snapshot.windowStart).toBe(0);
         for (const sample of samples) {
             expect(sample.snapshot.mountedBlocks).toBeLessThan(TOTAL_BLOCKS);
-            expect(sample.snapshot.totalEstimatedHeight).toBe(initial.totalEstimatedHeight);
+            expect(sample.snapshot.totalEstimatedHeight).toBeGreaterThan(sample.clientHeight);
             expect(sample.scrollHeight).toBeGreaterThanOrEqual(sample.clientHeight);
         }
+        // Once those windows have been measured, returning to the same top
+        // viewport must reproduce the same scroll geometry without drift.
         expect(samples[0]!.scrollHeight).toBe(samples[3]!.scrollHeight);
     });
 
