@@ -46,10 +46,24 @@ test('@perf writes a correlated startup report when performance capture is enabl
         { timeout: 10000 }
       )
       .not.toBeNull()
-    // The renderer milestone is forwarded to the main-process trace collector
-    // asynchronously. Yield one event turn before closing so the persisted
-    // report cannot race the IPC delivery.
-    await launched.page.waitForTimeout(100)
+    // Renderer performance events are batched to keep instrumentation off the
+    // editor hot path. Force that batch across IPC, then issue a main-process
+    // invoke as an ordering barrier before closing the app. This verifies the
+    // asynchronous transport contract without relying on an arbitrary sleep.
+    await launched.page.evaluate(() => {
+      const gate = (
+        window as typeof window & {
+          __inkivaPerformanceGate?: {
+            recordSample(metric: string, unit: 'count', value: number): void
+          }
+        }
+      ).__inkivaPerformanceGate
+      if (!gate) throw new Error('performance gate bridge is unavailable')
+      gate.recordSample('e2e.performance.flush-barrier', 'count', 0)
+    })
+    await launched.page.evaluate(() =>
+      window.electron.ipcRenderer.invoke('mt::keybinding-get-style')
+    )
   } finally {
     if (launched) await closeElectron(launched.app)
     fs.rmSync(fixtureDirectory, { recursive: true, force: true })
