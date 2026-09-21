@@ -33,6 +33,24 @@ describe('DocumentEditorRuntime', () => {
     expect(late).not.toHaveBeenCalled()
   })
 
+  it('owns subscription setup and teardown as one lifecycle resource', () => {
+    const { runtime } = createRuntime()
+    const handler = vi.fn()
+    const subscribe = vi.fn((_handler: () => void) => undefined)
+    const unsubscribe = vi.fn((_handler: () => void) => undefined)
+
+    runtime.subscribe(subscribe, unsubscribe, handler)
+
+    expect(subscribe).toHaveBeenCalledOnce()
+    expect(subscribe).toHaveBeenCalledWith(handler)
+
+    runtime.dispose()
+    runtime.dispose()
+
+    expect(unsubscribe).toHaveBeenCalledOnce()
+    expect(unsubscribe).toHaveBeenCalledWith(handler)
+  })
+
   it('owns document lifecycle and monotonic content revision transitions', () => {
     const { snapshots, runtime } = createRuntime()
 

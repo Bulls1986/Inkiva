@@ -39,6 +39,16 @@ export class DocumentEditorRuntime {
     }
   }
 
+  subscribe<T>(
+    subscribe: (handler: T) => void,
+    unsubscribe: (handler: T) => void,
+    handler: T
+  ): void {
+    this.assertActive()
+    subscribe(handler)
+    this.registerDisposable(() => unsubscribe(handler))
+  }
+
   activateDocument(documentId: string, revision = this.snapshots.currentRevision(documentId)): number {
     this.assertActive()
     return this.snapshots.seed(documentId, revision, 'active')

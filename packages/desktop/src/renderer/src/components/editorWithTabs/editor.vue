@@ -119,6 +119,7 @@ import bus from '@/bus'
 import { DEFAULT_EDITOR_FONT_FAMILY, DEFAULT_CODE_FONT_FAMILY } from '@/config'
 import notice from '@/services/notification'
 import { documentRevisionSnapshots } from '@/services/documentRevisionSnapshot'
+import { DocumentEditorRuntime } from '@/services/documentEditorRuntime'
 import Printer from '@/services/printService'
 import { SpellcheckerLanguageCommand } from '@/commands'
 import { SpellChecker } from '@/spellchecker'
@@ -310,7 +311,13 @@ let pendingScrollPosition: { id: string; scrollTop: number } | null = null
 let tocScrollSync: ReturnType<typeof createTocScrollSync> | null = null
 let editorLayoutReconciler: ReturnType<typeof createEditorLayoutReconciler> | null = null
 const tocRefreshScheduler = createTocRefreshScheduler()
+const editorRuntime = new DocumentEditorRuntime()
 const editorSnapshotScheduler = new EditorSnapshotScheduler()
+editorRuntime.registerDisposable(() => editorSnapshotScheduler.dispose())
+const registerBusHandler = (event: string, handler: any): void => {
+  bus.on(event, handler)
+  editorRuntime.registerDisposable(() => bus.off(event, handler))
+}
 const inputParseProbe = createInputParseProbe({
   enabled: rendererPerformance.enabled,
   now: () => performance.now(),
@@ -2503,7 +2510,7 @@ onMounted(() => {
   })
 
   // Listen for language changes and update the engine locale.
-  bus.on('language-changed', handleLanguageChanged)
+  registerBusHandler('language-changed', handleLanguageChanged)
 
   // Create spell check wrapper and enable spell checking if preferred.
   spellchecker = new SpellChecker(spellcheckerEnabled.value, spellcheckerLanguage.value)
@@ -2517,42 +2524,42 @@ onMounted(() => {
   }
 
   // listen for bus events.
-  bus.on('file-loaded', setMarkdownToEditor)
-  bus.on('invalidate-image-cache', handleInvalidateImageCache)
-  bus.on('undo', handleUndo)
-  bus.on('redo', handleRedo)
-  bus.on('selectAll', handleSelectAll)
-  bus.on('export', handleExport)
-  bus.on('export-again', handleExportAgain)
-  bus.on('print-service-clearup', handlePrintServiceClearup)
-  bus.on('paragraph', handleEditParagraph)
-  bus.on('format', handleInlineFormat)
-  bus.on('searchValue', handleSearch)
-  bus.on('replaceValue', handReplace)
-  bus.on('find-action', handleFindAction)
-  bus.on('insert-image', insertImage)
-  bus.on('image-uploaded', handleUploadedImage)
-  bus.on('file-changed', handleFileChange)
-  bus.on('flush-active-editor', flushActiveEditor)
-  bus.on('flush-active-editor-for-save', flushActiveEditorForSave)
-  bus.on('flush-active-editor-for-tab-switch', flushActiveEditorForTabSwitch)
-  bus.on('editor-blur', blurEditor)
-  bus.on('editor-focus', focusEditor)
-  bus.on('copyAsRich', handleCopyPaste)
-  bus.on('copyAsMarkdown', handleCopyPaste)
-  bus.on('copyAsHtml', handleCopyPaste)
-  bus.on('pasteAsPlainText', handleCopyPaste)
-  bus.on('duplicate', handleParagraph)
-  bus.on('createParagraph', handleParagraph)
-  bus.on('deleteParagraph', handleParagraph)
-  bus.on('insertParagraph', handleInsertParagraph)
-  bus.on('scroll-to-header', scrollToHeader)
-  bus.on('scroll-to-anchor-element', scrollToAnchorElement)
-  bus.on('screenshot-captured', handleScreenShot)
-  bus.on('show-command-palette', handleModalOpening)
-  bus.on('switch-spellchecker-language', switchSpellcheckLanguage)
-  bus.on('open-command-spellchecker-switch-language', openSpellcheckerLanguageCommand)
-  bus.on('replace-misspelling', replaceMisspelling)
+  registerBusHandler('file-loaded', setMarkdownToEditor)
+  registerBusHandler('invalidate-image-cache', handleInvalidateImageCache)
+  registerBusHandler('undo', handleUndo)
+  registerBusHandler('redo', handleRedo)
+  registerBusHandler('selectAll', handleSelectAll)
+  registerBusHandler('export', handleExport)
+  registerBusHandler('export-again', handleExportAgain)
+  registerBusHandler('print-service-clearup', handlePrintServiceClearup)
+  registerBusHandler('paragraph', handleEditParagraph)
+  registerBusHandler('format', handleInlineFormat)
+  registerBusHandler('searchValue', handleSearch)
+  registerBusHandler('replaceValue', handReplace)
+  registerBusHandler('find-action', handleFindAction)
+  registerBusHandler('insert-image', insertImage)
+  registerBusHandler('image-uploaded', handleUploadedImage)
+  registerBusHandler('file-changed', handleFileChange)
+  registerBusHandler('flush-active-editor', flushActiveEditor)
+  registerBusHandler('flush-active-editor-for-save', flushActiveEditorForSave)
+  registerBusHandler('flush-active-editor-for-tab-switch', flushActiveEditorForTabSwitch)
+  registerBusHandler('editor-blur', blurEditor)
+  registerBusHandler('editor-focus', focusEditor)
+  registerBusHandler('copyAsRich', handleCopyPaste)
+  registerBusHandler('copyAsMarkdown', handleCopyPaste)
+  registerBusHandler('copyAsHtml', handleCopyPaste)
+  registerBusHandler('pasteAsPlainText', handleCopyPaste)
+  registerBusHandler('duplicate', handleParagraph)
+  registerBusHandler('createParagraph', handleParagraph)
+  registerBusHandler('deleteParagraph', handleParagraph)
+  registerBusHandler('insertParagraph', handleInsertParagraph)
+  registerBusHandler('scroll-to-header', scrollToHeader)
+  registerBusHandler('scroll-to-anchor-element', scrollToAnchorElement)
+  registerBusHandler('screenshot-captured', handleScreenShot)
+  registerBusHandler('show-command-palette', handleModalOpening)
+  registerBusHandler('switch-spellchecker-language', switchSpellcheckLanguage)
+  registerBusHandler('open-command-spellchecker-switch-language', openSpellcheckerLanguageCommand)
+  registerBusHandler('replace-misspelling', replaceMisspelling)
 
   // The engine emits a low-level `json-change` on every document mutation. Keep
   // the input callback to classification, dirty-revision allocation, and
@@ -2694,45 +2701,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   editorPerformanceGeneration += 1
   flushActiveEditor()
-  editorSnapshotScheduler.dispose()
-
-  bus.off('file-loaded', setMarkdownToEditor)
-  bus.off('invalidate-image-cache', handleInvalidateImageCache)
-  bus.off('undo', handleUndo)
-  bus.off('redo', handleRedo)
-  bus.off('selectAll', handleSelectAll)
-  bus.off('export', handleExport)
-  bus.off('export-again', handleExportAgain)
-  bus.off('print-service-clearup', handlePrintServiceClearup)
-  bus.off('paragraph', handleEditParagraph)
-  bus.off('format', handleInlineFormat)
-  bus.off('searchValue', handleSearch)
-  bus.off('replaceValue', handReplace)
-  bus.off('find-action', handleFindAction)
-  bus.off('insert-image', insertImage)
-  bus.off('image-uploaded', handleUploadedImage)
-  bus.off('file-changed', handleFileChange)
-  bus.off('flush-active-editor', flushActiveEditor)
-  bus.off('flush-active-editor-for-save', flushActiveEditorForSave)
-  bus.off('flush-active-editor-for-tab-switch', flushActiveEditorForTabSwitch)
-  bus.off('editor-blur', blurEditor)
-  bus.off('editor-focus', focusEditor)
-  bus.off('copyAsRich', handleCopyPaste)
-  bus.off('copyAsMarkdown', handleCopyPaste)
-  bus.off('copyAsHtml', handleCopyPaste)
-  bus.off('pasteAsPlainText', handleCopyPaste)
-  bus.off('duplicate', handleParagraph)
-  bus.off('createParagraph', handleParagraph)
-  bus.off('deleteParagraph', handleParagraph)
-  bus.off('insertParagraph', handleInsertParagraph)
-  bus.off('scroll-to-header', scrollToHeader)
-  bus.off('scroll-to-anchor-element', scrollToAnchorElement)
-  bus.off('screenshot-captured', handleScreenShot)
-  bus.off('show-command-palette', handleModalOpening)
-  bus.off('switch-spellchecker-language', switchSpellcheckLanguage)
-  bus.off('open-command-spellchecker-switch-language', openSpellcheckerLanguageCommand)
-  bus.off('replace-misspelling', replaceMisspelling)
-  bus.off('language-changed', handleLanguageChanged)
+  editorRuntime.dispose()
 
   document.removeEventListener('keyup', keyup)
 
