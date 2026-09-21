@@ -58,6 +58,12 @@ const pressCommand = async(
   }
   if (!keyCode) throw new Error(`Shortcut ${commandId} has no key: ${accelerator}`)
 
+  // Electron accelerator syntax uses the token "Plus" because '+' is the
+  // accelerator separator. sendInputEvent expects the actual key value instead.
+  // Keep this translation in the E2E input adapter so the product keybinding
+  // remains the same one users press physically.
+  const inputKeyCode = keyCode === 'Plus' ? '+' : keyCode
+
   await app.evaluate(({ BrowserWindow }, payload) => {
     const win = BrowserWindow.getAllWindows()[0]
     if (!win || win.isDestroyed()) throw new Error('No focused editor window found')
@@ -71,7 +77,7 @@ const pressCommand = async(
       keyCode: payload.keyCode,
       modifiers: payload.modifiers
     })
-  }, { keyCode, modifiers })
+  }, { keyCode: inputKeyCode, modifiers })
   return true
 }
 

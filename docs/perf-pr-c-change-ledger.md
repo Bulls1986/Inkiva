@@ -930,3 +930,14 @@ The navigation path already mounts the requested block and corrects the document
 The fix keeps the scroll event hot path unchanged. At the existing two-paint settled commit boundary, virtualized TOC synchronization now prefers the real geometry of currently mounted headings and falls back to the prefix-index binary search only when no mounted heading can classify the activation line. A unit regression deliberately supplies stale virtual offsets while placing the mounted target at the real activation line.
 
 Validation status for this stage: implementation and regression test committed; CI/Electron verification is pending and must remain fail-closed. No segment size, workload, threshold, or performance-gate semantics were changed.
+
+
+### Correctness closeout: Zoom E2E now sends the physical Plus key
+
+The default-backend VIEW-KEY-007 failure reported a configured Typora Zoom In shortcut but no change in `BrowserWindow.webContents.getZoomFactor()`. Source tracing confirmed the product command path is intact: the registered `window.zoomIn` command calls the main-process zoom action, emits `mt::window-zoom`, and the renderer applies the factor through `webFrame.setZoomFactor()`.
+
+The failure was in the Electron E2E accelerator adapter. Electron accelerator strings must spell the plus key as the token `Plus` because `+` separates accelerator components, while `webContents.sendInputEvent()` expects the actual key value. The test helper was sending the literal string `Plus` as `keyCode`, so it did not reproduce the physical `Ctrl+Shift++` keystroke.
+
+The E2E adapter now translates only accelerator token `Plus` to the physical `+` key before sending input. Product shortcut definitions and command handling are unchanged; the test still requires the real registered shortcut to change BrowserWindow zoom and then preserve bounded virtualization.
+
+Validation status for this stage: test harness correction committed; CI verification pending. No assertion, timeout, shortcut binding, or product behavior was relaxed.
