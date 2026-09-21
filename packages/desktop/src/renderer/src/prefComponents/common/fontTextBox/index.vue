@@ -30,7 +30,7 @@
       </template>
       <template #default="{ item }">
         <div class="family">
-          {{ item }}
+          {{ item.value }}
         </div>
       </template>
     </el-autocomplete>
@@ -59,7 +59,9 @@ const props = withDefaults(defineProps<FontTextBoxProps>(), {
 })
 
 let defaultValue = props.value
-const fontFamilies = ref<string[]>([])
+// Bundled fonts are always available to Inkiva itself. Seed them synchronously so
+// a fast user interaction cannot race the native system-font enumeration.
+const fontFamilies = ref<string[]>(withBundledFonts([], props.onlyMonospace))
 const selectValue = ref(props.value)
 
 watch(
@@ -72,12 +74,14 @@ watch(
   }
 )
 
-const querySearch = (queryString: string, callback: (items: string[]) => void) => {
+type FontSuggestion = { value: string }
+
+const querySearch = (queryString: string, callback: (items: FontSuggestion[]) => void) => {
   const results =
     queryString && defaultValue !== queryString
       ? fontFamilies.value.filter((f) => f.toLowerCase().indexOf(queryString.toLowerCase()) === 0)
       : fontFamilies.value
-  callback(results)
+  callback(results.map(value => ({ value })))
 }
 
 const handleSelect = (selection: { value?: string } | string) => {
@@ -97,7 +101,7 @@ const handleMoreClick = () => {
 onMounted(async () => {
   // font-list is a native module; it runs in the main process and is reached via IPC.
   const fonts = await window.fonts.list()
-  const systemFonts = (fonts || []).map((f) => f.replace(/"/g, '').trim())
+  const systemFonts = [...new Set((fonts || []).map((f) => f.replace(/"/g, '').trim()).filter(Boolean))]
   // System fonts don't include the bundled defaults (Open Sans / DejaVu Sans
   // Mono), so surface them in the picker too (#3021).
   fontFamilies.value = withBundledFonts(systemFonts, props.onlyMonospace)
