@@ -134,6 +134,8 @@ flowchart TB
 | A-11 | website 与 desktop 在 monorepo 中但 CI 边界不一致 | 观察项 | P2 | 发布一致性依赖人工/脚本约束 |
 | A-12 | renderer event bus 仍为 `Emitter<Record<string, unknown>>` | 未解决 | P1 | 事件名/payload/时序协议缺少编译期约束 |
 | A-13 | desktop 依赖手写 `@muyajs/core` declaration，`Muya` 暴露 `[key: string]: any` | 未解决 | P1 | 编辑器边界错误容易延迟到 E2E/runtime 暴露 |
+| A-14 | editor lifecycle teardown 仍由 Vue component 手工编排几十项资源 | 未解决 | P1 | 新增资源时容易漏 dispose/off/cancel，生命周期修改半径过大 |
+| A-15 | 少量历史 HACK IPC/兼容路径仍残留，但大部分 workaround 有明确上游依据 | 部分解决 | P2 | 不适合集中“大扫除”，应随所属边界逐项消除 |
 
 ---
 
@@ -513,6 +515,75 @@ persist(documentId, revision, markdown)
 
 ---
 
+### 5.10 Lifecycle / Async Ownership
+
+本轮对 Editor / Source Mode / Autosave 的生命周期路径进一步取证后，可以区分“正式机制”和“ownership 债务”。
+
+#### 已经是正式机制，不应作为 patch 删除
+
+- `sourceCode.vue` 使用 `viewDestroyed + tabId + applyingFileChange` 防止旧 timer / cursor callback 写入新文档；
+- source snapshot 在 unmount 时先 flush、再标记 destroyed，保证最后一次编辑不会被 guard 自己吞掉；
+- `AutosaveQueue` 按 documentId 维护 debounce + single-flight + revision acknowledgement，新 revision 可以替换 pending，但不会越过旧 in-flight write；
+- pending scroll restore 通过 rAF、ResizeObserver 驱动的 layout reconciliation 与真实用户交互取消，不再靠固定 settle timeout 轮询。
+
+这些都属于可解释、可测试的正式生命周期机制。
+
+#### 真正的 ownership 问题
+
+`editor.vue` 的 `onBeforeUnmount` 仍需要手工执行一长串 teardown：
+
+- flush active editor；
+- dispose snapshot scheduler；
+- 逐个 `bus.off(...)`（30+ 项）；
+- remove DOM listeners；
+- cancel input probe；
+- flush scroll persistence；
+- clear performance timer；
+- cancel TOC scheduler；
+- destroy layout reconciler / TOC scroll sync；
+- clear pending scroll restore；
+- destroy image viewer；
+- destroy Muya instance。
+
+这不是“代码难看”问题，而是 **Editor Runtime 尚未成为资源 owner**。每增加一个 scheduler、observer、event subscription 或 async coordinator，都需要修改 Vue mount/unmount 链，容易形成 teardown 漏项。
+
+因此 ARCH-01 的成功标准应增加：`DocumentEditorRuntime.dispose()` 必须成为编辑运行时资源释放的唯一高层入口，内部资源可以各自 dispose，但 Vue 不再逐项知道它们。
+
+#### Buffered state 观察项
+
+`bufferedState.ts` 使用 module-level debounce + `requestIdleCallback`/`setTimeout` 延迟完整状态快照，目前没有显式 cancel/dispose API。它是 renderer-window 级单例，当前未发现实际泄漏证据，因此只记录为 **P2 观察项**；如果以后引入 renderer soft-reload、多 runtime 或测试隔离，应补 lifecycle contract。
+
+---
+
+### 5.11 Patch Debt Classification
+
+本轮按 `WORKAROUND / workaround / HACK / retry / debounce / setTimeout` 重新检查，没有发现“应集中删除的大量 timing patch”这一结论的证据。
+
+#### A. 明确上游兼容 workaround — Keep
+
+包括 Electron zoom、per-monitor DPI、spellcheck、Windows Alt+F4、Linux menu 等路径，代码均附带 Electron issue 或平台原因。这类应保留，并在升级 Electron 时逐项复验，而不是为了代码整洁删除。
+
+#### B. 已经演进成正式机制 — Keep / Refactor owner
+
+例如 scroll restore、source snapshot scheduler、autosave queue、background scheduler。它们虽然包含 timer/generation/guard，但有明确状态、取消语义和测试目标，不应按“历史补丁”处理。
+
+#### C. 历史 HACK / 隐式协议 — Refactor with boundary
+
+`windowManager.ts` 仍存在明确标注 `HACK: Don't use this event` 的 `mt::window-add-file-path` handler；当前全仓未找到生产 caller，只剩 shared IPC contract 与 main handler。它应归入 IPC Contract Closure：先加 contract/usage test，再证明无 caller 后删除，而不是直接删 handler。
+
+#### 结论
+
+**不建议创建独立 Patch Cleanup PR。** Patch debt 应按 owner 归并：
+
+- IPC HACK → ARCH-02；
+- event timing / lifecycle guard → ARCH-01 / ARCH-05；
+- scroll/layout workaround → ARCH-03 / ARCH-04；
+- Electron upstream workaround → 保留并记录复验条件。
+
+这样可以避免“大扫除 PR”同时触碰编辑、窗口、IPC、菜单和平台兼容代码，制造无法归因的回归。
+
+---
+
 ## 6. Recommended Target Architecture
 
 ```mermaid
@@ -600,7 +671,7 @@ flowchart TB
 - runtime exposes narrow commands/events；
 - Vue 只负责 UI binding。
 
-成功标准：`editor.vue` 不再直接编排 snapshot/history/persistence 的时序。
+成功标准：`editor.vue` 不再直接编排 snapshot/history/persistence 的时序；`DocumentEditorRuntime.dispose()` 成为编辑运行时资源释放的唯一高层入口，Vue 不再逐项 dispose scheduler/observer/bus subscription。
 
 ### ARCH-02：IPC Contract Closure — P1
 
@@ -619,7 +690,7 @@ flowchart TB
 - 添加领域 request/result type；
 - renderer command 只使用 preload domain API。
 
-这不是性能 PR。
+这不是性能 PR。并在该 PR 中处理已无生产 caller 的 legacy/HACK IPC，例如 `mt::window-add-file-path`：必须先以 usage/contract test 证明安全，再删除。
 
 ### ARCH-03：Virtual Surface Contract — P1
 
@@ -747,6 +818,12 @@ flowchart TB
 6. ripgrep main-process async/cancel/ack 模式；
 7. `BackgroundTaskScheduler` 的 0–8 foreground/background 优先级模型；
 8. performance gate fail-closed 原则。
+
+---
+
+## 9.1 Patch Debt 处理原则
+
+本次审计明确否定“按关键词批量清理 timeout/debounce/guard”的做法。是否删除必须基于 ownership、状态机、上游兼容原因和 regression test。没有证据证明无效的 guard 不删，没有 Before/After 的 timing 调整也不包装成性能优化。
 
 ---
 
