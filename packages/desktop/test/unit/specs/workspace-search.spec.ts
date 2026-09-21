@@ -52,7 +52,9 @@ describe('workspace search primitives', () => {
   it('keeps deferred search disposal behind a stable editor-scroll revision boundary', () => {
     const dispose = vi.fn()
     const frames: FrameRequestCallback[] = []
-    let idle: ((deadline: IdleDeadline) => void) | null = null
+    const pending = {
+      idle: null as ((deadline: IdleDeadline) => void) | null
+    }
     let editorScrollRevision = 0
     const target = {
       requestAnimationFrame: vi.fn((callback: FrameRequestCallback) => {
@@ -61,7 +63,7 @@ describe('workspace search primitives', () => {
       }),
       cancelAnimationFrame: vi.fn(),
       requestIdleCallback: vi.fn((callback: (deadline: IdleDeadline) => void) => {
-        idle = callback
+        pending.idle = callback
         return 10
       }),
       cancelIdleCallback: vi.fn()
@@ -74,13 +76,13 @@ describe('workspace search primitives', () => {
     frames.shift()?.(0)
     editorScrollRevision += 1
     frames.shift()?.(16)
-    expect(idle).toBeNull()
+    expect(pending.idle).toBeNull()
     expect(dispose).not.toHaveBeenCalled()
 
     frames.shift()?.(32)
     frames.shift()?.(48)
-    expect(idle).not.toBeNull()
-    idle?.({ didTimeout: false, timeRemaining: () => 8 } as IdleDeadline)
+    expect(pending.idle).not.toBeNull()
+    pending.idle?.({ didTimeout: false, timeRemaining: () => 8 } as IdleDeadline)
 
     expect(dispose).toHaveBeenCalledTimes(1)
   })
