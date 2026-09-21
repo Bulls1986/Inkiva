@@ -595,6 +595,88 @@ persist(documentId, revision, markdown)
 
 ---
 
+### 5.12 Render Surface / Geometry Final Audit
+
+本轮对 PR-C 之后的 `selection / virtualization / scroll / TOC / diagram / image / block geometry` 边界做了最终深审。
+
+#### ARCH-03：当前问题不是私有字段泄漏，而是实现语义泄漏
+
+Desktop renderer **没有直接访问** Muya 的 `_virtualBlocks`、`_virtualMountedIndexes`、`_virtualOffsetIndex` 等私有字段，这一条边界已经守住。
+
+但 Desktop 仍直接知道并调用多个 virtualization-specific API：
+
+- `getVirtualizationSnapshot()`；
+- `getVirtualBlockOffset(blockIndex)`；
+- `scrollVirtualBlockIntoView(blockIndex, offset)`；
+- `releaseVirtualResizeCorrectionForNavigation()`。
+
+其中最后一个尤其暴露了实现内部状态机：调用方为了执行普通“导航/滚动到目标”动作，需要先知道 Muya 正处于 virtual resize correction，并手工释放它。
+
+TOC 也维护了两套路径：
+
+- 非虚拟化：mounted heading DOM geometry；
+- 虚拟化：Muya estimated logical offset + mounted heading DOM geometry fallback。
+
+这套实现当前是正确的，而且避免在 raw scroll hot path 做 layout read；但它意味着 Desktop 必须知道“当前是否虚拟化”和“虚拟 offset 是否可用”。
+
+**ARCH-03 的正确目标因此应修正为：不重写 virtualization，而是把实现特定 API 收口成 document-surface contract。** 建议最小接口表达业务动作而不是算法：
+
+```ts
+interface DocumentSurface {
+  revealBlock(index: number, options?: { viewportOffset?: number }): boolean
+  getBlockOffset(index: number): number | null
+  isWindowed(): boolean
+}
+```
+
+`revealBlock()` 内部自行处理 resize correction、window hydration、exact DOM correction；Desktop 不再调用 `releaseVirtualResizeCorrectionForNavigation()`。Selection/IME pinning 继续留在 Muya 内部，不暴露给 Desktop。
+
+#### ARCH-04：Geometry 已经存在两个合理 owner，不能机械合并
+
+虚拟化开启时，Muya 已经拥有权威的 logical geometry：
+
+- `_virtualOffsetIndex`；
+- measured-height cache；
+- width-aware estimate rebuild；
+- block `ResizeObserver`；
+- viewport anchor capture / resize correction；
+- mounted block exact DOM refinement。
+
+Desktop 的 `EditorLayoutReconciler` 则观察 mounted 顶层 block，维护 DOM geometry cache，服务：
+
+- 非虚拟化场景的 scroll anchoring；
+- TOC position cache；
+- pending tab scroll restore；
+- diagram/image/table 等异步高度变化通知。
+
+当前通过 `shouldDeferScroll()` 明确规定：virtualization active 或 pending scroll restore 时，Desktop 只观察，不写 `scrollTop`；scroll anchoring 交给 Muya。这个 guard 是正确机制，不应删除。
+
+真正的债务是：**“谁拥有 authoritative geometry、谁只是 projection”仍靠调用约定表达。** ARCH-04 不应造一个跨 desktop/Muya 的巨型 geometry store，而应建立单向 contract：
+
+```text
+Muya logical geometry (authoritative when windowed)
+              │
+              ├── block offset / reveal / geometry-change projection
+              ▼
+Desktop mounted geometry projection
+              │
+              ├── TOC cache
+              └── tab restore / non-windowed scroll correction
+```
+
+Diagram 也不需要新增一套自定义 `diagram-height-changed` 事件。现有策略更合理：Diagram coordinator 只负责 render concurrency/cache/cancel/writeback；DiagramPreview 的 height hint 只用于首次占位；最终高度变化由顶层 block `ResizeObserver` 进入 geometry 链。这样 Mermaid/Vega/PlantUML/Image/Table 不需要各自维护布局协议。
+
+#### ARCH-04 成功标准
+
+1. windowed 模式只有 Muya 可以执行 geometry-driven scroll correction；
+2. Desktop 不再判断/释放 Muya 的内部 resize-correction 状态；
+3. TOC 消费统一 surface offset/reveal contract，不自行判断 virtualization implementation；
+4. Diagram/Image 继续通过顶层 block geometry 进入布局链，不引入组件专属高度事件；
+5. raw scroll hot path 保持 layout-read free；
+6. responsive resize、offscreen remount、tab restore、TOC jump、selection/IME 全部保持现有回归测试。
+
+---
+
 ## 6. Recommended Target Architecture
 
 ```mermaid
@@ -705,7 +787,7 @@ flowchart TB
 
 ### ARCH-03：Virtual Surface Contract — P1
 
-**目标：** selection/layout/scroll 不直接依赖 virtualization 内部字段。
+**目标：** Desktop 不依赖 virtualization 的实现语义；现有私有 `_virtual*` 字段继续保持封装，并把 virtualization-specific navigation/offset API 收口成 `DocumentSurface` 业务 contract。
 
 先测试：
 
@@ -718,13 +800,15 @@ flowchart TB
 
 实现：
 
-- `VirtualDocumentSurface` 接口；
-- materialize/pin/reveal API；
+- `DocumentSurface` / `VirtualDocumentSurface` facade；
+- Desktop 只消费 `revealBlock / getBlockOffset / isWindowed` 等最小业务 API；
+- `releaseVirtualResizeCorrectionForNavigation` 等内部状态机操作下沉到 Muya；
+- materialize/pin/selection range 继续属于 Muya engine 内部；
 - 内部 virtual set/map 保持私有。
 
 ### ARCH-04：Block Geometry Unification — P1
 
-**目标：** diagram/image/async block size change 统一进入 geometry service。
+**目标：** 明确 logical geometry 与 mounted DOM geometry 的 owner/projection 关系；diagram/image/async block size change 统一通过顶层 block geometry 链传播，不创建组件专属布局协议。
 
 先测试：
 
@@ -738,8 +822,11 @@ flowchart TB
 
 实现：
 
-- geometry change event；
-- layout reconciler / virtual surface / TOC 消费统一 geometry update。
+- Muya windowed surface 作为 logical geometry authoritative owner；
+- Desktop layout reconciler 保留 mounted DOM projection 与非 windowed scroll correction；
+- surface 暴露 block offset/reveal/geometry projection contract；
+- TOC 不再自行判断 virtualization implementation；
+- diagram/image/table 高度变化继续由顶层 block ResizeObserver 汇入，不新增组件专属 height event。
 
 这是“架构 + 正确性”PR；只有实际降低测得热路径成本时才能称性能优化。
 
@@ -758,6 +845,27 @@ flowchart TB
 ### ARCH-08：Website / Release Boundary Contract — P2
 
 **目标：** 把 website、desktop version、release notes、artifact contract 的一致性纳入发布 contract。
+
+---
+
+## 7.1 Architecture Debt Top 10
+
+按当前代码风险与后续修改半径排序；这是架构债务优先级，不是性能收益排名：
+
+| 排名 | 架构债 | 优先级 | 处理 PR |
+| --- | --- | --- | --- |
+| 1 | Editor lifecycle / revision / snapshot / persistence owner 仍集中在 `editor.vue` | P1 | ARCH-01 |
+| 2 | Renderer event bus 关键事件仍为隐式 `Record<string, unknown>` 协议 | P1 | ARCH-05 |
+| 3 | IPC payload 与 raw channel string 尚未完全闭合 | P1 | ARCH-02 |
+| 4 | Desktop 仍感知 virtualization-specific navigation / resize-correction API | P1 | ARCH-03 |
+| 5 | Muya logical geometry 与 Desktop mounted geometry 的 authoritative/projection 关系未类型化 | P1 | ARCH-04 |
+| 6 | `@muyajs/core` public `.d.ts` 不完整，desktop 依赖 permissive shim | P1 | ARCH-06 |
+| 7 | Persistence revision contract 尚未由独立 runtime/state machine 完整拥有 | P1 | ARCH-01 |
+| 8 | Background priority model 已有，但 TOC/diagram/index 等 coverage 未完全闭合 | P2 | ARCH-07 |
+| 9 | renderer-window buffered state scheduler 为 module singleton，缺少显式 lifecycle contract | P2 观察项 | 随 ARCH-01/测试隔离需求处理 |
+| 10 | Website / desktop / release artifact 一致性仍有人工边界 | P2 | ARCH-08 |
+
+以下历史大问题**不再列入 Top 10**，因为已有明确实现：全量 O(N) DOM、diagram render 无 coordinator、folder search renderer 同步扫描、revision 重复 Markdown serialization、layout observer 无 teardown。
 
 ---
 
@@ -852,6 +960,27 @@ flowchart TB
 - PR-C 已合并且普通 CI 为绿色，但 reference performance runner 是独立基础设施条件；
 - 本文的“已解决”表示相关架构问题已有明确实现与测试保护，不等于该领域以后不会再出现缺陷；
 - `editor.vue` 的拆分必须以行为不变为前提，不应为了追求文件大小而机械拆文件。
+
+---
+
+## 10.1 Audit Completion Status
+
+截至本次提交，ARCH-AUDIT-01 计划中的架构审计范围已经全部覆盖：
+
+- Electron / Preload / Renderer boundary；
+- editor decomposition / runtime ownership；
+- document state / revision / save / autosave；
+- Render Surface 2.0 / virtualization；
+- diagram / image / layout / geometry；
+- event bus / IPC contract；
+- lifecycle / async / cancellation；
+- patch debt classification；
+- search / document intelligence / background scheduler；
+- Muya migration / public type boundary；
+- CI / performance / release boundary；
+- Risk Matrix、Target Architecture、PR Roadmap、Validation Strategy、Architecture Debt Top 10。
+
+因此本文档在 **“现状调研 + 架构审计 + 改造方案拟定”层面标记完成**。ARCH-01～ARCH-08 是后续实施任务，不属于本审计任务的完成条件。
 
 ---
 
