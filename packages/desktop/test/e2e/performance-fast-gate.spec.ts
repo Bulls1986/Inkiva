@@ -65,8 +65,7 @@ interface FastGateProbe {
   inputDurations: number[]
   maxEventLoopLag: number
   longTaskObserver?: PerformanceObserver
-  inputObserver?: PerformanceObserver
-  recordInputEntries?: (entries: PerformanceEntry[]) => void
+  inputCleanup?: () => void
 }
 
 interface RendererActionMeasurement {
@@ -532,41 +531,29 @@ const armFastGateInputProbe = async(page: Page): Promise<void> => {
     const probe = state.__inkiva_fast_gate_probe__
     if (!probe) throw new Error('fast-gate probe is not installed')
 
-    probe.inputObserver?.disconnect()
-    const observer = new PerformanceObserver((list) => {
-      probe.recordInputEntries?.(list.getEntries())
-    })
-    probe.recordInputEntries = (entries) => {
-      for (const entry of entries) {
-        if (
-          entry.entryType === 'event' &&
-          ['beforeinput', 'compositionend', 'input', 'keydown', 'keyup', 'paste'].includes(
-            entry.name
-          )
-        ) {
-          const timing = entry as PerformanceEntry & { processingStart?: unknown }
-          const latency =
-            typeof timing.processingStart === 'number' &&
-            Number.isFinite(timing.processingStart) &&
-            timing.processingStart >= entry.startTime
-              ? timing.processingStart - entry.startTime
-              : entry.duration
-          if (Number.isFinite(latency) && latency >= 0) {
-            probe.inputDurations.push(latency)
-            observer.disconnect()
-            probe.inputObserver = undefined
-            return
-          }
-        }
-      }
+    probe.inputCleanup?.()
+    const eventTypes = ['beforeinput', 'compositionend', 'input', 'keydown', 'keyup', 'paste'] as const
+    let settled = false
+    const cleanup = (): void => {
+      for (const type of eventTypes) document.removeEventListener(type, recordInputDelay, true)
+      if (probe.inputCleanup === cleanup) probe.inputCleanup = undefined
+    }
+    const recordInputDelay = (event: Event): void => {
+      if (settled) return
+      // PerformanceEventTiming cannot expose events below its 16 ms minimum
+      // duration threshold, while this gate explicitly requires input p95 <8 ms.
+      // Event.timeStamp and performance.now() share Chromium's high-resolution
+      // time origin, so this captures the same queueing interval represented by
+      // PerformanceEventTiming.processingStart - startTime for every real event.
+      const latency = performance.now() - event.timeStamp
+      if (!Number.isFinite(latency) || latency < 0) return
+      settled = true
+      probe.inputDurations.push(latency)
+      cleanup()
     }
 
-    probe.inputObserver = observer
-    observer.observe({
-      type: 'event',
-      buffered: false,
-      durationThreshold: 0
-    } as PerformanceObserverInit)
+    probe.inputCleanup = cleanup
+    for (const type of eventTypes) document.addEventListener(type, recordInputDelay, true)
   })
 }
 
@@ -575,12 +562,7 @@ const drainFastGateInputProbe = async(page: Page): Promise<number> =>
     const state = globalThis as typeof globalThis & {
       __inkiva_fast_gate_probe__?: FastGateProbe
     }
-    const probe = state.__inkiva_fast_gate_probe__
-    const observer = probe?.inputObserver
-    if (observer && probe?.recordInputEntries) {
-      probe.recordInputEntries(observer.takeRecords())
-    }
-    return probe?.inputDurations.length ?? 0
+    return state.__inkiva_fast_gate_probe__?.inputDurations.length ?? 0
   })
 
 const readInputCount = async(page: Page): Promise<number> =>
