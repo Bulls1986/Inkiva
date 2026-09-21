@@ -109,3 +109,47 @@ Next stage:
 2. migrate the first coherent resource group (snapshot scheduler + high-level runtime disposables) behind `DocumentEditorRuntime`;
 3. keep save/tab-switch/source-mode behavior unchanged and rerun focused integration/E2E coverage;
 4. update this ledger after the migration slice before expanding ownership further.
+
+Stage 1 implementation commit: `54b1e1a9` (`refactor(editor): add document editor runtime kernel`).
+
+### Stage 2 — snapshot scheduler + renderer bus teardown ownership
+
+Status: **complete (local commit), remote push pending verification**
+
+Test-first evidence:
+
+- Added a subscription ownership contract before implementation.
+- Red result: runtime unit suite ran 5 tests with **1 failed / 4 passed** because `runtime.subscribe` did not exist.
+- After implementation: runtime unit suite **5/5 passed**.
+
+Implemented:
+
+- `DocumentEditorRuntime.subscribe()` now owns subscription setup/teardown as one lifecycle resource.
+- `editor.vue` creates one `DocumentEditorRuntime` for the component runtime.
+- `EditorSnapshotScheduler.dispose()` is registered with the runtime instead of being called directly by Vue teardown.
+- Renderer `bus.on(...)` registrations are paired with runtime-owned disposables; `onBeforeUnmount` no longer contains the previous long `bus.off(...)` list.
+- Vue teardown now calls `editorRuntime.dispose()` for this migrated resource group.
+- Scroll/layout/input-probe/image-viewer/Muya destruction remain outside the runtime in this stage and are intentionally deferred to later slices.
+
+Validation evidence:
+
+- runtime + revision snapshot regression: **21/21 passed** across 2 Vitest files.
+- `vue-tsc --noEmit -p packages/desktop/tsconfig.json`: **passed**.
+- `git diff --check`: **passed**.
+- Focused ESLint including `editor.vue` timed out twice (90 s and 120 s) without producing lint diagnostics. This is recorded as an unresolved validation execution issue, not as a lint pass and not as a code failure.
+
+Implementation commit:
+
+- `29347373a681c9cfddb6e278094840cc2f8151b4` — `refactor(editor): move bus teardown into runtime`.
+
+Remote state:
+
+- Earlier `git push -u origin arch/01-editor-runtime` timed out without output. Remote publication is **not** claimed until independently verified.
+
+Next:
+
+1. verify/retry remote push without duplicating commits;
+2. add test-first coverage for the next teardown ownership slice: input probe/listeners, scroll timers/listeners, TOC/layout resources;
+3. migrate those resources behind runtime disposables while preserving cleanup ordering;
+4. run focused unit/typecheck and Electron E2E covering mount/unmount, tab switch and source/WYSIWYG switch;
+5. only after these pass, move final Muya instance destruction behind `DocumentEditorRuntime.dispose()`.
