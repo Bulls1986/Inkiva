@@ -40,10 +40,22 @@ describe('editor tab switch protection', () => {
       "removeEventListener('scroll'",
       'tocRefreshScheduler.cancel()',
       'editorLayoutReconciler?.destroy()',
-      'tocScrollSync?.destroy()'
+      'tocScrollSync?.destroy()',
+      'imageViewer.destroy()',
+      'editor.value.destroy()'
     ]) {
       expect(unmount, forbidden).not.toContain(forbidden)
     }
+  })
+
+  it('keeps revision and snapshot scheduling behind the editor runtime boundary', () => {
+    const source = readEditor()
+
+    expect(source).not.toContain('documentRevisionSnapshots')
+    expect(source).not.toMatch(/editorSnapshotScheduler\.(request|flush)\(/)
+    expect(source).toContain('editorRuntime.recordMutation(')
+    expect(source).toContain("editorRuntime.flushSnapshot(id, 'persistence')")
+    expect(source).toContain("editorRuntime.flushSnapshot(id, 'switch')")
   })
 
   it('routes every editor Markdown serialization through the measured helper', () => {

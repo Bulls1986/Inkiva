@@ -156,7 +156,7 @@ Next:
 
 ### Stage 3 — presentation resource teardown ownership
 
-Status: **complete, pending stage commit/push**
+Status: **complete and pushed**
 
 Test-first evidence:
 
@@ -188,10 +188,72 @@ Environment incident and resolution:
 - These environment bridges live under ignored `node_modules` and are not part of the product diff or commit.
 - After repairing only those local runtime prerequisites, the exact targeted E2E suite passed as recorded above. Therefore the earlier E2E timeouts are classified as worktree dependency-environment failures, not product regressions.
 
+Stage 3 commit: `b1306101` (`refactor(editor): move presentation teardown into runtime`), pushed to `origin/arch/01-editor-runtime`.
+
+### Stage 4 — final instance teardown ownership
+
+Status: **complete, pending final combined commit/push**
+
+Test-first evidence:
+
+- Expanded the structural teardown gate to forbid direct `imageViewer.destroy()` and `editor.value.destroy()` calls inside `onBeforeUnmount`.
+- Red result: focused suite ran 8 tests with **1 failed / 7 passed**, explicitly finding `imageViewer.destroy()` in Vue teardown.
+- Moved image viewer and Muya destruction into a runtime-owned ordered disposable group.
+- After implementation: runtime/snapshot/structural suites **29/29 passed**.
+- `vue-tsc`: **passed**; focused ESLint: **passed**.
+- Rebuilt Electron renderer and reran targeted Electron E2E: **13 passed / 1 skipped**, 30.9 s.
+
+Result:
+
+- `onBeforeUnmount` no longer destroys runtime resources individually; Vue performs the final active-editor flush and delegates high-level teardown to `editorRuntime.dispose()`.
+
+### Stage 5 — revision / snapshot / history orchestration boundary
+
+Status: **complete, pending final combined commit/push**
+
+Test-first evidence:
+
+- Added runtime contract coverage for `recordMutation()` + scheduler request/flush ownership. Red result: runtime suite **1 failed / 5 passed** because `recordMutation` did not exist; implementation then turned the suite green.
+- Added runtime history-restore ownership coverage. Red result: runtime suite **1 failed / 6 passed** because `restoreCurrentHistory` did not exist; implementation then turned the suite green.
+- Added a structural regression guard forbidding `documentRevisionSnapshots` and direct `editorSnapshotScheduler.request/flush` orchestration inside `editor.vue`.
+
+Implemented:
+
+- `DocumentEditorRuntime` owns the snapshot scheduler contract and scheduler disposal.
+- `recordMutation()` now owns the ordering `mark dirty / allocate revision -> schedule snapshot capture`.
+- `flushSnapshot()` owns full / persistence / switch flush modes used by save, export and tab switching.
+- revision-scoped Markdown, history metadata, word count and block derived-state access now go through runtime facade methods.
+- exact-source Markdown seeding and closed-document snapshot pruning now go through the runtime boundary.
+- current-revision history lookup/restore is coordinated by `restoreCurrentHistory()`; Vue only supplies the Muya `setHistory` binding.
+- `editor.vue` contains **zero direct `documentRevisionSnapshots` references** and **zero direct `editorSnapshotScheduler.request/flush` calls**.
+
+Final validation evidence:
+
+- Runtime + revision snapshot + architecture structural unit suites: **32/32 passed** across 3 files.
+- `vue-tsc --noEmit -p packages/desktop/tsconfig.json`: **passed**.
+- focused ESLint on runtime/editor/tests: **passed**; only the repository's existing `MODULE_TYPELESS_PACKAGE_JSON` warning remains.
+- `git diff --check`: **passed**.
+- Electron Vite build from the final working tree: **passed**, renderer build 34.42 s.
+- final targeted Electron E2E (`editor-switch-performance.spec.ts` + `view-modes.spec.ts`): **13 passed / 1 skipped**, 31.2 s.
+- validated flows include editor mount, repeated tab switch, edited-tab snapshot reuse, deferred edit race, save/autosave/export/close snapshot sharing, warm large-document virtualization, focus/typewriter/source-code mode transitions and source-mode menu state.
+
+### ARCH-01 completion assessment
+
+Status: **implementation complete; final commit/push/PR creation remains**
+
+Success criteria review against `ARCHITECTURE_AUDIT_2026-09.md`:
+
+- runtime owns Muya/high-level editor lifecycle teardown: **met**;
+- runtime owns snapshot scheduler lifecycle and scheduling modes: **met**;
+- runtime exposes narrow revision/snapshot/history commands: **met**;
+- Vue remains the adapter for UI/Muya/store-specific bindings rather than the owner of revision/snapshot timing: **met**;
+- `DocumentEditorRuntime.dispose()` is the sole high-level runtime teardown entry used by Vue: **met**;
+- `editor.vue` no longer directly orchestrates snapshot cache/scheduler timing: **met and structurally guarded**.
+
+This is an architecture/correctness PR. No Before/After performance experiment was performed, so **no performance improvement is claimed**.
+
 Next:
 
-1. commit/push Stage 3 code, tests and this ledger update;
-2. add a final structural gate that `onBeforeUnmount` contains no direct `imageViewer.destroy()` or `editor.value.destroy()` calls;
-3. move image viewer and Muya destruction behind runtime-owned cleanup while preserving final teardown ordering;
-4. rerun the same unit/typecheck/lint/Electron E2E set;
-5. review ARCH-01 success criteria and only then open/update the focused PR.
+1. commit and push Stages 4–5 plus this completion ledger;
+2. create the focused ARCH-01 PR against `develop` with the validation evidence above;
+3. track CI and only describe ARCH-01 as merge-ready after required tests are green.

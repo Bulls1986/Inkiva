@@ -51,6 +51,49 @@ describe('DocumentEditorRuntime', () => {
     expect(unsubscribe).toHaveBeenCalledWith(handler)
   })
 
+  it('coordinates dirty revision allocation with deferred snapshot scheduling', () => {
+    const snapshots = new DocumentRevisionSnapshotCache({ maxCost: 10_000 })
+    const scheduler = {
+      request: vi.fn(),
+      flush: vi.fn(),
+      dispose: vi.fn()
+    }
+    const runtime = new DocumentEditorRuntime({ snapshots, snapshotScheduler: scheduler })
+    const markDirty = vi.fn(() => snapshots.advanceContentRevision('doc'))
+    const capture = vi.fn()
+
+    const revision = runtime.recordMutation('doc', markDirty, capture, false)
+
+    expect(revision).toBe(1)
+    expect(markDirty).toHaveBeenCalledWith('doc')
+    expect(scheduler.request).toHaveBeenCalledOnce()
+    const [id, scheduledCapture, immediate] = scheduler.request.mock.calls[0]
+    expect(id).toBe('doc')
+    expect(immediate).toBe(false)
+    scheduledCapture('persistence')
+    expect(capture).toHaveBeenCalledWith('doc', 1, 'persistence')
+
+    runtime.flushSnapshot('doc', 'switch')
+    expect(scheduler.flush).toHaveBeenCalledWith('doc', 'switch')
+
+    runtime.dispose()
+    expect(scheduler.dispose).toHaveBeenCalledOnce()
+  })
+
+  it('restores history for the current revision without exposing cache lookup timing', () => {
+    const { snapshots, runtime } = createRuntime()
+    runtime.activateDocument('doc', 3)
+    snapshots.getHistoryMeta('doc', 3, () => ({ engineHistory: { undo: 1 } }))
+    const apply = vi.fn()
+
+    expect(runtime.restoreCurrentHistory<{ engineHistory: unknown }>('doc', apply)).toBe(true)
+    expect(apply).toHaveBeenCalledWith({ engineHistory: { undo: 1 } })
+
+    runtime.advanceContentRevision('doc')
+    expect(runtime.restoreCurrentHistory<{ engineHistory: unknown }>('doc', apply)).toBe(false)
+    expect(apply).toHaveBeenCalledTimes(1)
+  })
+
   it('owns document lifecycle and monotonic content revision transitions', () => {
     const { snapshots, runtime } = createRuntime()
 

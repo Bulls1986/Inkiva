@@ -118,7 +118,6 @@ import EditorSearch from '../search/index.vue'
 import bus from '@/bus'
 import { DEFAULT_EDITOR_FONT_FAMILY, DEFAULT_CODE_FONT_FAMILY } from '@/config'
 import notice from '@/services/notification'
-import { documentRevisionSnapshots } from '@/services/documentRevisionSnapshot'
 import { DocumentEditorRuntime } from '@/services/documentEditorRuntime'
 import Printer from '@/services/printService'
 import { SpellcheckerLanguageCommand } from '@/commands'
@@ -311,6 +310,18 @@ let pendingScrollPosition: { id: string; scrollTop: number } | null = null
 let tocScrollSync: ReturnType<typeof createTocScrollSync> | null = null
 let editorLayoutReconciler: ReturnType<typeof createEditorLayoutReconciler> | null = null
 const tocRefreshScheduler = createTocRefreshScheduler()
+function disposeEditorInstances (): void {
+  if (imageViewer) {
+    imageViewer.destroy()
+    imageViewer = null
+  }
+
+  if (editor.value) {
+    editor.value.destroy()
+    editor.value = null
+  }
+}
+
 function disposeEditorPresentationResources (): void {
   document.removeEventListener('keyup', keyup)
 
@@ -349,9 +360,10 @@ function disposeEditorPresentationResources (): void {
 }
 
 const editorRuntime = new DocumentEditorRuntime()
+editorRuntime.registerDisposable(disposeEditorInstances)
 editorRuntime.registerDisposable(disposeEditorPresentationResources)
 const editorSnapshotScheduler = new EditorSnapshotScheduler()
-editorRuntime.registerDisposable(() => editorSnapshotScheduler.dispose())
+editorRuntime.attachSnapshotScheduler(editorSnapshotScheduler)
 const registerBusHandler = (event: string, handler: any): void => {
   bus.on(event, handler)
   editorRuntime.registerDisposable(() => bus.off(event, handler))
@@ -391,14 +403,14 @@ const flushActiveEditor = () => {
   flushPendingScrollPosition()
   const id = currentFile.value?.id
   editor.value?.flush()
-  if (id) editorSnapshotScheduler.flush(id)
+  if (id) editorRuntime.flushSnapshot(id)
 }
 
 const flushActiveEditorForSave = () => {
   flushPendingScrollPosition()
   const id = currentFile.value?.id
   editor.value?.flush()
-  if (id) editorSnapshotScheduler.flush(id, 'persistence')
+  if (id) editorRuntime.flushSnapshot(id, 'persistence')
 }
 
 // A tab switch must persist the last queued edit before replacing the Muya
@@ -409,7 +421,7 @@ const flushActiveEditorForTabSwitch = () => {
   flushPendingScrollPosition()
   const id = currentFile.value?.id
   editor.value?.flush()
-  if (id) editorSnapshotScheduler.flush(id, 'switch')
+  if (id) editorRuntime.flushSnapshot(id, 'switch')
 }
 
 // Engine undo/redo state and the desktop save/dirty history are derived from
@@ -486,7 +498,7 @@ const serializeEditorMarkdownForRevision = (
   revision: number,
   instance: MuyaInstance
 ): string =>
-  documentRevisionSnapshots.getMarkdown(id, revision, () =>
+  editorRuntime.getMarkdown(id, revision, () =>
     serializeEditorMarkdown(instance, revision)
   )
 
@@ -496,11 +508,11 @@ const captureEditorSnapshot = (
   mode: EditorSnapshotMode = 'full'
 ): void => {
   if (!currentFile.value || currentFile.value.id !== id || !editor.value) return
-  if (documentRevisionSnapshots.currentRevision(id) !== revision) return
+  if (editorRuntime.currentRevision(id) !== revision) return
 
   const instance = editor.value
   const markdown = serializeEditorMarkdownForRevision(id, revision, instance)
-  const historySnapshot = documentRevisionSnapshots.getHistoryMeta<EditorHistoryRevisionSnapshot>(
+  const historySnapshot = editorRuntime.getHistoryMeta<EditorHistoryRevisionSnapshot>(
     id,
     revision,
     () => ({
@@ -514,10 +526,10 @@ const captureEditorSnapshot = (
   )
   const includeBlocks = shouldCaptureEditorBlocks(mode, virtualizationEnabled)
   const wordCount = includeDerivedMetadata
-    ? documentRevisionSnapshots.getWordCount(id, revision, () => muyaWordCount(markdown))
+    ? editorRuntime.getWordCount(id, revision, () => muyaWordCount(markdown))
     : undefined
   const blocks = includeBlocks
-    ? documentRevisionSnapshots.getBlocks(
+    ? editorRuntime.getBlocks(
       id,
       revision,
       () => instance.getState(),
@@ -543,7 +555,7 @@ const pruneClosedTabState = (liveTabIds: Set<string>): void => {
   for (const id of syntheticHistoryByTab.keys()) {
     if (!liveTabIds.has(id)) syntheticHistoryByTab.delete(id)
   }
-  documentRevisionSnapshots.prune(liveTabIds)
+  editorRuntime.prune(liveTabIds)
 }
 
 interface SelectionFormatLike {
@@ -1654,10 +1666,10 @@ const rememberLastExport = (options: ExportOptions) => {
 const getCurrentRevisionMarkdownSnapshot = (): string => {
   const id = currentFile.value?.id
   editor.value.flush()
-  if (id) editorSnapshotScheduler.flush(id, 'persistence')
-  const revision = id ? documentRevisionSnapshots.currentRevision(id) : 0
+  if (id) editorRuntime.flushSnapshot(id, 'persistence')
+  const revision = id ? editorRuntime.currentRevision(id) : 0
   return id
-    ? (documentRevisionSnapshots.readMarkdown(id, revision) ??
+    ? (editorRuntime.readMarkdown(id, revision) ??
         serializeEditorMarkdownForRevision(id, revision, editor.value))
     : serializeEditorMarkdown(editor.value)
 }
@@ -2098,10 +2110,10 @@ const setMarkdownToEditor = (payload: unknown) => {
     // actual content mutation occurs. Keeping those roles separate prevents a
     // source-mode toggle/save from silently reformatting pristine Markdown.
     if (id) {
-      const revision = documentRevisionSnapshots.currentRevision(id)
+      const revision = editorRuntime.currentRevision(id)
       const normalizedMarkdown = serializeEditorMarkdown(editor.value)
       resetSyntheticHistory(id, normalizedMarkdown)
-      documentRevisionSnapshots.seedMarkdown(id, revision, newMarkdown ?? currentFile.value?.markdown ?? '')
+      editorRuntime.seedMarkdown(id, revision, newMarkdown ?? currentFile.value?.markdown ?? '')
     }
     if (newCursor) {
       runWhenEditorRenderComplete(id, (instance) => {
@@ -2280,14 +2292,10 @@ const handleFileChange = (payload: unknown) => {
           }
         })
       }
-      const historySnapshot = id
-        ? documentRevisionSnapshots.readHistoryMeta<EditorHistoryRevisionSnapshot>(
-          id,
-          documentRevisionSnapshots.currentRevision(id)
-        )
-        : undefined
-      if (historySnapshot?.engineHistory) {
-        editor.value.setHistory(historySnapshot.engineHistory)
+      if (id) {
+        editorRuntime.restoreCurrentHistory<EditorHistoryRevisionSnapshot>(id, (historySnapshot) => {
+          if (historySnapshot.engineHistory) editor.value.setHistory(historySnapshot.engineHistory)
+        })
       }
       // First activation of a tab the save-tracking allocator has never seen:
       // seed its clean baseline from the payload already held by the store.
@@ -2500,10 +2508,10 @@ onMounted(() => {
   // merely entering source mode would rewrite formatting such as table spacing.
   if (currentFile.value?.id) {
     const id = currentFile.value.id
-    const revision = documentRevisionSnapshots.currentRevision(id)
+    const revision = editorRuntime.currentRevision(id)
     const normalizedMarkdown = serializeEditorMarkdown(muya)
     getSyntheticHistory(id, normalizedMarkdown)
-    documentRevisionSnapshots.seedMarkdown(id, revision, currentFile.value.markdown)
+    editorRuntime.seedMarkdown(id, revision, currentFile.value.markdown)
   }
 
   const container = getScrollContainer()!
@@ -2616,10 +2624,10 @@ onMounted(() => {
     const { id } = currentFile.value
     if (!id) return
     const policy = getEditorMutationPolicy(change)
-    const revision = editorStore.MARK_CONTENT_DIRTY(id)
-    editorSnapshotScheduler.request(
+    editorRuntime.recordMutation(
       id,
-      (mode) => captureEditorSnapshot(id, revision, mode),
+      (documentId) => editorStore.MARK_CONTENT_DIRTY(documentId),
+      captureEditorSnapshot,
       policy.snapshot === 'immediate'
     )
 
@@ -2740,16 +2748,6 @@ onBeforeUnmount(() => {
   editorPerformanceGeneration += 1
   flushActiveEditor()
   editorRuntime.dispose()
-
-  if (imageViewer) {
-    imageViewer.destroy()
-    imageViewer = null
-  }
-
-  if (editor.value) {
-    editor.value.destroy()
-    editor.value = null
-  }
 })
 </script>
 
