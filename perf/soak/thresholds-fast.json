@@ -50,7 +50,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 45
+          "limit": 55
         },
         {
           "id": "fast-diagram-placeholder-p95",
@@ -246,7 +246,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 45
+          "limit": 55
         },
         {
           "id": "fast-diagram-placeholder-p95",
@@ -442,7 +442,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 45
+          "limit": 55
         },
         {
           "id": "fast-diagram-placeholder-p95",
@@ -638,7 +638,7 @@
           "unit": "count",
           "statistic": "min",
           "operator": "gte",
-          "limit": 45
+          "limit": 55
         },
         {
           "id": "fast-diagram-placeholder-p95",

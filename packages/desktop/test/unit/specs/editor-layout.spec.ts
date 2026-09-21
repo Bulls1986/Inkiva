@@ -145,6 +145,21 @@ afterEach(() => {
 })
 
 describe('createEditorLayoutReconciler', () => {
+  it('does not read scrollHeight from the scroll-event hot path', () => {
+    const fixture = makeFixture()
+    reconciler = createEditorLayoutReconciler(fixture.container)
+    const readScrollHeight = vi.fn(() => 1000)
+    Object.defineProperty(fixture.container, 'scrollHeight', {
+      configurable: true,
+      get: readScrollHeight
+    })
+
+    fixture.container.scrollTop = 200
+    fixture.container.dispatchEvent(new Event('scroll'))
+
+    expect(readScrollHeight).not.toHaveBeenCalled()
+  })
+
   it('batches and de-duplicates ResizeObserver entries while measuring only changed blocks', async() => {
     const fixture = makeFixture()
     const onChange = vi.fn<(changes: readonly EditorLayoutChange[]) => void>()

@@ -164,15 +164,20 @@ export interface CapturedMessageBox {
   detail?: string
 }
 
-export const installMessageBoxCapture = async(app: ElectronApplication): Promise<void> => {
-  await app.evaluate(({ dialog }) => {
+export const installMessageBoxCapture = async(
+  app: ElectronApplication,
+  response = 0
+): Promise<void> => {
+  await app.evaluate(({ dialog }, response) => {
     const globalState = global as unknown as {
       __mt_message_boxes__?: CapturedMessageBox[]
+      __mt_message_box_response__?: number
     }
     if (globalState.__mt_message_boxes__) return
 
     const calls: CapturedMessageBox[] = []
     globalState.__mt_message_boxes__ = calls
+    globalState.__mt_message_box_response__ = response
     ;(dialog as unknown as {
       showMessageBox: (...args: unknown[]) => Promise<unknown>
     }).showMessageBox = async(...args: unknown[]) => {
@@ -184,9 +189,9 @@ export const installMessageBoxCapture = async(app: ElectronApplication): Promise
         message: typeof options?.message === 'string' ? options.message : undefined,
         detail: typeof options?.detail === 'string' ? options.detail : undefined
       })
-      return { response: 0, checkboxChecked: false }
+      return { response: globalState.__mt_message_box_response__ ?? 0, checkboxChecked: false }
     }
-  })
+  }, response)
 }
 
 export const getMessageBoxCalls = async(app: ElectronApplication): Promise<CapturedMessageBox[]> =>
@@ -194,6 +199,16 @@ export const getMessageBoxCalls = async(app: ElectronApplication): Promise<Captu
     const globalState = global as unknown as { __mt_message_boxes__?: CapturedMessageBox[] }
     return (globalState.__mt_message_boxes__ ?? []).slice()
   })
+
+export const setMessageBoxResponse = async(
+  app: ElectronApplication,
+  response: number
+): Promise<void> => {
+  await app.evaluate((_electron, response) => {
+    const globalState = global as unknown as { __mt_message_box_response__?: number }
+    globalState.__mt_message_box_response__ = response
+  }, response)
+}
 
 // Capture renderer-process errors that would otherwise pop the "Unexpected
 // error" dialog. We attach a parallel listener to the same IPC channel

@@ -93,6 +93,28 @@ test.describe('@virtualization-core Render Surface 2.0 — Electron core interac
     if (app) await app.close()
   })
 
+  test('editor scroll surface is compositor-promoted without changing its viewport geometry', async() => {
+    const result = await page.locator('.editor-component').evaluate((node) => {
+      const element = node as HTMLElement
+      const style = getComputedStyle(element)
+      const rect = element.getBoundingClientRect()
+      return {
+        transform: style.transform,
+        width: rect.width,
+        height: rect.height,
+        offsetWidth: element.offsetWidth,
+        offsetHeight: element.offsetHeight
+      }
+    })
+
+    expect(result.transform).not.toBe('none')
+    expect(result.width).toBeGreaterThan(0)
+    expect(result.height).toBeGreaterThan(0)
+    expect(Math.abs(result.width - result.offsetWidth)).toBeLessThanOrEqual(1)
+    expect(Math.abs(result.height - result.offsetHeight)).toBeLessThanOrEqual(1)
+    await expectNoRendererErrors(app)
+  })
+
   test('Ctrl+A/Delete affects the complete logical document without full DOM mount, then Undo restores it', async() => {
     await placeCaretAtTextBoundary(page)
 
@@ -396,17 +418,18 @@ test.describe('@virtualization-core Render Surface 2.0 — Electron core interac
         timeout: 5000
       })
       .toBeGreaterThan(0)
-    const restoredCaret = await page.evaluate(() => {
-      const selection = document.getSelection()
-      if (!selection || selection.rangeCount === 0 || !selection.anchorNode) return null
-      const anchor =
-        selection.anchorNode.nodeType === Node.TEXT_NODE
-          ? selection.anchorNode.parentElement
-          : (selection.anchorNode as Element)
-      const paragraph = anchor?.closest('.mu-paragraph-content')
-      return paragraph?.textContent ?? null
-    })
-    expect(restoredCaret).toBe('paragraph 359')
+    const readRestoredCaret = (): Promise<string | null> =>
+      page.evaluate(() => {
+        const selection = document.getSelection()
+        if (!selection || selection.rangeCount === 0 || !selection.anchorNode) return null
+        const anchor =
+          selection.anchorNode.nodeType === Node.TEXT_NODE
+            ? selection.anchorNode.parentElement
+            : (selection.anchorNode as Element)
+        const paragraph = anchor?.closest('.mu-paragraph-content')
+        return paragraph?.textContent ?? null
+      })
+    await expect.poll(() => readRestoredCaret(), { timeout: 5000 }).toBe('paragraph 359')
     await expectBoundedVirtualization(page)
     await expectNoRendererErrors(app)
   })
@@ -502,6 +525,7 @@ test.describe('@virtualization-core Render Surface 2.0 — Electron core interac
     })
     await page.waitForTimeout(300)
     const afterSidebar = await readViewportAnchor()
+
     expect(afterSidebar.width).toBeGreaterThan(beforeSidebar.width)
     expect(Math.abs(afterSidebar.index - beforeSidebar.index)).toBeLessThanOrEqual(2)
     await expectBoundedVirtualization(page)
@@ -528,6 +552,161 @@ test.describe('@virtualization-core Render Surface 2.0 — Electron core interac
     expect(full.width).toBeGreaterThan(narrow.width)
     expect(Math.abs(full.index - narrow.index)).toBeLessThanOrEqual(2)
     await expectBoundedVirtualization(page)
+    await expectNoRendererErrors(app)
+  })
+
+  test('idle virtual surface does not republish diagnostics after bootstrap settles', async() => {
+    await page.waitForTimeout(150)
+
+    const diagnosticMutations = await page.evaluate(async() => {
+      const root = document.querySelector<HTMLElement>(
+        '.mu-container[data-virtualization-enabled="true"]'
+      )
+      if (!root) throw new Error('virtualized editor surface is missing')
+
+      const mutations: Record<string, number> = {}
+      const observer = new MutationObserver((records) => {
+        for (const record of records) {
+          if (record.type !== 'attributes' || !record.attributeName?.startsWith('data-virtual')) continue
+          mutations[record.attributeName] = (mutations[record.attributeName] ?? 0) + 1
+        }
+      })
+      observer.observe(root, { attributes: true })
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      observer.disconnect()
+      return mutations
+    })
+
+    expect(diagnosticMutations).toEqual({})
+    await expectNoRendererErrors(app)
+  })
+
+  test('unchanged virtual windows skip redundant diagnostics during tiny scrolls', async() => {
+    await page.waitForTimeout(150)
+
+    const result = await page.evaluate(async() => {
+      const editor = document.querySelector<HTMLElement>('.editor-component')
+      const root = document.querySelector<HTMLElement>(
+        '.mu-container[data-virtualization-enabled="true"]'
+      )
+      if (!editor || !root) throw new Error('virtualized editor surface is missing')
+
+      const before = {
+        start: root.dataset.virtualWindowStart,
+        end: root.dataset.virtualWindowEnd
+      }
+      const diagnosticMutations: Record<string, number> = {}
+      const observer = new MutationObserver((records) => {
+        for (const record of records) {
+          if (record.type !== 'attributes' || !record.attributeName?.startsWith('data-virtual')) continue
+          diagnosticMutations[record.attributeName] = (diagnosticMutations[record.attributeName] ?? 0) + 1
+        }
+      })
+      observer.observe(root, { attributes: true })
+
+      editor.scrollTop += 1
+      editor.dispatchEvent(new Event('scroll'))
+      await new Promise((resolve) => setTimeout(resolve, 80))
+      observer.disconnect()
+
+      return {
+        before,
+        after: {
+          start: root.dataset.virtualWindowStart,
+          end: root.dataset.virtualWindowEnd
+        },
+        diagnosticMutations
+      }
+    })
+
+    expect(result.after).toEqual(result.before)
+    expect(result.diagnosticMutations).toEqual({})
+    await expectNoRendererErrors(app)
+  })
+
+  test('scroll bursts persist the latest position without a Pinia write per event', async() => {
+    const result = await page.evaluate(async() => {
+      const editor = document.querySelector<HTMLElement>('.editor-component')
+      const appRoot = document.querySelector('#app') as
+        | (Element & { __vue_app__?: { config?: { globalProperties?: Record<string, unknown> } } })
+        | null
+      const pinia = appRoot?.__vue_app__?.config?.globalProperties?.$pinia as
+        | { _s?: Map<string, { currentFile?: { scrollTop?: number } | null; updateScrollPosition?: (...args: unknown[]) => unknown }> }
+        | undefined
+      const store = pinia?._s?.get('editor')
+      if (!editor || !store?.updateScrollPosition) throw new Error('editor scroll persistence is unavailable')
+
+      const original = store.updateScrollPosition
+      let calls = 0
+      store.updateScrollPosition = (...args: unknown[]) => {
+        calls += 1
+        return original.apply(store, args)
+      }
+      try {
+        for (let index = 0; index < 20; index += 1) {
+          editor.scrollTop += 12
+          editor.dispatchEvent(new Event('scroll'))
+        }
+        await new Promise((resolve) => setTimeout(resolve, 180))
+        return {
+          calls,
+          actual: editor.scrollTop,
+          persisted: store.currentFile?.scrollTop ?? -1
+        }
+      } finally {
+        store.updateScrollPosition = original
+      }
+    })
+
+    expect(result.calls).toBeLessThanOrEqual(2)
+    expect(Math.abs(result.persisted - result.actual)).toBeLessThanOrEqual(1)
+    await expectNoRendererErrors(app)
+  })
+
+  test('content-height-only resize does not rebuild or republish virtual geometry', async() => {
+    await page.waitForTimeout(150)
+
+    const result = await page.evaluate(async() => {
+      const root = document.querySelector<HTMLElement>(
+        '.mu-container[data-virtualization-enabled="true"]'
+      )
+      if (!root) throw new Error('virtualized editor surface is missing')
+
+      const before = {
+        start: root.dataset.virtualWindowStart,
+        end: root.dataset.virtualWindowEnd
+      }
+      const diagnosticMutations: Record<string, number> = {}
+      const observer = new MutationObserver((records) => {
+        for (const record of records) {
+          if (record.type !== 'attributes' || !record.attributeName?.startsWith('data-virtual')) continue
+          diagnosticMutations[record.attributeName] = (diagnosticMutations[record.attributeName] ?? 0) + 1
+        }
+      })
+      observer.observe(root, { attributes: true })
+
+      const previousMinHeight = root.style.minHeight
+      try {
+        root.style.minHeight = `${root.getBoundingClientRect().height + 24}px`
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+        await new Promise((resolve) => setTimeout(resolve, 40))
+      } finally {
+        root.style.minHeight = previousMinHeight
+        observer.disconnect()
+      }
+
+      return {
+        before,
+        after: {
+          start: root.dataset.virtualWindowStart,
+          end: root.dataset.virtualWindowEnd
+        },
+        diagnosticMutations
+      }
+    })
+
+    expect(result.after).toEqual(result.before)
+    expect(result.diagnosticMutations).toEqual({})
     await expectNoRendererErrors(app)
   })
 

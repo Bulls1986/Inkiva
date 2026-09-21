@@ -47,8 +47,17 @@
 
 /* Element Plus resets `p:first-child` to zero margin. Keep the first document
    paragraph on the same configurable rhythm as the rest of the writing area. */
-.mu-container > p.mu-paragraph {
+.mu-container > p.mu-paragraph,
+.mu-container > .mu-virtual-segment > p.mu-paragraph {
     margin-block: var(--mu-paragraph-spacing, 0.75em);
+}
+
+.mu-virtual-segment {
+    display: contents;
+}
+
+.mu-container > .mu-virtual-segment[data-virtual-previous-heading='true'] > p.mu-paragraph:first-child {
+    margin-top: 0;
 }
 
 .mu-container h1,
@@ -103,7 +112,8 @@
     font-size: 1em;
 }
 
-.mu-container > :first-child {
+.mu-container > :first-child,
+.mu-container > .mu-virtual-segment[data-virtual-segment-index='0'] > :first-child {
     margin-top: 0;
 }
 
@@ -534,13 +544,15 @@ ol.mu-order-list ol.mu-order-list ul.mu-bullet-list {
    `li.mu-task-list-item > … ~ *` rule below (stylelint no-descending-specificity).
    They target disjoint elements and set different properties, so order has
    no visual effect. */
-.mu-focus-mode .mu-container > * {
+.mu-focus-mode .mu-container > :not(.mu-virtual-segment),
+.mu-focus-mode .mu-container > .mu-virtual-segment > * {
     opacity: 0.25;
 
     transition: opacity 0.2s ease-in-out;
 }
 
-.mu-focus-mode .mu-container > .mu-active {
+.mu-focus-mode .mu-container > .mu-active,
+.mu-focus-mode .mu-container > .mu-virtual-segment > .mu-active {
     opacity: 1;
 }
 

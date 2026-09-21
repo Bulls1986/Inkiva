@@ -36,19 +36,29 @@ const expectedHeadingAtViewport = (page: Page): Promise<string> =>
     const editor = document.querySelector<HTMLElement>('.editor-component')
     if (!editor) return ''
     const viewport = editor.getBoundingClientRect()
-    const blocks = Array.from(document.querySelectorAll<HTMLElement>('.mu-container > *'))
-      .filter((node) => !node.classList.contains('mu-virtual-render-placeholder'))
+    const blocks = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '.mu-container > .mu-virtual-segment > :not(.mu-virtual-render-placeholder), ' +
+        '.mu-container > :not(.mu-virtual-segment):not(.mu-virtual-render-placeholder)'
+      )
+    )
       .map((node) => ({ node, rect: node.getBoundingClientRect() }))
-      .filter(({ rect }) => rect.bottom > viewport.top + 8 && rect.top < viewport.bottom)
       .sort((left, right) => left.rect.top - right.rect.top)
 
-    const firstVisible = blocks[0]?.node
-    if (!firstVisible) return ''
-    const text = firstVisible.textContent ?? ''
+    // The editor intentionally keeps one viewport of bottom writing space
+    // (`padding-bottom: 100vh`). When the scrollbar is at the physical end there
+    // may be no Markdown block inside the viewport; the active outline heading is
+    // then the heading owning the nearest preceding logical block.
+    const candidate = blocks.find(({ rect }) =>
+      rect.bottom > viewport.top + 8 && rect.top < viewport.bottom
+    )?.node ?? [...blocks].reverse().find(({ rect }) => rect.bottom <= viewport.top + 8)?.node
+    if (!candidate) return ''
+
+    const text = candidate.textContent ?? ''
     const fillerMatch = /^section (\d+) filler/.exec(text)
     if (fillerMatch) return `Virtual Heading ${fillerMatch[1]}`
 
-    if (/^H[1-6]$/.test(firstVisible.tagName)) {
+    if (/^H[1-6]$/.test(candidate.tagName)) {
       return text.replace(/^[#\s]+/, '').trim()
     }
     return ''

@@ -65,10 +65,24 @@ test.describe('Stage C1 virtualization productionization', () => {
 
         await page.evaluate((mediaIndex) => {
             const editor = document.querySelector<HTMLElement>('#editor')!;
-            const targetOffset = mediaIndex * 24;
-            editor.scrollTop = Math.max(0, targetOffset - editor.clientHeight / 2);
+            const scrollPage = window.muya!.editor.scrollPage!;
+            const targetOffset = scrollPage.getVirtualBlockOffset(mediaIndex);
+            if (targetOffset === null)
+                throw new Error('expected virtual media offset');
+            // Keep the media just below the viewport but within the one-viewport
+            // overscan range. This verifies DOM mounting independently from
+            // IntersectionObserver-driven media work.
+            editor.scrollTop = Math.max(0, targetOffset - editor.clientHeight - 180);
             editor.dispatchEvent(new Event('scroll'));
         }, prefixCount);
+
+        await expect.poll(async () => page.evaluate(({ diagramIndex, imageIndex }) => {
+            const scrollPage = window.muya!.editor.scrollPage!;
+            return Boolean(
+                scrollPage.find(diagramIndex)?.domNode?.isConnected
+                && scrollPage.find(imageIndex)?.domNode?.isConnected,
+            );
+        }, { diagramIndex: prefixCount, imageIndex: prefixCount + 1 })).toBe(true);
 
         const overscanState = await page.evaluate(({ diagramIndex, imageIndex }) => {
             const scrollPage = window.muya!.editor.scrollPage!;
@@ -175,12 +189,33 @@ test.describe('Stage C1 virtualization productionization', () => {
         for (let step = 0; step < 80; step += 1) {
             await page.mouse.wheel(0, 360);
             await page.waitForTimeout(40);
-            const sample = await page.evaluate(() => ({
-                scrollTop: document.querySelector<HTMLElement>('#editor')!.scrollTop,
-                renderedDiagramSvgs: Array.from(
-                    document.querySelectorAll<SVGElement>('.mu-diagram-preview > svg'),
-                ).map(svg => svg.outerHTML),
-            }));
+            const readSample = () => page.evaluate(() => {
+                const editor = document.querySelector<HTMLElement>('#editor')!;
+                const editorRect = editor.getBoundingClientRect();
+                const visiblePendingDiagram = Array.from(
+                    document.querySelectorAll<HTMLElement>('.mu-diagram-preview[data-diagram-lazy]'),
+                ).some((preview) => {
+                    const rect = preview.getBoundingClientRect();
+                    return rect.bottom > editorRect.top && rect.top < editorRect.bottom;
+                });
+                return {
+                    scrollTop: editor.scrollTop,
+                    visiblePendingDiagram,
+                    renderedDiagramSvgs: Array.from(
+                        document.querySelectorAll<SVGElement>('.mu-diagram-preview > svg'),
+                    ).map(svg => svg.outerHTML),
+                };
+            });
+            let sample = await readSample();
+            if (sample.visiblePendingDiagram) {
+                // DiagramPreview deliberately waits for four quiet paint frames
+                // plus its debounce before expensive rendering. Pause only while
+                // a pending diagram is genuinely visible so the test exercises
+                // the asynchronous height correction without making fast
+                // offscreen scrolling render cold diagrams.
+                await page.waitForTimeout(350);
+                sample = await readSample();
+            }
 
             // A small sub-pixel adjustment is harmless, but the viewport must
             // never jump back to a previously rendered diagram while the user

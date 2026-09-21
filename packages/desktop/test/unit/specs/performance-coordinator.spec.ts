@@ -111,6 +111,50 @@ describe('MainPerformanceCoordinator', () => {
     expect(invalidCoordinator.recordRendererEvent(rendererEvent({ durationMs: -1 }))).toBe(false)
   })
 
+  it('accepts renderer event batches while preserving per-event validation and bounds', () => {
+    const { coordinator } = createCoordinator({ maxRendererEvents: 2 })
+    const first = rendererEvent({ timestampEpochMs: 1_700_000_000_141 })
+    const invalid = rendererEvent({ traceId: 'other-trace' })
+    const second = rendererEvent({
+      name: 'editor_shell_mounted',
+      timestampEpochMs: 1_700_000_000_142
+    })
+    const overflow = rendererEvent({
+      name: 'document_open_start',
+      timestampEpochMs: 1_700_000_000_143
+    })
+
+    expect(coordinator.recordRendererEvents([first, invalid, second, overflow])).toBe(2)
+    expect(coordinator.snapshot().traces[0]?.events).toEqual([first, second])
+  })
+
+  it('expands compact frame samples into the original seven metric events', () => {
+    const { coordinator } = createCoordinator()
+
+    expect(coordinator.recordRendererFrameSamples({
+      traceId: 'trace-coordinator',
+      samples: [[1_700_000_000_200, 200, 16.5, 2, 1]]
+    })).toBe(7)
+
+    const metrics = coordinator.snapshot().traces[0]?.events.map((event) => ({
+      metric: event.metadata?.metric,
+      unit: event.metadata?.unit,
+      value: event.metadata?.value,
+      phase: event.phase,
+      timestampEpochMs: event.timestampEpochMs,
+      elapsedMs: event.elapsedMs
+    }))
+    expect(metrics).toEqual([
+      { metric: 'core.frame.duration', unit: 'ms', value: 16.5, phase: 'editor', timestampEpochMs: 1_700_000_000_200, elapsedMs: 200 },
+      { metric: 'core.frame.over16_7', unit: 'ratio', value: 0, phase: 'editor', timestampEpochMs: 1_700_000_000_200, elapsedMs: 200 },
+      { metric: 'core.frame.over33', unit: 'ratio', value: 0, phase: 'editor', timestampEpochMs: 1_700_000_000_200, elapsedMs: 200 },
+      { metric: 'core.forcedReflow', unit: 'count', value: 2, phase: 'editor', timestampEpochMs: 1_700_000_000_200, elapsedMs: 200 },
+      { metric: 'core.interactive.longTaskObserver', unit: 'count', value: 1, phase: 'editor', timestampEpochMs: 1_700_000_000_200, elapsedMs: 200 },
+      { metric: 'core.interactive.longTask', unit: 'count', value: 0, phase: 'editor', timestampEpochMs: 1_700_000_000_200, elapsedMs: 200 },
+      { metric: 'core.gc.over50', unit: 'count', value: 0, phase: 'memory', timestampEpochMs: 1_700_000_000_200, elapsedMs: 200 }
+    ])
+  })
+
   it('flushes once through the injected report writer and remains side-effect free when disabled', async() => {
     const { coordinator, writer } = createCoordinator()
     coordinator.mark('process_entry', { phase: 'startup' })

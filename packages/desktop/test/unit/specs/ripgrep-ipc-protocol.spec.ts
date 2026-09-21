@@ -28,6 +28,11 @@ class FakeReadable extends EventEmitter {
     this.paused = true
   })
 
+  destroy = vi.fn(() => {
+    this.paused = true
+    this.pending.splice(0, this.pending.length)
+  })
+
   resume = vi.fn(() => {
     this.paused = false
     const pending = this.pending.splice(0, this.pending.length)
@@ -313,6 +318,9 @@ describe('main ripgrep IPC backpressure protocol', () => {
     if (!cancel) throw new Error('Missing IPC handler: mt::rg::cancel')
     cancel({ sender }, searchId)
 
+    expect(child.stdout.pause).toHaveBeenCalled()
+    expect(child.stdout.destroy).toHaveBeenCalled()
+    expect(child.stderr.destroy).toHaveBeenCalled()
     expect(child.kill).toHaveBeenCalled()
     expect(sender.messages.some(({ channel }) => channel === 'mt::rg::cancelled')).toBe(true)
 

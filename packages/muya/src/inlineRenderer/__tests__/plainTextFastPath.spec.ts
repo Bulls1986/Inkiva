@@ -27,4 +27,19 @@ describe('inline renderer plain-text fast path', () => {
         expect(output).not.toHaveBeenCalled();
         expect(muya.domNode.querySelector('.mu-paragraph-content')?.textContent).toBe(text);
     });
+
+    it('does not invoke the inline renderer for a short plain paragraph', () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, { markdown: 'seed\n' });
+        muya.init();
+        mountedEditors.push(muya);
+
+        const output = vi.spyOn(muya.editor.inlineRenderer.renderer, 'output');
+        const text = 'Block 299 keeps the workload deterministic.';
+        muya.setContent(text);
+
+        expect(output).not.toHaveBeenCalled();
+        expect(muya.domNode.querySelector('.mu-paragraph-content')?.textContent).toBe(text);
+    });
 });

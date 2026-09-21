@@ -7,17 +7,15 @@
 // list and pick the heading at the same index in the DOM.
 //
 // The DOM query MUST match the exact set `getTOC` enumerates. `getTOC` only
-// walks top-level `scrollPage` children (it does not recurse), and those blocks
-// are the DIRECT children of the scrollPage root element (`.mu-container`).
-// Note the scroll container we get from the host (`getScrollContainer()`,
-// i.e. muya's root `.mu-editor`) WRAPS `.mu-container` — the headings are one
-// level deeper — so we anchor on `.mu-container > hN` rather than the scroll
-// container's own direct children. Headings nested in blockquotes / list items,
-// or `<h1>`-`<h6>` inside raw-HTML blocks, are NOT direct children of
-// `.mu-container`; an unscoped `querySelectorAll('h1..h6')` would count them and
-// shift every later index, scrolling to the wrong heading.
+// walks top-level `scrollPage` children (it does not recurse). Small documents
+// mount those blocks directly under `.mu-container`; virtualized documents group
+// the same top-level blocks one level deeper under `.mu-virtual-segment` roots.
+// The selector therefore accepts exactly those two shapes while still excluding
+// headings nested in blockquotes, list items, or raw-HTML blocks. An unscoped
+// `querySelectorAll('h1..h6')` would count nested headings and shift later TOC
+// indexes, scrolling to the wrong heading.
 export const TOP_LEVEL_HEADINGS_SELECTOR =
-  '.mu-container > h1, .mu-container > h2, .mu-container > h3, .mu-container > h4, .mu-container > h5, .mu-container > h6'
+  '.mu-container > h1, .mu-container > h2, .mu-container > h3, .mu-container > h4, .mu-container > h5, .mu-container > h6, .mu-container > .mu-virtual-segment > h1, .mu-container > .mu-virtual-segment > h2, .mu-container > .mu-virtual-segment > h3, .mu-container > .mu-virtual-segment > h4, .mu-container > .mu-virtual-segment > h5, .mu-container > .mu-virtual-segment > h6'
 
 export const TOC_HEADING_SLUG_ATTRIBUTE = 'data-inkiva-toc-slug'
 export const VIRTUAL_BLOCK_INDEX_ATTRIBUTE = 'data-virtual-block-index'

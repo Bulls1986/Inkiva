@@ -42,6 +42,24 @@ describe('editor performance milestone scheduling', () => {
     expect(callbacks.notify).toHaveBeenCalledOnce()
   })
 
+  it('runs optional prewarm work only after editable is published', () => {
+    const frames: FrameCallback[] = []
+    const order: string[] = []
+
+    scheduleEditorPerformanceMilestones({
+      requestFrame: (callback) => frames.push(callback),
+      isCurrent: () => true,
+      markFirstScreen: () => order.push('first-screen'),
+      markInteractive: () => order.push('interactive'),
+      markEditable: () => order.push('editable'),
+      prewarmFrame: () => order.push('prewarm')
+    })
+
+    while (frames.length > 0) flushFrame(frames)
+
+    expect(order).toEqual(['first-screen', 'interactive', 'editable', 'prewarm', 'prewarm'])
+  })
+
   it('cancels stale milestone callbacks after a newer document operation begins', () => {
     const frames: FrameCallback[] = []
     let current = true

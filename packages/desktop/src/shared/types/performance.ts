@@ -9,6 +9,7 @@
 export const PERFORMANCE_TRACE_SCHEMA_VERSION = 1 as const
 
 export const PERFORMANCE_EVENT_CHANNEL = 'mt::performance-event' as const
+export const PERFORMANCE_FRAME_SAMPLE_CHANNEL = 'mt::performance-frame-samples' as const
 
 export const PERFORMANCE_MAX_IDENTIFIER_LENGTH = 128
 export const PERFORMANCE_MAX_METADATA_ENTRIES = 32
@@ -69,6 +70,19 @@ export interface PerformanceEvent {
   elapsedMs?: number
   durationMs?: number
   metadata?: PerformanceMetadata
+}
+
+export type PerformanceFrameSampleTuple = [
+  timestampEpochMs: number,
+  elapsedMs: number,
+  durationMs: number,
+  forcedReflowCount: number,
+  longTaskObserverAvailable: 0 | 1
+]
+
+export interface PerformanceFrameSampleBatch {
+  traceId: string
+  samples: PerformanceFrameSampleTuple[]
 }
 
 export interface PerformanceTrace {

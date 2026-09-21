@@ -32,7 +32,8 @@ export interface PerformanceGateBridge {
  * hot-path work.
  */
 export const createPerformanceGateBridge = (
-  recorder: PerformanceGateRecorder
+  recorder: PerformanceGateRecorder,
+  flushGateEvents?: () => void
 ): PerformanceGateBridge => ({
   recordSample(metric, unit, value, options = {}): void {
     if (!recorder.enabled) return
@@ -41,5 +42,6 @@ export const createPerformanceGateBridge = (
       ...(options.metadata === undefined ? {} : { metadata: options.metadata })
     }
     recorder.recordSample(metric, unit, value, context)
+    flushGateEvents?.()
   }
 })

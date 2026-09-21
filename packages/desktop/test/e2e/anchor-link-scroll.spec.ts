@@ -30,14 +30,19 @@ import { launchWithMarkdown, expectNoRendererErrors } from './helpers'
 
 const LINK_WRAPPER = 'span.mu-link'
 
-// Many filler paragraphs so the document overflows the viewport and the target
-// heading starts well below the fold. The link sits at the very top, so a
-// successful jump scrolls DOWN (scrollTop 0 -> large positive).
-const filler = Array.from({ length: 60 }, (_, i) => `Filler paragraph number ${i + 1}.`).join(
+// Keep the target beyond the large-document virtualization threshold so this
+// E2E exercises logical block navigation when the destination is initially
+// off-DOM. The link sits at the very top, so a successful jump scrolls DOWN.
+const filler = Array.from({ length: 260 }, (_, i) => `Filler paragraph number ${i + 1}.`).join(
   '\n\n'
 )
 
-const DOC = `[go](#my-section)\n\n${filler}\n\n## My Section\n\nThe destination paragraph under My Section.\n`
+const trailingFiller = Array.from(
+  { length: 40 },
+  (_, i) => `Trailing paragraph number ${i + 1}.`
+).join('\n\n')
+
+const DOC = `[go](#my-section)\n\n${filler}\n\n## My Section\n\nThe destination paragraph under My Section.\n\n${trailingFiller}\n`
 
 // Read the live scroll container's scrollTop. getScrollContainer() in editor.vue
 // returns muya's root domNode, which is the same element as `.editor-component`
@@ -53,19 +58,12 @@ const scrollTop = (page: Page): Promise<number> =>
 // engine's domNode click listener runs the full format-click pipeline. Both
 // modifier flags are set so the same event satisfies the macOS (metaKey) and
 // non-macOS (ctrlKey) branches of editor.vue's `ctrlOrMeta` check.
-const modifierClickLink = async(page: Page): Promise<boolean> =>
-  page.evaluate((selector) => {
-    const el = document.querySelector(selector) as HTMLElement | null
-    if (!el) return false
-    const evt = new MouseEvent('click', {
-      bubbles: true,
-      cancelable: true,
-      metaKey: true,
-      ctrlKey: true
-    })
-    el.dispatchEvent(evt)
-    return true
-  }, LINK_WRAPPER)
+const modifierClickLink = async(page: Page): Promise<boolean> => {
+  const link = page.locator(LINK_WRAPPER)
+  if ((await link.count()) === 0) return false
+  await link.click({ modifiers: [process.platform === 'darwin' ? 'Meta' : 'Control'] })
+  return true
+}
 
 test.describe('In-document anchor link click scrolls the editor (item 236)', () => {
   let app: ElectronApplication
@@ -84,28 +82,28 @@ test.describe('In-document anchor link click scrolls the editor (item 236)', () 
     if (app) await app.close()
   })
 
-  test('the rendered link resolves its href to the in-doc anchor and the heading is present', async() => {
-    // The link carries the bare anchor href via the snabbdom DOM property, and
-    // the destination heading (`## My Section`) is a top-level `.mu-container`
-    // child — exactly the set resolveTocHeadingElement enumerates by index.
+  test('the rendered link resolves its href while the distant target stays virtualized', async() => {
     const wiring = await page.evaluate((selector) => {
       const link = document.querySelector(selector) as HTMLElement | null
-      const heading = document.querySelector('.mu-container > h2')
+      const root = document.querySelector<HTMLElement>(
+        '.mu-container[data-virtualization-enabled="true"]'
+      )
       return {
-        // getLinkInfo (packages/muya/src/utils/getLinkInfo.ts) reads the real
-        // `href` attribute first; for this markdown link the engine renders it
-        // as an attribute on the wrapper.
         hrefAttr: link ? link.getAttribute('href') : null,
-        // The `data-raw` payload is what FORMAT_LINK_CLICK's caller forwards;
-        // its presence confirms this is the rendered link wrapper.
         raw: link ? link.dataset.raw ?? null : null,
-        headingText: heading ? heading.textContent : null
+        virtualized: !!root,
+        totalBlocks: Number(root?.dataset.virtualTotalBlocks ?? 0),
+        targetMounted: Array.from(document.querySelectorAll('h2')).some(
+          (heading) => heading.textContent?.includes('My Section')
+        )
       }
     }, LINK_WRAPPER)
 
     expect(wiring.hrefAttr).toBe('#my-section')
     expect(wiring.raw).toBe('[go](#my-section)')
-    expect(wiring.headingText).toContain('My Section')
+    expect(wiring.virtualized).toBe(true)
+    expect(wiring.totalBlocks).toBeGreaterThan(200)
+    expect(wiring.targetMounted).toBe(false)
   })
 
   test('Cmd/Ctrl-clicking the link scrolls the editor down to the heading', async() => {
@@ -128,7 +126,9 @@ test.describe('In-document anchor link click scrolls the editor (item 236)', () 
     // the right element and not at some arbitrary scroll offset.
     await page.waitForTimeout(500)
     const headingTop = await page.evaluate(() => {
-      const heading = document.querySelector('.mu-container > h2')
+      const heading = Array.from(document.querySelectorAll('h2')).find(
+        (candidate) => candidate.textContent?.includes('My Section')
+      )
       return heading ? heading.getBoundingClientRect().top : null
     })
     expect(headingTop).not.toBeNull()
@@ -148,13 +148,9 @@ test.describe('In-document anchor link click scrolls the editor (item 236)', () 
 
     // A plain click only places the caret (linkMouseEvents.ts gates the
     // format-click emission on the modifier), so no scroll-to-header fires.
-    const clicked = await page.evaluate((selector) => {
-      const el = document.querySelector(selector) as HTMLElement | null
-      if (!el) return false
-      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-      return true
-    }, LINK_WRAPPER)
-    expect(clicked).toBe(true)
+    const link = page.locator(LINK_WRAPPER)
+    await link.click()
+    expect(await link.count()).toBe(1)
 
     // Give any (incorrect) scroll animation time to start; it must not.
     await page.waitForTimeout(600)

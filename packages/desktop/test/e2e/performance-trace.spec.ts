@@ -40,6 +40,30 @@ test('@perf writes a correlated startup report when performance capture is enabl
       }
     })
     await expect(launched.page.locator('.editor-container')).toBeVisible()
+    await expect
+      .poll(
+        () => launched!.page.locator('[data-editor-editable-at]').first().getAttribute('data-editor-editable-at'),
+        { timeout: 10000 }
+      )
+      .not.toBeNull()
+    // Renderer performance events are batched to keep instrumentation off the
+    // editor hot path. Force that batch across IPC, then issue a main-process
+    // invoke as an ordering barrier before closing the app. This verifies the
+    // asynchronous transport contract without relying on an arbitrary sleep.
+    await launched.page.evaluate(() => {
+      const gate = (
+        window as typeof window & {
+          __inkivaPerformanceGate?: {
+            recordSample(metric: string, unit: 'count', value: number): void
+          }
+        }
+      ).__inkivaPerformanceGate
+      if (!gate) throw new Error('performance gate bridge is unavailable')
+      gate.recordSample('e2e.performance.flush-barrier', 'count', 0)
+    })
+    await launched.page.evaluate(() =>
+      window.electron.ipcRenderer.invoke('mt::win::is-maximized')
+    )
   } finally {
     if (launched) await closeElectron(launched.app)
     fs.rmSync(fixtureDirectory, { recursive: true, force: true })
