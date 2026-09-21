@@ -74,69 +74,69 @@ interface IVirtualRange {
 }
 
 class VirtualOffsetIndex {
-    private values: number[] = [];
-    private tree: number[] = [0];
+    private _values: number[] = [];
+    private _tree: number[] = [0];
 
     clear(): void {
-        this.values = [];
-        this.tree = [0];
+        this._values = [];
+        this._tree = [0];
     }
 
     reset(values: readonly number[]): void {
-        this.values = [...values];
-        this.tree = Array.from<number>({ length: values.length + 1 }).fill(0);
+        this._values = [...values];
+        this._tree = Array.from<number>({ length: values.length + 1 }).fill(0);
         for (let index = 0; index < values.length; index += 1) {
             const treeIndex = index + 1;
-            this.tree[treeIndex] += values[index] ?? 0;
+            this._tree[treeIndex] += values[index] ?? 0;
             const parent = treeIndex + (treeIndex & -treeIndex);
-            if (parent < this.tree.length)
-                this.tree[parent] += this.tree[treeIndex] ?? 0;
+            if (parent < this._tree.length)
+                this._tree[parent] += this._tree[treeIndex] ?? 0;
         }
     }
 
     update(index: number, value: number): void {
-        if (index < 0 || index >= this.values.length)
+        if (index < 0 || index >= this._values.length)
             return;
-        const previous = this.values[index] ?? 0;
+        const previous = this._values[index] ?? 0;
         const delta = value - previous;
         if (Math.abs(delta) < 0.0001)
             return;
-        this.values[index] = value;
-        for (let treeIndex = index + 1; treeIndex < this.tree.length; treeIndex += treeIndex & -treeIndex)
-            this.tree[treeIndex] = (this.tree[treeIndex] ?? 0) + delta;
+        this._values[index] = value;
+        for (let treeIndex = index + 1; treeIndex < this._tree.length; treeIndex += treeIndex & -treeIndex)
+            this._tree[treeIndex] = (this._tree[treeIndex] ?? 0) + delta;
     }
 
     offsetAt(index: number): number {
-        let treeIndex = Math.max(0, Math.min(index, this.values.length));
+        let treeIndex = Math.max(0, Math.min(index, this._values.length));
         let sum = 0;
         while (treeIndex > 0) {
-            sum += this.tree[treeIndex] ?? 0;
+            sum += this._tree[treeIndex] ?? 0;
             treeIndex -= treeIndex & -treeIndex;
         }
         return sum;
     }
 
     total(): number {
-        return this.offsetAt(this.values.length);
+        return this.offsetAt(this._values.length);
     }
 
     indexAtOffset(offset: number): number {
-        if (this.values.length === 0)
+        if (this._values.length === 0)
             return 0;
         const target = Math.max(0, Math.min(offset, this.total()));
         let index = 0;
         let prefix = 0;
         let bit = 1;
-        while ((bit << 1) <= this.values.length)
+        while ((bit << 1) <= this._values.length)
             bit <<= 1;
         for (; bit > 0; bit >>= 1) {
             const next = index + bit;
-            if (next <= this.values.length && prefix + (this.tree[next] ?? 0) <= target) {
+            if (next <= this._values.length && prefix + (this._tree[next] ?? 0) <= target) {
                 index = next;
-                prefix += this.tree[next] ?? 0;
+                prefix += this._tree[next] ?? 0;
             }
         }
-        return Math.min(index, this.values.length - 1);
+        return Math.min(index, this._values.length - 1);
     }
 }
 
@@ -1019,14 +1019,13 @@ export class ScrollPage extends Parent {
             // reveal cannot replace the original user viewport anchor.
             const rememberedAnchor = (
                 this._virtualViewportAnchorExact
-                &&
-                this._virtualViewportAnchorIndex !== null
+                && this._virtualViewportAnchorIndex !== null
                 && this._virtualViewportAnchorOffset !== null
             )
                 ? {
-                    index: this._virtualViewportAnchorIndex,
-                    viewportOffset: this._virtualViewportAnchorOffset,
-                }
+                        index: this._virtualViewportAnchorIndex,
+                        viewportOffset: this._virtualViewportAnchorOffset,
+                    }
                 : null;
             const capturedAnchor = (
                 this._virtualResizeAnchorIndex === null
@@ -1521,7 +1520,7 @@ export class ScrollPage extends Parent {
             const previous = mergedRanges.at(-1);
             const sharesSegment = previous
                 ? Math.floor(Math.max(previous.start, previous.end - 1) / VIRTUAL_RENDERER_SEGMENT_BLOCKS)
-                    === Math.floor(range.start / VIRTUAL_RENDERER_SEGMENT_BLOCKS)
+                === Math.floor(range.start / VIRTUAL_RENDERER_SEGMENT_BLOCKS)
                 : false;
             if (previous && (range.start <= previous.end || sharesSegment))
                 previous.end = Math.max(previous.end, range.end);
@@ -1660,10 +1659,12 @@ export class ScrollPage extends Parent {
             && firstState?.name === 'paragraph'
             && previousState
             && virtualHeadingLevel(previousState) !== null
-        )
+        ) {
             segment.dataset.virtualPreviousHeading = 'true';
-        else
+        }
+        else {
             delete segment.dataset.virtualPreviousHeading;
+        }
 
         for (let index = localStart; index < localEnd; index += 1) {
             const block = this._virtualBlocks[index];

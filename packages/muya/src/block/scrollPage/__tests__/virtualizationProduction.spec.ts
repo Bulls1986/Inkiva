@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 
+import type Parent from '../../base/parent';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Muya } from '../../../muya';
-import type Parent from '../../base/parent';
 import { MarkdownToState } from '../../../state/markdownToState';
 import { PROGRESSIVE_RENDER_THRESHOLD, ScrollPage } from '../index';
 
@@ -36,14 +36,16 @@ describe('stage C1 virtualization production contract', () => {
         const scrollPage = muya.editor.scrollPage!;
         const targetIndex = 220;
         const targetOffset = scrollPage.getVirtualBlockOffset(targetIndex);
-        if (targetOffset == null) throw new Error('expected virtual target offset');
+        if (targetOffset == null)
+            throw new Error('expected virtual target offset');
         scrollPage.updateVirtualWindowForViewport(targetOffset, 600);
         const internals = scrollPage as unknown as {
             _virtualScrollContainer: HTMLElement | null;
             _virtualLastScrollTop: number;
         };
         const container = internals._virtualScrollContainer;
-        if (!container) throw new Error('expected virtual scroll container');
+        if (!container)
+            throw new Error('expected virtual scroll container');
         // Programmatic reveal can move the live viewport before the asynchronous
         // scroll event updates the cached virtual position. Structural state
         // reconciliation must not replay that stale cache and jump back to top.
@@ -98,12 +100,14 @@ describe('stage C1 virtualization production contract', () => {
         const scrollPage = muya.editor.scrollPage!;
         const targetIndex = 220;
         const targetOffset = scrollPage.getVirtualBlockOffset(targetIndex);
-        if (targetOffset == null) throw new Error('expected virtual target offset');
+        if (targetOffset == null)
+            throw new Error('expected virtual target offset');
         scrollPage.updateVirtualWindowForViewport(targetOffset, 600);
 
         const target = scrollPage.find(targetIndex) as Parent;
         const content = target.firstContentInDescendant();
-        if (!content) throw new Error('expected mounted paragraph content');
+        if (!content)
+            throw new Error('expected mounted paragraph content');
         content.setCursor(content.text.length, content.text.length, true);
         const pasted = Array.from({ length: 36 }, (_, index) => `VIRTUAL_UNIT_${index}`).join('\n\n');
         const event = {
@@ -308,7 +312,8 @@ describe('stage C1 virtualization production contract', () => {
         const secondNode = internals._virtualBlocks[1]?.domNode;
         expect(firstNode?.isConnected).toBe(true);
         expect(secondNode?.isConnected).toBe(true);
-        if (!firstNode || !secondNode) throw new Error('expected adjacent mounted virtual blocks');
+        if (!firstNode || !secondNode)
+            throw new Error('expected adjacent mounted virtual blocks');
 
         vi.spyOn(firstNode, 'getBoundingClientRect').mockReturnValue({ top: 10 } as DOMRect);
         vi.spyOn(secondNode, 'getBoundingClientRect').mockReturnValue({ top: 75 } as DOMRect);
@@ -346,7 +351,8 @@ describe('stage C1 virtualization production contract', () => {
         };
         const firstNode = internals._virtualBlocks[0]?.domNode;
         const secondNode = internals._virtualBlocks[1]?.domNode;
-        if (!firstNode || !secondNode) throw new Error('expected adjacent mounted virtual blocks');
+        if (!firstNode || !secondNode)
+            throw new Error('expected adjacent mounted virtual blocks');
 
         vi.spyOn(firstNode, 'getBoundingClientRect').mockReturnValue({ top: 10 } as DOMRect);
         vi.spyOn(secondNode, 'getBoundingClientRect').mockReturnValue({ top: 90 } as DOMRect);
@@ -399,7 +405,8 @@ describe('stage C1 virtualization production contract', () => {
             };
             const firstNode = internals._virtualBlocks[0]?.domNode;
             const secondNode = internals._virtualBlocks[1]?.domNode;
-            if (!firstNode || !secondNode) throw new Error('expected adjacent mounted virtual blocks');
+            if (!firstNode || !secondNode)
+                throw new Error('expected adjacent mounted virtual blocks');
 
             vi.spyOn(firstNode, 'getBoundingClientRect').mockReturnValue({ top: 10 } as DOMRect);
             vi.spyOn(secondNode, 'getBoundingClientRect').mockReturnValue({ top: 90 } as DOMRect);
@@ -436,7 +443,7 @@ describe('stage C1 virtualization production contract', () => {
         class ResizeObserverDouble {
             readonly observed = new Set<Element>();
 
-            constructor(private readonly callback: ResizeObserverCallback) {}
+            constructor(private readonly _callback: ResizeObserverCallback) {}
 
             observe(target: Element): void {
                 this.observed.add(target);
@@ -451,7 +458,7 @@ describe('stage C1 virtualization production contract', () => {
             }
 
             trigger(target: Element): void {
-                this.callback([{ target } as ResizeObserverEntry], this as unknown as ResizeObserver);
+                this._callback([{ target } as ResizeObserverEntry], this as unknown as ResizeObserver);
             }
         }
 
@@ -544,7 +551,8 @@ describe('stage C1 virtualization production contract', () => {
             expect(internals._virtualBlockMeasurementDeferred).toBe(true);
             expect(disconnect).not.toHaveBeenCalled();
             const container = internals._virtualScrollContainer;
-            if (!container) throw new Error('expected virtual scroll container');
+            if (!container)
+                throw new Error('expected virtual scroll container');
             internals._hydrateVirtualWindowAtCurrentViewport(container);
             expect(internals._virtualBlockMeasurementDeferred).toBe(false);
             expect(observe).toHaveBeenCalled();
@@ -578,7 +586,8 @@ describe('stage C1 virtualization production contract', () => {
         const enteringBlock = internals._virtualBlocks[enteringIndex];
         expect(stayingBlock?.domNode?.isConnected).toBe(true);
         expect(enteringBlock?.domNode?.isConnected ?? false).toBe(false);
-        if (!stayingBlock || !enteringBlock) throw new Error('expected virtual window blocks');
+        if (!stayingBlock || !enteringBlock)
+            throw new Error('expected virtual window blocks');
 
         const stayingMaterialize = vi.spyOn(stayingBlock, 'materializeDomTree');
         const enteringMaterialize = vi.spyOn(enteringBlock, 'materializeDomTree');
@@ -636,7 +645,8 @@ describe('stage C1 virtualization production contract', () => {
         const scrollPage = muya.editor.scrollPage!;
         const firstOffset = scrollPage.getVirtualBlockOffset(80);
         const secondOffset = scrollPage.getVirtualBlockOffset(90);
-        if (firstOffset === null || secondOffset === null) throw new Error('expected virtual offsets');
+        if (firstOffset === null || secondOffset === null)
+            throw new Error('expected virtual offsets');
 
         scrollPage.updateVirtualWindowForViewport(firstOffset, 1);
         const firstSnapshot = scrollPage.getVirtualizationSnapshot();
@@ -728,7 +738,8 @@ describe('stage C1 virtualization production contract', () => {
             _scheduleVirtualWindowHydration: (container: HTMLElement) => void;
         };
         const container = internals._virtualScrollContainer;
-        if (!container) throw new Error('expected virtual scroll container');
+        if (!container)
+            throw new Error('expected virtual scroll container');
         const applyWindow = vi.spyOn(scrollPage, 'updateVirtualWindowForViewport');
         applyWindow.mockClear();
 
@@ -744,7 +755,8 @@ describe('stage C1 virtualization production contract', () => {
         }));
         const runNextFrame = () => {
             const next = frames.entries().next().value as [number, FrameRequestCallback] | undefined;
-            if (!next) throw new Error('expected hydration frame');
+            if (!next)
+                throw new Error('expected hydration frame');
             const [id, callback] = next;
             frames.delete(id);
             callback(performance.now());
@@ -789,7 +801,8 @@ describe('stage C1 virtualization production contract', () => {
             _scheduleVirtualWindowHydration: (container: HTMLElement) => void;
         };
         const container = internals._virtualScrollContainer;
-        if (!container) throw new Error('expected virtual scroll container');
+        if (!container)
+            throw new Error('expected virtual scroll container');
 
         Object.defineProperty(container, 'onscrollend', {
             configurable: true,
@@ -810,7 +823,8 @@ describe('stage C1 virtualization production contract', () => {
         }));
         const runNextFrame = () => {
             const next = frames.entries().next().value as [number, FrameRequestCallback] | undefined;
-            if (!next) throw new Error('expected hydration frame');
+            if (!next)
+                throw new Error('expected hydration frame');
             const [id, callback] = next;
             frames.delete(id);
             callback(performance.now());
@@ -850,7 +864,8 @@ describe('stage C1 virtualization production contract', () => {
         };
         const container = internals._virtualScrollContainer;
         const scrollEndHandler = internals._virtualScrollEndHandler;
-        if (!container || !scrollEndHandler) throw new Error('expected virtual scrollend handler');
+        if (!container || !scrollEndHandler)
+            throw new Error('expected virtual scrollend handler');
         const applyWindow = vi.spyOn(scrollPage, 'updateVirtualWindowForViewport');
         applyWindow.mockClear();
 
@@ -866,7 +881,8 @@ describe('stage C1 virtualization production contract', () => {
         }));
         const runNextFrame = () => {
             const next = frames.entries().next().value as [number, FrameRequestCallback] | undefined;
-            if (!next) throw new Error('expected hydration frame');
+            if (!next)
+                throw new Error('expected hydration frame');
             const [id, callback] = next;
             frames.delete(id);
             callback(performance.now());
@@ -909,7 +925,8 @@ describe('stage C1 virtualization production contract', () => {
         };
         const container = internals._virtualScrollContainer;
         const handler = internals._virtualScrollHandler;
-        if (!container || !handler) throw new Error('expected virtual scroll handler');
+        if (!container || !handler)
+            throw new Error('expected virtual scroll handler');
 
         const defer = vi.spyOn(internals, '_deferVirtualBlockMeasurement');
         container.scrollTop = 120;
@@ -943,7 +960,8 @@ describe('stage C1 virtualization production contract', () => {
         };
         const container = internals._virtualScrollContainer;
         const handler = internals._virtualScrollHandler;
-        if (!container || !handler) throw new Error('expected virtual scroll handler');
+        if (!container || !handler)
+            throw new Error('expected virtual scroll handler');
 
         internals._virtualViewportAnchorIndex = 0;
         internals._virtualViewportAnchorOffset = 0;
@@ -980,10 +998,12 @@ describe('stage C1 virtualization production contract', () => {
             ) => number | null;
         };
         const container = internals._virtualScrollContainer;
-        if (!container) throw new Error('expected virtual scroll container');
+        if (!container)
+            throw new Error('expected virtual scroll container');
         const index = 2;
         const node = internals._virtualBlocks[index]?.domNode;
-        if (!(node instanceof HTMLElement)) throw new Error('expected mounted anchor block');
+        if (!(node instanceof HTMLElement))
+            throw new Error('expected mounted anchor block');
 
         container.scrollTop = 1_000;
         vi.spyOn(container, 'getBoundingClientRect').mockReturnValue({ top: 20 } as DOMRect);
@@ -1053,7 +1073,8 @@ describe('stage C1 virtualization production contract', () => {
         try {
             internals._settleVirtualResizeScroll(container, 1_000);
             const frame = settleFrame.current;
-            if (!frame) throw new Error('expected resize settle frame');
+            if (!frame)
+                throw new Error('expected resize settle frame');
             frame(0);
 
             expect(liveTarget).toHaveBeenCalledWith(container, 2, 50);
@@ -1123,7 +1144,8 @@ describe('stage C1 virtualization production contract', () => {
         };
         const container = internals._virtualScrollContainer;
         const handler = internals._virtualScrollHandler;
-        if (!container || !handler) throw new Error('expected virtual scroll handler');
+        if (!container || !handler)
+            throw new Error('expected virtual scroll handler');
 
         internals._virtualResizeAnchorIndex = 2;
         internals._virtualResizeAnchorOffset = 50;
@@ -1142,7 +1164,8 @@ describe('stage C1 virtualization production contract', () => {
         try {
             internals._settleVirtualResizeScroll(container, 1_234);
             const frame = settleFrame.current;
-            if (!frame) throw new Error('expected resize settle frame');
+            if (!frame)
+                throw new Error('expected resize settle frame');
             frame(0);
 
             container.scrollTop = 100;

@@ -5,8 +5,8 @@ import type { IDiagramRenderCoordinatorHandle } from '../../../utils/diagram/coo
 import { fromEvent } from 'rxjs';
 import { CLASS_NAMES, PREVIEW_DOMPURIFY_CONFIG } from '../../../config';
 import { sanitize } from '../../../utils';
-import { findScrollContainer } from '../../../utils/dom';
 import { getDiagramRenderCoordinator } from '../../../utils/diagram/coordinator';
+import { findScrollContainer } from '../../../utils/dom';
 import logger from '../../../utils/logger';
 import Parent from '../../base/parent';
 import {
@@ -20,17 +20,17 @@ export const DIAGRAM_RENDER_DEBOUNCE_MS = 200;
 const DIAGRAM_INTERACTION_EVENTS = ['keydown', 'pointerdown', 'wheel', 'input', 'scroll'] as const;
 let diagramInteractionRefCount = 0;
 let diagramInteractionRevision = 0;
-const recordDiagramInteraction = () => {
+function recordDiagramInteraction() {
     diagramInteractionRevision += 1;
-};
-const acquireDiagramInteractionTracker = () => {
+}
+function acquireDiagramInteractionTracker() {
     diagramInteractionRefCount += 1;
     if (diagramInteractionRefCount !== 1 || typeof window === 'undefined')
         return;
     DIAGRAM_INTERACTION_EVENTS.forEach(eventName =>
         window.addEventListener(eventName, recordDiagramInteraction, { capture: true, passive: true }));
-};
-const releaseDiagramInteractionTracker = () => {
+}
+function releaseDiagramInteractionTracker() {
     diagramInteractionRefCount = Math.max(0, diagramInteractionRefCount - 1);
     if (diagramInteractionRefCount !== 0)
         return;
@@ -39,7 +39,7 @@ const releaseDiagramInteractionTracker = () => {
         return;
     DIAGRAM_INTERACTION_EVENTS.forEach(eventName =>
         window.removeEventListener(eventName, recordDiagramInteraction, { capture: true }));
-};
+}
 let nextDiagramPreviewId = 0;
 
 type DiagramPresentationMode = 'source' | 'preview' | 'error';

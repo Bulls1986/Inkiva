@@ -65,15 +65,15 @@ export const rendererPerformanceMonitor = new RuntimePerformanceMonitor({
   memorySampleIntervalMs: sampleIntervalMs,
   frameSampleSink: canUseCompactFrameTransport
     ? ({ timestamp, duration, forcedReflows, longTaskObserverAvailable }) => {
-        const timestampEpochMs = rendererPerformance.timeOriginEpochMs! + timestamp
-        rendererFrameTransport.push([
-          timestampEpochMs,
-          Math.max(0, timestampEpochMs - rendererPerformance.startedAtEpochMs!),
-          duration,
-          forcedReflows,
-          longTaskObserverAvailable ? 1 : 0
-        ])
-      }
+      const timestampEpochMs = rendererPerformance.timeOriginEpochMs! + timestamp
+      rendererFrameTransport.push([
+        timestampEpochMs,
+        Math.max(0, timestampEpochMs - rendererPerformance.startedAtEpochMs!),
+        duration,
+        forcedReflows,
+        longTaskObserverAvailable ? 1 : 0
+      ])
+    }
     : undefined
 })
 

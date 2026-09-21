@@ -104,7 +104,7 @@ describe('stage C0 top-level virtualization prototype', () => {
         expect(restoredTop.beforeHeight).toBe(0);
     });
 
-    it('bounds virtual window disposal work by the previously mounted window instead of total blocks', async () => {
+    it('bounds virtual window disposal work by the previously mounted segments instead of total blocks', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);
         const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + 600;
@@ -132,7 +132,7 @@ describe('stage C0 top-level virtualization prototype', () => {
 
         api.updateVirtualWindowForViewport(initial.totalEstimatedHeight / 2, 600);
 
-        expect(dematerializeCalls).toBeLessThanOrEqual(initial.mountedBlocks);
+        expect(dematerializeCalls).toBeLessThanOrEqual(initial.mountedSegments * initial.segmentSize);
         expect(api.getVirtualizationPrototypeSnapshot().mountedBlocks).toBeLessThan(totalBlocks / 2);
     });
 

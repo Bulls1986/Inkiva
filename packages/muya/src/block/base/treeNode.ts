@@ -342,7 +342,7 @@ class TreeNode implements ILinkedNode {
 
         const parent = this.parent;
         parent.children.remove(this);
-        parent.childStructureDidMutate();
+        parent.childStructureDidMutate?.();
         this.parent = null;
         domNode?.remove();
 
