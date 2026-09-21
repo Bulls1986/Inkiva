@@ -109,10 +109,22 @@ Status: confirmed and must be followed for this task and future Inkiva worktrees
 - After recovery, ARCH-05 had root/desktop `vitest`, desktop `vue-tsc`, and package links such as `github-markdown-css` resolving into `arch-05-event-bus-contract/node_modules/.pnpm`, eliminating the Vite realpath failure.
 - This rule is now also documented in root `agent.md` with links to the architecture/recovery records so future coding agents do not rediscover it.
 
+## Stage 5 — Delivery
+
+Status: PR created; CI pending.
+
+- Local implementation commit: `bfd0edb98c54999af3db9380f381491c4d54af0b`.
+- Normal Git Smart HTTP push/`ls-remote` repeatedly timed out on this Runner even after `gh auth setup-git`; `gh auth status` itself was healthy for account `Bulls1986` with `repo`/`workflow` scopes.
+- Delivery therefore used GitHub Git Data API rather than weakening or changing the source tree. Remote commit `40978f624d0f8adccace32a9106be7e59913ca84` was created from base `4839ed43`.
+- Integrity check: local `HEAD^{tree}` and remote commit tree are exactly identical: `4dff8cabbf2c88ae0c878d70610007ecc56dfe58`.
+- Remote branch: `arch/05-event-bus-contract`.
+- Pull request: **#158** — `https://github.com/Bulls1986/Inkiva/pull/158`, base `develop`, state `open`.
+- PR description records the red/green type-contract evidence, focused validation, full-unit baseline comparison, worktree environment lessons, and explicitly states that no test was weakened.
+
 ## Current blockers
 
-No ARCH-05 repository-code blocker. WebCodex managed-worktree bootstrap and delegated coding-agent execution are unavailable on this Runner, so the worktree was created manually and registered as a normal Project. The worktree dependency environment is now locally restored and validation is operational. The full desktop unit suite still contains six baseline-failing files unrelated to ARCH-05; identical failures were reproduced against clean base commit `4839ed43` in the same worktree and dependency environment.
+No ARCH-05 repository-code blocker. The only remaining work is CI observation and any CI-specific fix that is demonstrably attributable to this change. The six local full-unit failures are independently reproduced baseline failures and must not be hidden or reclassified as ARCH-05 success.
 
 ## Next step
 
-Commit the complete ARCH-05 chain, push the branch, create/update the PR, and follow CI to final status without weakening any gate. PR notes must explicitly state that focused ARCH-05 tests/typecheck/lint pass while the full desktop unit suite retains six independently reproduced baseline failures.
+Commit this delivery ledger update, materialize the updated tree on the PR branch with the same Git Data API integrity check, then monitor PR #158 CI. Do not merge automatically. If CI fails, diagnose the concrete failing job and distinguish repository baseline/environment failures from regressions introduced by ARCH-05.
