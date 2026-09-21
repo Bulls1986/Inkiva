@@ -62,7 +62,7 @@ test('@perf writes a correlated startup report when performance capture is enabl
       gate.recordSample('e2e.performance.flush-barrier', 'count', 0)
     })
     await launched.page.evaluate(() =>
-      window.electron.ipcRenderer.invoke('mt::keybinding-get-style')
+      window.electron.ipcRenderer.invoke('mt::win::is-maximized')
     )
   } finally {
     if (launched) await closeElectron(launched.app)
