@@ -835,4 +835,37 @@ This establishes a stronger compositor trade-off:
 Decision: do **not** remove promotion as a product fix. The next useful direction is not another broad CSS toggle; it is to find a stable composition strategy that preserves retained rasterized content without creating multiple moving DirectComposition-backed islands whose presentation can block. Any candidate must keep the validated 64-block batching/DOM-mutation model and be verified against both raster and Present traces.
 
 
+### Materialized paint-window POC narrows the compositor trade-off
+
+A disposable runtime-only POC kept the validated `64`-block structural segment and authoritative root scroll extent, but moved compositor promotion down from the entire segment to a child wrapper containing only currently materialized blocks.
+
+The geometry/layer precheck passed:
+
+- editor scroll height stayed exactly unchanged (`54470 -> 54470 px` in one run; another run used the stable `54627 px` geometry);
+- the structural 64-block segment remained roughly `3.5k px` tall;
+- the promoted child paint window was only roughly `1.5-1.6k px` tall with `23-24` materialized blocks;
+- compositor tracing showed the full-height ~54.6k logical editor layer at `draws_content=0`;
+- the actual Markdown content layer became `.mu-virtual-materialized-paint-window`, about `823 x 1497 px`, `draws_content=1`.
+
+This proves structural segment batching and compositor paint-window size can be decoupled without collapsing the logical document height.
+
+To avoid the invalid glyph-style transition pattern, the steady-state formal-context run establishes the materialized wrapper immediately after document activation, then performs the normal input -> completed save -> folder search sequence before tracing/search-clear/scroll. Therefore initial wrapper creation/raster is not intentionally inserted into the measured one-second scroll window.
+
+The completed ten samples were:
+
+`50, 50, 51, 49, 48, 60, 60, 53, 60, 60 FPS`
+
+Results:
+
+- `DXGISwapChainImageBacking::Present` stayed approximately `0.24-0.66 ms` in all ten samples. The previous `~300-500 ms` DirectComposition Present catastrophe did not reproduce.
+- Low samples instead carried GPU raster spans around `188-224 ms`; the `53 FPS` sample carried a ~`328 ms` raster flush.
+- Four samples reached `60 FPS`; the minimum improved materially versus the real whole-segment promoted paint-island baseline, but six of ten samples still miss the local `>=55 FPS` requirement.
+- Some `60 FPS` samples still contain long `~250-349 ms` raster flush events whose timing does not overlap enough of the rAF count window to lower the rounded FPS, so raster duration alone must still be correlated by source/layer before another product change.
+- Renderer style/layout/paint work remains small in most samples; one `53 FPS` sample also contains unusually long rAF/FunctionCall spans and should not be generalized without source attribution.
+
+Interpretation: shrinking the promoted content layer from an entire 64-block segment to the materialized block window successfully removes the DirectComposition Present low mode and improves the floor, while retaining 64-block structural batching. It is still not a product-ready solution because recurrent GPU raster stalls keep the formal-context distribution below the hard FPS requirement.
+
+Next diagnostic: map the long raster tasks from a low materialized-window sample back to their compositor layer/tile/source-frame identity, and compare with a 60 FPS sample. Do not add another broad CSS A/B until the raster source is proven.
+
+
 
