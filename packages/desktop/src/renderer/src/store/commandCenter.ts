@@ -3,7 +3,6 @@ import { defineStore } from 'pinia'
 import log from 'electron-log'
 import bus from '../bus'
 import { installCommandCenterRuntimeListeners } from './commandCenterRuntime'
-import type { CommandCenterRuntimeBus } from './commandCenterRuntime'
 import { isOsx } from '@/util'
 import { acceleratorToTokens } from '@/util/accelerator'
 
@@ -77,7 +76,7 @@ export const useCommandCenterStore = defineStore('commandCenter', () => {
     })
 
     installCommandCenterRuntimeListeners(
-      bus as unknown as CommandCenterRuntimeBus,
+      bus,
       {
         register: (command) => REGISTER_COMMAND(command as Command),
         sort: SORT_COMMANDS,
