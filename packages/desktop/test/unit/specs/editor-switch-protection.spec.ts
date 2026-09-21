@@ -29,6 +29,35 @@ describe('editor tab switch protection', () => {
     expect(source).toContain('if (id && !syntheticHistoryByTab.has(id))')
   })
 
+  it('keeps presentation-resource teardown behind the editor runtime boundary', () => {
+    const source = readEditor()
+    const unmount = source.split('onBeforeUnmount(() => {')[1]?.split('\n})')[0] ?? ''
+
+    expect(unmount).toContain('editorRuntime.dispose()')
+    for (const forbidden of [
+      "document.removeEventListener('keyup'",
+      'inputParseProbe.cancel()',
+      "removeEventListener('scroll'",
+      'tocRefreshScheduler.cancel()',
+      'editorLayoutReconciler?.destroy()',
+      'tocScrollSync?.destroy()',
+      'imageViewer.destroy()',
+      'editor.value.destroy()'
+    ]) {
+      expect(unmount, forbidden).not.toContain(forbidden)
+    }
+  })
+
+  it('keeps revision and snapshot scheduling behind the editor runtime boundary', () => {
+    const source = readEditor()
+
+    expect(source).not.toContain('documentRevisionSnapshots')
+    expect(source).not.toMatch(/editorSnapshotScheduler\.(request|flush)\(/)
+    expect(source).toContain('editorRuntime.recordMutation(')
+    expect(source).toContain("editorRuntime.flushSnapshot(id, 'persistence')")
+    expect(source).toContain("editorRuntime.flushSnapshot(id, 'switch')")
+  })
+
   it('routes every editor Markdown serialization through the measured helper', () => {
     const source = readEditor()
     const directCalls = source.match(/(?:instance|editor\.value|muya)\.getMarkdown\(/g) ?? []
