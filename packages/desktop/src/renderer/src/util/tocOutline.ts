@@ -195,6 +195,7 @@ export function createTocScrollSync(
   let activeSlug: string | null = null
   let rebuildHandle: number | null = null
   let activeHandle: number | null = null
+  let activeGeneration = 0
   let attached = false
   let destroyed = false
   let virtualOffsetsActive = false
@@ -212,8 +213,35 @@ export function createTocScrollSync(
     return false
   }
 
+  const findActiveMountedVirtualSlug = (): string | null => {
+    const containerTop = container.getBoundingClientRect().top
+    const activationLine = containerTop + activationOffset
+    let bestSlug: string | null = null
+    let bestTop = Number.NEGATIVE_INFINITY
+
+    // Virtual-prefix offsets are estimates until every preceding block has been
+    // measured. At the settled two-paint boundary, mounted headings can provide
+    // authoritative local geometry without putting layout reads on the raw
+    // scroll-event hot path.
+    for (const heading of Array.from(container.querySelectorAll(TOP_LEVEL_HEADINGS_SELECTOR))) {
+      const slug = heading.getAttribute(TOC_HEADING_SLUG_ATTRIBUTE)
+      if (!slug) continue
+      const top = heading.getBoundingClientRect().top
+      if (top <= activationLine && top > bestTop) {
+        bestTop = top
+        bestSlug = slug
+      }
+    }
+
+    return bestSlug
+  }
+
   const findActiveVirtualSlug = (): string | null => {
     if (!getVirtualBlockOffset) return null
+
+    const mountedSlug = findActiveMountedVirtualSlug()
+    if (mountedSlug) return mountedSlug
+
     const target = container.scrollTop + activationOffset
     let low = 0
     let high = toc.length - 1
@@ -326,10 +354,27 @@ export function createTocScrollSync(
   }
 
   const scheduleActiveUpdate = (): void => {
-    if (destroyed || activeHandle !== null) return
-    activeHandle = requestFrame(() => {
+    if (destroyed) return
+
+    const generation = ++activeGeneration
+    if (activeHandle !== null) {
+      cancelFrame(activeHandle)
       activeHandle = null
-      updateActive()
+    }
+
+    // Updating `activeTocSlug` invalidates the reactive outline tree. During a
+    // continuous scroll that used to happen once per frame, consuming most of
+    // the renderer frame budget on large outlines. Treat each scroll event as a
+    // candidate viewport and commit only after two consecutive paint boundaries
+    // stay on the same generation. A newer scroll cancels the old generation,
+    // while a scrollbar jump still updates the outline within two paints.
+    activeHandle = requestFrame(() => {
+      if (destroyed || generation !== activeGeneration) return
+      activeHandle = requestFrame(() => {
+        if (destroyed || generation !== activeGeneration) return
+        activeHandle = null
+        updateActive()
+      })
     })
   }
 
@@ -404,6 +449,7 @@ export function createTocScrollSync(
     if (destroyed) return
     destroyed = true
     if (rebuildHandle !== null) cancelFrame(rebuildHandle)
+    activeGeneration += 1
     if (activeHandle !== null) cancelFrame(activeHandle)
     rebuildHandle = null
     activeHandle = null

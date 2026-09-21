@@ -21,6 +21,7 @@ vi.mock('../../../../utils/diagram', () => ({
 }));
 
 const bootedHosts: HTMLElement[] = [];
+const bootedPreviews: DiagramPreview[] = [];
 
 beforeEach(() => {
     vi.stubGlobal('IntersectionObserver', undefined);
@@ -63,6 +64,7 @@ afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     TestIntersectionObserver.instances = [];
+    while (bootedPreviews.length) bootedPreviews.pop()!.dispose();
     while (bootedHosts.length) bootedHosts.pop()!.remove();
     loadRendererMock.mockReset();
 });
@@ -70,7 +72,10 @@ afterEach(() => {
 // Build a structurally-typed fake `Muya` carrying only what DiagramPreview
 // touches: an `i18n` with `.t(key)` and `options` with the diagram themes.
 function makeFakeMuya(locale = en): { muya: Muya; i18n: I18n } {
+    const domNode = document.createElement('div');
+    domNode.style.overflowY = 'auto';
     const muya = {
+        domNode,
         options: {
             mermaidTheme: 'default',
             vegaTheme: 'default',
@@ -95,6 +100,7 @@ function makeState(text: string, type: IDiagramMeta['type'] = 'mermaid'): IDiagr
 function makePreview(text: string, type: IDiagramMeta['type'] = 'mermaid', locale = en) {
     const { muya, i18n } = makeFakeMuya(locale);
     const preview = new DiagramPreview(muya, makeState(text, type));
+    bootedPreviews.push(preview);
     bootedHosts.push(preview.domNode!);
     return { preview, muya, i18n };
 }
@@ -385,6 +391,7 @@ describe('diagramPreview — viewport lazy rendering', () => {
         });
 
         const { preview } = makePreview('graph TD\n  A --> B');
+        expect(TestIntersectionObserver.instances).toHaveLength(0);
         await new Promise<void>(resolve => setTimeout(resolve, 0));
 
         expect(loadRendererMock).not.toHaveBeenCalled();
@@ -398,20 +405,158 @@ describe('diagramPreview — viewport lazy rendering', () => {
 
         observer.trigger(true);
         expect(loadRendererMock).not.toHaveBeenCalled();
+        let timestamp = 0;
         for (let index = 0; index < 4; index += 1) {
             const frame = frames.shift();
             expect(frame).toBeDefined();
-            frame!(performance.now());
+            timestamp += 16;
+            frame!(timestamp);
             expect(loadRendererMock).not.toHaveBeenCalled();
         }
-        const finalFrame = frames.shift();
-        expect(finalFrame).toBeDefined();
-        finalFrame!(performance.now());
         await new Promise<void>(resolve =>
             setTimeout(resolve, DIAGRAM_RENDER_DEBOUNCE_MS + 50));
 
         expect(render).toHaveBeenCalledTimes(1);
         expect(preview.domNode!.getAttribute('data-diagram-lazy')).toBeNull();
+    });
+
+    it('restarts the lazy-render quiet window after global input activity', async () => {
+        vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const frames: FrameRequestCallback[] = [];
+        vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+            frames.push(callback);
+            return frames.length;
+        }));
+        vi.stubGlobal('cancelAnimationFrame', vi.fn());
+        const render = vi.fn().mockResolvedValue({
+            svg: '<svg data-rendered="after-global-quiet"></svg>',
+        });
+        loadRendererMock.mockResolvedValue({
+            initialize: vi.fn(),
+            registerIconPacks: vi.fn(),
+            render,
+        });
+
+        makePreview('graph TD\n  A --> B');
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        const observer = TestIntersectionObserver.instances[0];
+        observer.trigger(true);
+
+        let timestamp = 0;
+        for (let index = 0; index < 2; index += 1) {
+            const frame = frames.shift();
+            expect(frame).toBeDefined();
+            timestamp += 16;
+            frame!(timestamp);
+        }
+        window.dispatchEvent(new Event('input'));
+        for (let index = 0; index < 5; index += 1) {
+            const frame = frames.shift();
+            expect(frame).toBeDefined();
+            timestamp += 16;
+            frame!(timestamp);
+            if (index < 4)
+                expect(loadRendererMock).not.toHaveBeenCalled();
+        }
+        await new Promise<void>(resolve =>
+            setTimeout(resolve, DIAGRAM_RENDER_DEBOUNCE_MS + 50));
+
+        expect(render).toHaveBeenCalledTimes(1);
+    });
+
+    it('rechecks global interaction quiet before the viewport debounce starts the renderer', async () => {
+        vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const frames: FrameRequestCallback[] = [];
+        vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+            frames.push(callback);
+            return frames.length;
+        }));
+        vi.stubGlobal('cancelAnimationFrame', vi.fn());
+        const render = vi.fn().mockResolvedValue({
+            svg: '<svg data-rendered="debounce-quiet"></svg>',
+        });
+        loadRendererMock.mockResolvedValue({
+            initialize: vi.fn(),
+            registerIconPacks: vi.fn(),
+            render,
+        });
+
+        makePreview('graph TD\n  A --> B');
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        const observer = TestIntersectionObserver.instances[0];
+        observer.trigger(true);
+
+        let timestamp = 0;
+        for (let index = 0; index < 4; index += 1) {
+            const frame = frames.shift();
+            expect(frame).toBeDefined();
+            timestamp += 16;
+            frame!(timestamp);
+        }
+        window.dispatchEvent(new Event('scroll'));
+        await new Promise<void>(resolve =>
+            setTimeout(resolve, DIAGRAM_RENDER_DEBOUNCE_MS + 30));
+        expect(loadRendererMock).not.toHaveBeenCalled();
+
+        for (let index = 0; index < 4; index += 1) {
+            const frame = frames.shift();
+            expect(frame).toBeDefined();
+            timestamp += 16;
+            frame!(timestamp);
+        }
+        await new Promise<void>(resolve =>
+            setTimeout(resolve, DIAGRAM_RENDER_DEBOUNCE_MS + 50));
+
+        expect(render).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not start the renderer while the scroll container is still moving', async () => {
+        vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+        const frames: FrameRequestCallback[] = [];
+        vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+            frames.push(callback);
+            return frames.length;
+        }));
+        vi.stubGlobal('cancelAnimationFrame', vi.fn());
+        const render = vi.fn().mockResolvedValue({
+            svg: '<svg data-rendered="after-scroll-settle"></svg>',
+        });
+        loadRendererMock.mockResolvedValue({
+            initialize: vi.fn(),
+            registerIconPacks: vi.fn(),
+            render,
+        });
+
+        const { preview, muya } = makePreview('graph TD\n  A --> B');
+        const scrollHost = muya.domNode;
+        scrollHost.append(preview.domNode!);
+        bootedHosts.push(scrollHost);
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+        const observer = TestIntersectionObserver.instances[0];
+        observer.trigger(true);
+
+        let timestamp = 0;
+        for (let index = 0; index < 6; index += 1) {
+            scrollHost.scrollTop = (index + 1) * 100;
+            const frame = frames.shift();
+            expect(frame).toBeDefined();
+            timestamp += 16;
+            frame!(timestamp);
+            expect(loadRendererMock).not.toHaveBeenCalled();
+        }
+        for (let index = 0; index < 4; index += 1) {
+            const frame = frames.shift();
+            expect(frame).toBeDefined();
+            timestamp += 16;
+            frame!(timestamp);
+            if (index < 3)
+                expect(loadRendererMock).not.toHaveBeenCalled();
+        }
+        await new Promise<void>(resolve =>
+            setTimeout(resolve, DIAGRAM_RENDER_DEBOUNCE_MS + 50));
+
+        expect(render).toHaveBeenCalledTimes(1);
     });
 });
 describe('diagramBlock — focus lifecycle', () => {

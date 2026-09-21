@@ -6,6 +6,7 @@ import { fromEvent } from 'rxjs';
 import { CLASS_NAMES, PREVIEW_DOMPURIFY_CONFIG } from '../../../config';
 import { sanitize } from '../../../utils';
 import { getDiagramRenderCoordinator } from '../../../utils/diagram/coordinator';
+import { findScrollContainer } from '../../../utils/dom';
 import logger from '../../../utils/logger';
 import Parent from '../../base/parent';
 import {
@@ -15,6 +16,30 @@ import {
 
 const debug = logger('diagramPreview:');
 export const DIAGRAM_RENDER_DEBOUNCE_MS = 200;
+
+const DIAGRAM_INTERACTION_EVENTS = ['keydown', 'pointerdown', 'wheel', 'input', 'scroll'] as const;
+let diagramInteractionRefCount = 0;
+let diagramInteractionRevision = 0;
+function recordDiagramInteraction() {
+    diagramInteractionRevision += 1;
+}
+function acquireDiagramInteractionTracker() {
+    diagramInteractionRefCount += 1;
+    if (diagramInteractionRefCount !== 1 || typeof window === 'undefined')
+        return;
+    DIAGRAM_INTERACTION_EVENTS.forEach(eventName =>
+        window.addEventListener(eventName, recordDiagramInteraction, { capture: true, passive: true }));
+}
+function releaseDiagramInteractionTracker() {
+    diagramInteractionRefCount = Math.max(0, diagramInteractionRefCount - 1);
+    if (diagramInteractionRefCount !== 0)
+        return;
+    diagramInteractionRevision = 0;
+    if (typeof window === 'undefined')
+        return;
+    DIAGRAM_INTERACTION_EVENTS.forEach(eventName =>
+        window.removeEventListener(eventName, recordDiagramInteraction, { capture: true }));
+}
 let nextDiagramPreviewId = 0;
 
 type DiagramPresentationMode = 'source' | 'preview' | 'error';
@@ -104,6 +129,7 @@ class DiagramPreview extends Parent {
         this.createDomNode();
         this._applyHeightHint();
         this._attachDOMEvents();
+        acquireDiagramInteractionTracker();
         this._installViewportObserver();
         this.update();
     }
@@ -125,48 +151,72 @@ class DiagramPreview extends Parent {
         }
 
         this.domNode?.setAttribute('data-diagram-lazy', 'pending');
-        this._viewportObserver = new IntersectionObserver((entries) => {
-            if (this._disposed || !entries.some(entry =>
-                entry.isIntersecting || entry.intersectionRatio > 0)) {
-                return;
-            }
-
-            this._isViewportReady = true;
-            this.domNode?.removeAttribute('data-diagram-lazy');
-            this._viewportObserver?.disconnect();
-            this._viewportObserver = null;
-            this._scheduleViewportRenderAfterPaint();
-        }, { rootMargin: '0px' });
-
         this._viewportObserveTimer = setTimeout(() => {
             this._viewportObserveTimer = null;
-            if (this._disposed || !this.domNode) {
+            if (this._disposed || !this.domNode)
                 return;
-            }
 
-            this._viewportObserver?.observe(this.domNode);
+            this._viewportObserver = new IntersectionObserver((entries) => {
+                if (this._disposed)
+                    return;
+
+                const isIntersecting = entries.some(entry =>
+                    entry.isIntersecting || entry.intersectionRatio > 0);
+                this._isViewportReady = isIntersecting;
+                if (!isIntersecting) {
+                    if (this._viewportRenderFrameId !== null)
+                        cancelAnimationFrame(this._viewportRenderFrameId);
+                    this._viewportRenderFrameId = null;
+                    return;
+                }
+
+                if (this._viewportRenderFrameId === null)
+                    this._scheduleViewportRenderAfterPaint();
+            }, { rootMargin: '0px' });
+            this._viewportObserver.observe(this.domNode);
         }, 0);
     }
 
     private _scheduleViewportRenderAfterPaint() {
-        // A visible diagram only needs its lightweight placeholder during the
-        // editor's first useful paints. Defer background Mermaid/Vega work
-        // until four paint boundaries have completed, then let the normal
-        // debounce schedule the renderer. This keeps diagram work behind the
-        // editor's first-screen/interactive/editable milestones without
-        // slowing explicit focus/blur rendering.
-        let remainingPaints = 4;
-        const waitForPaint = () => {
-            if (this._disposed)
-                return;
+        // Keep expensive Mermaid/Vega work behind the editor's useful paints.
+        // Interaction is represented as a monotonic revision rather than a quiet
+        // time window: any scroll/input/pointer/key event restarts the four-paint
+        // stability sequence, so machine speed never changes correctness.
+        const node = this.domNode;
+        if (!node)
+            return;
 
-            if (remainingPaints <= 0) {
+        const scrollContainer = findScrollContainer(this.muya.domNode ?? node);
+        let remainingPaints = 4;
+        let observedScrollTop = scrollContainer.scrollTop;
+        let observedInteractionRevision = diagramInteractionRevision;
+        const waitForPaint = () => {
+            if (this._disposed || !this._isViewportReady) {
                 this._viewportRenderFrameId = null;
-                void this.update();
                 return;
             }
 
-            remainingPaints -= 1;
+            const currentScrollTop = scrollContainer.scrollTop;
+            const moved = Math.abs(currentScrollTop - observedScrollTop) > 0.5;
+            const interactionChanged = diagramInteractionRevision !== observedInteractionRevision;
+            if (moved || interactionChanged) {
+                observedScrollTop = currentScrollTop;
+                observedInteractionRevision = diagramInteractionRevision;
+                remainingPaints = 4;
+            }
+            else {
+                remainingPaints -= 1;
+            }
+
+            if (remainingPaints <= 0) {
+                this._viewportRenderFrameId = null;
+                this.domNode?.removeAttribute('data-diagram-lazy');
+                this._viewportObserver?.disconnect();
+                this._viewportObserver = null;
+                void this.scheduleRender(this._code, diagramInteractionRevision);
+                return;
+            }
+
             this._viewportRenderFrameId = requestAnimationFrame(waitForPaint);
         };
 
@@ -408,7 +458,7 @@ class DiagramPreview extends Parent {
     }
 
     /** Schedule a debounced background validation for the latest source. */
-    scheduleRender(code = this._code): Promise<void> {
+    scheduleRender(code = this._code, interactionRevision?: number): Promise<void> {
         if (this._disposed)
             return Promise.resolve();
 
@@ -428,6 +478,15 @@ class DiagramPreview extends Parent {
             this._renderWaiters.set(generation, resolve);
             this._renderTimer = setTimeout(() => {
                 this._renderTimer = null;
+                if (
+                    interactionRevision !== undefined
+                    && interactionRevision !== diagramInteractionRevision
+                ) {
+                    this._resolveRenderWaiter(generation);
+                    if (!this._disposed && this._isViewportReady)
+                        this._scheduleViewportRenderAfterPaint();
+                    return;
+                }
                 void this._render(code, generation)
                     .catch((error) => {
                         debug.error(`render ${this._type} diagram crashed`, error);
@@ -465,6 +524,7 @@ class DiagramPreview extends Parent {
         this._activeRenderHandle?.dispose();
         this._activeRenderHandle = null;
         getDiagramRenderCoordinator(this.muya).dispose(this._renderBlockId);
+        releaseDiagramInteractionTracker();
         this._clickSubscription?.unsubscribe();
         this._clickSubscription = null;
 

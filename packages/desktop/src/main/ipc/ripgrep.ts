@@ -42,6 +42,14 @@ const sendIfAlive = (
   }
 }
 
+const terminateChild = (child: ChildProcess): void => {
+  try { child.stdout?.pause() } catch { /* stream already closed */ }
+  try { child.stdout?.destroy() } catch { /* stream already closed */ }
+  try { child.stderr?.destroy() } catch { /* stream already closed */ }
+  try { child.stdin?.destroy() } catch { /* stream already closed */ }
+  try { child.kill() } catch { /* process already dead */ }
+}
+
 const cleanupAtSenderDestroy = (sender: WebContents | null | undefined): void => {
   if (!sender) return
   const handler = (): void => {
@@ -246,13 +254,9 @@ const startTextSearch = (
     if (finished || cancelled) return
     cancelled = true
     gate.close()
-    for (const child of children) {
-      try {
-        child.kill()
-      } catch {
-        /* already dead */
-      }
-    }
+    for (const child of children) terminateChild(child)
+    sources.clear()
+    drainers.clear()
     finished = true
     removeActiveSearch(searchId, cancel)
     sendIfAlive(sender, 'mt::rg::error', {
@@ -268,13 +272,9 @@ const startTextSearch = (
     }
     cancelled = true
     gate.close()
-    for (const child of children) {
-      try {
-        child.kill()
-      } catch {
-        /* already dead */
-      }
-    }
+    for (const child of children) terminateChild(child)
+    sources.clear()
+    drainers.clear()
     finished = true
     removeActiveSearch(searchId, cancel)
     sendIfAlive(sender, 'mt::rg::cancelled', { searchId })
@@ -550,13 +550,9 @@ const startFileSearch = (
     if (finished || cancelled) return
     cancelled = true
     gate.close()
-    for (const child of children) {
-      try {
-        child.kill()
-      } catch {
-        /* already dead */
-      }
-    }
+    for (const child of children) terminateChild(child)
+    sources.clear()
+    drainers.clear()
     finished = true
     removeActiveSearch(searchId, cancel)
     sendIfAlive(sender, 'mt::rg::error', {
@@ -572,13 +568,9 @@ const startFileSearch = (
     }
     cancelled = true
     gate.close()
-    for (const child of children) {
-      try {
-        child.kill()
-      } catch {
-        /* already dead */
-      }
-    }
+    for (const child of children) terminateChild(child)
+    sources.clear()
+    drainers.clear()
     finished = true
     removeActiveSearch(searchId, cancel)
     sendIfAlive(sender, 'mt::rg::cancelled', { searchId })

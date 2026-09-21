@@ -49,6 +49,25 @@ interface TocItem extends ListItem {
 
 type TocTreeNode = TreeNode<TocItem>
 
+interface TocSlugIndexEntry {
+  source: TocItem[]
+  slugs: Set<string>
+}
+
+const tocSlugIndexes = new WeakMap<object, TocSlugIndexEntry>()
+
+const getTocSlugIndex = (owner: object, toc: TocItem[]): Set<string> => {
+  const cached = tocSlugIndexes.get(owner)
+  if (cached?.source === toc) return cached.slugs
+
+  const slugs = new Set<string>()
+  for (const item of toc) {
+    if (typeof item.slug === 'string' && item.slug.length > 0) slugs.add(item.slug)
+  }
+  tocSlugIndexes.set(owner, { source: toc, slugs })
+  return slugs
+}
+
 const isSameTocSnapshot = (left: TocItem[], right: TocItem[]): boolean => {
   if (left === right) return true
   if (left.length !== right.length) return false
@@ -1708,7 +1727,8 @@ export const useEditorStore = defineStore('editor', {
 
       this.listToc = nextToc
       this.toc = listToTree<TocItem>(nextToc)
-      if (this.activeTocSlug && !nextToc.some((item) => item.slug === this.activeTocSlug)) {
+      const slugIndex = getTocSlugIndex(this, this.listToc)
+      if (this.activeTocSlug && !slugIndex.has(this.activeTocSlug)) {
         this.activeTocSlug = null
       }
       return true
@@ -1719,7 +1739,7 @@ export const useEditorStore = defineStore('editor', {
         this.activeTocSlug = null
         return
       }
-      if (this.listToc.some((item) => item.slug === slug)) {
+      if (getTocSlugIndex(this, this.listToc).has(slug)) {
         this.activeTocSlug = slug
       }
     },

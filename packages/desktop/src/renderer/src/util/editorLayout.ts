@@ -271,8 +271,10 @@ export function createEditorLayoutReconciler(
 
   const handleScroll = (): void => {
     if (destroyed) return
+    // scrollHeight can force layout when the virtual surface has just changed.
+    // Keep the scroll hot path to the compositor-backed scrollTop read only;
+    // max scroll geometry is refreshed by layout/observer flushes below.
     lastScrollTop = container.scrollTop
-    lastMaxScrollTop = getMaxScrollTop(container)
   }
 
   syncBlocks()

@@ -4,6 +4,7 @@ import {
   getMessageBoxCalls,
   installMessageBoxCapture,
   launchWithMarkdown,
+  setMessageBoxResponse,
   setUserPreferences,
   typeIntoEditor
 } from './helpers'
@@ -22,7 +23,11 @@ test.describe('closing a document with unsaved changes', () => {
     const launched = await launchWithMarkdown('# Close me\n', { suppressErrorDialog: true })
     app = launched.app
     page = launched.page
-    await installMessageBoxCapture(app)
+    // Keep the window open after observing the real unsaved-changes prompt.
+    // Response 2 is the dialog's configured Cancel action; returning the default
+    // response 0 (Save) legitimately closes the window before assertions can read
+    // the captured prompt.
+    await installMessageBoxCapture(app, 2)
     await setUserPreferences(page, { startUpAction: 'blank' })
 
     await typeIntoEditor(page, ' unsaved')
@@ -41,5 +46,11 @@ test.describe('closing a document with unsaved changes', () => {
     const [messageBox] = await getMessageBoxCalls(app)
     expect(messageBox?.message).toBeTruthy()
     expect(messageBox?.detail).toBeTruthy()
+
+    // Let the explicit cleanup close the dirty document without saving, then
+    // clear `app` so the shared afterEach does not issue a second close request.
+    await setMessageBoxResponse(app, 1)
+    await app.close()
+    app = undefined as unknown as ElectronApplication
   })
 })

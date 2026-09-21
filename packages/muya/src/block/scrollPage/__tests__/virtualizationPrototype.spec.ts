@@ -13,6 +13,8 @@ interface IPrototypeSnapshot {
     enabled: boolean;
     totalBlocks: number;
     mountedBlocks: number;
+    segmentSize: number;
+    mountedSegments: number;
     windowStart: number;
     windowEnd: number;
     beforeHeight: number;
@@ -104,7 +106,7 @@ describe('stage C0 top-level virtualization prototype', () => {
         expect(restoredTop.beforeHeight).toBe(0);
     });
 
-    it('bounds virtual window disposal work by the previously mounted window instead of total blocks', async () => {
+    it('bounds virtual window disposal work by the previously mounted segments instead of total blocks', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);
         const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + 600;
@@ -132,7 +134,7 @@ describe('stage C0 top-level virtualization prototype', () => {
 
         api.updateVirtualWindowForViewport(initial.totalEstimatedHeight / 2, 600);
 
-        expect(dematerializeCalls).toBeLessThanOrEqual(initial.mountedBlocks);
+        expect(dematerializeCalls).toBeLessThanOrEqual(initial.mountedSegments * initial.segmentSize);
         expect(api.getVirtualizationPrototypeSnapshot().mountedBlocks).toBeLessThan(totalBlocks / 2);
     });
 
@@ -171,8 +173,7 @@ describe('stage C0 top-level virtualization prototype', () => {
         expect(copied).toContain('paragraph 0');
         expect(copied).toContain(`paragraph ${totalBlocks - 1}`);
 
-        const active = muya.editor.selection.anchorBlock!;
-        active.domNode!.focus();
+        expect(muya.hasFocus()).toBe(true);
         document.dispatchEvent(new KeyboardEvent('keydown', {
             key: 'Delete',
             bubbles: true,

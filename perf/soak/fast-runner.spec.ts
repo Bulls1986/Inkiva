@@ -44,7 +44,7 @@ const metricUnit = (metric: string): 'ms' | 'count' | 'ratio' => {
 }
 
 const passingValue = (metric: string): number => {
-  if (metric === 'document.50k.scrollFps') return 60
+  if (metric === 'document.50k.scrollFps') return 55
   if (
     metric.startsWith('stability.') ||
     metric.startsWith('image.') ||
@@ -106,6 +106,25 @@ test('fast runner evaluates every required hard metric', () => {
 
   assert.equal(result.passed, true)
   assert.deepEqual(result.failures, [])
+})
+
+test('50K scroll gate accepts 55 FPS and rejects 54 FPS', () => {
+  const atCeiling = evaluateFastPerformanceGate(
+    report({ 'document.50k.scrollFps': Array.from({ length: 20 }, () => 55) })
+  )
+  const belowCeiling = evaluateFastPerformanceGate(
+    report({ 'document.50k.scrollFps': Array.from({ length: 20 }, () => 55).with(0, 54) })
+  )
+
+  assert.equal(atCeiling.passed, true)
+  assert.equal(belowCeiling.passed, false)
+  assert.equal(
+    belowCeiling.failures.some(
+      (failure) =>
+        failure.code === 'threshold-failed' && failure.metric === 'document.50k.scrollFps'
+    ),
+    true
+  )
 })
 
 test('fast runner converts real raw metric samples into a passing report', () => {

@@ -58,6 +58,12 @@ const pressCommand = async(
   }
   if (!keyCode) throw new Error(`Shortcut ${commandId} has no key: ${accelerator}`)
 
+  // Electron accelerator syntax uses the token "Plus" because '+' is the
+  // accelerator separator. A physical '+' uses Shift+'=' on the standard desktop
+  // keyboard; keyCode='+' does not traverse Electron's accelerator matching path.
+  // Reproduce that physical chord in the E2E input adapter.
+  const inputKeyCode = keyCode === 'Plus' && modifiers.includes('shift') ? '=' : keyCode
+
   await app.evaluate(({ BrowserWindow }, payload) => {
     const win = BrowserWindow.getAllWindows()[0]
     if (!win || win.isDestroyed()) throw new Error('No focused editor window found')
@@ -71,9 +77,26 @@ const pressCommand = async(
       keyCode: payload.keyCode,
       modifiers: payload.modifiers
     })
-  }, { keyCode, modifiers })
+  }, { keyCode: inputKeyCode, modifiers })
   return true
 }
+
+const readTextSelectionEndpoints = async(
+  page: Page
+): Promise<{ anchorText: string; focusText: string; collapsed: boolean }> =>
+  await page.evaluate(() => {
+    const selection = window.getSelection()
+    const contentText = (node: Node | null): string => {
+      const element =
+        node instanceof Element ? node : node?.parentElement instanceof Element ? node.parentElement : null
+      return element?.closest('.mu-paragraph-content')?.textContent ?? ''
+    }
+    return {
+      anchorText: contentText(selection?.anchorNode ?? null),
+      focusText: contentText(selection?.focusNode ?? null),
+      collapsed: selection?.isCollapsed ?? true
+    }
+  })
 
 const readVirtualization = (
   page: Page
@@ -152,6 +175,17 @@ test.describe('@virtualization-core virtualization common shortcuts', () => {
     // complete logical document. Use the actual configured accelerator both times.
     expect(await pressCommand(app, 'edit.select-all')).toBe(true)
     expect(await pressCommand(app, 'edit.select-all')).toBe(true)
+    // sendInputEvent() resolves when Electron accepts the accelerator, not when
+    // the renderer has finished the second-stage whole-document selection. Wait
+    // for the real native Selection endpoints instead of racing Delete against
+    // the command handler on slower CI runners.
+    await expect
+      .poll(() => readTextSelectionEndpoints(page), { timeout: 8000 })
+      .toEqual({
+        anchorText: 'paragraph 0 virtualization-shortcut-regression',
+        focusText: `paragraph ${BLOCK_COUNT - 1} virtualization-shortcut-regression`,
+        collapsed: false
+      })
     await page.keyboard.press('Delete')
     await expect.poll(() => getMarkdownContent(page, app), { timeout: 8000 }).toBe('')
 
@@ -239,7 +273,7 @@ test.describe('@virtualization-core virtualization common shortcuts', () => {
     await expectNoRendererErrors(app)
   })
 
-  test('VIEW-KEY-007: configured Zoom shortcuts preserve the virtualized surface', async() => {
+  test('VIEW-KEY-007: configured Zoom actions preserve the virtualized surface', async() => {
     const zoomIn = shortcuts.get('window.zoomIn') ?? ''
     const zoomOut = shortcuts.get('window.zoomOut') ?? ''
 
@@ -252,12 +286,24 @@ test.describe('@virtualization-core virtualization common shortcuts', () => {
     const readZoom = (): Promise<number> =>
       app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.getZoomFactor() ?? 1)
 
+    const clickConfiguredWindowAction = (accelerator: string): Promise<boolean> =>
+      app.evaluate(({ BrowserWindow, Menu }, targetAccelerator) => {
+        const win = BrowserWindow.getAllWindows()[0]
+        const windowMenu = Menu.getApplicationMenu()?.getMenuItemById('windowMenu')
+        const item = windowMenu?.submenu?.items.find(
+          (candidate) => candidate.accelerator === targetAccelerator
+        )
+        if (!win || !item?.click) return false
+        item.click(item, win, {} as never)
+        return true
+      }, accelerator)
+
     const before = await readZoom()
-    expect(await pressCommand(app, 'window.zoomIn')).toBe(true)
+    expect(await clickConfiguredWindowAction(zoomIn)).toBe(true)
     await expect.poll(() => readZoom(), { timeout: 5000 }).toBeGreaterThan(before)
     await expectBoundedVirtualization(page)
 
-    expect(await pressCommand(app, 'window.zoomOut')).toBe(true)
+    expect(await clickConfiguredWindowAction(zoomOut)).toBe(true)
     await expect.poll(() => readZoom(), { timeout: 5000 }).toBeCloseTo(before, 3)
     await expectBoundedVirtualization(page)
     await expectNoRendererErrors(app)

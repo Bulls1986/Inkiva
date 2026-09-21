@@ -76,40 +76,6 @@ if (window.electron?.process?.env?.PERF_TESTING === 'true' && startupDelay > 0) 
   mountApp()
 }
 
-/**
- * Warm settings chunks only after the editor has mounted and the browser has
- * spare time. This keeps first paint focused on the editor while making the
- * first Preferences open substantially cheaper on slower machines.
- *
- * We intentionally preload modules, not a hidden BrowserWindow, so there is no
- * extra long-lived renderer process or duplicate Vue application consuming
- * memory in the background.
- */
-const preloadSettingsWhenIdle = (): void => {
-  if (envType !== 'editor') return
-
-  const preload = (): void => {
-    Promise.allSettled([
-      import('./pages/preference.vue'),
-      import('./prefComponents/general/index.vue'),
-      import('./prefComponents/editor/index.vue'),
-      import('./prefComponents/markdown/index.vue'),
-      import('./prefComponents/spellchecker/index.vue'),
-      import('./prefComponents/theme/index.vue'),
-      import('./prefComponents/image/index.vue'),
-      import('./prefComponents/keybindings/index.vue')
-    ])
-  }
-
-  if ('requestIdleCallback' in window) {
-    ;(
-      window as Window & {
-        requestIdleCallback: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
-      }
-    ).requestIdleCallback(preload, { timeout: 2500 })
-  } else {
-    globalThis.setTimeout(preload, 1200)
-  }
-}
-
-preloadSettingsWhenIdle()
+// Preferences remain route-lazy. Do not preload their dependency graph from the
+// editor renderer: requestIdleCallback can fire between scroll frames and large
+// settings dependencies (including diagram engines) must never compete with editing.

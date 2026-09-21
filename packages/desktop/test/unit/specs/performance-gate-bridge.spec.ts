@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { createPerformanceGateBridge } from '@/services/performance/gateBridge'
 
 it('forwards real samples with an explicit phase and metadata', () => {
@@ -28,6 +28,18 @@ it('forwards real samples with an explicit phase and metadata', () => {
     phase: 'editor',
     metadata: { action: 'open-outline' }
   }])
+})
+
+it('flushes only the explicit gate-event transport after each gate sample', () => {
+  const flush = vi.fn()
+  const bridge = createPerformanceGateBridge({
+    enabled: true,
+    recordSample: vi.fn()
+  }, flush)
+
+  bridge.recordSample('document.50k.scrollFps', 'count', 57)
+
+  expect(flush).toHaveBeenCalledOnce()
 })
 
 it('does not call a disabled recorder', () => {

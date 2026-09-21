@@ -125,6 +125,64 @@ describe('TOC outline utilities', () => {
     expect(headings[1].getAttribute(TOC_HEADING_SLUG_ATTRIBUTE)).toBe('uid-later')
   })
 
+  it('prefers mounted heading geometry over stale virtual-prefix estimates after navigation', () => {
+    const container = document.createElement('div')
+    const root = document.createElement('div')
+    const segment = document.createElement('div')
+    const firstHeading = document.createElement('h2')
+    const middleHeading = document.createElement('h2')
+    const laterHeading = document.createElement('h2')
+    root.className = 'mu-container'
+    segment.className = 'mu-virtual-segment'
+    firstHeading.dataset.virtualBlockIndex = '2'
+    middleHeading.dataset.virtualBlockIndex = '40'
+    laterHeading.dataset.virtualBlockIndex = '80'
+    segment.append(firstHeading, middleHeading, laterHeading)
+    root.append(segment)
+    container.append(root)
+    document.body.append(container)
+    container.scrollTop = 850
+
+    const rect = (top: number): DOMRect => ({
+      top,
+      bottom: top + 40,
+      height: 40,
+      left: 0,
+      right: 700,
+      width: 700,
+      x: 0,
+      y: top,
+      toJSON: () => ({})
+    } as DOMRect)
+    vi.spyOn(container, 'getBoundingClientRect').mockReturnValue(rect(0))
+    vi.spyOn(firstHeading, 'getBoundingClientRect').mockReturnValue(rect(-700))
+    vi.spyOn(middleHeading, 'getBoundingClientRect').mockReturnValue(rect(8))
+    vi.spyOn(laterHeading, 'getBoundingClientRect').mockReturnValue(rect(600))
+
+    // The logical prefix index is intentionally stale enough to select "later".
+    // The mounted target is actually at the navigation activation line and must
+    // remain the active outline entry.
+    const offsets = new Map([[2, 0], [40, 400], [80, 800]])
+    const onActiveChange = vi.fn()
+    const sync = createTocScrollSync(
+      container,
+      onActiveChange,
+      40,
+      (blockIndex) => offsets.get(blockIndex) ?? null
+    )
+    sync.update([
+      { slug: 'uid-first', blockIndex: 2 },
+      { slug: 'uid-middle', blockIndex: 40 },
+      { slug: 'uid-later', blockIndex: 80 }
+    ])
+    sync.attach()
+    sync.refresh()
+
+    expect(onActiveChange).toHaveBeenLastCalledWith('uid-middle')
+    sync.destroy()
+    container.remove()
+  })
+
   it('tracks active virtualized headings from document-level offsets', () => {
     const container = document.createElement('div')
     container.scrollTop = 850
@@ -208,14 +266,77 @@ describe('TOC outline utilities', () => {
     expect(onActiveChange).toHaveBeenLastCalledWith('uid-middle')
 
     // Exact block measurements can move virtual offsets without rebuilding the
-    // desktop TOC cache. The next scroll frame must use the live offsets.
+    // desktop TOC cache. The settled scroll commit must use the live offsets.
     offsets.set(40, 400)
     offsets.set(80, 800)
     container.dispatchEvent(new Event('scroll'))
-    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined)))
+    )
 
     expect(onActiveChange).toHaveBeenLastCalledWith('uid-later')
     sync.destroy()
+  })
+
+  it('commits only the final active heading after two stable scroll paint boundaries', () => {
+    const container = document.createElement('div')
+    container.scrollTop = 850
+    const onActiveChange = vi.fn()
+    const offsets = new Map([[2, 0], [40, 800], [80, 1600]])
+    const sync = createTocScrollSync(
+      container,
+      onActiveChange,
+      40,
+      (blockIndex) => offsets.get(blockIndex) ?? null
+    )
+    sync.update([
+      { slug: 'uid-first', blockIndex: 2 },
+      { slug: 'uid-middle', blockIndex: 40 },
+      { slug: 'uid-later', blockIndex: 80 }
+    ])
+    sync.attach()
+    sync.refresh()
+    expect(onActiveChange).toHaveBeenLastCalledWith('uid-middle')
+    onActiveChange.mockClear()
+
+    let nextFrameId = 1
+    const frames = new Map<number, FrameRequestCallback>()
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      const id = nextFrameId++
+      frames.set(id, callback)
+      return id
+    }))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn((id: number) => {
+      frames.delete(id)
+    }))
+    const runNextFrame = () => {
+      const next = frames.entries().next().value as [number, FrameRequestCallback] | undefined
+      if (!next) throw new Error('expected active-TOC frame')
+      const [id, callback] = next
+      frames.delete(id)
+      callback(performance.now())
+    }
+
+    try {
+      offsets.set(40, 400)
+      offsets.set(80, 800)
+      container.dispatchEvent(new Event('scroll'))
+      runNextFrame()
+      expect(onActiveChange).not.toHaveBeenCalled()
+
+      // A newer scroll invalidates the pending second paint from the old viewport.
+      container.scrollTop = 1650
+      container.dispatchEvent(new Event('scroll'))
+      runNextFrame()
+      expect(onActiveChange).not.toHaveBeenCalled()
+      runNextFrame()
+
+      expect(onActiveChange).toHaveBeenCalledTimes(1)
+      expect(onActiveChange).toHaveBeenLastCalledWith('uid-later')
+    } finally {
+      sync.destroy()
+      vi.unstubAllGlobals()
+    }
   })
 
   it('shifts cached headings locally when a preceding diagram changes size', () => {

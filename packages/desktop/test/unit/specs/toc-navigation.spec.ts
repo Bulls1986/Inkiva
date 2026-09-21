@@ -71,6 +71,24 @@ describe('useEditorStore UPDATE_TOC', () => {
     expect(store.toc).toEqual([])
   })
 
+  it('validates active TOC slugs without scanning the reactive list on the scroll hot path', () => {
+    const store = useEditorStore()
+    store.UPDATE_TOC([
+      { slug: 'uid-1', githubSlug: 'intro', content: 'Intro', lvl: 1 },
+      { slug: 'uid-2', githubSlug: 'details', content: 'Details', lvl: 2 }
+    ])
+
+    const some = vi.spyOn(Array.prototype, 'some')
+    try {
+      some.mockClear()
+      store.UPDATE_ACTIVE_TOC('uid-2')
+      expect(store.activeTocSlug).toBe('uid-2')
+      expect(some).not.toHaveBeenCalled()
+    } finally {
+      some.mockRestore()
+    }
+  })
+
   it('tracks only an active slug that still belongs to the current TOC', () => {
     const store = useEditorStore()
     store.UPDATE_TOC([

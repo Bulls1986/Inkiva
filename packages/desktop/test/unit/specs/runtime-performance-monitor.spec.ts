@@ -160,6 +160,36 @@ describe('RuntimePerformanceMonitor', () => {
     monitor.dispose()
   })
 
+  it('routes frame telemetry through one compact frame sample when provided', () => {
+    const recorder = createRecorder()
+    const schedulers = createSchedulers()
+    const frameSampleSink = vi.fn()
+    const monitor = new RuntimePerformanceMonitor({
+      recorder,
+      performanceObserver: null,
+      frameSampleSink,
+      ...schedulers
+    })
+
+    monitor.start()
+    schedulers.frameCallbacks[0]?.(0)
+    schedulers.frameCallbacks[1]?.(16.5)
+
+    expect(frameSampleSink).toHaveBeenCalledTimes(1)
+    expect(frameSampleSink).toHaveBeenCalledWith({
+      timestamp: 16.5,
+      duration: 16.5,
+      forcedReflows: 0,
+      longTaskObserverAvailable: true
+    })
+    expect(recorder.recordSample).not.toHaveBeenCalledWith(
+      'core.frame.duration',
+      expect.anything(),
+      expect.anything(),
+      expect.anything()
+    )
+  })
+
   it('samples frame timing and renderer heap without creating work while disabled', () => {
     const recorder = createRecorder()
     const schedulers = createSchedulers()

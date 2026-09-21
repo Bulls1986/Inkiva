@@ -1,5 +1,8 @@
 import { ipcMain } from 'electron'
-import { PERFORMANCE_EVENT_CHANNEL } from '@shared/types/performance'
+import {
+  PERFORMANCE_EVENT_CHANNEL,
+  PERFORMANCE_FRAME_SAMPLE_CHANNEL
+} from '@shared/types/performance'
 import { mainPerformance } from '../performance/runtime'
 
 /**
@@ -8,9 +11,16 @@ import { mainPerformance } from '../performance/runtime'
  * a non-throwing boundary so malformed diagnostics cannot crash the app.
  */
 export const registerPerformanceHandlers = (): void => {
-  ipcMain.on(PERFORMANCE_EVENT_CHANNEL, (_event, event: unknown) => {
+  ipcMain.on(PERFORMANCE_EVENT_CHANNEL, (_event, payload: unknown) => {
     try {
-      mainPerformance.recordRendererEvent(event)
+      mainPerformance.recordRendererEvents(payload)
+    } catch {
+      // Performance diagnostics are best-effort and must never affect editing.
+    }
+  })
+  ipcMain.on(PERFORMANCE_FRAME_SAMPLE_CHANNEL, (_event, payload: unknown) => {
+    try {
+      mainPerformance.recordRendererFrameSamples(payload)
     } catch {
       // Performance diagnostics are best-effort and must never affect editing.
     }

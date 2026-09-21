@@ -54,6 +54,10 @@ class TreeNode implements ILinkedNode {
         return this.constructor as unknown as IConstructor<TreeNode>;
     }
 
+    // Subclasses that maintain a derived child index can invalidate it in the
+    // same synchronous turn as the logical child-list mutation.
+    protected childStructureDidMutate(): void {}
+
     get blockName() {
         return this.static.blockName;
     }
@@ -336,7 +340,9 @@ class TreeNode implements ILinkedNode {
             selection.removeAllRanges();
         }
 
-        this.parent.children.remove(this);
+        const parent = this.parent;
+        parent.children.remove(this);
+        parent.childStructureDidMutate?.();
         this.parent = null;
         domNode?.remove();
 
