@@ -760,5 +760,26 @@ Conclusion: a full-document painted PictureLayer is **not required** for the cat
 
 The next diagnostic should reduce content complexity further while preserving the same accelerated scrolling and visible moving composited island: replace Markdown painting with a simple flat painted island. If the Present low mode remains, the trigger is below Inkiva content/layout complexity and is closer to the Windows Chromium/DComp presentation path itself; if the low mode disappears, inspect which Markdown paint primitives or layer properties are necessary to trigger it.
 
+### Flat painted-island A/B
+
+The same paint-island formal-context POC was reused with only the exact one-second scroll window changed: mounted Markdown descendants were made `visibility:hidden` and the segment island itself was given a simple flat gray background. Document activation, input, completed save, folder search, search clear, accelerated scroll geometry, sample duration, trace categories, and one-worker execution were otherwise unchanged.
+
+Two independent ten-sample runs produced:
+
+- run 1: `56, 56, 37, 56, 56, 57, 57, 56, 56, 56 FPS`
+- run 2: `56, 56, 56, 56, 56, 56, 56, 39, 57, 44 FPS`
+
+Across twenty samples only three fall below the `55 FPS` local requirement (`37 / 39 / 44`), compared with six low samples in ten with the real Markdown paint-island surface. GPU raster is consistently small in the flat runs, generally only `~1–5 ms`.
+
+The remaining low samples still carry long DirectComposition presentation stalls:
+
+- run 1 sample 2: `37 FPS`, Present `398.33 ms`
+- run 2 sample 7: `39 FPS`, Present `336.14 ms`
+- run 2 sample 9: `44 FPS`, Present `239.44 ms`
+
+Long Present calls can also occur in a nominally high measured sample (for example `346.56 ms` with `56 FPS` in run 1 sample 3 and `258.60 ms` with `57 FPS` in run 2 sample 8), so the exact overlap/timing within the one-second rAF window can affect the rounded FPS result. Do not treat every long Present as a guaranteed low FPS sample.
+
+Interpretation: Markdown paint complexity materially **amplifies the frequency** of the DComp/Present problem, but is not a necessary condition; a simple flat moving composited island can still hit the same Windows presentation backpressure. This supports a narrower next experiment: reduce the size of each painted segment island while restoring real Markdown content. The current `64`-block segment produces a local painted layer of roughly `3.5k px`, several viewport heights. Temporarily test a smaller segment size under the same formal-context workload before considering any product architecture change.
+
 
 
