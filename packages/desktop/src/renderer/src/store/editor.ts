@@ -2159,7 +2159,16 @@ export const useEditorStore = defineStore('editor', {
 
       // Spelling
       window.electron.ipcRenderer.on('mt::spelling-replace-misspelling', (_, info) => {
-        bus.emit('replace-misspelling', info)
+        if (
+          typeof info === 'object' &&
+          info !== null &&
+          'word' in info &&
+          typeof info.word === 'string' &&
+          'replacement' in info &&
+          typeof info.replacement === 'string'
+        ) {
+          bus.emit('replace-misspelling', { word: info.word, replacement: info.replacement })
+        }
       })
       window.electron.ipcRenderer.on('mt::spelling-show-switch-language', () => {
         bus.emit('open-command-spellchecker-switch-language')

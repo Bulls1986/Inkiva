@@ -1,11 +1,12 @@
-export interface CommandCenterRuntimeBus {
-  on(event: string, listener: (payload?: unknown) => void): void
-}
+import type { Emitter } from 'mitt'
+import type { BusEvents } from '@shared/types/bus'
+
+export type CommandCenterRuntimeBus = Pick<Emitter<BusEvents>, 'on'>
 
 export interface CommandCenterRuntimeHandlers {
-  register: (command: unknown) => void
+  register: (command: BusEvents['cmd::register-command']) => void
   sort: () => void
-  execute: (commandId: unknown) => void
+  execute: (commandId: BusEvents['cmd::execute']) => void
 }
 
 export function installCommandCenterRuntimeListeners(

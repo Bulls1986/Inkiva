@@ -115,7 +115,8 @@ import {
 import { exportStyledHTML, type HeaderFooterPart } from '@/util/exportHtml'
 import { applyCursor, isIndexCursor } from '@/util/cursor'
 import EditorSearch from '../search/index.vue'
-import bus from '@/bus'
+import bus, { type BusEvents } from '@/bus'
+import type { Handler } from 'mitt'
 import { DEFAULT_EDITOR_FONT_FAMILY, DEFAULT_CODE_FONT_FAMILY } from '@/config'
 import notice from '@/services/notification'
 import { DocumentEditorRuntime } from '@/services/documentEditorRuntime'
@@ -364,7 +365,10 @@ editorRuntime.registerDisposable(disposeEditorInstances)
 editorRuntime.registerDisposable(disposeEditorPresentationResources)
 const editorSnapshotScheduler = new EditorSnapshotScheduler()
 editorRuntime.attachSnapshotScheduler(editorSnapshotScheduler)
-const registerBusHandler = (event: string, handler: any): void => {
+const registerBusHandler = <K extends keyof BusEvents>(
+  event: K,
+  handler: Handler<BusEvents[K]>
+): void => {
   bus.on(event, handler)
   editorRuntime.registerDisposable(() => bus.off(event, handler))
 }
@@ -1298,7 +1302,7 @@ const handleInvalidateImageCache = () => {
 }
 
 const openSpellcheckerLanguageCommand = () => {
-  if (!isOsx) {
+  if (!isOsx && switchLanguageCommand) {
     bus.emit('show-command-palette', switchLanguageCommand)
   }
 }
@@ -2563,7 +2567,8 @@ onMounted(() => {
 
   // Register command palette entry for switching spellchecker language.
   switchLanguageCommand = new SpellcheckerLanguageCommand(spellchecker)
-  setTimeout(() => bus.emit('cmd::register-command', switchLanguageCommand), 100)
+  const spellcheckerLanguageCommand = switchLanguageCommand
+  setTimeout(() => bus.emit('cmd::register-command', spellcheckerLanguageCommand), 100)
 
   if (typewriter.value) {
     scrollToCursor()

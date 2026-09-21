@@ -1,6 +1,6 @@
-# CLAUDE.md
+# agent.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides repository-level guidance for coding agents and contributors working with Inkiva.
 
 # Inkiva
 
@@ -179,6 +179,50 @@ pnpm --filter inkiva-website build    # static build → packages/website/build/
 
 If you need to invoke a script directly inside a package, use
 `pnpm --filter <name> <script>` or `pnpm -C packages/<name> <script>`.
+
+## Windows Worktree Dependency and Test Environment
+
+Inkiva is developed with multiple Git worktrees on Windows. The pnpm/Vite/Vitest dependency layout is part of the test environment and must be treated as infrastructure, not improvised per task.
+
+### Required workflow for a fresh worktree
+
+1. **Do not immediately run `pnpm install`.** First inspect the worktree, the root lockfile, and an existing known-good worktree.
+2. Compare `pnpm-lock.yaml` hashes. Reuse assumptions are valid only when the lockfile is identical.
+3. For TypeScript-only checks, external dependency Junctions can appear to work, but this is **not sufficient evidence** that the worktree is test-ready.
+4. Vite/Vitest resolves dependency realpaths. If `node_modules` or a package-level `node_modules` is Junctioned to another worktree, asset imports may resolve outside the current project root and fail with errors such as `Denied ID ...other-worktree...github-markdown-light.css?inline`.
+5. A test-ready worktree therefore needs its own pnpm isolated virtual store metadata: `node_modules/.modules.yaml` must report `nodeLinker: isolated` and a `virtualStoreDir` inside the **current worktree's** `node_modules/.pnpm`.
+6. When the lockfile matches and the local pnpm store is already populated, restore the local link structure with:
+
+   ```bash
+   pnpm install --offline --frozen-lockfile --ignore-scripts
+   ```
+
+   This command is intended to build the current worktree's local pnpm link graph from the existing store without network access, lockfile mutation, or postinstall execution. Give it enough time to finish; interrupting before link creation may leave no usable `node_modules` at all.
+7. After restoration, verify all of the following before running the suite:
+   - `node_modules/.modules.yaml` exists;
+   - `virtualStoreDir` points into the current worktree;
+   - root `.bin` contains the required workspace tooling (for example `eslint`, `vitest` when expected);
+   - `packages/desktop/node_modules/.bin` contains `vitest` and `vue-tsc`;
+   - representative package links such as `packages/desktop/node_modules/github-markdown-css` ultimately resolve inside the current worktree, not another worktree.
+8. Only then run focused tests, followed by the broader unit/E2E gates required by the task.
+
+### Failure patterns to recognize
+
+- `vue-tsc` / `vitest` / `eslint` not found: dependency layout is incomplete; do not treat this as a code failure.
+- Vitest reports `0 test` and Vite prints `Denied ID ...other-worktree...`: the dependency tree crosses a worktree realpath boundary. Do not patch tests or Vite allowlists to hide it.
+- Many unrelated suites (CSS contracts, file-system tests, PDF/export, document intelligence) fail together after a worktree dependency change: suspect environment topology before changing product code.
+- A green `typecheck` through an external Junction does **not** prove Vite/Vitest will work, because TypeScript and Vite have different realpath/security behavior.
+
+### Lessons captured from ARCH-05
+
+ARCH-05 reproduced all of the above failure modes. The key conclusion is: **worktree dependency correctness is defined by current-worktree-local pnpm virtual-store links, not merely by the presence of `node_modules` or matching package versions.** Never weaken product tests to compensate for a broken dependency topology.
+
+Relevant recovery and architecture records:
+
+- [`docs/architecture/ARCHITECTURE_AUDIT_2026-09.md`](docs/architecture/ARCHITECTURE_AUDIT_2026-09.md) — architecture audit, debt ranking, and governance sequence.
+- [`docs/architecture/ARCH-01_EDITOR_RUNTIME_PROGRESS.md`](docs/architecture/ARCH-01_EDITOR_RUNTIME_PROGRESS.md) — first architecture-governance task and its staged recovery record.
+- [`docs/architecture/ARCH-05-EVENT-BUS-CONTRACT.md`](docs/architecture/ARCH-05-EVENT-BUS-CONTRACT.md) — renderer event-bus contract task, red/green test evidence, environment diagnosis, and resumable state.
+- [`docs/perf-pr-c-change-ledger.md`](docs/perf-pr-c-change-ledger.md) — long-running performance work ledger; use as the model for recording staged progress and recovery evidence.
 
 ## Build Commands
 

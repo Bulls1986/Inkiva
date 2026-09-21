@@ -537,7 +537,7 @@ const commands: CommandDescriptor[] = [
       }
     ],
     executeSubcommand: async(_, value) => {
-      bus.emit('mt::window-zoom', value)
+      if (typeof value === 'number') bus.emit('mt::window-zoom', value)
     }
   },
 
