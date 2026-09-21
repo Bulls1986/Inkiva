@@ -81,6 +81,23 @@ const pressCommand = async(
   return true
 }
 
+const readTextSelectionEndpoints = async(
+  page: Page
+): Promise<{ anchorText: string; focusText: string; collapsed: boolean }> =>
+  await page.evaluate(() => {
+    const selection = window.getSelection()
+    const contentText = (node: Node | null): string => {
+      const element =
+        node instanceof Element ? node : node?.parentElement instanceof Element ? node.parentElement : null
+      return element?.closest('.mu-paragraph-content')?.textContent ?? ''
+    }
+    return {
+      anchorText: contentText(selection?.anchorNode ?? null),
+      focusText: contentText(selection?.focusNode ?? null),
+      collapsed: selection?.isCollapsed ?? true
+    }
+  })
+
 const readVirtualization = (
   page: Page
 ): Promise<{ total: number; mounted: number; enabled: boolean }> =>
@@ -158,6 +175,17 @@ test.describe('@virtualization-core virtualization common shortcuts', () => {
     // complete logical document. Use the actual configured accelerator both times.
     expect(await pressCommand(app, 'edit.select-all')).toBe(true)
     expect(await pressCommand(app, 'edit.select-all')).toBe(true)
+    // sendInputEvent() resolves when Electron accepts the accelerator, not when
+    // the renderer has finished the second-stage whole-document selection. Wait
+    // for the real native Selection endpoints instead of racing Delete against
+    // the command handler on slower CI runners.
+    await expect
+      .poll(() => readTextSelectionEndpoints(page), { timeout: 8000 })
+      .toEqual({
+        anchorText: 'paragraph 0 virtualization-shortcut-regression',
+        focusText: `paragraph ${BLOCK_COUNT - 1} virtualization-shortcut-regression`,
+        collapsed: false
+      })
     await page.keyboard.press('Delete')
     await expect.poll(() => getMarkdownContent(page, app), { timeout: 8000 }).toBe('')
 

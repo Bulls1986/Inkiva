@@ -204,7 +204,7 @@ export const setMessageBoxResponse = async(
   app: ElectronApplication,
   response: number
 ): Promise<void> => {
-  await app.evaluate(({}, response) => {
+  await app.evaluate((_electron, response) => {
     const globalState = global as unknown as { __mt_message_box_response__?: number }
     globalState.__mt_message_box_response__ = response
   }, response)
