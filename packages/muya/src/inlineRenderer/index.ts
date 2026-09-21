@@ -19,7 +19,6 @@ const debug = logger('inlineRenderer:');
 const INLINE_SYNTAX_HINT = /[\\*_`![<>&~$^:#]/;
 const BARE_AUTOLINK_HINT = /@|(?:^|\s)(?:www\.|https?:\/\/)/i;
 const HARD_LINE_BREAK_HINT = / {2,}\n|\n{2,}/;
-const PLAIN_TEXT_FAST_PATH_MIN_LENGTH = 1_024;
 
 function canRenderAsPlainText(
     text: string,
@@ -27,8 +26,7 @@ function canRenderAsPlainText(
     highlights: IHighlight[],
 ): boolean {
     return (
-        text.length >= PLAIN_TEXT_FAST_PATH_MIN_LENGTH
-        && !cursor?.block
+        !cursor?.block
         && highlights.length === 0
         && !INLINE_SYNTAX_HINT.test(text)
         && !BARE_AUTOLINK_HINT.test(text)
@@ -101,9 +99,17 @@ class InlineRenderer {
             return;
         if (canRenderAsPlainText(block.text, cursor, highlights)) {
             // No inline rule can match this text, so avoid the lexer and the
-            // renderer entirely. `textContent` also keeps the content safely
-            // escaped without paying the HTML parser cost for a huge string.
-            domNode.textContent = block.text;
+            // renderer entirely. Preserve the renderer's plain-text DOM shape
+            // so a later active-cursor render does not introduce a structural
+            // wrapper and invalidate incremental DOM equality assumptions.
+            if (!block.text) {
+                domNode.replaceChildren();
+                return;
+            }
+            const plainTextNode = document.createElement('span');
+            plainTextNode.className = 'mu-plain-text';
+            plainTextNode.textContent = block.text;
+            domNode.replaceChildren(plainTextNode);
             return;
         }
 
