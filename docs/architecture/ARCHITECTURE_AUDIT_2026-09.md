@@ -739,6 +739,184 @@ flowchart TB
 6. main/renderer 只通过 typed IPC contract；
 7. background work 必须有明确优先级和 cancellation。
 
+### 6.1 Inkiva Target Architecture 2.0 — 完整蓝图
+
+下面这张图是本次审计最终建议的完整目标架构。它不是要求一次性重写，而是定义 ARCH-01～ARCH-08 最终应收敛到的 ownership、依赖方向和运行时边界。
+
+```mermaid
+flowchart TB
+  subgraph UI["View / Interaction Layer"]
+    EDITOR_VIEW["editor.vue\nUI binding only"]
+    SOURCE_VIEW["sourceCode.vue"]
+    TABS["Tabs / Sidebar / Titlebar"]
+    OUTLINE["Outline / TOC View"]
+    PREFS["Preferences / Commands"]
+  end
+
+  subgraph RUNTIME["Document Runtime Layer"]
+    DER["DocumentEditorRuntime\nLifecycle Owner"]
+    REV["Revision State\nMonotonic document revision"]
+    SEL["Selection / Scroll Runtime"]
+    HIST["History / Restore Runtime"]
+    PERSIST["Persistence State Machine\nrevision-aware save status"]
+    AUTOSAVE["AutosaveQueue\nper-document debounce + single-flight"]
+  end
+
+  subgraph DERIVED["Derived / Projection Services"]
+    SNAP["DocumentRevisionSnapshotCache\nMarkdown / blocks / word count"]
+    TOC["TOC / Outline Projection"]
+    LAYOUT["Desktop Mounted Geometry Projection\nEditorLayoutReconciler"]
+    DOCINT["Document Intelligence Client"]
+  end
+
+  subgraph ENGINE["Muya Editing Engine"]
+    MUYA["Muya Instance"]
+    BLOCKS["Authoritative Block State"]
+    SURFACE["DocumentSurface Facade\nrevealBlock / getBlockOffset / isWindowed"]
+    VIRTUAL["Top-level Block Virtualization\nwindow / pin / materialize"]
+    GEOMETRY["Logical Geometry Authority\noffset index / measured height / anchor correction"]
+    DIAGRAM["DiagramRenderCoordinator\nconcurrency / cache / generation / cancel"]
+    MEDIA["Diagram / Image / Table Blocks"]
+    EVENTS["Typed Engine Events"]
+  end
+
+  subgraph ASYNC["Background Work Policy"]
+    SCHED["BackgroundTaskScheduler\n0 keyboard → 8 maintenance"]
+    SEARCH_CLIENT["Search / Quick Open Client"]
+    INDEX_CLIENT["Index / Backlink / Metadata Tasks"]
+  end
+
+  subgraph IPCBOUNDARY["Electron Typed Boundary"]
+    PRELOAD["Preload Domain APIs\ncontextBridge / sandbox"]
+    IPC["Typed IPC Contract"]
+  end
+
+  subgraph MAIN["Electron Main Services"]
+    SEARCH["Async Search Service\nripgrep + cancel + ack"]
+    FILES["File / Save / Session Services"]
+    WINDOWS["Window / Menu / Updater Services"]
+    INDEX["Index / Metadata Services"]
+  end
+
+  subgraph STORAGE["User-owned Storage"]
+    FS["Standard Markdown / Filesystem"]
+    CFG["Preferences / Session Data"]
+  end
+
+  EDITOR_VIEW --> DER
+  SOURCE_VIEW --> DER
+  TABS --> DER
+  OUTLINE --> TOC
+  PREFS --> DER
+
+  DER --> MUYA
+  DER --> REV
+  DER --> SEL
+  DER --> HIST
+  DER --> PERSIST
+  DER --> AUTOSAVE
+  DER --> EVENTS
+
+  REV --> SNAP
+  SNAP --> TOC
+  SNAP --> DOCINT
+  PERSIST --> AUTOSAVE
+
+  MUYA --> BLOCKS
+  BLOCKS --> SURFACE
+  SURFACE --> VIRTUAL
+  VIRTUAL --> GEOMETRY
+  MEDIA --> GEOMETRY
+  DIAGRAM --> MEDIA
+  GEOMETRY --> SURFACE
+  SURFACE --> SEL
+  GEOMETRY --> LAYOUT
+  LAYOUT --> TOC
+
+  DOCINT --> SCHED
+  SEARCH_CLIENT --> SCHED
+  INDEX_CLIENT --> SCHED
+
+  PERSIST --> PRELOAD
+  AUTOSAVE --> PRELOAD
+  DOCINT --> PRELOAD
+  SEARCH_CLIENT --> PRELOAD
+  INDEX_CLIENT --> PRELOAD
+  PRELOAD --> IPC
+
+  IPC --> FILES
+  IPC --> SEARCH
+  IPC --> WINDOWS
+  IPC --> INDEX
+
+  FILES --> FS
+  FILES --> CFG
+  SEARCH --> FS
+  INDEX --> FS
+```
+
+#### 这张总图表达的关键 ownership
+
+1. **Vue 只拥有 UI，不拥有编辑运行时。** `editor.vue`、`sourceCode.vue`、Tabs、Outline 只能通过 `DocumentEditorRuntime` 或 projection service 交互；它们不再编排 revision、snapshot、autosave、observer、bus subscription 的生命周期。
+2. **`DocumentEditorRuntime` 是 renderer 侧唯一高层编辑生命周期 owner。** 它负责 Muya instance、revision、selection/scroll、history/restore、persistence handoff 和最终 `dispose()`。
+3. **Muya Block State 是文档编辑语义的 authoritative state。** Revision snapshot、TOC、word count、document intelligence 都是 derived/projection，不得反向成为第二份 source of truth。
+4. **`DocumentSurface` 是 Desktop 与 Render Surface 之间唯一稳定边界。** Desktop 只表达 `revealBlock / getBlockOffset / isWindowed` 等业务动作，不感知 resize correction、materialize set、virtual window 等实现细节。
+5. **windowed 模式下 logical geometry 由 Muya 独占 authoritative ownership。** `_virtualOffsetIndex`、measured height、width reflow、viewport anchor correction 留在 Muya；Desktop `EditorLayoutReconciler` 只是 mounted DOM projection，服务 TOC、tab restore 和非 windowed scroll correction。
+6. **Diagram/Image/Table 不拥有自己的页面布局协议。** Diagram coordinator 只负责渲染调度和安全 writeback，最终尺寸变化统一通过顶层 block geometry 链传播。
+7. **Autosave 不并入通用 BackgroundTaskScheduler。** Autosave 是 durability queue，必须保留 per-document ordering、single-flight 和 revision acknowledgement；BackgroundTaskScheduler 只管理可降级、可取消的非编辑前台任务。
+8. **所有 renderer → main 调用必须穿过 preload domain API + typed IPC。** 禁止新增 renderer raw channel string，也不允许 main service 类型通过 `unknown` 长期逃逸。
+9. **Search / Index / Backlink 等后台能力保持异步、可取消、低优先级。** Main process 中的 ripgrep cancel/ack 模式继续保留，后台工作不能阻塞启动、输入和光标链路。
+10. **最终落点仍然是用户自己的标准文件。** Save/Autosave 写回标准 Markdown/Filesystem；任何索引、Backlink、TOC、metadata 都不能要求 Inkiva 专属 Markdown 语法。
+
+#### 关键数据流
+
+```mermaid
+sequenceDiagram
+  participant UI as Vue UI
+  participant RT as DocumentEditorRuntime
+  participant MU as Muya
+  participant RV as Revision/Snapshot
+  participant AS as AutosaveQueue
+  participant PL as Preload + Typed IPC
+  participant MS as Main File Service
+  participant FS as Markdown File
+
+  UI->>RT: user edit / command
+  RT->>MU: mutate authoritative block state
+  MU-->>RT: typed change event
+  RT->>RV: advance revision
+  RV->>RV: derive/cache markdown + blocks
+  RT->>AS: enqueue(documentId, revision)
+  AS->>PL: save revision N
+  PL->>MS: typed save request
+  MS->>FS: atomic write
+  MS-->>PL: ack revision N
+  PL-->>AS: persistence ack
+  AS-->>RT: revision N persisted
+  RT-->>UI: derive save status
+```
+
+这个数据流有一个硬规则：**旧 revision 的 persistence ack 永远不能覆盖更新 revision 的 dirty/saving 状态。**
+
+#### Render Surface / Geometry 数据流
+
+```mermaid
+flowchart LR
+  BS["Muya Block State"] --> DS["DocumentSurface"]
+  DS --> VV["Top-level Virtualization"]
+  VV --> LG["Logical Geometry Authority"]
+  DB["Diagram / Image / Table"] --> LG
+  LG --> DS
+  DS --> NAV["Selection / TOC reveal / Tab restore"]
+  LG --> MP["Mounted Geometry Projection"]
+  MP --> TOC2["TOC Position Cache"]
+  MP --> NW["Non-windowed Scroll Correction"]
+```
+
+这里明确禁止两个方向：Desktop 不得直接操作 Muya 的 virtual resize-correction 状态；Diagram/Image 不得创建绕过 block geometry 的独立页面高度协议。
+
+---
+
 ---
 
 ## 7. PR Roadmap
