@@ -4,7 +4,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { launchWithMarkdown, setUserPreferences } from './helpers'
 
-const openSettingsCategory = async (
+const openSettingsCategory = async(
   app: ElectronApplication,
   page: Page,
   category: RegExp
@@ -19,7 +19,7 @@ const openSettingsCategory = async (
   return settingsPage
 }
 
-const readPreference = async (page: Page, key: string): Promise<unknown> =>
+const readPreference = async(page: Page, key: string): Promise<unknown> =>
   await page.evaluate((preferenceKey) => {
     const root = document.querySelector('#app') as
       | (Element & {
@@ -34,7 +34,26 @@ const readPreference = async (page: Page, key: string): Promise<unknown> =>
     return pinia?._s?.get('preferences')?.[preferenceKey]
   }, key)
 
-const editorFontFamily = async (page: Page): Promise<string> =>
+const readPreferences = async(
+  page: Page,
+  keys: string[]
+): Promise<Record<string, unknown>> =>
+  await page.evaluate((preferenceKeys) => {
+    const root = document.querySelector('#app') as
+      | (Element & {
+        __vue_app__?: {
+          config?: { globalProperties?: Record<string, unknown> }
+        }
+      })
+      | null
+    const pinia = root?.__vue_app__?.config?.globalProperties?.$pinia as
+      | { _s?: Map<string, Record<string, unknown>> }
+      | undefined
+    const preferences = pinia?._s?.get('preferences') ?? {}
+    return Object.fromEntries(preferenceKeys.map((key) => [key, preferences[key]]))
+  }, keys)
+
+const editorFontFamily = async(page: Page): Promise<string> =>
   await page.locator('.mu-editor').evaluate((element) => getComputedStyle(element).fontFamily)
 
 test.describe('settings functional gate', () => {
@@ -66,10 +85,13 @@ test.describe('settings functional gate', () => {
       await expect.poll(() => readPreference(first.page, 'editorFontFamily')).toBe('Open Sans')
       await expect.poll(() => editorFontFamily(first.page)).toContain('Open Sans')
 
-      // Regression guard for the reported second-click dead picker.
+      // Regression guard for the reported second-click dead picker: the control must
+      // accept a second edit and reopen its real suggestion list, not merely receive focus.
       await fontInput.click()
-      await expect(settingsPage.locator('.font-autocomplete-popper')).toBeVisible()
-      await settingsPage.keyboard.press('Escape')
+      await fontInput.fill('Open')
+      await expect(openSansOption).toBeVisible()
+      await openSansOption.click()
+      await expect(fontInput).toHaveValue('Open Sans')
 
       await settingsPage.close()
 
@@ -137,7 +159,7 @@ test.describe('settings functional gate', () => {
 
       imageInsertAction: 'path',
       imagePreferRelativeDirectory: true,
-      imageRelativeDirectoryBase: 'root',
+      imageRelativeDirectoryBase: 'folder',
       imageRelativeDirectoryName: 'assets-test',
 
       theme: 'paper',
@@ -157,9 +179,7 @@ test.describe('settings functional gate', () => {
       firstApp = first.app
       await setUserPreferences(first.page, expected)
 
-      for (const [key, value] of Object.entries(expected)) {
-        await expect.poll(() => readPreference(first.page, key)).toEqual(value)
-      }
+      await expect.poll(() => readPreferences(first.page, Object.keys(expected))).toEqual(expected)
 
       await first.app.close()
       firstApp = null
@@ -167,9 +187,7 @@ test.describe('settings functional gate', () => {
       const second = await launchWithMarkdown('# Settings persistence restart\n', { userDataDir })
       secondApp = second.app
 
-      for (const [key, value] of Object.entries(expected)) {
-        await expect.poll(() => readPreference(second.page, key)).toEqual(value)
-      }
+      await expect.poll(() => readPreferences(second.page, Object.keys(expected))).toEqual(expected)
     } finally {
       if (firstApp) await firstApp.close()
       if (secondApp) await secondApp.close()
