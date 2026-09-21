@@ -948,3 +948,14 @@ Validation status for this stage: test harness correction committed; CI verifica
 Correctness closeout implementation HEAD before this checkpoint: `8c6ab2ffc9a4e7ffadd18fedec6cf6a717700c1e`.
 
 The Git-data ref updates used for the two preceding commits updated PR #152 successfully, but GitHub Actions had not created a new pull-request workflow run for that HEAD at the time of this checkpoint. This commit is written through the repository contents path specifically to produce a normal branch commit event and re-establish CI validation on the current correctness changes. Until a workflow run reports against the resulting HEAD, the Outline and Zoom fixes remain **implemented but not validated**.
+
+
+### Conflict closeout: merged latest develop into PR #153
+
+PR #153 had diverged from `develop` after #150 and the architecture-audit follow-up landed. GitHub reported seven textual conflicts across the editor/TOC/virtualization implementation and regression tests.
+
+Resolution commit: `6564f01bc3e44c79b4668fc302d8007c3094426a`.
+
+The merge keeps the current PR-C versions for the overlapping Render Surface / TOC / shortcut / virtualization files because the branch contains the evolved follow-up implementations (including mounted-geometry outline activation and the Electron `Plus` -> physical `+` E2E adapter), while bringing in the only develop-only path, `docs/architecture/ARCHITECTURE_AUDIT_2026-09.md`. The resulting commit has both `80f7ce3` and current `develop` `cf742b3` as parents.
+
+GitHub recomputation after the merge reports the PR as mergeable; it remains Draft and is still blocked on correctness/CI/Fast Gate validation. No threshold, workload, assertion, or product performance policy changed during conflict resolution.
