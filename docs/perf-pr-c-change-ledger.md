@@ -799,5 +799,40 @@ The source constant was restored to `64`, and the same production suite returned
 
 Decision: do not pursue smaller production segments as the next fix. Continue isolating which painted Markdown primitives materially increase DirectComposition/Present stall frequency while preserving the validated 64-block batching model.
 
+### Glyph-paint A/B discarded because the style transition polluted the scroll window
+
+A diagnostic-only experiment attempted to isolate text-glyph painting by keeping the same 64-block paint-island geometry and making all mounted text transparent only for the exact one-second scroll measurement. The intent was to preserve layout while removing glyph paint.
+
+The experiment is **not valid attribution evidence**. Applying the transparent-text style itself caused a large asynchronous reraster that overlapped the measured scroll window. The ten FPS samples were:
+
+`57, 45, 45, 41, 41, 37, 38, 44, 41, 37 FPS`
+
+Low samples were dominated by GPU raster flushes of roughly `240–305 ms`, while DXGI Present was mostly sub-millisecond (a few samples reached about `27 / 90 / 132 / 149 ms`). This differs materially from the clean real-Markdown paint-island baseline, where low mode was dominated by `~273–413 ms` DirectComposition Present stalls.
+
+Decision: discard this A/B for product attribution. It shows only that changing text paint state immediately before measurement forces expensive reraster; it does **not** show whether steady-state glyph complexity is causal.
+
+### Paint islands without forced promotion shift the bottleneck from Present to raster
+
+A cleaner structural A/B then kept the same 64-block paint-island surface, real Markdown, document geometry, activation/input/save/search ordering, trace categories, and canonical one-second rAF scroll, but removed the segment-level forced 3D promotion. No content was hidden and no runtime style transition was added immediately before scrolling.
+
+The ten samples were:
+
+`59, 41, 48, 46, 46, 60, 45, 47, 60, 49 FPS`
+
+Only three samples met the local `>=55 FPS` requirement. The critical change was in the GPU attribution:
+
+- DXGI Present stayed approximately `0.25–0.54 ms` in all ten samples; the previous `~300–500 ms` DirectComposition Present low mode disappeared.
+- The low samples instead carried `RasterDecoderImpl::DoEndRasterCHROMIUM::Flush` / raster-worker spans of approximately `218–340 ms`.
+- Representative low samples: `41 FPS / 339.81 ms raster / 0.37 ms Present`, `48 FPS / 237.54 ms raster / 0.41 ms Present`, `45 FPS / 280.79 ms raster / 0.36 ms Present`.
+- The `59/60 FPS` samples kept raster work to only a few milliseconds.
+- Scroll geometry remained `54627 px` and Renderer style/layout/paint work stayed small.
+
+This establishes a stronger compositor trade-off:
+
+1. promoted paint islands keep raster cheap in many samples but can hit long Windows DXGI/DirectComposition Present stalls;
+2. unpromoted paint islands remove the Present catastrophe but make expensive GPU reraster frequent enough to fail the FPS requirement even more consistently.
+
+Decision: do **not** remove promotion as a product fix. The next useful direction is not another broad CSS toggle; it is to find a stable composition strategy that preserves retained rasterized content without creating multiple moving DirectComposition-backed islands whose presentation can block. Any candidate must keep the validated 64-block batching/DOM-mutation model and be verified against both raster and Present traces.
+
 
 
