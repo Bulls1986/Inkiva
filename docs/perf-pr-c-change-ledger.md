@@ -867,5 +867,52 @@ Interpretation: shrinking the promoted content layer from an entire 64-block seg
 
 Next diagnostic: map the long raster tasks from a low materialized-window sample back to their compositor layer/tile/source-frame identity, and compare with a 60 FPS sample. Do not add another broad CSS A/B until the raster source is proven.
 
+### ANGLE backend A/B closes the remaining performance attribution
+
+A final diagnostic changed only Chromium's Windows ANGLE backend for the same Fast Gate workload. No product source, workload, sample count, threshold, or metric definition was changed.
+
+With the normal Windows backend, recent clean runs still fail the product path. Representative threshold evaluations include:
+
+- default/overscan-2 run: first-screen p95 `231.245 ms`, editable p95 `536.965 ms`, scroll minimum `22 FPS`, diagram placeholder p95 `50.30 ms`, folder-search first-batch p95 `510.87 ms`; save p95 still passes at `75.21 ms`;
+- default/overscan-1 run: first-screen p95 `229.255 ms`, editable p95 `289.645 ms`, scroll minimum `25 FPS`, diagram placeholder p95 `55.91 ms`; folder search and save pass at `282.43 ms` and `74.235 ms` respectively.
+
+Running the same Fast Gate with `--use-angle=gl` produced a complete P0 pass. All twenty `document.50k.scrollFps` samples were exactly `60 FPS`. The evaluated hard metrics were:
+
+- first-screen p95: `154.19 ms`;
+- editable p95: `184.725 ms`;
+- input latency p95 / p99 / max: `1.10 / 2.303 / 3.0 ms`;
+- scroll minimum: `60 FPS`;
+- diagram placeholder p95: `46.095 ms`, first-screen synchronous diagram renders `0`;
+- offscreen image requests / decodes: `0 / 0`;
+- folder-search first-batch p95: `194.625 ms`;
+- 50K save p95: `72.88 ms`;
+- eight-tab warm / cold / combined switch p95: `71.615 / 80.145 / 78.725 ms`, p99 `86.705 ms`, freezes `0`;
+- heap linear-growth count `0`; crash, renderer-crash, OOM, CPU-runaway, and renderer-hang counts all `0`.
+
+GPU information confirms this is a graphics-path change rather than an editor-workload change:
+
+- default Windows path reports `glImplementationParts=(gl=egl-angle,angle=d3d11)`, an ANGLE D3D11 renderer, and `directComposition=true`;
+- `--use-angle=gl` reports `glImplementationParts=(gl=egl-angle,angle=opengl)`, an ANGLE OpenGL renderer, and `directComposition=false`.
+
+This lines up with the earlier trace evidence: the catastrophic low mode was dominated by long `DXGISwapChainImageBacking::Present` / DirectComposition stalls, while the OpenGL backend removes that DirectComposition path and the formal Fast Gate becomes stable at 60 FPS.
+
+The OpenGL backend is **not** acceptable as a PR-C product fix. The full `@virtualization-core` suite under GL completed `40/43 PASS`; the three failures were Source-mode caret restoration, Zoom, and Chinese Find/Outline navigation. A focused three-test rerun reproduced all three failures under GL. The same focused run on the default backend showed:
+
+- Source-mode offscreen caret round-trip: **PASS** on default, **FAIL** on GL — therefore a GL-specific correctness regression;
+- Zoom: **FAIL** on both backends;
+- Chinese Find/Outline landing: **FAIL** on both backends.
+
+The latter two are current branch correctness blockers but are not caused by the GL experiment. The Source-mode failure is sufficient by itself to reject changing the product ANGLE backend in this PR.
+
+The saved materialized-paint-window trace directory was also regenerated after the earlier console-attribution run. The current files no longer reproduce the previously recorded `188-328 ms` raster maxima inside the exact scroll markers, so those historical raster values must not be used as fresh layer/tile attribution evidence. This does not invalidate the stronger backend A/B: the default D3D11/DirectComposition path remains the distinguishing variable, and switching away from it removes the Fast Gate low mode.
+
+Final PR-C performance conclusion:
+
+1. the validated 64-block Segment Virtualization architecture should remain unchanged; smaller structural segments and broad paint/compositor CSS toggles were rejected by correctness or performance evidence;
+2. the remaining machine-specific scroll failure is no longer supported as an O(N) DOM/layout/virtualization hot-path problem; it is strongly isolated to the Windows Chromium ANGLE D3D11 / DirectComposition presentation path on this test machine;
+3. forcing ANGLE OpenGL proves the attribution and makes the entire Fast Gate pass, but introduces an editor correctness regression and therefore is diagnostic evidence only;
+4. PR-C must **not** be described as having passed the default product performance gate. The product path remains blocked on this machine, and any graphics-backend mitigation belongs in a separately validated follow-up with full editor-correctness coverage;
+5. no threshold was relaxed and no failing correctness assertion was weakened to obtain this conclusion.
+
 
 
