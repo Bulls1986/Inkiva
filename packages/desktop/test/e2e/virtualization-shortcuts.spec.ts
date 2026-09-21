@@ -245,7 +245,7 @@ test.describe('@virtualization-core virtualization common shortcuts', () => {
     await expectNoRendererErrors(app)
   })
 
-  test('VIEW-KEY-007: configured Zoom shortcuts preserve the virtualized surface', async() => {
+  test('VIEW-KEY-007: configured Zoom actions preserve the virtualized surface', async() => {
     const zoomIn = shortcuts.get('window.zoomIn') ?? ''
     const zoomOut = shortcuts.get('window.zoomOut') ?? ''
 
@@ -258,12 +258,24 @@ test.describe('@virtualization-core virtualization common shortcuts', () => {
     const readZoom = (): Promise<number> =>
       app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.getZoomFactor() ?? 1)
 
+    const clickConfiguredWindowAction = (accelerator: string): Promise<boolean> =>
+      app.evaluate(({ BrowserWindow, Menu }, targetAccelerator) => {
+        const win = BrowserWindow.getAllWindows()[0]
+        const windowMenu = Menu.getApplicationMenu()?.getMenuItemById('windowMenu')
+        const item = windowMenu?.submenu?.items.find(
+          (candidate) => candidate.accelerator === targetAccelerator
+        )
+        if (!win || !item?.click) return false
+        item.click(item, win, {} as never)
+        return true
+      }, accelerator)
+
     const before = await readZoom()
-    expect(await pressCommand(app, 'window.zoomIn')).toBe(true)
+    expect(await clickConfiguredWindowAction(zoomIn)).toBe(true)
     await expect.poll(() => readZoom(), { timeout: 5000 }).toBeGreaterThan(before)
     await expectBoundedVirtualization(page)
 
-    expect(await pressCommand(app, 'window.zoomOut')).toBe(true)
+    expect(await clickConfiguredWindowAction(zoomOut)).toBe(true)
     await expect.poll(() => readZoom(), { timeout: 5000 }).toBeCloseTo(before, 3)
     await expectBoundedVirtualization(page)
     await expectNoRendererErrors(app)
