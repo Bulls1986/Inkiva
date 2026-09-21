@@ -975,3 +975,5 @@ Muya E2E had two deterministic failures in `virtualization-production.spec.ts`. 
 Stage status: known failures from HEAD `31de397` are corrected in the worktree and focused validations are green. Full Muya Test/Lint and the new PR-head CI rerun are still required before this stage can be called complete. The prior Fast Gate success is evidence for `31de397` only and must be revalidated after these changes are pushed.
 
 Full local follow-up before push: Muya lint completed with 0 errors (15 existing warnings); focused virtualization production unit coverage passed 29/29. A full Muya Vitest run exceeded the local Runner observation window, so its result is intentionally not claimed here; GitHub CI remains the authoritative full-suite validation.
+
+CI follow-up on HEAD e5ecdca: Muya Build failed only because the local IPrototypeSnapshot test interface had not been extended with segmentSize/mountedSegments after the segment-bound disposal assertion was updated. The interface was synchronized; local Muya TypeScript validation (tsc --noEmit) then passed. This is a test typing repair only and does not change runtime behavior or gate policy.

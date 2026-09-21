@@ -13,6 +13,8 @@ interface IPrototypeSnapshot {
     enabled: boolean;
     totalBlocks: number;
     mountedBlocks: number;
+    segmentSize: number;
+    mountedSegments: number;
     windowStart: number;
     windowEnd: number;
     beforeHeight: number;
