@@ -701,4 +701,64 @@ Three further runtime-only A/Bs were then executed without changing product code
 
 The remaining stall therefore exists on an already-composited scrolling surface even when there is no Renderer Long Task and no virtual-root DOM mutation. The next diagnostic target is the Chromium compositor layer/tree itself: verify whether the current `.editor-component { transform: translateZ(0) }` promotes the full ~54k-pixel document PictureLayer/backing and whether a viewport-sized promotion boundary can preserve accelerated scrolling without the giant presentation surface.
 
+### Chromium layer-tree structure and viewport-promotion A/B
+
+A `disabled-by-default-cc.debug` trace captured the active Chromium compositor tree for the virtualized 50K document. The important editor layers are:
+
+| Layer | Role | Bounds | Key reason |
+| --- | --- | --- | --- |
+| 7 | editor viewport drawing layer | `912 x 702` | `Has a trivial 3d transform.` |
+| 8 | accelerated editor overflow scroll layer | `904 x 702` | `Is a scrollable overflow element using accelerated scrolling.` |
+| 10 | editor content PictureLayer | `904 x 54627` | `Overlaps other composited content.` |
+
+Layer 10's visible/tile-priority rect stays viewport-sized (for example `904 x 702`) while its logical bounds span the full document. Chromium does **not** allocate one monolithic 54k texture: it uses sparse vertical tiles of roughly `904 x 254` / raster tiles of `960 x 256`, with nearby tiles classified `NOW` and farther tiles `SOON/EVENTUALLY`. Nevertheless the compositor still owns one full-document logical PictureLayer and advances its tile/presentation state as the scroll offset moves.
+
+A runtime-only structural A/B moved the trivial 3D promotion from the scroll element to the fixed-size `.editor-wrapper`:
+
+`.editor-wrapper { transform: translateZ(0) } .editor-component { transform:none }`
+
+The formal-context ten-sample trace produced:
+
+`41, 56, 57, 56, 40, 37, 56, 56, 56, 57 FPS`
+
+The `41/40/37 FPS` samples still contained `~323/363/371 ms` `DXGISwapChainImageBacking::Present` stalls. Renderer style/layout/paint remained only a few milliseconds. Therefore simply moving the promotion boundary one DOM level outward is rejected.
+
+The virtual DOM implementation explains why DOM virtualization alone does not shorten the compositor coordinate space. `_buildVirtualDomSequence()` keeps total document extent in normal flow through before/gap/after placeholder heights while mounted segments remain in that same flow. That design successfully bounds DOM/materialized blocks, but the scroll content layer still spans the full logical document height.
+
+Next architectural POC: separate **scroll extent** from **paint islands**. Preserve one non-interactive height carrier for the authoritative total scroll range, while positioning only currently materialized segment/block islands at their virtual offsets outside normal flow. The POC must first prove unchanged scroll geometry and selection/edit semantics; only then should it be judged by compositor layer bounds and the same formal-context FPS/Present trace.
+
+### Scroll-extent / paint-island POC result
+
+A disposable runtime-only POC converted the existing `.mu-virtual-segment` wrapper from `display: contents` into a real positioned paint island while keeping the authoritative document extent on the root virtual surface. The first attempt exposed an important structural constraint: because the production segment wrapper is `display: contents`, applying absolute positioning without first creating a box collapsed the segment to zero height and corrupted scroll geometry. The corrected POC explicitly creates a block box, preserves the pre-experiment live surface height as the authoritative scroll extent, removes outer spacers from normal flow, and positions each mounted segment from `getVirtualBlockOffset()`.
+
+The corrected geometry is stable:
+
+- baseline editor scroll height: `54448 px`
+- separated editor scroll height: `54448 px`
+- separated surface height: `54448.375 px`
+- after one-second canonical scroll: editor scroll height still `54448 px`
+- mounted DOM remains bounded; the diagnostic run observed one to two segment islands rather than the full document.
+
+The compositor structure also changes in the intended direction. The accelerated editor scroll layer remains viewport-sized, and the full-height layer still represents the logical scroll coordinate space at roughly `904 x 54448`, but it now has `draws_content=0`. Actual Markdown painting moves into a local segment PictureLayer (one captured island was roughly `823 x 3506`, `draws_content=1`). This proves that scroll extent and painted content can be separated without changing live scroll geometry.
+
+However, the same formal-context ten-sample trace rejects this as the current performance fix:
+
+`56, 36, 34, 38, 56, 39, 40, 43, 56, 56 FPS`
+
+The low samples still map directly to large `DXGISwapChainImageBacking::Present` stalls:
+
+- sample 1: `36 FPS`, Present `410.19 ms`, raster max only `5.63 ms`
+- sample 2: `34 FPS`, Present `413.48 ms`
+- sample 3: `38 FPS`, Present `379.16 ms`
+- sample 5: `39 FPS`, Present `357.26 ms`, raster max only `2.54 ms`
+- sample 6: `40 FPS`, Present `304.11 ms`, raster max only `2.12 ms`
+- sample 7: `43 FPS`, Present `273.23 ms`
+
+High samples stay at `56 FPS` with Present around `0.4–0.5 ms`. Some high samples also contain `~260 ms` raster flushes, so raster duration is again not the discriminator.
+
+Conclusion: a full-document painted PictureLayer is **not required** for the catastrophic low mode. Even after the tall logical layer stops drawing content and Markdown is isolated into local composited islands, the Windows DXGI/DirectComposition Present stall remains. Do not promote the paint-island architecture as a performance fix from this evidence alone.
+
+The next diagnostic should reduce content complexity further while preserving the same accelerated scrolling and visible moving composited island: replace Markdown painting with a simple flat painted island. If the Present low mode remains, the trigger is below Inkiva content/layout complexity and is closer to the Windows Chromium/DComp presentation path itself; if the low mode disappears, inspect which Markdown paint primitives or layer properties are necessary to trigger it.
+
+
 
