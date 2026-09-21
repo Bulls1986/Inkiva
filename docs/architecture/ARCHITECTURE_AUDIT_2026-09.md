@@ -275,6 +275,15 @@ window.electron.ipcRenderer.send('mt::...')
 
 减少同一 revision 重复 `getMarkdown()` / `getState()`。
 
+进一步全仓取证显示，这一块已经比历史结构收敛得更彻底：
+
+- production renderer 中直接 Muya `getMarkdown()` 基本只剩 `editor.vue` 的统一序列化入口；
+- `getState()` 只在 revision snapshot 捕获 blocks 的路径使用，并且按 revision 缓存；
+- `snapshotMarkdownForFile()` 优先读取 revision snapshot，Pinia `tab.markdown` 退化为最近持久化/恢复快照，而不是每个调用点重新序列化 Muya；
+- renderer 中的 `deepClone(...)` 主要用于 options、IPC payload、tab metadata 和兼容序列化，没有发现持续对完整文档 block tree 做无条件 deep clone 的通用热路径。
+
+因此 **不要再新增第二套 Markdown/AST cache**。剩余问题是 ownership 与 authoritative/restore snapshot 语义要正式化，而不是继续做缓存层叠。
+
 #### 仍存在的问题
 
 revision snapshot 是 service，但 revision 生命周期仍由 `editor.vue` 调度；synthetic history、Muya native history、Pinia current file、autosave queue 并没有被一个统一 Document Runtime owner 管理。
@@ -297,6 +306,8 @@ flowchart LR
 ```
 
 方向正确，但 ownership 还没有完全收口。
+
+需要特别区分两种“Markdown 状态”：编辑时 authoritative state 仍是 Muya/CodeMirror 当前文档状态；Pinia `tab.markdown` 是用于 tab restore、buffer/session 与持久化边界的快照。两者并存本身不是错误，风险在于这一优先级目前靠调用约定维持。后续 Runtime contract 应把 `live state / revision snapshot / restore snapshot` 三种角色明确命名，避免把 `tab.markdown` 再演化成平级 source of truth。
 
 #### 目标
 
