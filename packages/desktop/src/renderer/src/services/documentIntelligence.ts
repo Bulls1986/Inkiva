@@ -100,7 +100,6 @@ export class DocumentIntelligenceCoordinator {
   private indexTimer: ReturnType<typeof setTimeout> | null = null
   private snapshotTimer: ReturnType<typeof setTimeout> | null = null
   private selectionVersion = 0
-  private backgroundTaskSequence = 0
   private disposed = false
   private state = initialState()
 
@@ -230,7 +229,7 @@ export class DocumentIntelligenceCoordinator {
     this.patchState({ restoringSnapshotId: id, error: null })
     try {
       const snapshot = await this.runBackground(
-        this.nextBackgroundTaskId('snapshot-restore'),
+        'snapshot-restore:' + current.pathname,
         BACKGROUND_PRIORITY.tabNavigation,
         () =>
           this.api.restoreSnapshot({
@@ -274,11 +273,6 @@ export class DocumentIntelligenceCoordinator {
     if (this.disposed) return
     this.state = { ...this.state, ...patch }
     this.onStateChange?.(this.getState())
-  }
-
-  private nextBackgroundTaskId(prefix: string): string {
-    this.backgroundTaskSequence += 1
-    return prefix + ':' + this.backgroundTaskSequence
   }
 
   private runBackground<T>(
@@ -338,7 +332,7 @@ export class DocumentIntelligenceCoordinator {
       await Promise.all(
         removals.map((pathname) =>
           this.runBackground(
-            this.nextBackgroundTaskId('document-remove'),
+            'document-sync:' + pathname,
             BACKGROUND_PRIORITY.backgroundIndexing,
             () => this.api.removeDocument(pathname)
           )
@@ -347,7 +341,7 @@ export class DocumentIntelligenceCoordinator {
       await Promise.all(
         indexes.map((document) =>
           this.runBackground(
-            this.nextBackgroundTaskId('document-index'),
+            'document-sync:' + document.pathname,
             BACKGROUND_PRIORITY.backgroundIndexing,
             () => this.api.indexDocument(document.pathname, document.markdown)
           )
@@ -370,7 +364,7 @@ export class DocumentIntelligenceCoordinator {
       await Promise.all(
         snapshots.map(async({ document, reason }) => {
           await this.runBackground(
-            this.nextBackgroundTaskId('snapshot-create'),
+            'snapshot-create:' + document.pathname,
             BACKGROUND_PRIORITY.backlinkMetadataStatistics,
             () =>
               this.api.createSnapshot({
@@ -397,12 +391,12 @@ export class DocumentIntelligenceCoordinator {
     try {
       const [backlinks, history] = await Promise.all([
         this.runBackground(
-          this.nextBackgroundTaskId('backlinks-load'),
+          'backlinks:' + pathname,
           BACKGROUND_PRIORITY.backlinkMetadataStatistics,
           () => this.api.getBacklinks(pathname)
         ),
         this.runBackground(
-          this.nextBackgroundTaskId('history-load'),
+          'history:' + pathname,
           BACKGROUND_PRIORITY.backlinkMetadataStatistics,
           () => this.api.listSnapshots(pathname)
         )
@@ -422,7 +416,7 @@ export class DocumentIntelligenceCoordinator {
     if (!pathname || this.disposed) return
     try {
       const backlinks = await this.runBackground(
-        this.nextBackgroundTaskId('backlinks-refresh'),
+        'backlinks:' + pathname,
         BACKGROUND_PRIORITY.backlinkMetadataStatistics,
         () => this.api.getBacklinks(pathname)
       )
@@ -438,7 +432,7 @@ export class DocumentIntelligenceCoordinator {
     if (!pathname || this.disposed) return
     try {
       const history = await this.runBackground(
-        this.nextBackgroundTaskId('history-refresh'),
+        'history:' + pathname,
         BACKGROUND_PRIORITY.backlinkMetadataStatistics,
         () => this.api.listSnapshots(pathname)
       )

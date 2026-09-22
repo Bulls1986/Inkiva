@@ -173,6 +173,73 @@ describe('renderer document intelligence coordinator', () => {
     coordinator.dispose()
   })
 
+  it('keeps document indexing single-flight and commits the latest queued revision last', async() => {
+    const api = createApi()
+    const firstIndex = deferred<void>()
+    const indexed: string[] = []
+    vi.mocked(api.indexDocument).mockImplementation(async(_pathname, markdown) => {
+      indexed.push(markdown)
+      if (markdown === 'one') await firstIndex.promise
+    })
+    const coordinator = new DocumentIntelligenceCoordinator({
+      api,
+      indexDelayMs: 10
+    })
+
+    coordinator.updateDocuments([document('one')], null)
+    await vi.advanceTimersByTimeAsync(10)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(indexed).toEqual(['one'])
+
+    coordinator.updateDocuments([document('two')], null)
+    coordinator.updateDocuments([document('three')], null)
+    await vi.advanceTimersByTimeAsync(10)
+    await vi.advanceTimersByTimeAsync(5)
+    expect(indexed).toEqual(['one'])
+
+    firstIndex.resolve()
+    await flushScheduler()
+    expect(indexed).toEqual(['one', 'three'])
+
+    coordinator.dispose()
+  })
+
+  it('orders close removal after an in-flight index for the same pathname', async() => {
+    const api = createApi()
+    const firstIndex = deferred<void>()
+    const operations: string[] = []
+    vi.mocked(api.indexDocument).mockImplementation(async(pathname) => {
+      operations.push('index:' + pathname)
+      await firstIndex.promise
+    })
+    vi.mocked(api.removeDocument).mockImplementation(async(pathname) => {
+      operations.push('remove:' + pathname)
+    })
+    const coordinator = new DocumentIntelligenceCoordinator({
+      api,
+      indexDelayMs: 10
+    })
+
+    coordinator.updateDocuments([document('one')], null)
+    await vi.advanceTimersByTimeAsync(10)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(operations).toEqual(['index:/docs/note.md'])
+
+    coordinator.updateDocuments([], null)
+    await vi.advanceTimersByTimeAsync(10)
+    await vi.advanceTimersByTimeAsync(5)
+    expect(operations).toEqual(['index:/docs/note.md'])
+
+    firstIndex.resolve()
+    await flushScheduler()
+    expect(operations).toEqual([
+      'index:/docs/note.md',
+      'remove:/docs/note.md'
+    ])
+
+    coordinator.dispose()
+  })
+
   it('keeps the latest current-document state when an older load resolves last', async() => {
     const api = createApi()
     const firstBacklinks = deferred<MarkdownBacklink[]>()

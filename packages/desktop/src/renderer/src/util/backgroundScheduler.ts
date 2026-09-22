@@ -36,6 +36,22 @@ export interface BackgroundTaskHandle {
   cancel: () => void
 }
 
+type BackgroundTaskDiscardReason = 'cancelled' | 'superseded' | 'closed'
+
+interface ScheduledBackgroundTask {
+  task: BackgroundTask
+  cancelled: boolean
+  discarded: boolean
+  onDiscard?: (reason: BackgroundTaskDiscardReason) => void
+}
+
+const discardMessage = (reason: BackgroundTaskDiscardReason): string =>
+  reason === 'superseded'
+    ? 'background task superseded'
+    : reason === 'closed'
+      ? 'background scheduler closed'
+      : 'background task cancelled'
+
 const DEFAULT_SLICE_CLOCK = (): number => {
   const candidate = globalThis.performance?.now
   return typeof candidate === 'function' ? candidate.call(globalThis.performance) : Date.now()
@@ -55,7 +71,11 @@ export class BackgroundTaskScheduler {
 
   private readonly onSlice: (task: BackgroundTask, durationMs: number) => void
 
-  private readonly tasks = new Map<string, BackgroundTask>()
+  private readonly tasks = new Map<string, ScheduledBackgroundTask>()
+
+  private readonly runningTasks = new Map<string, ScheduledBackgroundTask>()
+
+  private readonly deferredTasks = new Map<string, ScheduledBackgroundTask>()
 
   private timer: ReturnType<typeof setTimeout> | null = null
 
@@ -74,17 +94,7 @@ export class BackgroundTaskScheduler {
   }
 
   enqueue(task: BackgroundTask): () => void {
-    if (this.closed) return () => {}
-    if (!task.id) throw new Error('background task id is required')
-    if (!Number.isInteger(task.priority) || task.priority < 0 || task.priority > 8) {
-      throw new Error('background task priority must be between 0 and 8')
-    }
-
-    this.tasks.set(task.id, task)
-    this.schedule()
-    return () => {
-      if (this.tasks.get(task.id) === task) this.tasks.delete(task.id)
-    }
+    return this.enqueueEntry(task)
   }
 
   enqueueAndWait(task: BackgroundTask): BackgroundTaskHandle {
@@ -107,35 +117,35 @@ export class BackgroundTaskScheduler {
       rejectPromise?.(error)
     }
 
-    const cancelQueuedTask = this.enqueue({
-      ...task,
-      run: () => {
-        let result: void | Promise<void> | undefined
-        try {
-          result = task.run()
-        } catch (error) {
-          reject(error)
-          throw error
-        }
-
-        if (result && typeof result.then === 'function') {
-          return result.then(resolve, (error) => {
+    const cancelTask = this.enqueueEntry(
+      {
+        ...task,
+        run: () => {
+          let result: void | Promise<void> | undefined
+          try {
+            result = task.run()
+          } catch (error) {
             reject(error)
             throw error
-          })
-        }
+          }
 
-        resolve()
-        return result
-      }
-    })
+          if (result && typeof result.then === 'function') {
+            return result.then(resolve, (error) => {
+              reject(error)
+              throw error
+            })
+          }
+
+          resolve()
+          return result
+        }
+      },
+      (reason) => reject(new Error(discardMessage(reason)))
+    )
 
     return {
       promise,
-      cancel: () => {
-        cancelQueuedTask()
-        reject(new Error('background task cancelled'))
-      }
+      cancel: cancelTask
     }
   }
 
@@ -145,7 +155,11 @@ export class BackgroundTaskScheduler {
   }
 
   get pendingCount(): number {
-    return this.tasks.size
+    return this.tasks.size + this.deferredTasks.size
+  }
+
+  get activeCount(): number {
+    return this.tasks.size + this.deferredTasks.size + this.runningTasks.size
   }
 
   get isRunning(): boolean {
@@ -159,7 +173,69 @@ export class BackgroundTaskScheduler {
       this.clearTimer(this.timer)
       this.timer = null
     }
+    for (const entry of this.tasks.values()) this.discardEntry(entry, 'closed')
+    for (const entry of this.deferredTasks.values()) this.discardEntry(entry, 'closed')
+    for (const entry of this.runningTasks.values()) this.discardEntry(entry, 'closed')
     this.tasks.clear()
+    this.deferredTasks.clear()
+    this.runningTasks.clear()
+  }
+
+  private enqueueEntry(
+    task: BackgroundTask,
+    onDiscard?: (reason: BackgroundTaskDiscardReason) => void
+  ): () => void {
+    if (!task.id) throw new Error('background task id is required')
+    if (!Number.isInteger(task.priority) || task.priority < 0 || task.priority > 8) {
+      throw new Error('background task priority must be between 0 and 8')
+    }
+
+    const entry: ScheduledBackgroundTask = {
+      task,
+      cancelled: false,
+      discarded: false,
+      ...(onDiscard ? { onDiscard } : {})
+    }
+
+    if (this.closed) {
+      this.discardEntry(entry, 'closed')
+      return () => {}
+    }
+
+    if (this.runningTasks.has(task.id)) {
+      const previous = this.deferredTasks.get(task.id)
+      if (previous) this.discardEntry(previous, 'superseded')
+      this.deferredTasks.set(task.id, entry)
+    } else {
+      const previous = this.tasks.get(task.id)
+      if (previous) this.discardEntry(previous, 'superseded')
+      this.tasks.set(task.id, entry)
+    }
+
+    this.schedule()
+    return () => this.cancelEntry(entry)
+  }
+
+  private cancelEntry(entry: ScheduledBackgroundTask): void {
+    if (entry.cancelled || entry.discarded) return
+    entry.cancelled = true
+    const id = entry.task.id
+    if (this.tasks.get(id) === entry) this.tasks.delete(id)
+    if (this.deferredTasks.get(id) === entry) this.deferredTasks.delete(id)
+    this.discardEntry(entry, 'cancelled')
+  }
+
+  private discardEntry(
+    entry: ScheduledBackgroundTask,
+    reason: BackgroundTaskDiscardReason
+  ): void {
+    if (entry.discarded) return
+    entry.discarded = true
+    try {
+      entry.onDiscard?.(reason)
+    } catch {
+      // Cancellation diagnostics must never affect scheduling.
+    }
   }
 
   private schedule(): void {
@@ -172,36 +248,57 @@ export class BackgroundTaskScheduler {
 
   private runNext(): void {
     if (this.closed || this.running) return
-    const task = this.pickNextTask()
-    if (!task) return
+    const entry = this.pickNextTask()
+    if (!entry) return
 
+    const { task } = entry
     this.tasks.delete(task.id)
-    this.running = true
-    const startedAt = this.readNow()
-    // Measure only the synchronous invocation. Awaited I/O is not renderer
-    // main-thread work; release the scheduler immediately after invocation so
-    // an old network/disk response cannot block newer foreground-adjacent work.
-    const result = (() => {
-      try {
-        return task.run()
-      } catch (error) {
-        this.onError(error, task)
-        return undefined
-      }
-    })()
-    this.reportSlice(task, startedAt)
-
-    if (result && typeof result.then === 'function') {
-      void result.catch((error) => {
-        try {
-          this.onError(error, task)
-        } catch {
-          // Diagnostics must never affect scheduling.
-        }
-      })
+    if (entry.cancelled) {
+      if (this.tasks.size > 0) this.schedule()
+      return
     }
 
+    this.running = true
+    this.runningTasks.set(task.id, entry)
+    const startedAt = this.readNow()
+    // Measure only the synchronous invocation. Awaited I/O is not renderer
+    // main-thread work; unrelated keys continue immediately. The same logical
+    // key stays single-flight and retains only its latest successor.
+    let result: void | Promise<void> | undefined
+    try {
+      result = task.run()
+    } catch (error) {
+      this.onError(error, task)
+    }
+    this.reportSlice(task, startedAt)
     this.running = false
+
+    if (result && typeof result.then === 'function') {
+      void result
+        .catch((error) => {
+          try {
+            this.onError(error, task)
+          } catch {
+            // Diagnostics must never affect scheduling.
+          }
+        })
+        .finally(() => this.completeEntry(entry))
+    } else {
+      this.completeEntry(entry)
+    }
+
+    if (this.tasks.size > 0) this.schedule()
+  }
+
+  private completeEntry(entry: ScheduledBackgroundTask): void {
+    const id = entry.task.id
+    if (this.runningTasks.get(id) === entry) this.runningTasks.delete(id)
+    if (this.closed) return
+
+    const deferred = this.deferredTasks.get(id)
+    if (!deferred) return
+    this.deferredTasks.delete(id)
+    if (!deferred.cancelled) this.tasks.set(id, deferred)
     if (this.tasks.size > 0) this.schedule()
   }
 
@@ -225,13 +322,14 @@ export class BackgroundTaskScheduler {
     }
   }
 
-  private pickNextTask(): BackgroundTask | undefined {
-    let selected: BackgroundTask | undefined
-    for (const task of this.tasks.values()) {
+  private pickNextTask(): ScheduledBackgroundTask | undefined {
+    let selected: ScheduledBackgroundTask | undefined
+    for (const entry of this.tasks.values()) {
+      const { task } = entry
       if (this.interactivePending && task.priority >= BACKGROUND_PRIORITY.backgroundIndexing) {
         continue
       }
-      if (!selected || task.priority < selected.priority) selected = task
+      if (!selected || task.priority < selected.task.priority) selected = entry
     }
     return selected
   }
