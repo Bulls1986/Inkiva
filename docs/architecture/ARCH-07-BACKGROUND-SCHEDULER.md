@@ -174,7 +174,7 @@ Canonical unit/E2E conclusion:
 
 ## Stage 7 — Final review
 
-Status: complete; documentation-only closeout commit pending.
+Status: complete.
 
 Architecture review:
 - Scheduler remains a lower-priority service; no editor/Muya authoritative state moved into it.
@@ -202,6 +202,21 @@ Remaining limits:
 Experience review:
 - Existing environment guidance already covered GitHub Git Data API fallback, so the lesson is merged there rather than duplicated.
 - The durable refinement is: API fallback must upload bytes from committed Git blobs/object database and verify remote tree SHA equals local `HEAD^{tree}`; reading Windows working-tree bytes can silently change CRLF-normalized blobs.
+
+Final integration closure:
+- While PR #169 was awaiting merge, parallel ARCH-06 landed on `develop` as `ae31d8277ac6b1697fa99601c775b6f1ff1a9df2`.
+- ARCH-07 was therefore rebased semantically onto that exact latest `develop` parent using the documented Git Data API fallback because Smart HTTP remained unavailable.
+- The only overlapping file was `docs/agent/ENVIRONMENT.md`; the rebase preserved ARCH-06's latest content and reapplied the ARCH-07 committed-blob/CRLF fallback refinement.
+- Rebased PR head: `0a2b0445a0db377b76cd05babc9a235915c5533d`.
+- Rebased CI reran from scratch and passed all required checks: `lint`, `test`, `e2e`, Desktop PR fast hard gate, Windows x64, macOS x64, macOS arm64, and artifact-link comment.
+- Final rebase performance result: the hard Fast Gate passed without any threshold, workload, sample-count, or statistic relaxation.
+- Final merge review found no ARCH-01–ARCH-06 boundary regression and no production changes after the green rebased head; this ledger update is documentation-only.
+
+Merge closure:
+- PR #169 was squash-merged at 2026-09-22 13:33:09 UTC.
+- Merge commit / resulting `develop` head: `6d1a95b88ac56acddfd0d136a8c41fd2b6f99c1b`.
+- Repository policy disallows merge commits; the first `--merge` attempt was rejected by policy and the allowed squash strategy was used instead.
+- No production code changed after the fully green rebased head.
 
 Final assessment:
 **ARCH-07 meets its architecture/correctness scope and performance non-regression gate.**
