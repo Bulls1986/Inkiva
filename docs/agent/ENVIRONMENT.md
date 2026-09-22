@@ -1,8 +1,45 @@
-# Windows Runner and dependency environment
+# Inkiva Windows local development runtime contract
 
 [Back to AGENTS.md](../../AGENTS.md)
 
-Local automation is primary. CI independently re-validates; it does not replace a broken local worktree.
+Local automation is primary. CI independently re-validates; it does not replace a broken local worktree. This guide is the canonical record for Windows local setup, dependency installation, native compilation, worktree reuse, local build/run, Vitest, and Electron E2E bootstrap.
+
+## Validated Windows baseline
+
+Validated on 2026-09-22:
+
+- Node.js `24.21.0` works when the native C++ toolchain is complete. Do not downgrade Node merely because `node-gyp` requests Visual Studio.
+- pnpm `10.33.4`, enabled through Corepack/NVM shims.
+- Python `3.12.x` is sufficient for `node-gyp`.
+- Visual Studio 2022 Build Tools with MSVC v143 x64/x86, a Windows SDK, and the matching Spectre-mitigated libraries required by Electron/native rebuilds.
+
+Repository/CI versions can change. Before changing the baseline, inspect `package.json`, `.nvmrc`/`.node-version` when present, and CI setup. Treat the versions above as a known-good local baseline, not a permanent compatibility ceiling.
+
+### Canonical shell bootstrap
+
+From a normal terminal:
+
+```cmd
+cd /d E:\workspace\opensource\Inkiva
+nvm use 24.21.0
+corepack enable pnpm
+nvm reshim
+node --version
+pnpm --version
+where node
+where pnpm
+```
+
+When a command may compile native modules, load the VS toolchain in the **same terminal** before running it:
+
+```cmd
+call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+where cl
+set VCINSTALLDIR
+set VSINSTALLDIR
+```
+
+Expected evidence includes `cl.exe`, `VCINSTALLDIR=...\Visual Studio\2022\BuildTools\VC\`, and `VSINSTALLDIR=...\Visual Studio\2022\BuildTools\`.
 
 ## Canonical worktree model
 
@@ -34,13 +71,46 @@ If bootstrap returns `managed_worktree_root_unavailable`:
 
 ## Package-manager entrypoint
 
-Use:
+Canonical Windows setup:
 
-```bash
-corepack pnpm <args>
+```powershell
+corepack enable pnpm
+nvm reshim
+where pnpm
+pnpm --version
 ```
 
-Do not globally install pnpm because bare `pnpm` is absent. Do not invoke package `.cmd` binaries directly through `run_process`; use `corepack pnpm ... exec`.
+Expected result: `where pnpm` resolves the NVM shim and `pnpm --version` succeeds. NVM may initially block the delegated `pnpm.cmd` with event `NVM4306`; `nvm reshim` is the canonical fix after a trusted Corepack enable.
+
+After setup, use:
+
+```bash
+pnpm <args>
+```
+
+Do not globally install pnpm. Do not invoke package-local `.cmd` binaries directly through `run_process`; use `pnpm exec`.
+
+## Main-checkout dependency install and native compilation
+
+Use pnpm from the repository root:
+
+```cmd
+cd /d E:\workspace\opensource\Inkiva
+call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+pnpm install
+```
+
+The install may legitimately pass through several distinct phases: package resolution/linking, `ced` `node-gyp rebuild`, optional `native-keymap` install, repository `postinstall.ts`, patch application, and `electron-rebuild`. Diagnose the failing phase; do not treat every `pnpm install` failure as the same problem.
+
+Known environment signatures:
+
+- `EUNSUPPORTEDPROTOCOL workspace:*` after a nested `npm install`: package-manager mismatch in a script; do not fix by changing the workspace dependency protocol.
+- `Unexpected token '<'` / `<!DOCTYPE` from a registry request: wrong/unhealthy registry endpoint or intermediary response. `https://registry.npmmirror.com/` is an npm-compatible registry endpoint; `https://npmmirror.com/` is not the canonical registry URL.
+- `Could not find any Visual Studio installation to use` or `VCINSTALLDIR not set`: native compilation is running outside a configured VS developer environment or the C++ workload is incomplete.
+- `MSB8040` requesting Spectre libraries: install the matching MSVC v143 x64/x86 Spectre-mitigated libraries; this is not a Node/pnpm failure.
+- `native-keymap` initial install failure marked `(skipped as optional)`: may be expected; Inkiva postinstall patches/rebuilds Electron native modules later. Judge the final postinstall/electron-rebuild result.
+
+Do not repeatedly switch Node versions, delete lockfiles, clear caches, or reinstall dependency trees once the failure is proven to be an MSVC/SDK/Spectre issue.
 
 ## Dependency recovery
 
@@ -58,27 +128,73 @@ corepack pnpm install --offline --frozen-lockfile --ignore-scripts
 
 If that Job is silent/slow, observe the same Job. Do not start offline + online + npm variants in parallel.
 
-## Junction rules
+## Worktree dependency reuse and physical-path exceptions
 
-### Forbidden: package-level Junctions
+The governing rule is:
 
-Do not Junction only `packages/muya/node_modules` or another package-local subtree.
+> **Source and build artifacts stay worktree-local; dependencies may be shared when the dependency fingerprint matches.**
 
-pnpm workspace execution depends on the wider root graph: `.pnpm`, `.bin`, workspace links, and transitive runtime tooling such as `tinyexec`. Partial reuse can yield “0 tests”, missing tools, or inconsistent Vite/Vitest behavior.
+On Windows, a worktree may reuse the main checkout's complete root `node_modules` through one root-level Junction. Do not Junction whole `packages/*/node_modules` trees: that creates cross-worktree realpath leakage and can make Vite/Vitest resolve through another checkout.
 
-### Conditional fallback: whole-root node_modules reuse
+Root reuse is valid only when:
 
-Whole-root `node_modules` reuse is allowed only when all are true:
+- the donor dependency tree is complete and known-good;
+- `pnpm-lock.yaml`, package-manager version, and relevant manifests match;
+- the Junction is the worktree root `node_modules` only;
+- tests/builds run with `cwd`, config, and source paths from the current worktree;
+- readiness smoke proves tooling resolves correctly.
 
-- source checkout dependency tree is complete and known-good;
-- dependency fingerprint matches;
-- the Junction covers root `node_modules`, not a package subset;
-- readiness smoke passes;
-- Vite/Vitest do not leak forbidden cross-worktree realpaths.
+### Minimal package-local compatibility paths
 
-If Vite/Vitest reports `Denied ID ...other-worktree...` or equivalent realpath leakage, remove the Junction and use a worktree-local isolated graph or another healthy slot. Do not patch Vite allowlists to hide topology problems.
+Some legacy code/helpers do not use normal Node package resolution; they hard-code physical relative paths under `packages/*/node_modules`. In that case, add only the minimum physical package/shim required by that path. Do **not** restore or Junction the whole package-level dependency tree.
 
-Pre-warmed slot-local dependencies remain the preferred model.
+Verified examples:
+
+- Muya/PrismJS: if source requires a physical path such as `packages/muya/node_modules/prismjs/...`, provide only `packages/muya/node_modules/prismjs`. The acceptance signal is the intended tests passing with **zero unhandled errors** (the observed recovery was `30/30` passing, `0` unhandled errors).
+- Desktop/Electron helper: if the Windows E2E helper is hard-coded to `packages/desktop/node_modules/.bin/electron.cmd`, provide only the Electron launcher path(s) it requires, e.g. `.bin/electron.cmd` plus `node_modules/electron` pointing at the known-good dependency graph. Do not Junction all of `packages/desktop/node_modules`.
+
+If Vite/Vitest reports `Denied ID ...other-worktree...` or equivalent realpath leakage, the topology is invalid. Remove the offending link; do not patch Vite allowlists to hide the problem.
+
+Pre-warmed slot-local dependencies remain preferred when they are already complete and healthy.
+
+## Local build, run, Vitest, and Electron E2E
+
+### Vitest
+
+Run tests from the current worktree so `cwd`, source, configuration, and snapshots belong to that branch; shared dependencies must not change source ownership.
+
+```cmd
+cd /d <current-worktree>
+pnpm exec vitest <focused args>
+```
+
+A process that exits because tooling is missing, discovers `0 tests` because of dependency/bootstrap damage, or reports cross-worktree realpaths is environment evidence, not a product red test.
+
+### Electron build artifacts are never shared across branches
+
+Dependencies may be reused. Electron build output may not. Before current-worktree E2E, build the current worktree so artifacts such as `out/main/index.js` come from the code under test:
+
+```cmd
+cd /d <current-worktree>
+pnpm exec electron-vite build
+```
+
+Use the repository's canonical build script instead when one wraps additional required steps.
+
+Never combine current-worktree tests with another checkout's `out/main/index.js` or renderer output; that E2E result is invalid.
+
+### Electron E2E evidence ladder
+
+Classify failures in this order:
+
+1. dependency/bootstrap failure;
+2. Electron launcher/shim failure;
+3. current-worktree build artifact missing/failing;
+4. Electron launch/debug-port failure;
+5. test-body/selector failure;
+6. product assertion failure.
+
+Only failures after a successful **current-worktree build + Electron launch + entry into the test body** count as product-code evidence. For example, missing `electron.cmd` or missing `out/main/index.js` is environment evidence; a materialization assertion such as `visibleBlocks = 0` after the test body starts is a valid product/test red signal.
 
 ## Readiness gate
 
@@ -86,10 +202,10 @@ A local product test is valid evidence only after:
 
 1. intended branch/base and no unrelated changes;
 2. no duplicate install/test Job;
-3. `corepack pnpm --version` succeeds;
+3. `pnpm --version` succeeds;
 4. dependency graph is complete for the chosen reuse model;
 5. worktree-local pnpm, when used, points `.modules.yaml` to this slot's isolated virtual store;
-6. required tools resolve through `corepack pnpm ... exec`;
+6. required tools resolve through `pnpm exec`;
 7. representative dependencies do not resolve through invalid cross-worktree realpaths;
 8. one focused smoke starts and discovers the intended test.
 
@@ -111,13 +227,19 @@ For install/test/E2E/build/performance/release validation:
 | Condition | Canonical action | Do not repeat |
 |---|---|---|
 | `managed_worktree_root_unavailable` | Existing/pre-warmed Git-native slot | managed bootstrap retries |
-| bare `pnpm` missing | `corepack pnpm` | global pnpm install |
+| bare `pnpm` missing or NVM emits `NVM4306` | `corepack enable pnpm` → `nvm reshim` → verify `pnpm --version` | global pnpm install / manual PATH hacks |
 | new worktree lacks dependencies | use healthy pre-warmed slot; otherwise one deliberate repair | ad-hoc package Junctions |
 | offline install silent | observe same Job | launch duplicate installs |
 | Vitest 0 tests from missing tooling/`tinyexec` | environment incomplete; repair/replace slot | call it product regression |
 | Vite/Vitest resolves another worktree | topology invalid | Vite allowlist hacks |
-| relative Windows `.cmd` fails | `corepack pnpm ... exec` | direct `vitest.cmd` calls |
+| relative Windows `.cmd` fails | `pnpm exec` | direct `vitest.cmd` calls |
 | main checkout dependencies incomplete | do not use as donor | copy/Junction incomplete tree |
+| `node-gyp` cannot find VS / `VCINSTALLDIR` missing | load VS2022 `VsDevCmd.bat` in the same terminal; verify `where cl` | Node/pnpm churn |
+| `MSB8040` Spectre library error | install matching v143 x64/x86 Spectre-mitigated libs | reinstall Node/pnpm |
+| package-local hard-coded dependency path missing | add only the exact package/shim required by that physical path | Junction entire `packages/*/node_modules` |
+| Electron helper cannot find package-local launcher | add minimal Electron launcher compatibility paths | restore all Desktop dependencies |
+| current worktree lacks `out/main/index.js` | build current worktree before E2E | reuse main-branch build output |
+| E2E fails before current build+launch+test body | classify as environment/bootstrap evidence | report product regression |
 
 ## Learn once
 
