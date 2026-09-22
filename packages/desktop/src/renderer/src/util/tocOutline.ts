@@ -188,7 +188,7 @@ export function createTocScrollSync(
   container: HTMLElement,
   onActiveChange: (slug: string | null) => void,
   activationOffset = 40,
-  getVirtualBlockOffset?: (blockIndex: number) => number | null
+  getBlockOffset?: (blockIndex: number) => number | null
 ): TocScrollSync {
   let toc: readonly TocSlugLike[] = []
   let positions: CachedTocPosition[] = []
@@ -198,16 +198,16 @@ export function createTocScrollSync(
   let activeGeneration = 0
   let attached = false
   let destroyed = false
-  let virtualOffsetsActive = false
+  let surfaceOffsetsActive = false
 
-  const hasVirtualOffsets = (): boolean => {
-    if (!getVirtualBlockOffset) return false
+  const hasSurfaceOffsets = (): boolean => {
+    if (!getBlockOffset) return false
     for (const item of toc) {
       const blockIndex = item.blockIndex
       if (
         typeof blockIndex === 'number' &&
         Number.isInteger(blockIndex) &&
-        getVirtualBlockOffset(blockIndex) !== null
+        getBlockOffset(blockIndex) !== null
       ) return true
     }
     return false
@@ -237,7 +237,7 @@ export function createTocScrollSync(
   }
 
   const findActiveVirtualSlug = (): string | null => {
-    if (!getVirtualBlockOffset) return null
+    if (!getBlockOffset) return null
 
     const mountedSlug = findActiveMountedVirtualSlug()
     if (mountedSlug) return mountedSlug
@@ -263,14 +263,14 @@ export function createTocScrollSync(
         return findActiveTocSlug(
           positions.map((position) => ({
             ...position,
-            top: getVirtualBlockOffset(position.blockIndex) ?? position.top
+            top: getBlockOffset(position.blockIndex) ?? position.top
           })),
           container.scrollTop,
           activationOffset
         )
       }
 
-      const top = getVirtualBlockOffset(blockIndex)
+      const top = getBlockOffset(blockIndex)
       if (top === null) return best
       if (top <= target) {
         best = slug
@@ -289,7 +289,7 @@ export function createTocScrollSync(
     // measurements. Never use the snapshot captured by `rebuild()` on the
     // scroll hot path; resolve the current numeric offsets directly instead.
     // This stays layout-free and uses O(log headings) offset lookups.
-    const nextSlug = virtualOffsetsActive
+    const nextSlug = surfaceOffsetsActive
       ? findActiveVirtualSlug()
       : findActiveTocSlug(positions, container.scrollTop, activationOffset)
     if (nextSlug === activeSlug) return
@@ -306,8 +306,8 @@ export function createTocScrollSync(
     const root = Array.from(container.children).find((child) =>
       child instanceof HTMLElement && child.classList.contains('mu-container'))
     syncTocHeadingAnchors(container, toc)
-    virtualOffsetsActive = hasVirtualOffsets()
-    if (virtualOffsetsActive) {
+    surfaceOffsetsActive = hasSurfaceOffsets()
+    if (surfaceOffsetsActive) {
       positions = toc.reduce<CachedTocPosition[]>((result, item) => {
         const slug = item.slug
         const blockIndex = item.blockIndex
@@ -317,7 +317,7 @@ export function createTocScrollSync(
           typeof blockIndex !== 'number' ||
           !Number.isInteger(blockIndex)
         ) return result
-        const top = getVirtualBlockOffset?.(blockIndex) ?? null
+        const top = getBlockOffset?.(blockIndex) ?? null
         if (top === null) return result
         result.push({ slug, top, heading: null, block: null, blockIndex })
         return result
@@ -396,7 +396,7 @@ export function createTocScrollSync(
   const reconcile = (changes: readonly EditorLayoutChange[]): void => {
     if (destroyed || changes.length === 0) return
 
-    if (virtualOffsetsActive) {
+    if (surfaceOffsetsActive) {
       rebuild()
       return
     }

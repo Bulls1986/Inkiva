@@ -1519,7 +1519,7 @@ const scrollToCursor = (duration = 300) => {
     if (!container) return
     const y = getCursorY()
     if (y == null) return
-    editor.value?.editor?.scrollPage?.releaseVirtualResizeCorrectionForNavigation?.()
+    editor.value?.editor?.scrollPage?.prepareForNavigation?.()
     animatedScrollTo(container, container.scrollTop + y - STANDAR_Y, duration)
   })
 }
@@ -1531,7 +1531,7 @@ const scrollToCords = (y: number) => {
   // Cancel any restore state from the previous document before reusing the
   // editor root for this document.
   clearPendingScrollRestore()
-  editor.value?.editor?.scrollPage?.releaseVirtualResizeCorrectionForNavigation?.()
+  editor.value?.editor?.scrollPage?.prepareForNavigation?.()
 
   const target = Math.max(0, y)
   if (target === 0) {
@@ -1585,7 +1585,6 @@ const scrollToCords = (y: number) => {
 const scrollElementIntoView = (anchor: Element | null | undefined, duration = 300) => {
   const container = getScrollContainer()
   if (!container || !anchor) return
-  editor.value?.editor?.scrollPage?.releaseVirtualResizeCorrectionForNavigation?.()
   const { y } = anchor.getBoundingClientRect()
   animatedScrollTo(container, container.scrollTop + y - STANDAR_Y, duration)
 }
@@ -1604,15 +1603,12 @@ const scrollToHeader = (slug: unknown) => {
   const container = getScrollContainer()
   if (!container) return
   const tocItem = editorStore.listToc.find((item) => item.slug === slug)
-  const scrollPage = editor.value?.editor?.scrollPage
-  const virtualization = scrollPage?.getVirtualizationSnapshot?.()
+  const surface = editor.value?.editor?.scrollPage
   if (
-    virtualization?.enabled === true &&
-    typeof tocItem?.blockIndex === 'number'
+    typeof tocItem?.blockIndex === 'number' &&
+    surface?.revealBlock?.(tocItem.blockIndex, { viewportOffset: 8 })
   ) {
-    if (scrollPage.scrollVirtualBlockIntoView?.(tocItem.blockIndex, 8)) {
-      return
-    }
+    return
   }
   scrollElementIntoView(resolveTocHeadingElement(container, editorStore.listToc, slug))
 }
@@ -2535,7 +2531,7 @@ onMounted(() => {
       editorStore.UPDATE_ACTIVE_TOC(slug)
     },
     40,
-    (blockIndex) => editor.value?.editor?.scrollPage?.getVirtualBlockOffset?.(blockIndex) ?? null
+    (blockIndex) => editor.value?.editor?.scrollPage?.getBlockOffset?.(blockIndex) ?? null
   )
   tocScrollSync.update(listToc.value)
   tocScrollSync.attach()
@@ -2552,7 +2548,7 @@ onMounted(() => {
     // Muya by writing scrollTop on diagram/image/table resize.
     shouldDeferScroll: () =>
       pendingScrollRestore !== null ||
-      editor.value?.editor?.scrollPage?.getVirtualizationSnapshot().enabled === true,
+      editor.value?.editor?.scrollPage?.isWindowed?.() === true,
     onChange: (changes) => {
       schedulePendingScrollRestoreCheck()
       tocScrollSync?.reconcile(changes)
