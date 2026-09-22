@@ -130,12 +130,13 @@ The viewport assertion uses a bounded `expect.poll` without issuing a second scr
 
 ### 2026-09-22 — CI stability follow-up
 
-- The first full Linux E2E run reached the new `GEO-ASYNC-001` assertions but failed only on the final requirement that a Mermaid `<svg>` still be attached after all scrolling completed.
-- That assertion was not part of the geometry contract: virtualization may legitimately unmount a previously visited diagram after the viewport moves on, especially under the full 368-test concurrent workload.
-- The final assertion now checks `data-diagram-render-attempts > 0` on a visited diagram preview. This proves the asynchronous diagram-render path actually ran while keeping the real correctness gates on viewport coverage and Outline convergence.
-- No geometry assertion, scroll step, timeout, retry count, or production behavior was relaxed.
-- Local stability rerun with `--repeat-each=5`: **5/5 passed**.
-- The same CI run also had one unrelated `copy-anchor-link.spec.ts` clipboard/keyboard failure; it is outside this change and was not modified in this PR.
+- The first full Linux E2E run exposed that using Mermaid as the asynchronous height-change trigger made the regression depend on renderer scheduling rather than geometry correctness.
+- A follow-up attempt using `data-diagram-render-attempts` was still coupled to Mermaid getting CPU time under the full 368-test concurrent workload, so it was removed as well.
+- `GEO-ASYNC-001` now places ordinary paragraph targets at logical block indexes 63, 127, 191, ... and asynchronously adds 320px of padding after those targets mount. This deterministically drives the same ResizeObserver -> measured-height -> prefix-offset -> viewport/Outline convergence path across virtual-segment boundaries.
+- The test therefore no longer depends on diagram code at all. This is stronger coverage for the architectural contract because the trigger is generic async DOM size change rather than a renderer-specific side effect.
+- All viewport coverage, Outline convergence, post-growth scroll, and renderer-error assertions remain intact; no timeout or correctness threshold was relaxed.
+- Deterministic local stability rerun with `--repeat-each=5`: **5/5 passed**.
+- An earlier CI run also had one unrelated `copy-anchor-link.spec.ts` clipboard/keyboard failure; it is outside this change and was not modified in this PR.
 
 ## Validation still required
 

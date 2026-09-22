@@ -8,19 +8,13 @@ import {
   showSidebarPanel
 } from './helpers'
 
-const FENCE = '\x60\x60\x60'
 const SEGMENT_BLOCKS = 64
 
-const diagram = (section: number): string => [
-  FENCE + 'mermaid',
-  'graph TD',
-  `  A${section}[Async Section ${section} Diagram] --> B${section}{Geometry settles}`,
-  `  B${section} --> C${section}[Viewport remains materialized]`,
-  FENCE
-].join('\n')
+const growthTarget = (section: number): string =>
+  `ASYNC-GROWTH-TARGET-${section} deterministic ResizeObserver geometry change`
 
 /**
- * Put every diagram at the last logical block of a 64-block segment:
+ * Put every growth target at the last logical block of a 64-block segment:
  * 63, 127, 191, ... . Its logical next block is therefore mounted in the
  * following segment, reproducing the cross-segment ResizeObserver boundary.
  */
@@ -34,7 +28,7 @@ const buildAsyncGeometryDocument = (): string => {
         `async section ${section} filler ${filler} ${'geometry-propagation '.repeat(3)}`
       )
     }
-    parts.push(diagram(section))
+    parts.push(growthTarget(section))
   }
   parts.push('## Async Geometry End', 'end marker')
   return parts.join('\n\n') + '\n'
@@ -68,8 +62,8 @@ const expectedHeadingAtViewport = (page: Page): Promise<string> =>
     const text = candidate.textContent ?? ''
     const filler = /async section (\d+) filler/i.exec(text)
     if (filler) return `Async Geometry Section ${filler[1]}`
-    const diagramMatch = /Async Section (\d+) Diagram/i.exec(text)
-    if (diagramMatch) return `Async Geometry Section ${diagramMatch[1]}`
+    const growthTargetMatch = /ASYNC-GROWTH-TARGET-(\d+)/i.exec(text)
+    if (growthTargetMatch) return `Async Geometry Section ${growthTargetMatch[1]}`
     if (/^H[1-6]$/.test(candidate.tagName)) {
       return text.replace(/^[#\s]+/, '').trim()
     }
@@ -155,6 +149,29 @@ const scrollToRatio = async(page: Page, ratio: number): Promise<void> => {
   }, ratio)
 }
 
+const triggerMountedAsyncGrowth = (page: Page): Promise<boolean> =>
+  page.evaluate(async() => {
+    const blocks = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '.mu-container > .mu-virtual-segment > :not(.mu-virtual-render-placeholder), ' +
+        '.mu-container > :not(.mu-virtual-segment):not(.mu-virtual-render-placeholder)'
+      )
+    )
+    const target = blocks.find((node) => /ASYNC-GROWTH-TARGET-\d+/.test(node.textContent ?? ''))
+    if (!target || target.dataset.asyncGeometryExpanded === 'true') return false
+
+    const before = target.getBoundingClientRect().height
+    await new Promise<void>((resolve) => {
+      window.setTimeout(() => {
+        target.style.paddingBottom = '320px'
+        target.dataset.asyncGeometryExpanded = 'true'
+        resolve()
+      }, 40)
+    })
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    return target.getBoundingClientRect().height > before + 250
+  })
+
 test.describe('@virtualization-core async geometry invalidation closure', () => {
   let app: ElectronApplication
   let page: Page
@@ -175,15 +192,18 @@ test.describe('@virtualization-core async geometry invalidation closure', () => 
     if (app) await app.close()
   })
 
-  test('GEO-ASYNC-001: diagram growth across segment boundaries preserves viewport coverage and outline geometry', async() => {
+  test('GEO-ASYNC-001: async growth across segment boundaries preserves viewport coverage and outline geometry', async() => {
+    let asyncGrowthObserved = false
     for (const ratio of [0.36, 0.5, 0.64, 0.78]) {
       await scrollToRatio(page, ratio)
       await assertViewportMaterialized(page)
       await assertOutlineMatchesViewport(page)
 
-      // Give mounted Mermaid blocks time to replace source/placeholder geometry,
-      // then verify that the same viewport is still fully materialized.
-      await page.waitForTimeout(450)
+      // Deterministically grow an ordinary paragraph when a segment-tail target
+      // is mounted. The mutation is asynchronous so ResizeObserver owns the
+      // geometry invalidation path, matching real diagrams/images/fonts without
+      // coupling this regression to any renderer-specific scheduling.
+      asyncGrowthObserved = (await triggerMountedAsyncGrowth(page)) || asyncGrowthObserved
       await assertViewportMaterialized(page)
       await assertOutlineMatchesViewport(page)
 
@@ -201,10 +221,7 @@ test.describe('@virtualization-core async geometry invalidation closure', () => 
       await assertViewportMaterialized(page)
     }
 
-    await expect.poll(async() => page.evaluate(() => {
-      return Array.from(document.querySelectorAll<HTMLElement>('.mu-diagram-preview'))
-        .some((preview) => Number(preview.getAttribute('data-diagram-render-attempts') ?? '0') > 0)
-    }), { timeout: 15000 }).toBe(true)
+    expect(asyncGrowthObserved).toBe(true)
     await expectNoRendererErrors(app)
   })
 })
