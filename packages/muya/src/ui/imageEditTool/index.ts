@@ -29,7 +29,7 @@ interface IState {
 /**
  * Image edit tool options
  */
-type Options = {
+export type IImageEditToolOptions = {
     /** Custom image path picker function (one-shot native file dialog) */
     imagePathPicker?: () => Promise<string>;
     /**
@@ -41,7 +41,9 @@ type Options = {
     imagePathAutoComplete?: (src: string) => Promise<IImagePathSuggestion[]>;
     /** Image upload action handler */
     imageAction?: (state: IState) => Promise<string>;
-} & IBaseOptions;
+} & Partial<IBaseOptions>;
+
+type ResolvedOptions = Omit<IImageEditToolOptions, keyof IBaseOptions> & IBaseOptions;
 
 /** Default float options for image edit tool */
 const defaultOptions = {
@@ -64,7 +66,7 @@ const FILE_PROTOCOL_LENGTH = 7;
  * Provides a float UI to edit image properties with optional file picker and upload support
  */
 export class ImageEditTool extends BaseFloat {
-    public override options: Options;
+    public override options: ResolvedOptions;
     static pluginName = 'imageSelector';
     public override capturesContentKeydown = true;
 
@@ -105,10 +107,10 @@ export class ImageEditTool extends BaseFloat {
      * @param muya - Muya editor instance
      * @param options - Tool options including image picker and upload handler
      */
-    constructor(muya: Muya, options: Options = { ...defaultOptions }) {
+    constructor(muya: Muya, options: IImageEditToolOptions = {}) {
         const name = 'mu-image-selector';
         super(muya, name, Object.assign({}, defaultOptions, options));
-        this.options = Object.assign({}, defaultOptions, options);
+        this.options = Object.assign({}, defaultOptions, options) as ResolvedOptions;
         this.container!.appendChild(this._imageSelectorContainer);
         this.floatBox!.classList.add('mu-image-selector-wrapper');
         this.listen();

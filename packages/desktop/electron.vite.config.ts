@@ -35,7 +35,6 @@ export default defineConfig({
       alias: {
         '@': resolve(__dirname, 'src/renderer/src'),
         common: resolve(__dirname, 'src/common'),
-        muya: resolve(__dirname, '../muyajs'),
         '@shared': resolve(__dirname, 'src/shared')
       },
       extensions: ['.mjs', '.ts', '.js', '.json']
@@ -55,7 +54,6 @@ export default defineConfig({
       alias: {
         '@': resolve(__dirname, 'src/renderer/src'),
         common: resolve(__dirname, 'src/common'),
-        muya: resolve(__dirname, '../muyajs'),
         '@shared': resolve(__dirname, 'src/shared')
       },
       extensions: ['.mjs', '.ts', '.js', '.json']
@@ -82,7 +80,6 @@ export default defineConfig({
         '@': resolve(__dirname, 'src/renderer/src'),
         '@muyajs/core': resolve(__dirname, '../muya/src/index.ts'),
         common: resolve(__dirname, 'src/common'),
-        muya: resolve(__dirname, '../muyajs'),
         '@shared': resolve(__dirname, 'src/shared'),
         path: 'pathe'
       },

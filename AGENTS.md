@@ -34,6 +34,7 @@ Read only what the task needs.
 | IPC contract governance | [ARCH-02](docs/architecture/ARCH-02-IPC-CONTRACT.md) |
 | Virtual surface/render geometry contract | [ARCH-03](docs/architecture/ARCH-03-VIRTUAL-SURFACE-CONTRACT.md) |
 | Renderer event-bus contract | [ARCH-05](docs/architecture/ARCH-05-EVENT-BUS-CONTRACT.md) |
+| Muya public type boundary / legacy cleanup | [ARCH-06](docs/architecture/ARCH-06-MUYA-PUBLIC-TYPE-BOUNDARY.md) |
 | Long-running PR-C performance history | [PR-C ledger](docs/perf-pr-c-change-ledger.md) |
 
 For comments, follow [.github/COMMENTING-GUIDELINES.md](.github/COMMENTING-GUIDELINES.md).

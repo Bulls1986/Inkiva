@@ -24,3 +24,9 @@ jobs:
 
       - name: Build @muyajs/core (tsc + vite)
         run: pnpm -C packages/muya build
+
+      - name: Validate Muya public type boundary
+        run: pnpm test:arch:muya-types
+
+      - name: Typecheck desktop against built Muya declarations
+        run: pnpm --filter inkiva typecheck

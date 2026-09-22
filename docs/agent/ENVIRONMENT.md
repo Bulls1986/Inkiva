@@ -180,7 +180,7 @@ cd /d <current-worktree>
 pnpm exec vitest <focused args>
 ```
 
-A process that exits because tooling is missing, discovers `0 tests` because of dependency/bootstrap damage, or reports cross-worktree realpaths is environment evidence, not a product red test.
+A process that exits because tooling is missing, discovers `0 tests` because of dependency/bootstrap damage, or reports cross-worktree realpaths is environment evidence, not a product red test. This includes a pnpm link that exists but points to an incomplete package payload (for example Vitest resolving `tinyexec` while `tinyexec/index.js` or its package contents are missing): treat the donor dependency graph as unhealthy and repair/replace the slot rather than patching product code or repeatedly relaunching Vitest.
 
 ### Electron build artifacts are never shared across branches
 
@@ -242,7 +242,7 @@ For install/test/E2E/build/performance/release validation:
 | bare `pnpm` missing or NVM emits `NVM4306` | `corepack enable pnpm` → `nvm reshim` → verify `pnpm --version` | global pnpm install / manual PATH hacks |
 | new worktree lacks dependencies | use healthy pre-warmed slot; otherwise one deliberate repair | ad-hoc package Junctions |
 | offline install silent | observe same Job | launch duplicate installs |
-| Vitest 0 tests from missing tooling/`tinyexec` | environment incomplete; repair/replace slot | call it product regression |
+| Vitest fails before discovery because tooling/`tinyexec` payload is missing (even if the pnpm link exists) | donor dependency graph incomplete; repair/replace slot or rely on clean CI for that gate | call it product regression / keep retrying Vitest |
 | Vite/Vitest resolves another worktree | topology invalid | Vite allowlist hacks |
 | relative Windows `.cmd` fails | `pnpm exec` | direct `vitest.cmd` calls |
 | main checkout dependencies incomplete | do not use as donor | copy/Junction incomplete tree |
