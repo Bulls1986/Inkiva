@@ -40,17 +40,17 @@ import './assets/styles/inlineSyntax.css';
 import './assets/styles/prismjs/light.theme.css';
 
 // UI plugins (e.g. InlineFormatToolbar, EmojiSelector) follow a common
-// shape: a class with a static `pluginName` and a constructor that takes
-// `(muya: Muya, options: object)`. `Muya.use` records the constructor + an
-// arbitrary options object; `init()` instantiates each plugin.
-export interface IMuyaPluginConstructor {
+// shape: a class with a stable static `pluginName` and an optional typed
+// options argument. Keep the concrete options type at registration time;
+// storing an instantiation closure avoids erasing it to `any`/`unknown`.
+export interface IMuyaPluginConstructor<TOptions = unknown> {
     pluginName: string;
-    new(muya: Muya, options: Record<string, unknown>): unknown;
+    new(muya: Muya, options?: TOptions): unknown;
 }
 
 interface IPlugin {
-    plugin: IMuyaPluginConstructor;
-    options: Record<string, unknown>;
+    pluginName: string;
+    create: (muya: Muya) => unknown;
 }
 
 // A selection reduced to document paths + offsets, with block references
@@ -131,10 +131,10 @@ function endpointPair(
 export class Muya {
     static plugins: IPlugin[] = [];
 
-    static use(plugin: IMuyaPluginConstructor, options: Record<string, unknown> = {}) {
+    static use<TOptions>(Plugin: IMuyaPluginConstructor<TOptions>, options?: TOptions) {
         this.plugins.push({
-            plugin,
-            options,
+            pluginName: Plugin.pluginName,
+            create: muya => new Plugin(muya, options),
         });
     }
 
@@ -177,8 +177,8 @@ export class Muya {
 
         // UI plugins
         if (Muya.plugins.length) {
-            for (const { plugin: Plugin, options: opts } of Muya.plugins)
-                this._uiPlugins[Plugin.pluginName] = new Plugin(this, opts);
+            for (const { pluginName, create } of Muya.plugins)
+                this._uiPlugins[pluginName] = create(this);
         }
     }
 

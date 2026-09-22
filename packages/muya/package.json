@@ -8,7 +8,11 @@
         "markdown"
     ],
     "exports": {
-        ".": "./src/index.ts",
+        ".": {
+            "types": "./lib/types/index.d.ts",
+            "import": "./src/index.ts",
+            "default": "./src/index.ts"
+        },
         "./*": "./src/*"
     },
     "main": "./lib/cjs/index.js",
@@ -49,6 +53,7 @@
         "lint:types": "tsc --noEmit",
         "check-circular": "madge --circular src/index.ts",
         "build": "tsc && vite build",
+        "build:types": "tsc --declaration --emitDeclarationOnly --noEmit false --outDir lib/types",
         "test": "vitest run",
         "test:lifecycle": "vitest run src/__tests__/muyaLifecycle.spec.ts src/utils/diagram/__tests__/coordinator.spec.ts",
         "test:watch": "vitest",

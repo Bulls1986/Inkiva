@@ -143,7 +143,7 @@ export interface IpcInvokeChannels {
     args: []
     ret: LocalHistoryPruneResult
   }
-  'mt::ask-for-image-path': { args: []; ret: string[] }
+  'mt::ask-for-image-path': { args: []; ret: string }
   'mt::boot-info-async': { args: []; ret: BootInfo }
   'mt::clipboard::guess-file-path': { args: []; ret: string | null }
   'mt::clipboard::read-text': { args: []; ret: string }
