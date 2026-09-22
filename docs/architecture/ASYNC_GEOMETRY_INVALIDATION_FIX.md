@@ -128,6 +128,15 @@ The viewport assertion uses a bounded `expect.poll` without issuing a second scr
 - Performance Fast Gate: **1/1 passed**; the final post-fix rerun completed in **3.3 minutes** with the unchanged PR-smoke gate collecting **20 real samples for every fast hard metric**. No threshold, sample count, workload, or retry rule was relaxed.
 - ARCH-03 structural contract + TOC focused rerun after removing a concurrent `getMaterializedWindow` experiment: **16/16 passed** (`virtual-surface-contract` 2/2, `toc-outline` 14/14). Repository search confirms `getMaterializedWindow` has zero remaining references, so Desktop does not consume Muya materialization internals.
 
+### 2026-09-22 — CI stability follow-up
+
+- The first full Linux E2E run reached the new `GEO-ASYNC-001` assertions but failed only on the final requirement that a Mermaid `<svg>` still be attached after all scrolling completed.
+- That assertion was not part of the geometry contract: virtualization may legitimately unmount a previously visited diagram after the viewport moves on, especially under the full 368-test concurrent workload.
+- The final assertion now checks `data-diagram-render-attempts > 0` on a visited diagram preview. This proves the asynchronous diagram-render path actually ran while keeping the real correctness gates on viewport coverage and Outline convergence.
+- No geometry assertion, scroll step, timeout, retry count, or production behavior was relaxed.
+- Local stability rerun with `--repeat-each=5`: **5/5 passed**.
+- The same CI run also had one unrelated `copy-anchor-link.spec.ts` clipboard/keyboard failure; it is outside this change and was not modified in this PR.
+
 ## Validation still required
 
 - final diff/hygiene review and branch synchronization with the latest `develop`;

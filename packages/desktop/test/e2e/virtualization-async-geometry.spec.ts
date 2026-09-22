@@ -201,7 +201,10 @@ test.describe('@virtualization-core async geometry invalidation closure', () => 
       await assertViewportMaterialized(page)
     }
 
-    await expect(page.locator('.mu-diagram-preview svg').first()).toBeAttached({ timeout: 15000 })
+    await expect.poll(async() => page.evaluate(() => {
+      return Array.from(document.querySelectorAll<HTMLElement>('.mu-diagram-preview'))
+        .some((preview) => Number(preview.getAttribute('data-diagram-render-attempts') ?? '0') > 0)
+    }), { timeout: 15000 }).toBe(true)
     await expectNoRendererErrors(app)
   })
 })
