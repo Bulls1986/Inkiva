@@ -6,6 +6,8 @@
 - Base: `origin/develop` at `4839ed4340175dd2f21d45c241d58a844dee1665` (`refactor(editor): extract document editor runtime (#157)`)
 - Scope: architecture debt rank #2 from `ARCHITECTURE_AUDIT_2026-09.md`
 - Goal: replace the renderer bus catch-all `Emitter<Record<string, unknown>>` with a closed, strongly typed event map without changing runtime event names or mitt's single-payload semantics.
+- Final delivery: PR **#158** merged into `develop` on **2026-09-21 23:05:25 UTC**; merge commit `42ea8f57f63ddc1a5ce7753e3fad0b5e705f1fc2`.
+- Classification: architecture/correctness work. No independent Before/After performance measurement was performed, so ARCH-05 is not recorded as a performance optimization result.
 
 ## Stage 1 — Baseline and audit
 
@@ -78,9 +80,11 @@ Completed validation evidence:
 - full desktop unit suite with ARCH-05 changes: **140 files passed / 6 failed; 1180 tests passed / 16 failed / 1 skipped**;
 - exact baseline comparison: all ARCH-05 changes were stashed, the same six failing specs were run at base `4839ed43` in the identical dependency environment, and they reproduced **6/6 failing files and the same 16 failing tests**. Therefore these failures are pre-existing baseline failures, not caused by ARCH-05. The files are `ui-02-chrome-contract`, `ui-04-controls-contract`, `document-intelligence-links`, `document-intelligence-repair`, `document-intelligence-history`, and `move-image-to-folder`.
 
-Pending delivery:
+Final delivery evidence:
 
-- commit / push / PR / CI.
+- implementation was committed and delivered through PR **#158**;
+- PR CI completed successfully across lint, test, E2E, Desktop PR fast hard gate, Windows x64, macOS Intel, macOS Apple Silicon, and artifact-comment job;
+- the fast performance gate being green is an integration/regression gate result only; ARCH-05 did not perform an independent performance Before/After study and makes no measured speedup claim.
 
 ## Completed
 
@@ -96,7 +100,8 @@ Pending delivery:
 
 ## Not completed
 
-- commit/push/PR/CI.
+- None within the approved ARCH-05 scope.
+- Broader renderer-event architectural changes beyond the closed 86-event contract are intentionally outside this task and require a separately scoped architecture item if needed.
 
 ## Worktree test-environment convention
 
@@ -111,20 +116,33 @@ Status: confirmed and must be followed for this task and future Inkiva worktrees
 
 ## Stage 5 — Delivery
 
-Status: PR created; CI pending.
+Status: **completed and merged**.
 
 - Local implementation commit: `bfd0edb98c54999af3db9380f381491c4d54af0b`.
-- Normal Git Smart HTTP push/`ls-remote` repeatedly timed out on this Runner even after `gh auth setup-git`; `gh auth status` itself was healthy for account `Bulls1986` with `repo`/`workflow` scopes.
+- Normal Git Smart HTTP push/`ls-remote` repeatedly timed out on the original Runner even after `gh auth setup-git`; `gh auth status` itself was healthy for account `Bulls1986` with `repo`/`workflow` scopes.
 - Delivery therefore used GitHub Git Data API rather than weakening or changing the source tree. Remote commit `40978f624d0f8adccace32a9106be7e59913ca84` was created from base `4839ed43`.
-- Integrity check: local `HEAD^{tree}` and remote commit tree are exactly identical: `4dff8cabbf2c88ae0c878d70610007ecc56dfe58`.
+- Integrity check: local `HEAD^{tree}` and remote commit tree were exactly identical: `4dff8cabbf2c88ae0c878d70610007ecc56dfe58`.
 - Remote branch: `arch/05-event-bus-contract`.
-- Pull request: **#158** — `https://github.com/Bulls1986/Inkiva/pull/158`, base `develop`, state `open`.
-- PR description records the red/green type-contract evidence, focused validation, full-unit baseline comparison, worktree environment lessons, and explicitly states that no test was weakened.
+- Pull request: **#158** — `https://github.com/Bulls1986/Inkiva/pull/158`, base `develop`, final state **MERGED**.
+- Merged at: **2026-09-21 23:05:25 UTC**.
+- Merge commit: `42ea8f57f63ddc1a5ce7753e3fad0b5e705f1fc2`.
+- Final CI status: **all 8 reported checks succeeded**:
+  - `lint` — success;
+  - `test` — success;
+  - `e2e` — success;
+  - `Desktop PR fast hard gate` — success;
+  - `run-on-pr-head (windows-x64, windows-latest, windows, x64)` — success;
+  - `run-on-pr-head (macos-x64, macos-15-intel, macos, x64)` — success;
+  - `run-on-pr-head (macos-arm64, macos-15, macos, arm64)` — success;
+  - `Comment artifact links on PR` — success.
+- PR description preserves the red/green type-contract evidence, focused validation, full-unit baseline comparison, worktree environment lessons, and explicitly states that no test was weakened.
 
 ## Current blockers
 
-No ARCH-05 repository-code blocker. The only remaining work is CI observation and any CI-specific fix that is demonstrably attributable to this change. The six local full-unit failures are independently reproduced baseline failures and must not be hidden or reclassified as ARCH-05 success.
+None. ARCH-05 is complete in its approved scope and is already present in `develop` through merge commit `42ea8f57`.
+
+The six local full-unit failures recorded in Stage 4 remain historical baseline observations: they were independently reproduced on the pre-change base and were not hidden, reclassified, or used to weaken tests. PR #158's actual required CI checks all completed successfully.
 
 ## Next step
 
-Commit this delivery ledger update, materialize the updated tree on the PR branch with the same Git Data API integrity check, then monitor PR #158 CI. Do not merge automatically. If CI fails, diagnose the concrete failing job and distinguish repository baseline/environment failures from regressions introduced by ARCH-05.
+No further ARCH-05 implementation work is required. Any future expansion beyond the closed renderer event contract should be opened as a new, separately scoped architecture task rather than extending the completed ARCH-05 record.
