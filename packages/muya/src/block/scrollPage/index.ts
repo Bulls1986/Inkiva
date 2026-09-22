@@ -23,6 +23,13 @@ interface IScrollPageCreateOptions {
     progressiveStartDelayMs?: number;
 }
 
+export interface IDocumentSurface {
+    revealBlock: (index: number, options?: { viewportOffset?: number }) => boolean;
+    getBlockOffset: (index: number) => number | null;
+    isWindowed: () => boolean;
+    prepareForNavigation: () => void;
+}
+
 // Constructing and parsing every inline content node before the browser gets a
 // paint makes a large document look frozen even though the first screen only
 // needs a small prefix. Keep ordinary documents on the existing synchronous
@@ -353,7 +360,7 @@ function estimateVirtualBlockAdvance(
     return boxHeight + Math.max(currentMargins.bottom, nextTop);
 }
 
-export class ScrollPage extends Parent {
+export class ScrollPage extends Parent implements IDocumentSurface {
     private _blurFocus: IBlurFocus = { blur: null, focus: null };
     private _activeStatusFrames = new Set<number>();
     private _progressiveStates: TState[] | null = null;
@@ -691,7 +698,7 @@ export class ScrollPage extends Parent {
         }
     }
 
-    releaseVirtualResizeCorrectionForNavigation(): void {
+    prepareForNavigation(): void {
         if (!this._virtualizationEnabled)
             return;
         this._virtualViewportAnchorExact = false;
@@ -1988,6 +1995,10 @@ export class ScrollPage extends Parent {
         return pending;
     }
 
+    isWindowed(): boolean {
+        return this._virtualizationEnabled;
+    }
+
     getVirtualizationSnapshot(): IVirtualizationSnapshot {
         const totalBlocks = this._virtualBlocks.length;
         const totalEstimatedHeight = this._virtualOffsetIndex.total();
@@ -2063,7 +2074,7 @@ export class ScrollPage extends Parent {
         );
     }
 
-    scrollVirtualBlockIntoView(index: number, viewportOffset = 0): boolean {
+    revealBlock(index: number, options: { viewportOffset?: number } = {}): boolean {
         if (
             !this._virtualizationEnabled
             || !this._virtualScrollContainer
@@ -2074,7 +2085,7 @@ export class ScrollPage extends Parent {
             return false;
         }
 
-        this._cancelVirtualResizeCorrection();
+        this.prepareForNavigation();
         // A new logical navigation request supersedes any pointer/keyboard intent
         // captured while the user clicked the link/TOC item that initiated it.
         // Otherwise the first programmatic scroll event can be misclassified as
@@ -2082,7 +2093,7 @@ export class ScrollPage extends Parent {
         this._virtualUserScrollIntent = false;
         this._virtualNavigationTarget = {
             index,
-            viewportOffset: Math.max(0, viewportOffset),
+            viewportOffset: Math.max(0, options.viewportOffset ?? 0),
         };
         const container = this._virtualScrollContainer;
         const targetScrollTop = this._virtualNavigationScrollTop(
@@ -2102,7 +2113,7 @@ export class ScrollPage extends Parent {
         return true;
     }
 
-    getVirtualBlockOffset(index: number): number | null {
+    getBlockOffset(index: number): number | null {
         if (
             !this._virtualizationEnabled
             || !Number.isInteger(index)
@@ -2112,6 +2123,11 @@ export class ScrollPage extends Parent {
             return null;
         }
         return this._virtualOffsetAt(index);
+    }
+
+    // Virtualization diagnostics/tests only. Desktop must use the document-surface contract.
+    getVirtualBlockOffset(index: number): number | null {
+        return this.getBlockOffset(index);
     }
 
     getVirtualizationPrototypeSnapshot(): IVirtualizationSnapshot {

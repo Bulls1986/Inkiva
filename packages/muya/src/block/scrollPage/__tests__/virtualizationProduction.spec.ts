@@ -1204,7 +1204,7 @@ describe('stage C1 virtualization production contract', () => {
         internals._virtualResizeAnchorOffset = 12;
         internals._virtualViewportAnchorExact = true;
 
-        scrollPage.releaseVirtualResizeCorrectionForNavigation();
+        expect(scrollPage.revealBlock(0)).toBe(true);
 
         expect(internals._virtualResizeCorrectionTarget).toBeNull();
         expect(internals._virtualResizeAnchorIndex).toBeNull();
