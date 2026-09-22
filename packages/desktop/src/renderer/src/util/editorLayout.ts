@@ -1,3 +1,5 @@
+import type { EditorScrollOwner } from './documentGeometry'
+
 export interface EditorBlockGeometry {
   top: number
   height: number
@@ -14,7 +16,7 @@ export interface EditorLayoutChange {
 
 export interface EditorLayoutReconcilerOptions {
   onChange?: (changes: readonly EditorLayoutChange[]) => void
-  shouldDeferScroll?: () => boolean
+  getScrollOwner?: () => EditorScrollOwner
 }
 
 export interface EditorLayoutReconciler {
@@ -166,7 +168,7 @@ export function createEditorLayoutReconciler(
   }
 
   const reconcileScroll = (changes: readonly EditorLayoutChange[]): void => {
-    if (destroyed || options.shouldDeferScroll?.()) return
+    if (destroyed || (options.getScrollOwner?.() ?? 'desktop') !== 'desktop') return
 
     const currentMaxScrollTop = getMaxScrollTop(container)
     const wasAtBottom =

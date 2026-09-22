@@ -131,6 +131,7 @@ import { getCssForOptions, getHtmlToc, type PdfCssOptions, type HtmlTocOptions }
 import { resolveTocHeadingElement } from '@/util/tocNavigation'
 import { createTocRefreshScheduler, createTocScrollSync } from '@/util/tocOutline'
 import { createEditorLayoutReconciler } from '@/util/editorLayout'
+import { createDocumentGeometryProjection } from '@/util/documentGeometry'
 import { addCommonStyle, setEditorWidth } from '@/util/theme'
 import { usePreferencesStore } from '@/store/preferences'
 import { useEditorStore } from '@/store/editor'
@@ -1449,6 +1450,10 @@ type PendingScrollRestore = {
 // observable by ResizeObserver. Instead, clamp to the real range now and retry
 // the saved position briefly while the layout settles.
 let pendingScrollRestore: PendingScrollRestore | null = null
+const documentGeometry = createDocumentGeometryProjection({
+  getSurface: () => editor.value?.editor?.scrollPage,
+  hasPendingScrollRestore: () => pendingScrollRestore !== null
+})
 
 const clearPendingScrollRestore = (): void => {
   const pending = pendingScrollRestore
@@ -1603,10 +1608,9 @@ const scrollToHeader = (slug: unknown) => {
   const container = getScrollContainer()
   if (!container) return
   const tocItem = editorStore.listToc.find((item) => item.slug === slug)
-  const surface = editor.value?.editor?.scrollPage
   if (
     typeof tocItem?.blockIndex === 'number' &&
-    surface?.revealBlock?.(tocItem.blockIndex, { viewportOffset: 8 })
+    documentGeometry.revealBlock(tocItem.blockIndex, { viewportOffset: 8 })
   ) {
     return
   }
@@ -2531,7 +2535,7 @@ onMounted(() => {
       editorStore.UPDATE_ACTIVE_TOC(slug)
     },
     40,
-    (blockIndex) => editor.value?.editor?.scrollPage?.getBlockOffset?.(blockIndex) ?? null
+    documentGeometry.getBlockOffset
   )
   tocScrollSync.update(listToc.value)
   tocScrollSync.attach()
@@ -2546,9 +2550,7 @@ onMounted(() => {
     // virtualization is active. The desktop layout reconciler must still
     // observe geometry for TOC/tab restoration, but must not compete with
     // Muya by writing scrollTop on diagram/image/table resize.
-    shouldDeferScroll: () =>
-      pendingScrollRestore !== null ||
-      editor.value?.editor?.scrollPage?.isWindowed?.() === true,
+    getScrollOwner: documentGeometry.getScrollOwner,
     onChange: (changes) => {
       schedulePendingScrollRestoreCheck()
       tocScrollSync?.reconcile(changes)

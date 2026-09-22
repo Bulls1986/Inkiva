@@ -649,9 +649,9 @@ Desktop 的 `EditorLayoutReconciler` 则观察 mounted 顶层 block，维护 DOM
 - pending tab scroll restore；
 - diagram/image/table 等异步高度变化通知。
 
-当前通过 `shouldDeferScroll()` 明确规定：virtualization active 或 pending scroll restore 时，Desktop 只观察，不写 `scrollTop`；scroll anchoring 交给 Muya。这个 guard 是正确机制，不应删除。
+ARCH-04 已把这一约定收口成显式 `DocumentGeometryProjection` / scroll-owner contract：windowed 时 owner 为 `document-surface`，pending tab restore 时 owner 为 `pending-restore`，只有 `desktop` owner 才允许 `EditorLayoutReconciler` 执行 geometry-driven `scrollTop` correction。Desktop 仍持续观察 mounted block geometry，但不与 Muya 竞争 logical scroll ownership。
 
-真正的债务是：**“谁拥有 authoritative geometry、谁只是 projection”仍靠调用约定表达。** ARCH-04 不应造一个跨 desktop/Muya 的巨型 geometry store，而应建立单向 contract：
+因此这里不再依赖 `shouldDeferScroll()` 这类布尔调用约定，也没有引入跨 desktop/Muya 的第二套 geometry store；边界保持为单向 contract：
 
 ```text
 Muya logical geometry (authoritative when windowed)
