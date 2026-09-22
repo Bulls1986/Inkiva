@@ -163,6 +163,12 @@ Pre-warmed slot-local dependencies remain preferred when they are already comple
 
 If a bounded `git add <explicit paths...>` stalls on the Windows Runner and may have partially staged files, do not repeat the same batch blindly. After the Job is terminal, verify there is no `index.lock` or residual Git process, inspect `git status --short`, unstage any partial results with exact-path `git reset HEAD -- <paths>`, then prefer WebCodex `git_commit_paths` with an exact `expected_head` and explicit path list. Its isolated temporary index avoids partial staging and cannot pull unrelated files into the commit.
 
+### GitHub transport fallback
+
+If HTTPS `git push` or `git ls-remote` repeatedly stalls with no Git output while `gh api` succeeds through the configured local proxy, classify the issue as Git transport/path-specific rather than a repository or authentication failure. Prefer `HTTP_PROXY` / `HTTPS_PROXY` for `gh`, verify the remote base branch SHA before any fallback, and do not keep retrying the same hung Git transport path.
+
+When Git transport remains unusable but GitHub API is healthy, GitHub Git Data API may be used as a controlled fallback: export the exact committed file set from the current HEAD, create blobs/tree/commit with the verified remote base as parent, create or fast-forward only the intended task ref, then let normal PR CI validate the resulting branch. Never force-update an existing remote branch without first verifying its current ref and parent relationship.
+
 ## Local build, run, Vitest, and Electron E2E
 
 ### Vitest
