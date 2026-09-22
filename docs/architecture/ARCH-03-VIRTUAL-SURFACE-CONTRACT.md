@@ -6,10 +6,11 @@
 - Priority/rank: P1 / architecture debt rank 4
 - Branch: `arch/03-virtual-surface-contract`
 - Baseline: `origin/develop@c933d43041cace6b0ed7c00268402c4992c83e91`
-- Current phase: implementation complete / PR validation closeout
+- Current phase: completed / merged
 - PR: #161 — `ARCH-03: introduce virtual surface contract`
-- Merge status: not merged
-- CI status: implementation head `1c7e52ea` fully green; final documentation-only closeout push requires one last PR revalidation
+- Merge status: merged into `develop` on 2026-09-22 05:40:05 UTC
+- Merge commit: `e110499dbff5dbea316ca60a16da7e7ce9011cf0`
+- CI status: final PR head fully green across Desktop E2E/Lint/Test, Muya Build/Lint/Spec/Unit/E2E, circular dependency check, Performance Fast Gate, Windows x64, macOS Intel, macOS Apple Silicon, and artifact-link job
 
 ## Goal
 
@@ -145,9 +146,10 @@ Closeout state:
 - final diff/hygiene review is complete: only the intended project files were committed; no copied native binaries are tracked;
 - implementation/test/documentation stage committed as `410ed0ce` (`refactor(editor): add virtual surface contract`) and pushed;
 - PR-status ledger stage committed as `1c7e52ea` (`docs(architecture): record ARCH-03 PR status`) and pushed;
-- PR #161 is open against `develop`, not merged;
 - implementation head `1c7e52ea` passed all PR checks after the unchanged Fast Gate rerun described above;
-- this document closeout will be pushed as documentation-only; inspect PR #161 for the latest-head CI state before merge. Do not auto-merge.
+- the final PR head completed all required CI checks successfully;
+- PR #161 was merged into `develop` on 2026-09-22 05:40:05 UTC as merge commit `e110499dbff5dbea316ca60a16da7e7ce9011cf0`;
+- `develop@e110499d` therefore contains the ARCH-03 implementation, tests, and recovery ledger. No ARCH-03 product-code work remains.
 
 Blockers / known baseline defects:
 
@@ -157,10 +159,10 @@ Blockers / known baseline defects:
 
 ## Recovery instructions
 
-1. Open worktree:
-   `E:\\workspace\\opensource\\Inkiva\\.worktrees\\arch-03-virtual-surface-contract`
-2. Verify branch:
-   `git status --short --branch`
-3. Read this file and `docs/architecture/ARCHITECTURE_AUDIT_2026-09.md` ARCH-03 section.
-4. Inspect PR #161 latest-head CI. The implementation head `1c7e52ea` is fully green; any later run is for documentation-only closeout unless product code changed. If a check fails, diagnose it without weakening tests. Leave the PR unmerged.
+ARCH-03 is complete and merged. A new session should not recreate or extend this task unless a concrete regression is found.
+
+1. Update `develop` and verify it contains merge commit `e110499dbff5dbea316ca60a16da7e7ce9011cf0`.
+2. Read this file and `docs/architecture/ARCHITECTURE_AUDIT_2026-09.md` before starting the next ranked architecture item.
+3. If investigating an ARCH-03 regression, keep the structural gate `packages/desktop/test/unit/specs/virtual-surface-contract.spec.ts` fail-closed and preserve the existing virtualization Electron coverage; do not weaken assertions, thresholds, workloads, retries, or sample counts.
+4. The historical `OUT-015/OUT-020` bottom-scroll failure was reproduced identically on the pre-change baseline and remains a separately known baseline defect, not evidence that ARCH-03 failed.
 5. Never modify or delete the main checkout's unrelated `perf-results/`.
