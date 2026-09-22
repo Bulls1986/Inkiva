@@ -303,10 +303,18 @@ No threshold, workload, sample-count or assertion relaxation was used.
 
 ## Stage 11 — Final Report / Experience Closure
 
-Status: **documentation and CI closure complete; PR merge pending**.
+Status: **complete; PR #171 merged into `develop`**.
 
 - Final report: `docs/architecture/ARCH-08-ARCHITECTURE-GOVERNANCE-CLOSURE-REPORT.md`.
 - Existing environment guidance was reviewed instead of duplicating rules.
 - New concrete donor-symlink evidence was merged into `docs/agent/ENVIRONMENT.md`; `AGENTS.md` remains rules/index only.
 - Product/performance follow-ups are separated from architecture governance in the closure report.
+
+Merge closure:
+
+- PR #171 merged by squash at `2026-09-22T18:28:14Z`.
+- Merge commit: `9df067102864b247dd488687dda49c4f78c43edb`.
+- Post-merge `develop` tree: `18a1c9a155e8436f6c29be5697b970057d9133f0`, exactly matching the reviewed final ARCH-08 PR tree.
+- After the CI-closure documentation update, the final PR head reran the complete gate set and passed again: lint, test, E2E, Desktop PR fast hard gate, Windows x64, macOS x64 and macOS arm64.
+- ARCH-08 architecture governance is therefore closed; remaining items are explicitly transferred to product correctness / reliability / performance roadmaps.
 

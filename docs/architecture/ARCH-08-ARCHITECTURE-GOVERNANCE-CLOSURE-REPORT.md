@@ -170,6 +170,6 @@ The first Fast Gate attempt observed `save.50k p95=108.5ms` against the unchange
 
 ## Governance status
 
-With PR #171 canonical CI green, the architecture-governance program is **closed as a baseline pending only PR merge**.
+PR #171 was squash-merged into `develop` at `2026-09-22T18:28:14Z` as commit `9df067102864b247dd488687dda49c4f78c43edb`. The post-merge `develop` tree `18a1c9a155e8436f6c29be5697b970057d9133f0` exactly matches the final reviewed ARCH-08 PR tree. The architecture-governance program is therefore **closed as the repository baseline**.
 
 Future work should preserve these contracts rather than create another parallel ownership layer. New architectural work is justified only when product evidence demonstrates that an existing boundary cannot support a required capability.
