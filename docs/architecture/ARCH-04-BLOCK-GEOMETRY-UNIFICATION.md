@@ -44,7 +44,7 @@ Local execution attempt was **environment evidence only**: the fresh worktree ha
 
 ## Stage 3 — Implementation
 
-Status: implementation complete; validation in progress.
+Status: completed.
 
 Implemented so far:
 
@@ -57,7 +57,7 @@ This preserves the existing ownership model: the projection delegates; it does n
 
 ## Stage 4 — Validation
 
-Status: partial local validation complete; package-manager-driven Vitest/lint remains blocked by worktree dependency execution topology.
+Status: completed. PR #168 CI is fully green.
 
 Completed evidence:
 
@@ -74,9 +74,13 @@ Environment evidence, not product failures:
 - `pnpm lint` similarly stalls before output in this topology; no lint failure is inferred.
 - direct jsdom behavior smoke could not start because the donor jsdom graph is missing transitive `is-potential-custom-element-name`; this is dependency-topology evidence, not a product assertion failure.
 
-Still required before merge:
+CI closure on PR #168:
 
-- focused unit suites in a validated local/CI dependency topology;
-- existing ARCH-03 contract tests;
-- `@virtualization-core` Electron gate, covering responsive resize, offscreen remount, TOC navigation, tab restore, selection/IME, Undo/Redo and async geometry;
-- diff/hygiene review and CI after push.
+- `lint`: **passed** (`1m0s`);
+- `test`: **passed** (`2m19s`), covering the focused Desktop unit suites and contract guards in the repository CI topology;
+- `Desktop PR fast hard gate`: **passed** (`3m17s`);
+- `e2e`: **passed** (`6m41s`), preserving the existing virtualization interaction regression suite;
+- PR build matrix: **Windows x64 passed** (`6m24s`), **macOS x64 passed** (`5m37s`), **macOS arm64 passed** (`4m30s`);
+- artifact-link PR step: **passed**.
+
+Final conclusion: ARCH-04 meets the documented ownership, correctness, regression, build and hygiene gates and is ready to merge.
