@@ -11,8 +11,8 @@ Inkiva is a document-first Markdown desktop editor. User documents must remain s
 3. Never weaken assertions, thresholds, workloads, sample counts, or scenarios to make tests/CI pass.
 4. Never treat environment/bootstrap failure as product-code evidence.
 5. For long-running work, allow **one active Job per logical operation**. Silence/timeout is not proof of failure; observe the existing Job first.
-6. On the Windows Runner use `corepack pnpm`; do not globally install pnpm because bare `pnpm` is missing.
-7. Prefer reusable pre-warmed Git-native worktree slots; do not rebuild dependencies for every branch.
+6. On the Windows Runner, enable pnpm through Corepack and NVM shims (`corepack enable pnpm`, then `nvm reshim`). After that, use bare `pnpm`; do not globally install pnpm.
+7. Follow the Windows local-build/worktree runtime contract in `docs/agent/ENVIRONMENT.md`: reuse a known-good root dependency graph, keep source/build artifacts worktree-local, add only minimal package-local compatibility paths when legacy code/helpers require physical paths, and classify bootstrap/build/launch failures as environment evidence rather than product regressions.
 8. A genuinely new environment problem may be explored once. Once solved, immediately update the canonical environment guide and stop re-exploring it.
 9. Record meaningful stages for architecture/performance/stability/high-risk editor work so a new session can resume without rediscovery.
 10. PR created != merged; green CI job != every required correctness/performance/release gate passed.
