@@ -298,7 +298,7 @@ const performSearch = (generation: number): void => {
     isWholeWord: isWholeWord.value,
     isRegexp: isRegexp.value,
     exclusions: searchExclusions.value,
-    maxFileSize: searchMaxFileSize.value || null,
+    maxFileSize: searchMaxFileSize.value || undefined,
     includeHidden: searchIncludeHidden.value,
     noIgnore: searchNoIgnore.value,
     followSymlinks: searchFollowSymlinks.value,

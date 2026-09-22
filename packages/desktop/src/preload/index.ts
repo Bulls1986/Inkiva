@@ -18,7 +18,9 @@ import {
   type IpcSendChannels,
   type IpcSyncChannels,
   type IpcMainEventChannels,
-  type BootInfo
+  type BootInfo,
+  type PreferencePatch,
+  type RipgrepRequest
 } from '@shared/types/ipc'
 import {
   DOCUMENT_INTELLIGENCE_CHANNELS,
@@ -186,6 +188,22 @@ const ipcWrapper = {
   }
 }
 
+const rendererCommandAPI = {
+  newEditorWindow: () => send('mt::cmd-new-editor-window'),
+  openFileDialog: () => send('mt::cmd-open-file'),
+  openFolderDialog: () => send('mt::cmd-open-folder'),
+  closeWindow: () => send('mt::cmd-close-window'),
+  toggleAutoSave: () => send('mt::cmd-toggle-autosave'),
+  importFile: () => send('mt::cmd-import-file'),
+  toggleAlwaysOnTop: () => send('mt::window-toggle-always-on-top'),
+  setPreference: (partial: PreferencePatch) => send('mt::set-user-preference', partial),
+  openSettings: () => send('mt::open-setting-window'),
+  tryQuit: () => send('mt::app-try-quit'),
+  makeScreenshot: () => send('mt::make-screenshot'),
+  openFileByWindowId: (windowId: number, filePath: string) =>
+    send('mt::open-file-by-window-id', windowId, filePath)
+}
+
 const shellAPI = {
   openExternal: (url: string) => invoke('mt::shell::open-external', url),
   showItemInFolder: (fullPath: string) => send('mt::shell::show-item', fullPath),
@@ -310,7 +328,7 @@ const i18nAPI = {
 
 type RipgrepHandler = (payload: unknown) => void
 const ripgrepAPI = {
-  start: (req: unknown) => invoke('mt::rg::start', req),
+  start: (req: RipgrepRequest) => invoke('mt::rg::start', req),
   cancel: (searchId: string) => send('mt::rg::cancel', searchId),
   ack: (searchId: string, batchId: number) => send('mt::rg::ack', searchId, batchId),
   onMatch: (handler: RipgrepHandler) => {
@@ -378,6 +396,7 @@ const fontsAPI = {
 
 const electronAPI = {
   ipcRenderer: ipcWrapper,
+  commands: rendererCommandAPI,
   shell: shellAPI,
   clipboard: clipboardAPI,
   webFrame: webFrameAPI,

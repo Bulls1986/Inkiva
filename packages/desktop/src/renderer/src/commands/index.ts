@@ -70,19 +70,19 @@ const commands: CommandDescriptor[] = [
   {
     id: 'file.new-window',
     execute: async() => {
-      window.electron.ipcRenderer.send('mt::cmd-new-editor-window')
+      window.electron.commands.newEditorWindow()
     }
   },
   {
     id: 'file.open-file',
     execute: async() => {
-      window.electron.ipcRenderer.send('mt::cmd-open-file')
+      window.electron.commands.openFileDialog()
     }
   },
   {
     id: 'file.open-folder',
     execute: async() => {
-      window.electron.ipcRenderer.send('mt::cmd-open-folder')
+      window.electron.commands.openFolderDialog()
     }
   },
   {
@@ -113,14 +113,14 @@ const commands: CommandDescriptor[] = [
   {
     id: 'file.close-window',
     execute: async() => {
-      window.electron.ipcRenderer.send('mt::cmd-close-window')
+      window.electron.commands.closeWindow()
     }
   },
 
   {
     id: 'file.toggle-auto-save',
     execute: async() => {
-      window.electron.ipcRenderer.send('mt::cmd-toggle-autosave')
+      window.electron.commands.toggleAutoSave()
     }
   },
   {
@@ -139,7 +139,7 @@ const commands: CommandDescriptor[] = [
   {
     id: 'file.import-file',
     execute: async() => {
-      window.electron.ipcRenderer.send('mt::cmd-import-file')
+      window.electron.commands.importFile()
     }
   },
   {
@@ -461,7 +461,7 @@ const commands: CommandDescriptor[] = [
   {
     id: 'window.toggle-always-on-top',
     execute: async() => {
-      window.electron.ipcRenderer.send('mt::window-toggle-always-on-top')
+      window.electron.commands.toggleAlwaysOnTop()
     }
   },
   {
@@ -564,7 +564,7 @@ const commands: CommandDescriptor[] = [
       }
     ],
     executeSubcommand: async(_, theme) => {
-      window.electron.ipcRenderer.send('mt::set-user-preference', { theme })
+      window.electron.commands.setPreference({ theme })
     }
   },
 
@@ -623,7 +623,7 @@ const commands: CommandDescriptor[] = [
       }
     ],
     executeSubcommand: async(_, value) => {
-      window.electron.ipcRenderer.send('mt::set-user-preference', { textDirection: value })
+      window.electron.commands.setPreference({ textDirection: value })
     }
   },
 
@@ -633,13 +633,13 @@ const commands: CommandDescriptor[] = [
   {
     id: 'file.preferences',
     execute: async() => {
-      window.electron.ipcRenderer.send('mt::open-setting-window')
+      window.electron.commands.openSettings()
     }
   },
   {
     id: 'file.quit',
     execute: async() => {
-      window.electron.ipcRenderer.send('mt::app-try-quit')
+      window.electron.commands.tryQuit()
     }
   },
   {
@@ -679,7 +679,7 @@ if (isOsx) {
   commands.push({
     id: 'edit.screenshot',
     execute: async() => {
-      window.electron.ipcRenderer.send('mt::make-screenshot')
+      window.electron.commands.makeScreenshot()
     }
   })
 }
