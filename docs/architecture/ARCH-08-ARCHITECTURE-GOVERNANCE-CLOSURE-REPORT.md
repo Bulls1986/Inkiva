@@ -158,10 +158,18 @@ Local validation accepted:
 
 A donor `vue-tsc` run after ARCH-06 is **not accepted** as product evidence because the donor workspace symlink resolves `@muyajs/core` back into the donor checkout. This violates the repository's source-ownership rule and is now explicitly documented in `docs/agent/ENVIRONMENT.md`.
 
-Final canonical validation therefore belongs to the ARCH-08 PR CI: unit/Vitest, repository typecheck, E2E, Desktop Fast hard gate and required platform builds. CI must run without weakened thresholds or assertions.
+PR #171 supplied the canonical validation boundary:
+
+- lint passed;
+- desktop/unit test workflow passed, including `legacy-patch-closure.spec.ts` 4/4 and the full desktop Vitest result of 151 files / 1223 tests passed;
+- Electron E2E passed;
+- Windows x64, macOS arm64 and macOS x64 build checks passed;
+- Desktop PR fast hard gate passed with its original hard thresholds.
+
+The first Fast Gate attempt observed `save.50k p95=108.5ms` against the unchanged `<100ms` limit. ARCH-08 does not touch the save pipeline, and the two immediately preceding architecture PRs showed the same metric at approximately 41.48ms and 91.75ms. After diagnosis, exactly one rerun of the failed workflow was performed with **no code, threshold, workload, sample-count or assertion change**; the second attempt passed. The failed first sample remains recorded as CI tail-latency evidence rather than being hidden or used to justify threshold weakening.
 
 ## Governance status
 
-Subject to ARCH-08 PR CI and merge closure, the architecture-governance program can be considered **closed as a baseline**.
+With PR #171 canonical CI green, the architecture-governance program is **closed as a baseline pending only PR merge**.
 
 Future work should preserve these contracts rather than create another parallel ownership layer. New architectural work is justified only when product evidence demonstrates that an existing boundary cannot support a required capability.

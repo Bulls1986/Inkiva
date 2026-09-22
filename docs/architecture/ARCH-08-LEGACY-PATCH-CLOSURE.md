@@ -278,22 +278,32 @@ Final review conclusion:
 
 ## Stage 10 — CI Closure
 
-Status: **pending ARCH-08 PR CI**.
+Status: **complete on PR #171**.
 
-Required final evidence:
+Canonical CI evidence:
 
-- lint;
-- canonical unit/Vitest, including `legacy-patch-closure.spec.ts`;
-- desktop typecheck through the repository's ARCH-06-aware typecheck path;
-- Electron E2E interaction layer;
-- Desktop PR fast hard gate;
-- platform build checks required by repository policy.
+- `lint`: passed in 1m06s.
+- `test`: passed in 2m27s; desktop Vitest reported **151/151 files and 1223/1223 tests passed**, including `legacy-patch-closure.spec.ts` **4/4 passed**.
+- `e2e`: passed in 7m13s.
+- Windows x64 build: passed in 6m10s.
+- macOS arm64 build: passed in 4m04s.
+- macOS x64 build: passed in 7m23s.
+- artifact link publication: passed.
+- Desktop PR fast hard gate: final attempt passed in 3m38s with all original hard thresholds intact.
 
-No threshold, workload, sample-count or assertion relaxation is permitted.
+Fast-gate incident record:
+
+1. First attempt failed only at the final threshold evaluation: `save.50k p95=108.5ms` against the unchanged `<100ms` hard limit.
+2. No save-pipeline code, threshold, workload, sample count or assertion was changed.
+3. The immediately preceding ARCH-06 / ARCH-07 PRs had the same metric at approximately `41.48ms` and `91.75ms`, showing material CI tail-latency variance while both passed the unchanged gate.
+4. One evidence-based rerun of only the failed workflow was allowed after diagnosis.
+5. The rerun passed the desktop performance scenario and the unchanged hard-threshold evaluation.
+
+No threshold, workload, sample-count or assertion relaxation was used.
 
 ## Stage 11 — Final Report / Experience Closure
 
-Status: **documentation complete; PR/CI merge closure pending**.
+Status: **documentation and CI closure complete; PR merge pending**.
 
 - Final report: `docs/architecture/ARCH-08-ARCHITECTURE-GOVERNANCE-CLOSURE-REPORT.md`.
 - Existing environment guidance was reviewed instead of duplicating rules.
