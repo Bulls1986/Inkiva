@@ -216,18 +216,22 @@ export function createTocScrollSync(
   const findActiveMountedVirtualSlug = (): string | null => {
     const containerTop = container.getBoundingClientRect().top
     const activationLine = containerTop + activationOffset
+    const mountedCorrectionFloor =
+      containerTop - Math.max(container.clientHeight, activationOffset * 2)
     let bestSlug: string | null = null
     let bestTop = Number.NEGATIVE_INFINITY
 
     // Virtual-prefix offsets are estimates until every preceding block has been
     // measured. At the settled two-paint boundary, mounted headings can provide
     // authoritative local geometry without putting layout reads on the raw
-    // scroll-event hot path.
+    // scroll-event hot path. A retained heading far outside the current window
+    // is not a local correction: letting it win would hide a newer logical
+    // heading that is currently virtualized out of the DOM.
     for (const heading of Array.from(container.querySelectorAll(TOP_LEVEL_HEADINGS_SELECTOR))) {
       const slug = heading.getAttribute(TOC_HEADING_SLUG_ATTRIBUTE)
       if (!slug) continue
       const top = heading.getBoundingClientRect().top
-      if (top <= activationLine && top > bestTop) {
+      if (top >= mountedCorrectionFloor && top <= activationLine && top > bestTop) {
         bestTop = top
         bestSlug = slug
       }
