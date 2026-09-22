@@ -8,7 +8,10 @@ import type {
   IpcSendChannels,
   IpcSyncChannels,
   IpcMainEventChannels,
-  BootInfo
+  BootInfo,
+  PreferencePatch,
+  RipgrepRequest,
+  RipgrepStartResult
 } from '@shared/types/ipc'
 import type { MenuTemplate, MenuPopupPosition } from '@shared/types/menu'
 import type { SerializedStat } from '@shared/types/files'
@@ -60,6 +63,21 @@ declare global {
     removeAllListeners(channel: keyof IpcMainEventChannels | string): void
   }
 
+  interface ElectronCommandAPI {
+    newEditorWindow(): void
+    openFileDialog(): void
+    openFolderDialog(): void
+    closeWindow(): void
+    toggleAutoSave(): void
+    importFile(): void
+    toggleAlwaysOnTop(): void
+    setPreference(partial: PreferencePatch): void
+    openSettings(): void
+    tryQuit(): void
+    makeScreenshot(): void
+    openFileByWindowId(windowId: number, filePath: string): void
+  }
+
   interface ElectronShellAPI {
     openExternal(url: string): Promise<void>
     showItemInFolder(fullPath: string): void
@@ -98,6 +116,7 @@ declare global {
 
   interface ElectronAPI {
     ipcRenderer: ElectronIpcRenderer
+    commands: ElectronCommandAPI
     shell: ElectronShellAPI
     clipboard: ElectronClipboardAPI
     webFrame: ElectronWebFrameAPI
@@ -179,7 +198,7 @@ declare global {
   }
 
   interface RipgrepAPI {
-    start(req: unknown): Promise<{ searchId: string }>
+    start(req: RipgrepRequest): Promise<RipgrepStartResult>
     cancel(searchId: string): void
     ack(searchId: string, batchId: number): void
     onMatch(handler: (payload: unknown) => void): () => void

@@ -4,13 +4,13 @@
 // to change).
 
 import { deepClone } from '../util'
+import type { RipgrepSearchOptions as RipgrepIpcSearchOptions } from '@shared/types/ipc'
 
 export type RipgrepMode = 'text' | 'files'
 
-export interface RipgrepSearchOptions {
+export interface RipgrepSearchOptions extends RipgrepIpcSearchOptions {
   didMatch?: (payload: unknown) => void
   didSearchPaths?: (num: unknown) => void
-  [key: string]: unknown
 }
 
 export interface CancellableSearch extends Promise<void> {
@@ -118,7 +118,7 @@ const startSearch = ({ mode, directories, pattern, options }: StartArgs): Cancel
     // do a JSON round-trip on the remaining options to get plain values.
 
     const { didMatch: _a, didSearchPaths: _b, ...rest } = options
-    let serializable: unknown
+    let serializable: RipgrepIpcSearchOptions
     try {
       serializable = deepClone(rest)
     } catch {

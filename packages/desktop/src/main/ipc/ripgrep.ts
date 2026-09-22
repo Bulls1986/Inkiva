@@ -4,6 +4,7 @@ import { ipcMain, type WebContents } from 'electron'
 import log from 'electron-log'
 import { rgPath as bundledRgPath } from '@vscode/ripgrep'
 import { BatchGate, type Batch } from './ripgrepBackpressure'
+import type { RipgrepRequest, RipgrepSearchOptions } from '@shared/types/ipc'
 
 const resolveRgPath = (): string => {
   if (process.env.INKIVA_RIPGREP_PATH) return process.env.INKIVA_RIPGREP_PATH
@@ -180,20 +181,6 @@ const prepareRegexp = (regexpStr: string): string => {
 
 const isMultilineRegexp = (regexpStr: string): boolean => regexpStr.includes('\\n')
 
-interface SearchOptions {
-  isRegexp?: boolean
-  isCaseSensitive?: boolean
-  isWholeWord?: boolean
-  followSymlinks?: boolean
-  maxFileSize?: number | string
-  includeHidden?: boolean
-  noIgnore?: boolean
-  leadingContextLineCount?: number
-  trailingContextLineCount?: number
-  inclusions?: string[]
-  exclusions?: string[]
-}
-
 interface PausableSource {
   pause: () => unknown
   resume: () => unknown
@@ -209,7 +196,7 @@ const startTextSearch = (
   searchId: string,
   directories: string[],
   pattern: string,
-  options: SearchOptions
+  options: RipgrepSearchOptions
 ): void => {
   const rgPath = resolveRgPath()
   const children: ChildProcess[] = []
@@ -505,7 +492,7 @@ const startFileSearch = (
   sender: WebContents,
   searchId: string,
   directories: string[],
-  options: SearchOptions
+  options: RipgrepSearchOptions
 ): void => {
   const rgPath = resolveRgPath()
   const children: ChildProcess[] = []
@@ -705,14 +692,6 @@ const startFileSearch = (
   }
 
   if (directories.length === 0) maybeFinish()
-}
-
-interface RipgrepRequest {
-  searchId: string
-  mode: 'files' | 'text'
-  directories: string[]
-  pattern: string
-  options: SearchOptions
 }
 
 export const registerRipgrepHandlers = (): void => {

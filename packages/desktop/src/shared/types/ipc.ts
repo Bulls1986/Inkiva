@@ -65,6 +65,34 @@ export interface KeybindingPreferences {
   shortcutStyle: ShortcutStyle
 }
 
+export interface RipgrepSearchOptions {
+  isRegexp?: boolean
+  isCaseSensitive?: boolean
+  isWholeWord?: boolean
+  followSymlinks?: boolean
+  maxFileSize?: number | string
+  includeHidden?: boolean
+  noIgnore?: boolean
+  leadingContextLineCount?: number
+  trailingContextLineCount?: number
+  inclusions?: string[]
+  exclusions?: string[]
+}
+
+export interface RipgrepRequest {
+  searchId: string
+  mode: 'files' | 'text'
+  directories: string[]
+  pattern: string
+  options: RipgrepSearchOptions
+}
+
+export interface RipgrepStartResult {
+  searchId: string
+}
+
+export type PreferencePatch = Record<string, unknown>
+
 // =================================================================
 // Invoke channels (renderer → main, returns Promise<T>)
 // =================================================================
@@ -147,7 +175,7 @@ export interface IpcInvokeChannels {
   'mt::keybinding-set-style': { args: [style: ShortcutStyle]; ret: KeybindingPreferences }
   'mt::keybinding-save-user-keybindings': { args: [bindings: unknown]; ret: boolean }
   'mt::paths::is-image': { args: [path: string]; ret: boolean }
-  'mt::rg::start': { args: [req: unknown]; ret: { searchId: string } }
+  'mt::rg::start': { args: [req: RipgrepRequest]; ret: RipgrepStartResult }
   'mt::shell::open-external': { args: [url: string]; ret: void }
   'mt::shell::open-path': { args: [fullPath: string]; ret: string }
   'mt::spellchecker-get-available-dictionaries': { args: []; ret: string[] }
@@ -162,7 +190,7 @@ export interface IpcInvokeChannels {
   'mt::win::is-maximized': { args: []; ret: boolean }
   // Main derives the BrowserWindow via BrowserWindow.fromWebContents(e.sender);
   // no need to pass windowId. Payload is the editor+project+layout snapshot.
-  'update-buffer-state': { args: [payload: unknown]; ret: void }
+  'update-buffer-state': { args: [payload: BufferedStateType]; ret: void }
 }
 
 // =================================================================
@@ -179,7 +207,7 @@ export interface IpcSendChannels {
   'app-open-file-by-id': [windowId: number, filePath: string, options?: unknown]
   'app-open-files-by-id': [windowId: number, filePaths: string[], options?: unknown]
   'app-open-markdown-by-id': [windowId: number, markdown: string, options?: unknown]
-  'broadcast-preferences-changed': [partial: unknown]
+  'broadcast-preferences-changed': [partial: PreferencePatch]
   'broadcast-user-data-changed': [partial: unknown]
   'menu-add-recently-used': [filePath: string]
   'menu-clear-recently-used': []
@@ -209,8 +237,8 @@ export interface IpcSendChannels {
   'mt::menu::popup': [template: MenuTemplate, position?: MenuPopupPosition]
   'mt::menu::popup-application': [position?: MenuPopupPosition]
   'mt::menu::popup-application-submenu': [menuId: string, position?: MenuPopupPosition]
-  'mt::open-file': [filePath: string, options?: unknown]
-  'mt::open-file-by-window-id': [windowId: number, filePath: string, options?: unknown]
+  'mt::open-file': [filePath: string, options?: TabOptions]
+  'mt::open-file-by-window-id': [windowId: number, filePath: string, options?: TabOptions]
   'mt::open-keybindings-config': []
   'mt::open-setting-window': []
   'mt::rename': [
@@ -251,11 +279,11 @@ export interface IpcSendChannels {
   'mt::response-print': []
   'mt::rg::ack': [searchId: string, batchId: number]
   'mt::rg::cancel': [searchId: string]
-  'mt::save-and-close-tabs': [tabs: unknown[]]
-  'mt::save-tabs': [tabs: unknown[]]
+  'mt::save-and-close-tabs': [tabs: UnsavedFile[]]
+  'mt::save-tabs': [tabs: UnsavedFile[]]
   'mt::select-default-directory-to-open': []
   'mt::set-user-data': [partial: unknown]
-  'mt::set-user-preference': [partial: unknown]
+  'mt::set-user-preference': [partial: PreferencePatch]
   'mt::shell::open-external': [url: string]
   'mt::shell::show-item': [fullPath: string]
   'mt::update-format-menu': [windowId: number, state: Record<string, boolean>]
@@ -272,7 +300,6 @@ export interface IpcSendChannels {
   'mt::win::toggle-fullscreen': []
   'mt::win::toggle-maximize': []
   'mt::win::unmaximize': []
-  'mt::window-add-file-path': [windowId: number, filePath: string]
   'mt::window-initialized': []
   'mt::document-editable': []
   'mt::window-tab-closed': [pathname: string]
@@ -280,7 +307,7 @@ export interface IpcSendChannels {
   'mt::window::drop': [payload: unknown]
   'screen-capture': [payload: unknown]
   'set-image-folder-path': [path: string]
-  'set-user-preference': [partial: unknown]
+  'set-user-preference': [partial: PreferencePatch]
   'watcher-unwatch-all-by-id': [windowId: number]
   'watcher-unwatch-directory': [windowId: number, path: string]
   'watcher-unwatch-file': [windowId: number, path: string]
@@ -371,7 +398,7 @@ export interface IpcMainEventChannels {
   'mt::update-preflight-request': [requestId: string]
   'mt::update-state-changed': [status: UpdateStatus]
   'mt::update-object-tree': [payload: unknown]
-  'mt::user-preference': [partial: unknown]
+  'mt::user-preference': [partial: PreferencePatch]
   'mt::window-active-status': [active: boolean]
   'mt::window-enter-full-screen': []
   'mt::window-leave-full-screen': []

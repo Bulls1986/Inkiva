@@ -13,6 +13,7 @@ import { WindowType } from '../windows/base'
 import type { WindowTypeValue } from '../windows/base'
 import type EditorWindow from '../windows/editor'
 import { canonicalPathKey } from '../session/pathCanonicalizer'
+import type { TabOptions } from '@shared/types/files'
 
 class WindowActivityList {
   // Oldest             Newest
@@ -389,18 +390,6 @@ class WindowManager extends TypedEmitter<WindowManagerEvents> {
   // --- private --------------------------------
 
   private _listenForIpcMain(): void {
-    // HACK: Don't use this event! Please see #1034 and #1035
-    ipcMain.on('mt::window-add-file-path', (e, filePath: string) => {
-      const win = BrowserWindow.fromWebContents(e.sender)
-      if (!win) return
-      const editor = this.get(win.id) as EditorWindow | undefined
-      if (!editor) {
-        log.error(`Cannot find window id "${win.id}" to add opened file.`)
-        return
-      }
-      editor.addToOpenedFiles(filePath)
-    })
-
     // Force close a BrowserWindow
     ipcMain.on('mt::close-window', (e) => {
       const win = BrowserWindow.fromWebContents(e.sender)
@@ -412,7 +401,7 @@ class WindowManager extends TypedEmitter<WindowManagerEvents> {
       this.forceClose(win)
     })
 
-    ipcMain.on('mt::open-file', (e, filePath: string, options: Record<string, unknown>) => {
+    ipcMain.on('mt::open-file', (e, filePath: string, options: TabOptions = {}) => {
       const win = BrowserWindow.fromWebContents(e.sender)
       if (!win) return
       const editor = this.get(win.id) as EditorWindow | undefined
