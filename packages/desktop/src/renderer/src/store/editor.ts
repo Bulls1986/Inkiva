@@ -1100,25 +1100,20 @@ export const useEditorStore = defineStore('editor', {
       const projectStore = useProjectStore()
       const mainStore = useMainStore()
 
-      // Delay load runtime commands and initialize commands.
-      setTimeout(() => {
-        bus.emit('cmd::register-command', new FileEncodingCommand(this))
-        bus.emit(
-          'cmd::register-command',
-          new QuickOpenCommand({
-            editor: this,
-            preferences: preferencesStore,
-            project: projectStore
-          })
-        )
-        bus.emit('cmd::register-command', new LineEndingCommand(this))
-        bus.emit('cmd::register-command', new TrailingNewlineCommand(this))
-
-        setTimeout(() => {
-          window.electron.ipcRenderer.send('mt::request-keybindings')
-          bus.emit('cmd::sort-commands')
-        }, 100)
-      }, 400)
+      // The command-center runtime listeners are installed synchronously by
+      // app.vue before this bootstrap listener is registered. Runtime commands
+      // can therefore be published deterministically instead of racing a timer.
+      bus.emit('cmd::register-command', new FileEncodingCommand(this))
+      bus.emit(
+        'cmd::register-command',
+        new QuickOpenCommand({
+          editor: this,
+          preferences: preferencesStore,
+          project: projectStore
+        })
+      )
+      bus.emit('cmd::register-command', new LineEndingCommand(this))
+      bus.emit('cmd::register-command', new TrailingNewlineCommand(this))
 
       window.electron.ipcRenderer.on('mt::bootstrap-editor', (_, config) => {
         const {
