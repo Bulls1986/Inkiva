@@ -16,6 +16,7 @@ Inkiva is a document-first Markdown desktop editor. User documents must remain s
 8. A genuinely new environment problem may be explored once. Once solved, immediately update the canonical environment guide and stop re-exploring it.
 9. Record meaningful stages for architecture/performance/stability/high-risk editor work so a new session can resume without rediscovery.
 10. PR created != merged; green CI job != every required correctness/performance/release gate passed.
+11. At task closeout, summarize lessons learned and review existing guidance for overlap; merge/refine prior experience instead of adding duplicate rules. See `docs/agent/WORKFLOW.md`.
 
 ## Guides
 
