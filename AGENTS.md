@@ -59,7 +59,55 @@ Rules:
 
 This repository is commonly operated through a Windows WebCodex Runner. The following rules are mandatory because the same environment failures have repeatedly wasted time.
 
-### 4.1 Never loop on managed worktree bootstrap
+### 4.0 Environment problem learning rule
+
+For a genuinely new environment problem, one bounded exploration cycle is allowed.
+
+The moment a repeatable and verified solution is found:
+
+1. update this `AGENTS.md` immediately;
+2. record the root cause, the verified command/path, and the known-invalid alternatives;
+3. designate the verified procedure as the **single canonical path** for that environment problem;
+4. stop re-exploring that problem in later tasks or chat sessions.
+
+After a canonical path exists, later agents must follow it directly. They may not repeat the previous trial-and-error sequence merely because the task is new.
+
+A canonical path may be changed only when new evidence proves it is no longer valid. In that case, update `AGENTS.md` with the reason the old path failed and the evidence for the replacement path before continuing.
+
+### 4.1 Canonical model: reusable pre-warmed worktree slots
+
+Do **not** create a brand-new physical worktree with a brand-new dependency tree for every task.
+
+The preferred model is a small pool of reusable worktree slots under:
+
+`E:\workspace\opensource\Inkiva\.worktrees\`
+
+Each slot keeps its own valid, worktree-local `node_modules` and pnpm virtual store metadata. A new task reuses one clean idle slot by switching that slot to a new task branch based on the latest intended base.
+
+This preserves task isolation while avoiding dependency reconstruction on every branch.
+
+Canonical startup sequence for a new task:
+
+1. Inspect existing worktrees and active Jobs.
+2. Pick one clean, idle, pre-warmed worktree slot.
+3. Confirm it has no unrelated source changes.
+4. Fetch/update the main checkout and resolve the latest intended base, normally `develop`.
+5. In the selected slot, switch/create the new task branch from that base.
+6. Compare the slot's dependency fingerprint with the new base:
+   - `pnpm-lock.yaml`;
+   - package-manager version;
+   - relevant workspace/package manifests when needed.
+7. If the dependency fingerprint is unchanged, **reuse the slot's existing local dependencies exactly as-is**. Do not reinstall.
+8. If the fingerprint changed, refresh that slot's dependencies once using the dependency protocol in section 6.
+9. Run one focused environment smoke check, then proceed to the task's failing test.
+
+A slot may be reused for many sequential tasks. The branch changes; the physical worktree and its local dependency graph remain.
+
+For parallel work, use multiple pre-warmed slots. Never make multiple branches share one live slot at the same time.
+
+Do not delete a healthy slot's `node_modules` during normal branch cleanup.
+
+### 4.2 Never loop on managed worktree bootstrap
 
 If managed worktree creation returns:
 
@@ -84,7 +132,7 @@ The normal fallback is:
 
 Never create a second worktree for the same logical task merely because the first bootstrap mechanism failed.
 
-### 4.2 Do not work directly on a dirty main checkout
+### 4.3 Do not work directly on a dirty main checkout
 
 The main checkout is the source/base checkout. Keep it clean.
 
@@ -165,6 +213,40 @@ Reason: Vite/Vitest resolves realpaths. Cross-worktree Junctions can cause impor
 A Junction may be used only for a narrowly justified diagnostic experiment, never as proof that the worktree is ready for the real test suite.
 
 A successful TypeScript check through a Junction does not prove Vitest/Vite/E2E correctness.
+
+### 6.2 Canonical environment decision table
+
+The failures below have already been explored. Do not repeat the discarded attempts.
+
+| Observed condition | Canonical action | Forbidden repeat |
+|---|---|---|
+| `managed_worktree_root_unavailable` | Use an existing/pre-warmed Git-native worktree slot under `.worktrees`; create one Git-native slot only if no clean idle slot exists. | Re-running managed bootstrap or probing alternative managed roots. |
+| bare `pnpm` is missing | Use `corepack pnpm`. | Global pnpm install or probing multiple pnpm binaries. |
+| task worktree has no usable dependencies | Prefer another healthy pre-warmed slot. If none exists and the dependency fingerprint matches, perform exactly one worktree-local offline restoration. | Junctioning another worktree's `node_modules`; immediately starting an online install. |
+| offline restoration is slow or emits no output | Observe the existing Job until it reaches a terminal state. | Starting a second install, assuming silence means failure, or alternating offline/online installs. |
+| dependency restoration is confirmed terminal-failed | Record the failure evidence and root cause. Repair the slot once; if repair requires network, perform one explicitly justified install in that slot only. | Repeated install variants without new evidence. |
+| Vitest/Vite resolves paths into another worktree | The dependency topology is invalid. Use a worktree-local isolated pnpm graph or another healthy slot. | Vite allowlist hacks, Junctions, or product/test changes. |
+| Vitest startup fails with 0 tests because tooling/runtime packages such as `tinyexec` cannot resolve | Treat the slot as dependency-incomplete and repair/replace the slot before testing. | Treating 0 tests as a product regression or rerunning the same test unchanged. |
+| Windows relative `.cmd` execution fails | Execute through `corepack pnpm ... exec <tool>`. | Calling relative `vitest.cmd`/other package `.cmd` files through `run_process`. |
+| a test/install/build Job is already running | Observe the same Job. | Starting a duplicate Job because output is delayed. |
+| main checkout dependency tree is incomplete | Do not use it as a dependency donor. Use a healthy pre-warmed slot or repair a slot locally. | Junctioning/copying the incomplete main dependency tree into task worktrees. |
+
+### 6.3 Environment readiness gate
+
+Before running a product regression test in a reused or repaired slot, perform one bounded readiness check.
+
+The slot is ready only when all of these are true:
+
+1. the slot is on the intended branch/base and has no unrelated changes;
+2. no duplicate install/test Job is active;
+3. `corepack pnpm --version` succeeds;
+4. `node_modules/.modules.yaml` is present and points to this slot's own isolated virtual store;
+5. required test tooling resolves through `corepack pnpm ... exec`;
+6. representative dependencies resolve from this worktree rather than another worktree;
+7. one focused smoke invocation starts the intended test runner without an environment/bootstrap error.
+
+If the readiness gate fails, fix the environment using the single canonical action from the table above. Do not enter product implementation until the gate is green.
+
 
 ## 7. Job de-duplication: one logical operation, one active Job
 
