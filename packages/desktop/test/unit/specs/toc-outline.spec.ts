@@ -161,15 +161,14 @@ describe('TOC outline utilities', () => {
 
     // The logical prefix index is intentionally stale enough to select "later".
     // The mounted target is actually at the navigation activation line and must
-    // remain the active outline entry while it belongs to Muya's primary window.
+    // remain the active outline entry as a local settled-DOM correction.
     const offsets = new Map([[2, 0], [40, 400], [80, 800]])
     const onActiveChange = vi.fn()
     const sync = createTocScrollSync(
       container,
       onActiveChange,
       40,
-      (blockIndex) => offsets.get(blockIndex) ?? null,
-      () => ({ start: 20, end: 60 })
+      (blockIndex) => offsets.get(blockIndex) ?? null
     )
     sync.update([
       { slug: 'uid-first', blockIndex: 2 },
