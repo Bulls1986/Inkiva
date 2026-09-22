@@ -162,8 +162,15 @@ onMounted(async () => {
 
   mainStore.LISTEN_WIN_STATUS()
 
-  // These two listeners are part of the renderer's startup handshake. Register
-  // them before loading the command catalogue because that async work can be
+  // LISTEN_COMMAND_CENTER_BUS installs all runtime/keybinding listeners
+  // synchronously before it awaits the translated command catalogue. Start it
+  // first so editor bootstrap can register runtime commands without timing
+  // delays, then await catalogue readiness after every early IPC listener is in
+  // place.
+  const commandCenterReady = commandCenterStore.LISTEN_COMMAND_CENTER_BUS()
+
+  // These listeners are part of the renderer's startup handshake. Register
+  // them before awaiting command descriptions because that async work can be
   // slow on a cold machine; otherwise the main process may send bootstrap or
   // close messages into a gap with no listener attached.
   editorStore.LISTEN_FOR_CLOSE()
@@ -178,7 +185,7 @@ onMounted(async () => {
   projectStore.LISTEN_FOR_LOAD_PROJECT()
   projectStore.LISTEN_FOR_SIDEBAR_CONTEXT_MENU()
 
-  await commandCenterStore.LISTEN_COMMAND_CENTER_BUS()
+  await commandCenterReady
   layoutStore.LISTEN_FOR_LAYOUT()
   listenForMainStore.LISTEN_FOR_EDIT()
   preferencesStore.LISTEN_FOR_VIEW()

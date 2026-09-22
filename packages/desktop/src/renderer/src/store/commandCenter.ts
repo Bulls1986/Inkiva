@@ -100,6 +100,10 @@ export const useCommandCenterStore = defineStore('commandCenter', () => {
     })
 
     await refreshCommands()
+    // Request user keybindings only after translated/static commands and any
+    // early runtime registrations have been merged. This replaces the former
+    // bootstrap timeout with an explicit catalogue-readiness boundary.
+    window.electron.ipcRenderer.send('mt::request-keybindings')
   }
 
   return {

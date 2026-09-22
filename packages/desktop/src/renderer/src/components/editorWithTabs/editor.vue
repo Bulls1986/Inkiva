@@ -2566,7 +2566,7 @@ onMounted(() => {
   // Register command palette entry for switching spellchecker language.
   switchLanguageCommand = new SpellcheckerLanguageCommand(spellchecker)
   const spellcheckerLanguageCommand = switchLanguageCommand
-  setTimeout(() => bus.emit('cmd::register-command', spellcheckerLanguageCommand), 100)
+  bus.emit('cmd::register-command', spellcheckerLanguageCommand)
 
   if (typewriter.value) {
     scrollToCursor()
