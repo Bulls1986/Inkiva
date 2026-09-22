@@ -7,8 +7,9 @@
 - Branch: `arch/03-virtual-surface-contract`
 - Baseline: `origin/develop@c933d43041cace6b0ed7c00268402c4992c83e91`
 - Current phase: validation / pre-PR closeout
+- PR: #161 — `ARCH-03: introduce virtual surface contract`
 - Merge status: not merged
-- CI status: not started (local validation in progress)
+- CI status: started / pending final check results
 
 ## Goal
 
@@ -134,9 +135,9 @@ Environment incident:
 Pending:
 
 - final diff/hygiene review is complete: only the intended 6 project files are changed; no copied native binaries are tracked;
-- commit the implementation/test/documentation stage;
-- push branch and create PR to `develop`;
-- track CI and record final CI state in this ledger.
+- implementation/test/documentation stage committed as `410ed0ce` (`refactor(editor): add virtual surface contract`) and pushed;
+- PR #161 created against `develop`;
+- track PR #161 CI and record final check/threshold state in this ledger; do not merge automatically.
 
 Blockers / known baseline defects:
 
@@ -151,5 +152,5 @@ Blockers / known baseline defects:
 2. Verify branch:
    `git status --short --branch`
 3. Read this file and `docs/architecture/ARCHITECTURE_AUDIT_2026-09.md` ARCH-03 section.
-4. Continue with final closeout: run lint/check, review diff/hygiene, then commit/push/create PR and track CI. Do not change or suppress the known baseline OUT-015/OUT-020 failure.
+4. Continue with PR #161 CI tracking. If a check fails, diagnose and fix product/test-environment causes without weakening tests. If all checks pass, update this ledger with the exact CI result and leave the PR unmerged.
 5. Never modify or delete the main checkout's unrelated `perf-results/`.
