@@ -35,6 +35,15 @@ describe('ARCH-03 virtual surface contract', () => {
     }
   })
 
+  it('keeps editor orchestration behind a geometry projection instead of calling surface geometry methods directly', () => {
+    const editorPath = path.join(rendererRoot, 'components/editorWithTabs/editor.vue')
+    const source = fs.readFileSync(editorPath, 'utf8')
+
+    expect(source).not.toMatch(/scrollPage\?\.getBlockOffset/)
+    expect(source).not.toMatch(/scrollPage\?\.isWindowed/)
+    expect(source).not.toMatch(/shouldDeferScroll/)
+  })
+
   it('exposes document-surface business operations at the Muya boundary', () => {
     const source = fs.readFileSync(scrollPagePath, 'utf8')
 

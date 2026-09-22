@@ -245,14 +245,14 @@ describe('createEditorLayoutReconciler', () => {
     )
   })
 
-  it('reports geometry changes without writing scroll when scroll ownership is deferred', async() => {
+  it('reports geometry changes without writing scroll when the document surface owns scroll correction', async() => {
     const fixture = makeFixture()
     fixture.container.scrollTop = 500
     fixture.setRect(fixture.diagram, -400, 100)
     const onChange = vi.fn()
     reconciler = createEditorLayoutReconciler(fixture.container, {
       onChange,
-      shouldDeferScroll: () => true
+      getScrollOwner: () => 'document-surface'
     })
     const resizeObserver = ResizeObserverDouble.instances[0]
 

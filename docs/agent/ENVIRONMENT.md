@@ -152,10 +152,16 @@ Verified examples:
 
 - Muya/PrismJS: if source requires a physical path such as `packages/muya/node_modules/prismjs/...`, provide only `packages/muya/node_modules/prismjs`. The acceptance signal is the intended tests passing with **zero unhandled errors** (the observed recovery was `30/30` passing, `0` unhandled errors).
 - Desktop/Electron helper: if the Windows E2E helper is hard-coded to `packages/desktop/node_modules/.bin/electron.cmd`, provide only the Electron launcher path(s) it requires, e.g. `.bin/electron.cmd` plus `node_modules/electron` pointing at the known-good dependency graph. Do not Junction all of `packages/desktop/node_modules`.
+- Desktop/Vitest: a root `node_modules` Junction alone does **not** guarantee `pnpm -C packages/desktop exec vitest` can see a package-local CLI. Do **not** manufacture a worktree-local `packages/desktop/node_modules` tree just for the launcher. A donor checkout's existing Vitest launcher may be used only as a probe while the test `cwd`, config and source remain in the current worktree; `--version` is insufficient. If the first focused spec is not actually discovered/executed, reject that route as environment evidence and do not keep retrying it.
+- Donor tool fallback: when the worktree source/config is healthy but a package-local CLI shim is absent, it is valid to invoke a matching known-good donor checkout's tool executable while passing the **current worktree's config/source paths** explicitly. This was validated with donor `vue-tsc.cmd --noEmit -p <worktree>/packages/desktop/tsconfig.json`. Tool binaries may come from the donor; source/config/build artifacts may not. If the tool resolves source through the donor checkout or stalls before discovery, reject that topology instead of treating it as product evidence.
 
 If Vite/Vitest reports `Denied ID ...other-worktree...` or equivalent realpath leakage, the topology is invalid. Remove the offending link; do not patch Vite allowlists to hide the problem.
 
 Pre-warmed slot-local dependencies remain preferred when they are already complete and healthy.
+
+### Git staging fallback on Windows worktrees
+
+If a bounded `git add <explicit paths...>` stalls on the Windows Runner and may have partially staged files, do not repeat the same batch blindly. After the Job is terminal, verify there is no `index.lock` or residual Git process, inspect `git status --short`, unstage any partial results with exact-path `git reset HEAD -- <paths>`, then prefer WebCodex `git_commit_paths` with an exact `expected_head` and explicit path list. Its isolated temporary index avoids partial staging and cannot pull unrelated files into the commit.
 
 ## Local build, run, Vitest, and Electron E2E
 
