@@ -4,7 +4,11 @@ import type Parent from '../../base/parent';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Muya } from '../../../muya';
 import { MarkdownToState } from '../../../state/markdownToState';
-import { PROGRESSIVE_RENDER_THRESHOLD, ScrollPage } from '../index';
+import {
+    PROGRESSIVE_RENDER_THRESHOLD,
+    ScrollPage,
+    VIRTUAL_RENDERER_SEGMENT_BLOCKS,
+} from '../index';
 
 const editors: Muya[] = [];
 
@@ -325,6 +329,86 @@ describe('stage C1 virtualization production contract', () => {
         expect(rebuild).not.toHaveBeenCalled();
         expect(segmentRebuild).not.toHaveBeenCalled();
         expect(scrollPage.getVirtualBlockOffset(1)).toBeCloseTo(65, 4);
+    });
+
+    it('propagates async height growth across a mounted virtual segment boundary', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + VIRTUAL_RENDERER_SEGMENT_BLOCKS * 3;
+        const muya = new Muya(host, {
+            markdown: paragraphs(totalBlocks),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const boundaryIndex = VIRTUAL_RENDERER_SEGMENT_BLOCKS - 1;
+        const boundaryOffset = scrollPage.getVirtualBlockOffset(boundaryIndex);
+        if (boundaryOffset == null)
+            throw new Error('expected virtual boundary offset');
+
+        scrollPage.updateVirtualWindowForViewport(boundaryOffset, 720);
+        const internals = scrollPage as unknown as {
+            _virtualBlocks: Array<{ domNode: HTMLElement | null }>;
+            _measureVirtualBlockHeights: (entries: readonly ResizeObserverEntry[]) => void;
+            _virtualMountedIndexes: Set<number>;
+            _virtualScrollContainer: HTMLElement | null;
+        };
+        const boundaryNode = internals._virtualBlocks[boundaryIndex]?.domNode;
+        const nextNode = internals._virtualBlocks[boundaryIndex + 1]?.domNode;
+        const container = internals._virtualScrollContainer;
+        if (!boundaryNode || !nextNode || !container)
+            throw new Error('expected adjacent mounted blocks across segment boundary');
+
+        expect(internals._virtualMountedIndexes.has(boundaryIndex)).toBe(true);
+        expect(internals._virtualMountedIndexes.has(boundaryIndex + 1)).toBe(true);
+        expect(boundaryNode.parentElement).not.toBe(nextNode.parentElement);
+        expect(boundaryNode.parentElement?.classList.contains('mu-virtual-segment')).toBe(true);
+        expect(nextNode.parentElement?.classList.contains('mu-virtual-segment')).toBe(true);
+
+        const nextOffsetBefore = scrollPage.getVirtualBlockOffset(boundaryIndex + 1);
+        if (nextOffsetBefore == null)
+            throw new Error('expected next virtual offset');
+        Object.defineProperty(container, 'clientHeight', {
+            configurable: true,
+            value: 720,
+        });
+        container.scrollTop = boundaryOffset;
+
+        vi.spyOn(boundaryNode, 'getBoundingClientRect').mockReturnValue({ top: 100 } as DOMRect);
+        const nextRect = vi.spyOn(nextNode, 'getBoundingClientRect')
+            .mockReturnValue({ top: 340 } as DOMRect);
+
+        internals._measureVirtualBlockHeights([
+            { target: boundaryNode } as unknown as ResizeObserverEntry,
+        ]);
+
+        expect(scrollPage.getVirtualBlockOffset(boundaryIndex + 1)).not.toBeCloseTo(nextOffsetBefore, 4);
+        expect(scrollPage.getVirtualBlockOffset(boundaryIndex + 1)).toBeCloseTo(boundaryOffset + 240, 4);
+
+        const assertViewportCovered = () => {
+            const snapshot = scrollPage.getVirtualizationSnapshot();
+            const mountedStart = scrollPage.getVirtualBlockOffset(snapshot.windowStart);
+            const mountedEnd = scrollPage.getVirtualBlockOffset(snapshot.windowEnd);
+            if (mountedStart == null || mountedEnd == null)
+                throw new Error('expected logical mounted window bounds');
+            expect(mountedStart).toBeLessThanOrEqual(container.scrollTop);
+            expect(mountedEnd).toBeGreaterThanOrEqual(container.scrollTop + container.clientHeight);
+        };
+        assertViewportCovered();
+
+        // Repeat the same generic top-level resize to prove that geometry
+        // invalidation does not accumulate drift. The fixture uses ordinary
+        // paragraph blocks, so this covers the non-diagram async-content path
+        // that images and other media share through the block ResizeObserver.
+        nextRect.mockReturnValue({ top: 460 } as DOMRect);
+        internals._measureVirtualBlockHeights([
+            { target: boundaryNode } as unknown as ResizeObserverEntry,
+        ]);
+        expect(scrollPage.getVirtualBlockOffset(boundaryIndex + 1)).toBeCloseTo(boundaryOffset + 360, 4);
+        assertViewportCovered();
     });
 
     it('replaces a stale exact viewport anchor with the live DOM anchor when measured geometry changes', async () => {

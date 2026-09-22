@@ -1288,6 +1288,33 @@ export class ScrollPage extends Parent implements IDocumentSurface {
         return low;
     }
 
+    private _canMeasureVirtualBlockAdvance(
+        node: HTMLElement,
+        nextNode: HTMLElement,
+        index: number,
+    ): boolean {
+        const segment = node.parentElement;
+        const nextSegment = nextNode.parentElement;
+        if (
+            !segment?.classList.contains('mu-virtual-segment')
+            || !nextSegment?.classList.contains('mu-virtual-segment')
+            || segment.parentElement !== this.domNode
+            || nextSegment.parentElement !== this.domNode
+        ) {
+            return false;
+        }
+
+        if (segment === nextSegment)
+            return nextNode.previousElementSibling === node;
+
+        const segmentIndex = Math.floor(index / VIRTUAL_RENDERER_SEGMENT_BLOCKS);
+        const nextSegmentIndex = Math.floor((index + 1) / VIRTUAL_RENDERER_SEGMENT_BLOCKS);
+        return nextSegmentIndex === segmentIndex + 1
+            && index + 1 === this._virtualSegmentStartBlock(nextSegmentIndex)
+            && node.nextElementSibling === null
+            && nextNode.previousElementSibling === null;
+    }
+
     private _measureVirtualBlockHeights(entries: readonly ResizeObserverEntry[]): void {
         if (!this._virtualizationEnabled || !this._virtualScrollContainer)
             return;
@@ -1326,10 +1353,11 @@ export class ScrollPage extends Parent implements IDocumentSurface {
 
         for (const entry of entries) {
             const node = entry.target;
-            const segment = node instanceof HTMLElement ? node.parentElement : null;
+            if (!(node instanceof HTMLElement))
+                continue;
+            const segment = node.parentElement;
             if (
-                !(node instanceof HTMLElement)
-                || !segment?.classList.contains('mu-virtual-segment')
+                !segment?.classList.contains('mu-virtual-segment')
                 || segment.parentElement !== this.domNode
             ) {
                 continue;
@@ -1346,11 +1374,13 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             const nextNode = nextBlock?.domNode;
             // ResizeObserver border-box height excludes collapsed margins. Only
             // replace an estimate when we can measure the exact top-to-top
-            // advance to the logical next block in one contiguous DOM region.
+            // advance to the logical next block in one contiguous mounted region.
+            // A segment wrapper is only a virtualization mutation boundary
+            // (display: contents); logically adjacent mounted blocks on either
+            // side of a segment boundary still form one exact geometry span.
             if (
                 !nextNode
-                || nextNode.parentElement !== segment
-                || nextNode.previousElementSibling !== node
+                || !this._canMeasureVirtualBlockAdvance(node, nextNode, index)
             ) {
                 continue;
             }

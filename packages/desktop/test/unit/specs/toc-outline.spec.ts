@@ -161,14 +161,15 @@ describe('TOC outline utilities', () => {
 
     // The logical prefix index is intentionally stale enough to select "later".
     // The mounted target is actually at the navigation activation line and must
-    // remain the active outline entry.
+    // remain the active outline entry while it belongs to Muya's primary window.
     const offsets = new Map([[2, 0], [40, 400], [80, 800]])
     const onActiveChange = vi.fn()
     const sync = createTocScrollSync(
       container,
       onActiveChange,
       40,
-      (blockIndex) => offsets.get(blockIndex) ?? null
+      (blockIndex) => offsets.get(blockIndex) ?? null,
+      () => ({ start: 20, end: 60 })
     )
     sync.update([
       { slug: 'uid-first', blockIndex: 2 },
@@ -276,6 +277,52 @@ describe('TOC outline utilities', () => {
 
     expect(onActiveChange).toHaveBeenLastCalledWith('uid-later')
     sync.destroy()
+  })
+
+  it('does not let a distant retained mounted heading override the live virtual prefix', () => {
+    const container = document.createElement('div')
+    const root = document.createElement('div')
+    const retainedRoot = document.createElement('h1')
+    root.className = 'mu-container'
+    retainedRoot.setAttribute('data-virtual-block-index', '0')
+    root.append(retainedRoot)
+    container.append(root)
+    document.body.append(container)
+    container.scrollTop = 850
+
+    const rect = (top: number): DOMRect => ({
+      top,
+      bottom: top + 40,
+      height: 40,
+      left: 0,
+      right: 700,
+      width: 700,
+      x: 0,
+      y: top,
+      toJSON: () => ({})
+    } as DOMRect)
+    vi.spyOn(container, 'getBoundingClientRect').mockReturnValue(rect(0))
+    vi.spyOn(retainedRoot, 'getBoundingClientRect').mockReturnValue(rect(-850))
+
+    const offsets = new Map([[0, 0], [40, 800], [80, 1600]])
+    const onActiveChange = vi.fn()
+    const sync = createTocScrollSync(
+      container,
+      onActiveChange,
+      40,
+      (blockIndex) => offsets.get(blockIndex) ?? null
+    )
+    sync.update([
+      { slug: 'uid-root', blockIndex: 0 },
+      { slug: 'uid-middle', blockIndex: 40 },
+      { slug: 'uid-later', blockIndex: 80 }
+    ])
+    sync.attach()
+    sync.refresh()
+
+    expect(onActiveChange).toHaveBeenLastCalledWith('uid-middle')
+    sync.destroy()
+    container.remove()
   })
 
   it('commits only the final active heading after two stable scroll paint boundaries', () => {
