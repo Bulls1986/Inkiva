@@ -41,21 +41,9 @@ These are the durable architecture constraints after governance closure:
 
 ## Architecture governance documents
 
-Start here for architecture work. The audit document preserves the original planning context; when its historical roadmap conflicts with completed implementation, the ARCH-01～ARCH-08 durable documents and final closure report are authoritative.
+Architecture history and durable ARCH contracts are indexed in [docs/architecture](../architecture/README.md). Open that index only for architecture/governance work, then load the specific contract or audit needed by the affected subsystem.
 
-- [Architecture audit / governance sequence](../architecture/ARCHITECTURE_AUDIT_2026-09.md)
-- [ARCH-01 — Editor runtime ownership/lifecycle](../architecture/ARCH-01_EDITOR_RUNTIME_PROGRESS.md)
-- [ARCH-02 — IPC contract](../architecture/ARCH-02-IPC-CONTRACT.md)
-- [ARCH-03 — Virtual surface contract](../architecture/ARCH-03-VIRTUAL-SURFACE-CONTRACT.md)
-- [ARCH-04 — Block geometry unification](../architecture/ARCH-04-BLOCK-GEOMETRY-UNIFICATION.md)
-- [ARCH-05 — Renderer event-bus contract](../architecture/ARCH-05-EVENT-BUS-CONTRACT.md)
-- [ARCH-06 — Muya public type boundary / legacy cleanup](../architecture/ARCH-06-MUYA-PUBLIC-TYPE-BOUNDARY.md)
-- [ARCH-07 — Background scheduler / services governance](../architecture/ARCH-07-BACKGROUND-SCHEDULER.md)
-- [ARCH-08 — Legacy patch debt / boundary closure](../architecture/ARCH-08-LEGACY-PATCH-CLOSURE.md)
-- [ARCH-01～08 final closure report](../architecture/ARCH-08-ARCHITECTURE-GOVERNANCE-CLOSURE-REPORT.md)
-- [PR-C performance/virtualization change ledger](../perf-pr-c-change-ledger.md)
-
-When a new architecture-governance task is completed, link its durable document here and from root `AGENTS.md` if it is a primary entrypoint.
+Performance/virtualization history is kept separately in [docs/performance](../performance/README.md); do not mix performance history into the architecture first-load contract.
 
 ## Code conventions
 

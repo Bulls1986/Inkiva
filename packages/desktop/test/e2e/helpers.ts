@@ -23,9 +23,6 @@ const getTempPath = (suffix = ''): string => {
 }
 
 export const getElectronPath = (): string => {
-  if (process.platform === 'win32') {
-    return path.resolve(path.join('node_modules', '.bin', 'electron.cmd'))
-  }
   const pathTxt = path.join(projectRoot, 'node_modules/electron/path.txt')
   const relPath = fs.readFileSync(pathTxt, 'utf-8').trim()
   return path.join(projectRoot, 'node_modules/electron/dist', relPath)

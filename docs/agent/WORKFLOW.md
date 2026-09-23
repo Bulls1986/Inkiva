@@ -11,6 +11,7 @@
 - Keep implementation, regression tests, and required guards in one coherent change chain.
 - Do not mix unrelated cleanup into the task.
 - Do not auto-merge unless explicitly requested.
+- If WebCodex `show_changes` cannot obtain Git status, do not keep retrying the same inspection path. Fall back once to `git_status` / `git_diff_summary`, or bounded `git status --short` + `git diff --stat` + targeted `git diff -- <paths>`; continue review from that evidence and retry `show_changes` only after repository state changes or the underlying status path is known healthy.
 
 ## Stage records
 
@@ -20,12 +21,12 @@ Record completed work, unfinished work, blockers/root cause, validation evidence
 
 Never invent historical measurements. If a prior change was not independently measured, say so.
 
-Examples:
+Stage records are grouped by domain; use the domain index instead of preloading individual histories:
 
-- [Architecture audit](../architecture/ARCHITECTURE_AUDIT_2026-09.md)
-- [ARCH-01 progress](../architecture/ARCH-01_EDITOR_RUNTIME_PROGRESS.md)
-- [ARCH-05 event-bus contract](../architecture/ARCH-05-EVENT-BUS-CONTRACT.md)
-- [PR-C change ledger](../perf-pr-c-change-ledger.md)
+- [Architecture](../architecture/README.md)
+- [Performance](../performance/README.md)
+- [Benchmark](../benchmark/README.md)
+- [Correctness](../correctness/README.md)
 
 ## End-of-task learning review
 
@@ -37,7 +38,8 @@ Every task must end with a brief learning review, even when the implementation i
 4. Remove or rewrite stale/conflicting guidance when new evidence supersedes it; do not keep contradictory old/new paths side by side.
 5. Add a new standalone rule/document only when the lesson is materially distinct and likely to recur.
 6. Keep root `AGENTS.md` concise. Detailed lessons belong in the relevant linked guide or durable task/architecture record.
-7. If the task discovered a new environment issue, also apply the “learn once” rule in [ENVIRONMENT.md](ENVIRONMENT.md): after the verified path is known, make it canonical and stop re-exploring it.
+7. If the task discovered a new environment issue, apply the “learn once” rule in [ENVIRONMENT_RECIPES.md](ENVIRONMENT_RECIPES.md): after the verified path is known, record the reusable diagnosis there and stop re-exploring it. Update [ENVIRONMENT.md](ENVIRONMENT.md) only if the normal first-load contract itself changed.
+8. Use progressive disclosure for durable knowledge: first-load guides contain only high-frequency contracts, readiness gates, and navigation. Low-frequency diagnostics, historical failure signatures, and tool-specific recovery paths belong in linked recipe/reference documents and are loaded only when triggered by a matching symptom.
 
 The goal is a curated knowledge base that becomes smaller and clearer over time, not an ever-growing log of one-off observations.
 

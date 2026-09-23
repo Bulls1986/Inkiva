@@ -147,6 +147,7 @@ export class Muya {
     public i18n: I18n;
 
     private _uiPlugins: Record<string, unknown> = {};
+    private _uiPluginCursor = 0;
     private _destroyed = false;
 
     constructor(element: HTMLElement, options?: Partial<IMuyaOptions>) {
@@ -173,13 +174,49 @@ export class Muya {
         if (this._destroyed)
             return;
 
-        this.editor.init();
+        this.initEditorCore();
+        this.initUiPlugins();
+    }
 
-        // UI plugins
-        if (Muya.plugins.length) {
-            for (const { pluginName, create } of Muya.plugins)
-                this._uiPlugins[pluginName] = create(this);
-        }
+    /**
+     * Initialize the document/editor core without constructing floating UI
+     * plugins. `init()` still calls this and `initUiPlugins()` synchronously in
+     * the historical order; the split exists so the desktop can measure the
+     * two activation costs independently before deciding whether any UI work
+     * is safe to defer.
+     */
+    initEditorCore(autoFocus = true) {
+        if (this._destroyed)
+            return;
+
+        this.editor.init(autoFocus);
+    }
+
+    /** See `initEditorCore()`. This preserves the existing plugin creation loop. */
+    initUiPlugins() {
+        if (this._destroyed)
+            return;
+
+        while (this._uiPluginCursor < Muya.plugins.length)
+            this.initNextUiPlugin();
+    }
+
+    /**
+     * Construct at most one registered UI plugin and report whether more work
+     * remains. This gives renderer schedulers an explicit yield boundary while
+     * keeping `init()` behavior unchanged for normal Muya consumers.
+     */
+    initNextUiPlugin(): boolean {
+        if (this._destroyed)
+            return false;
+
+        const plugin = Muya.plugins[this._uiPluginCursor];
+        if (!plugin)
+            return false;
+
+        this._uiPluginCursor += 1;
+        this._uiPlugins[plugin.pluginName] = plugin.create(this);
+        return this._uiPluginCursor < Muya.plugins.length;
     }
 
     locale(object: ILocale) {
