@@ -534,3 +534,104 @@ For v0.4.1, these four version-bearing sources must move together unless a dedic
 single-source synchronization mechanism is introduced first. This audit will not invent such
 a mechanism immediately before release.
 
+## E2E Phase-2 — Benefit Model (measurement only)
+
+> Status: MEASURED / NO IMPLEMENTATION.
+>
+> This phase intentionally changes no E2E implementation, worker count, timeout, retry,
+> assertion, fixture or release gate. Its purpose is to quantify whether a post-v0.4.1
+> second-stage E2E optimization is worth the lifecycle/isolation risk.
+
+### Static execution-shape inventory
+
+Current desktop E2E source contains:
+
+- **96** Playwright spec files;
+- **358** static `test(...)` call sites;
+- **174** static Electron launch call sites (`launchWithMarkdown`, `launchWithDoc`,
+  or direct `launchElectron`);
+- **75** `beforeAll` hooks and **22** `beforeEach` hooks;
+- **68 / 96** spec files have exactly one Electron launch call site;
+- **28 / 96** spec files contain more than one Electron launch call site;
+- the suite still contains **46,771 ms** of numeric `waitForTimeout` budget;
+- Playwright remains explicitly fixed at **2 workers**.
+
+This confirms that the current harness already performs substantial file-level lifecycle reuse.
+The optimization target is therefore not “reuse Electron everywhere”; it is the smaller set of
+multi-launch suites plus individually provable time-based waits.
+
+### Fixed-wait ceiling
+
+The remaining numeric fixed waits total **46.771 s of worker-time**. With two perfectly balanced
+workers, even deleting every one of those waits would have a mathematical wall-clock ceiling of
+about **23.4 s**, or **5.8%** of the measured 406 s post-P1-A E2E body.
+
+That is an upper bound, not an expected saving:
+
+- not every static wait executes in every default-suite path;
+- many waits encode real debounce/watch/reload timing contracts and cannot simply disappear;
+- replacing a sleep with an observable condition may remove flake without saving its full nominal
+  duration.
+
+Therefore fixed-wait cleanup alone cannot plausibly produce a large second-stage speedup.
+
+### Electron-launch reuse ceiling
+
+If every spec could safely run with only one Electron launch, the static launch count would fall
+from **174 to 96**, removing at most **78 launch call sites (44.8%)**. This is also only a structural
+ceiling: launch-isolation semantics intentionally differ across updater, crash, workspace, restore,
+source-readiness and lifecycle regressions.
+
+Because a trustworthy per-launch startup cost has not yet been measured on the reference CI runner,
+the model keeps startup cost as **T seconds** instead of inventing a number:
+
+- absolute within-file ceiling with two workers: approximately **39 × T seconds** wall-clock;
+- if only 25% of the 78 excess launches are safely reusable: approximately **10 × T seconds**;
+- if 50% are safely reusable: approximately **19.5 × T seconds**;
+- reaching a 20% reduction of a 406 s body from within-file launch reuse alone would require both
+  nearly all excess launches to be removable and average launch cost to exceed about **2.1 s**.
+
+This makes launch timing the next required measurement before any lifecycle-reuse implementation.
+
+The current highest-density files are also obvious audit targets rather than global-reuse candidates:
+`editor-switch-performance.spec.ts` has 11 launch sites,
+`find-replace.spec.ts` and `parity-source-undo-saved.spec.ts` have 8 each,
+`source-mode-readiness.spec.ts` has 6, and several source/tab/workspace suites have 3–4.
+Each must be classified by isolation contract before consolidation.
+
+### Sharding ceiling
+
+CI wall-clock is a different optimization axis from total test work. The default E2E lane currently
+uses one job with two Playwright workers.
+
+Using the stable **406 s** post-P1-A E2E body as the scheduling baseline:
+
+- two equally balanced CI shards, each still using two workers, have an idealized E2E-body lower
+  bound near **203 s**;
+- real wall-clock will be higher because checkout/setup/postinstall/build and file imbalance remain;
+- this can still plausibly cut the E2E job critical path by roughly **35–45%** if runner capacity is
+  available and shard balance is good;
+- it does **not** reduce aggregate test computation and may increase CI resource consumption because
+  job bootstrap is duplicated.
+
+Therefore sharding has the largest plausible wall-clock benefit, but it is CI scheduling
+optimization rather than test-architecture efficiency.
+
+### Phase-2 benefit conclusion
+
+The evidence supports three separate benefit bands:
+
+| Direction | Evidence-based benefit | Risk / interpretation |
+| --- | ---: | --- |
+| Replace only provably redundant remaining fixed waits | **~2–5% likely ceiling** | Low/medium; improves determinism, but 5.8% is already the mathematical ceiling from the static wait budget |
+| Consolidate safe repeated launches inside selected multi-launch specs | **~5–15% plausible**, potentially higher only if reference launch timing proves expensive | Medium; must preserve fresh-profile/process isolation contracts |
+| Split default E2E into two balanced CI shards | **~35–45% plausible CI wall-clock reduction** | Medium; largest user-visible CI gain, but does not reduce total compute and duplicates bootstrap unless artifact reuse is added |
+
+A combined **15–25% E2E-body reduction** is worth pursuing only if reference-runner launch profiling
+shows Electron startup is materially expensive and a meaningful subset of the 78 excess launch sites
+can be removed without weakening isolation. Claims above that level require measured evidence.
+
+For v0.4.1 the decision remains: **do not implement Phase-2 lifecycle reuse before release**.
+If pursued after release, measure per-launch startup/readiness cost first, classify the 28 multi-launch
+specs by isolation contract second, and evaluate sharding independently from test-body optimization.
+

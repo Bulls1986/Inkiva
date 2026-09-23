@@ -573,12 +573,21 @@ export const launchWithDoc = async(
   relativeFixture: string,
   options: LaunchOptions = {}
 ): Promise<LaunchResult> => {
+  const profileStart = performance.now()
   const { app, page } = await launchElectron([relativeFixture], {
     ...options,
     waitForReady: false
   })
+  const launchReady = performance.now()
   await waitForEditor(page, options.waitForEditorTimeout)
+  const editorReady = performance.now()
   await waitForMenuReady(app)
+  const menuReady = performance.now()
+  if (process.env.INKIVA_E2E_PROFILE_LAUNCH === '1') {
+    console.log(
+      `INKIVA_E2E_LAUNCH_PROFILE kind=doc launch=${(launchReady - profileStart).toFixed(1)} editor=${(editorReady - launchReady).toFixed(1)} menu=${(menuReady - editorReady).toFixed(1)} total=${(menuReady - profileStart).toFixed(1)}`
+    )
+  }
   return { app, page }
 }
 
@@ -591,12 +600,21 @@ export const launchWithMarkdown = async(
   options: LaunchOptions = {}
 ): Promise<LaunchWithMarkdownResult> => {
   const filePath = writeTempMarkdown(markdown, options.filename)
+  const profileStart = performance.now()
   const { app, page } = await launchElectron([filePath], {
     ...options,
     waitForReady: false
   })
+  const launchReady = performance.now()
   await waitForEditor(page, options.waitForEditorTimeout)
+  const editorReady = performance.now()
   await waitForMenuReady(app)
+  const menuReady = performance.now()
+  if (process.env.INKIVA_E2E_PROFILE_LAUNCH === '1') {
+    console.log(
+      `INKIVA_E2E_LAUNCH_PROFILE kind=markdown launch=${(launchReady - profileStart).toFixed(1)} editor=${(editorReady - launchReady).toFixed(1)} menu=${(menuReady - editorReady).toFixed(1)} total=${(menuReady - profileStart).toFixed(1)}`
+    )
+  }
   return { app, page, filePath }
 }
 
