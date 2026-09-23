@@ -549,8 +549,7 @@ That HEAD has green:
 - Lint;
 - Validate Licenses.
 
-Pure documentation HEAD `1935ad1fa0bdd668c22f36fb60146ffc966fe529` then verified the new docs-only
-quick path: it triggered **no CI runs**, as intended.
+A first check after documentation HEAD `1935ad1fa0bdd668c22f36fb60146ffc966fe529` was queried too early and incorrectly appeared to show no CI. A later docs-only HEAD `89f896410719e6b40614d5f57609cfa68fdec80e` proved the important GitHub behavior: because this is a mixed PR, `pull_request.paths-ignore` is evaluated against the whole PR diff and the heavyweight workflows were retriggered. Those docs-only duplicate runs were cancelled. The durable rule is therefore: path filters handle wholly docs-only PRs; mixed-PR docs-only follow-up commits use `[skip ci]` after verifying their delta is documentation-only.
 
 Remaining closure sequence when the required Windows `reference-low-end` runner is restored:
 
@@ -578,20 +577,13 @@ Repository protection state was checked before changing workflow semantics:
 - the repository ruleset named `dev` is disabled;
 - therefore path-skipped desktop workflows cannot currently leave a required check permanently pending.
 
-The desktop `PR Build`, `E2E Test`, `Lint` and `Test` workflows now ignore only narrow
-documentation patterns: `docs/**`, root `*.md`, and package `README*.md` /
-`CHANGELOG*.md`. The rule deliberately does **not** ignore arbitrary `**/*.md`, because Markdown
-under test/fixture paths can be executable test input. Workflow files, code, tests, scripts,
-manifests, lockfiles and version-bearing changes still trigger their normal gates.
+The desktop `PR Build`, `E2E Test`, `Lint` and `Test` workflows now ignore only narrow documentation patterns when the **entire PR diff** is docs-only: `docs/**`, root `*.md`, and package `README*.md` / `CHANGELOG*.md`. The rule deliberately does **not** ignore arbitrary `**/*.md`, because Markdown under test/fixture paths can be executable test input. In mixed PRs, later docs-only commits must carry `[skip ci]` after verifying that the commit delta contains only those documentation paths. Workflow files, code, tests, scripts, manifests, lockfiles and version-bearing changes still trigger their normal gates.
 
 If branch protection or required checks are enabled later, this optimization must be re-audited;
 an always-reporting aggregate CI gate is the preferred replacement if skipped required workflows
 would otherwise remain pending.
 
-The quick path also defines closure semantics: documentation-only stage-record updates after the last
-behavior-bearing commit do not invalidate already-completed product/performance gates. This prevents
-an impossible loop where recording a gate result creates a new commit that would require the same
-gate again.
+The quick path also defines closure semantics: documentation-only stage-record updates after the last behavior-bearing commit do not invalidate already-completed product/performance gates. In mixed PRs those closure commits use `[skip ci]`; this prevents an impossible loop where recording a gate result creates another full product CI cycle.
 
 ## E2E Phase-2 — Benefit Model (measurement only)
 
