@@ -34,7 +34,11 @@ export const compareBenchmarkReportsForPooling = (
   if (left.provenance === undefined || right.provenance === undefined) {
     reasons.push('provenance is missing')
   } else {
-    if (left.provenance.commit !== right.provenance.commit) reasons.push('provenance.commit differs')
+    if (left.provenance.tree === undefined || right.provenance.tree === undefined) {
+      reasons.push('provenance.tree is missing')
+    } else if (left.provenance.tree !== right.provenance.tree) {
+      reasons.push('provenance.tree differs')
+    }
     if (left.provenance.nodeVersion !== right.provenance.nodeVersion) {
       reasons.push('provenance.nodeVersion differs')
     }

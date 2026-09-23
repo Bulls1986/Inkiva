@@ -76,6 +76,7 @@ jobs:
         env:
           INKIVA_PERF_MODE: 'pr-smoke'
           INKIVA_PERF_RUNNER_LABEL: 'fast-pr-smoke'
+          INKIVA_PERF_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
 
       - name: Upload fast performance reports
         if: always()

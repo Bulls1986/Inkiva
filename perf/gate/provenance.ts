@@ -40,6 +40,11 @@ export const readBenchmarkProvenance = (
   const repoRoot = resolve(options.repoRoot)
   const environment = options.environment ?? process.env
   const commit = environment.GITHUB_SHA?.trim() || readGit(repoRoot, ['rev-parse', 'HEAD'])
+  const sourceCommit =
+    environment.INKIVA_PERF_SOURCE_COMMIT?.trim() ||
+    environment.GITHUB_HEAD_SHA?.trim() ||
+    commit
+  const tree = environment.INKIVA_PERF_TREE_SHA?.trim() || readGit(repoRoot, ['rev-parse', 'HEAD^{tree}'])
   const detectedBranch =
     environment.GITHUB_HEAD_REF?.trim() ||
     environment.GITHUB_REF_NAME?.trim() ||
@@ -50,6 +55,8 @@ export const readBenchmarkProvenance = (
 
   return {
     commit,
+    sourceCommit,
+    tree,
     branch,
     nodeVersion: process.version,
     electronVersion: readElectronVersion(repoRoot, environment),

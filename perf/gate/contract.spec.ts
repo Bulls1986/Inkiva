@@ -106,6 +106,8 @@ test('report provenance accepts exact fixture hashes and rejects malformed hashe
   const valid = report('P0', { input: series(constantSamples(1)) })
   valid.provenance = {
     commit: '0123456789abcdef',
+    sourceCommit: 'fedcba9876543210',
+    tree: 'a'.repeat(40),
     branch: 'develop',
     nodeVersion: 'v24.21.0',
     electronVersion: '42.1.0',

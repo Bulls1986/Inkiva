@@ -62,6 +62,8 @@ export interface PerformanceGateEnvironment {
 
 export interface PerformanceGateProvenance {
   commit: string
+  sourceCommit?: string
+  tree?: string
   branch: string
   nodeVersion: string
   electronVersion: string
@@ -250,6 +252,8 @@ function validateProvenance(value: unknown): asserts value is PerformanceGatePro
     provenance,
     [
       'commit',
+      'sourceCommit',
+      'tree',
       'branch',
       'nodeVersion',
       'electronVersion',
@@ -272,6 +276,14 @@ function validateProvenance(value: unknown): asserts value is PerformanceGatePro
     'runId',
   ] as const) {
     assertNonEmptyString(provenance[key], 'report.provenance.' + key)
+  }
+  if (provenance.sourceCommit !== undefined) {
+    assertNonEmptyString(provenance.sourceCommit, 'report.provenance.sourceCommit')
+  }
+  if (provenance.tree !== undefined) {
+    if (typeof provenance.tree !== 'string' || !/^[a-f0-9]{40}$/.test(provenance.tree)) {
+      throw new Error('report.provenance.tree must be a 40-character Git tree SHA')
+    }
   }
   if (provenance.fixtureHashes !== undefined) {
     const hashes = asRecord(provenance.fixtureHashes, 'report.provenance.fixtureHashes')

@@ -23,6 +23,8 @@ const makeReport = (runId: string, values: number[]): PerformanceGateReport => (
   },
   provenance: {
     commit: 'a'.repeat(40),
+    sourceCommit: 'a'.repeat(40),
+    tree: 'b'.repeat(40),
     branch: 'develop',
     nodeVersion: 'v24.21.0',
     electronVersion: '42.1.0',

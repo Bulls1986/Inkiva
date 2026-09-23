@@ -23,6 +23,8 @@ const makeReport = (): PerformanceGateReport => ({
   },
   provenance: {
     commit: 'a'.repeat(40),
+    sourceCommit: 'b'.repeat(40),
+    tree: 'c'.repeat(40),
     branch: 'develop',
     nodeVersion: 'v24.21.0',
     electronVersion: '42.1.0',
@@ -44,11 +46,33 @@ test('identical benchmark contracts are comparable despite run and branch identi
   const right = makeReport()
   right.provenance!.runId = 'run-2'
   right.provenance!.branch = 'perf/repeatability'
+  right.provenance!.commit = 'd'.repeat(40)
 
   assert.deepEqual(compareBenchmarkReportsForPooling(left, right), {
     comparable: true,
     reasons: []
   })
+})
+
+test('different source commits with the same tree remain poolable', () => {
+  const left = makeReport()
+  const right = makeReport()
+  right.provenance!.sourceCommit = 'e'.repeat(40)
+
+  assert.deepEqual(compareBenchmarkReportsForPooling(left, right), {
+    comparable: true,
+    reasons: []
+  })
+})
+
+test('different code trees are never pooled', () => {
+  const left = makeReport()
+  const right = makeReport()
+  right.provenance!.tree = 'f'.repeat(40)
+
+  const result = compareBenchmarkReportsForPooling(left, right)
+  assert.equal(result.comparable, false)
+  assert.deepEqual(result.reasons, ['provenance.tree differs'])
 })
 
 test('default GPU and OpenGL reports are never pooled', () => {
@@ -79,6 +103,16 @@ test('missing provenance prevents authoritative pooling', () => {
   const result = compareBenchmarkReportsForPooling(left, right)
   assert.equal(result.comparable, false)
   assert.deepEqual(result.reasons, ['provenance is missing'])
+})
+
+test('missing tree identity prevents authoritative pooling', () => {
+  const left = makeReport()
+  const right = makeReport()
+  delete right.provenance!.tree
+
+  const result = compareBenchmarkReportsForPooling(left, right)
+  assert.equal(result.comparable, false)
+  assert.deepEqual(result.reasons, ['provenance.tree is missing'])
 })
 
 test('runtime, environment and warm-state differences are reported explicitly', () => {

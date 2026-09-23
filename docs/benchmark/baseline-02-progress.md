@@ -15,15 +15,15 @@
 | BASELINE-01 review | Complete for kickoff | Reviewed final report and retained findings: 50K long-tail failures, 500K default-backend extreme stalls, default/OpenGL divergence, and the P2 image-wrapper probe defect. These are inputs to trustworthiness audit, not assumed product regressions. |
 | Benchmark inventory | First pass complete | Full first-pass matrix landed in `docs/benchmark/BASELINE-02-BENCHMARK-INVENTORY.md`, including cold startup, document open, input, save, FPS/frame timing, GC, heap, stability, fixtures and gate levels. |
 | Measurement-boundary audit | First pass complete; fixes pending E2E remeasure | FPS is explicitly a ~1s rAF-window average. 50K fast-open samples were normalized to renderer-owned `openStartAt → milestone`. P0 `document.regular.*` is documented as cold-launch-coupled and not comparable with open-only metrics. |
-| Metadata/provenance audit | Core implementation complete | Fast runner now reads product version from `package.json`. Reports may carry validated provenance: commit, branch, Node, installed Electron, graphics backend, run mode, warm state, run id, fixture hashes. Metadata CLI was executed locally and emitted correct provenance. Fixture-hash propagation into every dynamic E2E fixture remains pending. |
+| Metadata/provenance audit | Core implementation complete; PR merge identity fix pending CI | Fast runner reads product version from `package.json`. Reports carry checkout commit, source commit, Git tree, branch, Node, installed Electron, graphics backend, run mode, warm state, run id and optional fixture hashes. Fast Gate artifact proved PR runs execute a temporary merge commit, so pooling now keys code identity by Git tree rather than checkout commit. |
 | Statistics schema | Complete | `calculateStatistics` exposes min/p50/p95/p99/max/count plus mean, population stddev and CV; zero-mean CV is defined as 0. |
 | Harness validation | Core Node suites green | Donor `tsx@4.22.4` payload executes current-worktree sources correctly. `perf/gate/*.spec.ts`: 72/72 pass. `perf/soak` fast suites: 14/14 pass. Metadata CLI provenance path also passes. |
-| Desktop type/E2E validation | Environment blocked | Donor `vue-tsc` fails before current-worktree type discovery due donor `estree-walker` export failure; this route is rejected as environment evidence. Current worktree still lacks a complete Desktop dependency/build graph. |
-| Variance/reproducibility | Pending real Electron runs | Two independent rounds remain pending; core harness validation is no longer blocked, but authoritative Electron runs require a valid current-worktree build/runtime. |
+| Desktop type/E2E validation | CI path proven | Local donor `vue-tsc` remains invalid environment topology, but PR #177 standard CI built the app and completed the real Electron Fast Gate successfully. This is the authoritative Desktop path for BASELINE-02. |
+| Variance/reproducibility | Fast Gate round available; reference rounds pending | PR Fast Gate completed successfully on standard CI. Two independent reference-runner rounds remain pending; the first queued reference run was cancelled before execution after provenance identity semantics were tightened. |
 | Default GPU vs OpenGL | Pending real Electron runs | Must remain separate baselines; data must never be pooled. |
 | Controlled slowdown | Complete at evaluator layer | Synthetic unchanged control passes and uniform known slowdown fails the declared p95 gate. Real Electron slowdown injection is not required for the evaluator correctness proof and no production slowdown code was added. |
 | Trustworthiness matrix | Draft complete | First-pass TRUSTED / CONDITIONALLY TRUSTED classifications and comparison restrictions are in the benchmark inventory; final labels await reproducibility runs. |
-| Pooling comparability | Complete | Added programmatic pooling contract: same product/suite/level, environment, commit, Node/Electron, graphics backend, run mode, warm state and fixture hashes are required. Branch and run id may differ. Missing provenance is non-poolable. |
+| Pooling comparability | Complete | Added programmatic pooling contract: same product/suite/level, environment, Git tree, Node/Electron, graphics backend, run mode, warm state and fixture hashes are required. Checkout commit/source commit/branch/run id may differ when the executed code tree is identical. Missing tree/provenance is non-poolable. |
 | Repeatability analysis | Complete, awaiting real reports | Added analyzer for two or more comparable runs. It reports per-run p50/p95/p99 and cross-run min/max/mean/population stddev/CV, and fails closed on backend/fixture/environment drift. |
 
 ## Initial trustworthiness findings
@@ -129,8 +129,8 @@ Classification: **Test-runner lifecycle / non-canonical invocation**.
 Before this stage, “same environment / same fixture” was a documentation rule but not enforced when aggregating repeated benchmark reports.
 
 Harness addition:
-- `compareBenchmarkReportsForPooling` rejects pooling when product/suite/level, environment, commit, Node/Electron, graphics backend, run mode, warm state, or fixture hash differs;
-- branch and run id are deliberately ignored for pooling identity because independent runs may use a different branch label/run id while executing the same commit;
+- `compareBenchmarkReportsForPooling` rejects pooling when product/suite/level, environment, Git tree, Node/Electron, graphics backend, run mode, warm state, or fixture hash differs;
+- checkout commit, source commit, branch and run id are deliberately ignored for pooling identity when the executed Git tree is identical;
 - missing provenance prevents authoritative pooling;
 - this API is explicitly for **repeatability pooling**, not cross-commit before/after regression comparison.
 
@@ -139,6 +139,27 @@ Harness addition:
 Focused tests: **9/9 pass**, including explicit rejection of Default GPU + OpenGL pooling and changed fixture hashes.
 
 Classification: **Comparability / reproducibility infrastructure**.
+
+### BT-012 — PR merge commit is not a stable pooling identity
+
+The first PR #177 Fast Gate completed successfully and produced a passing threshold report, but its provenance exposed a GitHub Actions nuance: `GITHUB_SHA` was the temporary PR merge commit `dfcd2eac…`, while the branch head was `cedf4ef0…`. GitHub's Git Data API confirmed both commits had the exact same tree `5f7b6f8e…` and the merge commit parents were `develop@677f96e1` plus the task branch head.
+
+Decision:
+- keep `commit` as the exact checkout/execution commit;
+- add `sourceCommit` for the PR/source revision;
+- add `tree` as stable executed-code identity;
+- use `tree`, not checkout commit, for repeatability pooling;
+- old reports without tree remain readable but are not authoritative pooling inputs.
+
+The Fast Gate workflow now injects the PR head SHA into provenance. Focused provenance/comparability/repeatability tests after this correction: **28/28 pass**; `git diff --check` passes.
+
+Classification: **Traceability / CI checkout semantics**.
+
+### CI evidence — PR #177 first Fast Gate
+
+Run `35814000281` completed **successfully** on the standard PR CI path. The formal fast evaluation passed with no failures. Representative observed values were: first-screen p95 `75.525 ms`, editable p95 `108.13 ms`, input p95 `0.37 ms`, input p99 `1.107 ms`, input max `2 ms`, minimum sampled scroll window `60 FPS`, save p95 `49.75 ms`, and all crash/OOM/runaway/hang counters `0`.
+
+This run proved the standard CI build/Electron/evaluator/artifact pipeline is operational. Its artifact also directly led to BT-012, so it is retained as diagnostic trustworthiness evidence rather than the final reproducibility baseline.
 
 ## Guardrails retained
 
