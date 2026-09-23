@@ -215,8 +215,8 @@ test.describe('CORRECTNESS-02 / Source Mode P1 readiness', () => {
           | (Element & { __vue_app__?: { config?: { globalProperties?: { $pinia?: { _s?: Map<string, unknown> } } } } })
           | null
         const stores = root?.__vue_app__?.config?.globalProperties?.$pinia?._s
-        const editor = stores?.get('editor') as { listToc?: Array<{ label?: string }> } | undefined
-        return editor?.listToc?.map((item) => item.label ?? '') ?? []
+        const editor = stores?.get('editor') as { listToc?: Array<{ content?: string }> } | undefined
+        return editor?.listToc?.map((item) => item.content ?? '') ?? []
       })
       expect(tocSnapshot).toHaveLength(500)
       expect(tocSnapshot[0]).toBe('Source Heading 001')

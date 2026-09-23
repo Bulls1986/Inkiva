@@ -4,6 +4,7 @@ import * as fs from 'node:fs'
 
 import {
   clearRendererErrors,
+  clickMenuById,
   enterSourceMode,
   exitSourceMode,
   expectNoRendererErrors,
@@ -22,33 +23,20 @@ const sourceValue = (page: Page): Promise<string> =>
     return root.CodeMirror.getValue()
   })
 
-const ensureSourceSurface = async(
-  page: Page,
-  app: ElectronApplication,
-  expectBoundedSource = false
-): Promise<void> => {
-  const boundedSource = page.locator('.degraded-editor-component[data-editor-mode="bounded-source"]')
-  if (expectBoundedSource) {
-    await expect(boundedSource).toBeAttached({ timeout: 60000 })
-  }
-  if (await boundedSource.count()) {
-    await page.waitForSelector(
-      '.degraded-editor-component[data-editor-mode="bounded-source"] .source-code .CodeMirror',
-      { state: 'attached', timeout: 60000 }
-    )
-    await page.waitForFunction(
-      () => {
-        const cm = document.querySelector(
-          '.degraded-editor-component[data-editor-mode="bounded-source"] .source-code .CodeMirror'
-        ) as (Element & { CodeMirror?: unknown }) | null
-        return !!cm?.CodeMirror
-      },
-      null,
-      { timeout: 60000 }
-    )
-    return
-  }
-  await enterSourceMode(page, app)
+const ensureSourceSurface = async(page: Page, app: ElectronApplication): Promise<void> => {
+  const already = await page.evaluate(() => !!document.querySelector('.source-code .CodeMirror'))
+  if (!already) await clickMenuById(app, 'sourceCodeModeMenuItem')
+  await page.waitForSelector('.source-code .CodeMirror', { state: 'attached', timeout: 60000 })
+  await page.waitForFunction(
+    () => {
+      const cm = document.querySelector('.source-code .CodeMirror') as
+        | (Element & { CodeMirror?: unknown })
+        | null
+      return !!cm?.CodeMirror
+    },
+    null,
+    { timeout: 60000 }
+  )
 }
 
 const replaceSourceRange = (
@@ -295,7 +283,7 @@ for (const [label, bytes] of [
     })
     try {
       await clearRendererErrors(launched.app)
-      await ensureSourceSurface(launched.page, launched.app, label === '1M')
+      await ensureSourceSurface(launched.page, launched.app)
       const source = await sourceValue(launched.page)
       expect(source).toBe(initial)
 

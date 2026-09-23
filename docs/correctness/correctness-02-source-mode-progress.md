@@ -94,7 +94,7 @@ Existing coverage retained as supporting evidence:
 
 50K / 500K / 1M correctness probes are defined in `source-mode-readiness.spec.ts`. Each asserts complete initial Source text, head/middle/tail edits, an immediate save without waiting for the source debounce, actual disk content, and complete-document size/tail evidence.
 
-Run 603 evidence: 50K and 500K passed. The 1M case failed in the test helper before content assertions because Inkiva intentionally enters `data-editor-mode="bounded-source"` for extreme documents; the existing helper treated the not-yet-mounted async CodeMirror as ordinary mode and toggled the Source menu, then timed out after 10 seconds. This is classified as test-infrastructure evidence, not a product correctness failure. The readiness test now recognizes bounded-source explicitly and waits for its real CodeMirror surface before running the same full-content/edit/save assertions; no workload or assertion is weakened.
+Run 603 evidence: 50K and 500K passed. The 1M case failed in the test helper before content assertions. A later architecture check confirmed the bounded-source threshold is 2 MiB, so 1 MiB is intentionally still inside the normal WYSIWYG envelope; the earlier test incorrectly assumed 1 MiB must already be degraded. The readiness helper now toggles the real Source command and gives the async CodeMirror surface the same 60-second large-document readiness window, while preserving the exact 1 MiB workload and all head/middle/tail/save assertions.
 
 ## Phase 5 — Outline / Find / Tab / Selection / CJK
 
@@ -115,6 +115,8 @@ Pending.
 PR #180 first substantive CI run: Lint green after test-style correction; unit Test green; Windows/macOS builds green; E2E red on invalid-Markdown and the 1M bounded-source helper assumption.
 
 Second substantive CI run on remote head `dafe8067`: Lint, Test, Performance Fast Gate, Windows build, macOS x64 build, macOS arm64 build, and artifact publication all green. E2E failed in four Source-readiness scenarios: invalid Markdown now differed only by one final newline (product contract gap identified above); 1M still entered the generic helper before the async bounded-source wrapper had mounted (test infrastructure, now waits explicitly for bounded-source); Find proved a real missing Source feature; and the 500-heading Outline assertion conflicted with the intentional Outline virtualization architecture. All four causes are now addressed without reducing document sizes, heading counts, or correctness requirements. A new CI run is required before readiness can advance.
+
+Third substantive CI run on remote head `bf13e2f3`: all non-E2E gates were green again. The invalid-Markdown defect and P1 Source Find scenario no longer appeared as failures. Remaining Source-readiness failures were test-contract issues: the 1 MiB case incorrectly expected the 2 MiB bounded-source threshold, the Outline store probe read nonexistent `label` rather than authoritative `content`, and the legacy find-replace suite still asserted that Find must be absent in Source Mode. Those tests are now aligned with the current Source contract without reducing the 1 MiB or 500-heading workloads. One unrelated WYSIWYG replace-all/undo saved-state assertion also failed in the same run and remains a full-regression item to re-check before closeout.
 
 ## Phase 9 — Documentation / learning review
 
