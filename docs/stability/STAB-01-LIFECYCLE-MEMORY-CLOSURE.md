@@ -220,10 +220,65 @@ Architecture check remains satisfied: no fix bypasses ARCH-06 public boundaries 
 - Electron main/preload/renderer production bundles completed successfully;
 - emitted Vite dynamic/static import warnings are existing bundling warnings and did not fail the build.
 
-## Phase 7 — CI
+## Phase 7 — CI / merge
 
-Status: pending.
+Status: complete.
+
+PR: #181 — `STAB-01: close lifecycle and memory ownership gaps`.
+
+Required/check evidence before merge:
+
+| Check | Result |
+| --- | --- |
+| E2E Test / `e2e` | pass |
+| Test / `test` | pass |
+| Lint / `lint` | pass |
+| Performance Fast Gate / `Desktop PR fast hard gate` | pass |
+| PR Build / Windows x64 | pass |
+| PR Build / macOS x64 | pass |
+| PR Build / macOS arm64 | pass |
+| PR artifact link comment | pass |
+
+PR #181 merged into `develop` at 2026-09-23 05:46:25 UTC.
+
+Merge commit: `a65c122e6c5e6cfe647de70b304bc5cd74a9438a`.
+
+No CI threshold, sample count, workload or required assertion was weakened to obtain green status.
 
 ## Phase 8 — Documentation / experience closure
 
-Status: pending.
+Status: complete.
+
+Durable records:
+
+- this document contains the lifecycle inventory, three confirmed defects, root causes, fixes, deterministic regressions, memory series, environment exclusions and remaining-risk classification;
+- `docs/agent/TESTING.md` was refined in the implementation commit with the reusable STAB-01 lifecycle/memory evidence contract:
+  - prove owner closure with deterministic resource counts before interpreting process memory;
+  - do not treat bootstrap/native-addon/runner failures as product red evidence;
+  - warm up JIT/lazy initialization/bounded caches;
+  - use multi-cycle post-GC trends when test-only GC is available;
+  - distinguish reachable JS retention from cache, Chromium/V8 allocator retention, native memory and environment noise;
+  - reproduce broad failures on clean base before calling them regressions.
+
+The task did not add duplicate environment guidance: the worktree/bootstrap/native-compilation paths encountered during STAB-01 were already covered by `docs/agent/ENVIRONMENT.md` and were followed rather than re-invented.
+
+Because this final update is documentation-only after implementation PR #181 and all required checks are green, project policy does not require repeating implementation CI.
+
+## Final STAB-01 verdict
+
+STAB-01 is complete.
+
+Evidence-based closure:
+
+- **Creation / owner / disposal:** the lifecycle inventory identifies the primary editor, renderer, scheduler, observer, timer, IPC, cache and main-process owners and their destroy paths.
+- **Confirmed defects:** three concrete lifecycle leaks/races were reproduced with red tests and fixed:
+  1. completed ripgrep searches retained renderer `destroyed` listeners;
+  2. bulk tab close allowed queued autosave callbacks to outlive their documents;
+  3. update preflight requests could retain timer/promise/window-owned state until timeout after renderer destruction.
+- **Deterministic closure:** focused and broader lifecycle tests prove listener/timer/task/callback state returns to the expected baseline; stale work cannot cross the repaired owner boundaries.
+- **Memory:** after 10 warm-up cycles and 20 measured post-GC cycles, renderer JS heap moved from 18,789,192 B to 18,554,516 B; long-window growth was -1.249% and both short/long linear-growth flags were false.
+- **Long-running interaction:** tab/document switching, source/WYSIWYG mode transitions, search, outline, images/blocks, diagrams, autosave/save/export/close and large-document stale-DOM scenarios completed without a STAB-01-specific destroyed-object or retained-growth failure.
+- **CI:** all PR #181 checks passed before merge.
+- **Architecture:** no STAB-01 fix bypassed ARCH-06 public boundaries or ARCH-07 scheduler ownership.
+
+Remaining items documented above are explicitly classified as suspected bounded/application-lifetime retention, expected cache, renderer-lifetime idle work, baseline correctness/type debt, Chromium/V8 behavior or environment noise; none is currently supported by evidence as an unclosed STAB-01 retained-growth leak.
