@@ -447,6 +447,41 @@ Implementation starts with P0-PKG-1 and P0-PKG-2. Cross-platform `out/` reuse is
 withheld until the split pipeline supplies evidence; release readiness must not depend on an
 unproven cross-OS artifact assumption.
 
+### P0 implementation / first CI evidence
+
+PR Build run `35871175821` validates the split pipeline structure on all three official
+targets:
+
+| Platform | Build application | Package | Build + package | Package smoke | Result |
+| --- | ---: | ---: | ---: | ---: | --- |
+| macOS arm64 | 31 s | 75 s | 106 s | 12 s smoke after 20 s artifact download | pass |
+| macOS x64 | 68 s | 141 s | 209 s | 20 s smoke after 22 s artifact download | pass |
+| Windows x64 | 36 s | 217 s | 253 s | 20 s smoke after 8 s artifact download | pass |
+
+Compared with the previous PR build's combined build/package steps (121 / 290 / 248 s),
+arm64 improved by 15 s, x64 macOS was materially faster in this sample, and Windows was
+effectively flat (+5 s). Shared-runner variance is large, especially on macOS x64, so this
+audit does not attribute the entire x64 delta to the pipeline change. The evidence shows that
+removing the duplicate rebuild expression is not the primary packaging performance win;
+electron-builder compression/DMG/NSIS work remains dominant.
+
+All three new package/install smoke jobs consumed downloaded artifacts and passed without
+rebuilding or re-running electron-builder.
+
+The first updater-smoke run failed during artifact assembly because the historical upload
+glob `dist/*.yml` also captured per-platform `builder-debug.yml`. The old release workflow
+flattened these same-named files with `cp`, silently allowing one platform's debug metadata to
+overwrite another. The audit therefore exposed a pre-existing nondeterministic release
+artifact collision. The correction narrows uploaded YAML metadata to `dist/latest*.yml` and
+keeps the new assembler's duplicate-name rejection fail-closed. This does not remove updater
+coverage; it removes non-release debug metadata from release artifacts.
+
+The same CI run also exposed two stale `platform-contract.spec.ts` assertions that encoded
+the previous inline release implementation. Those assertions are being updated rather than
+removed: the new contract requires assembly + updater release tests, package-smoke on all
+official targets, artifact reuse, fail-closed metadata assembly, and stable updater
+verification.
+
 ## Phase 7 — Release Readiness Audit
 
 > Status: IN PROGRESS.

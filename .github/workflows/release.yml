@@ -160,7 +160,7 @@ jobs:
             dist/*.zip
             dist/*.dmg
             dist/*.blockmap
-            dist/*.yml
+            dist/latest*.yml
 
   package-smoke:
     name: Package smoke (${{ matrix.name }})

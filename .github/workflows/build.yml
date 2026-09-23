@@ -76,7 +76,7 @@ jobs:
             dist/*.zip
             dist/*.dmg
             dist/*.blockmap
-            dist/*.yml
+            dist/latest*.yml
           if-no-files-found: error
 
   package-smoke:
