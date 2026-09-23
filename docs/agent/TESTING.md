@@ -16,6 +16,17 @@ Environment/bootstrap failure, missing dependencies, “0 tests”, or runner st
 
 Never weaken assertions, remove scenarios, lower thresholds, or alter workloads to make a change pass.
 
+## Lifecycle and memory evidence
+
+For lifecycle/memory work, prove owner closure before interpreting process-memory numbers:
+
+1. Prefer deterministic resource assertions such as listener/timer/task/instance/registry counts and stale-callback rejection.
+2. Reproduce a product red test only after the intended test body is discovered and running; bootstrap/native-addon/runner failures are environment evidence.
+3. Warm up JIT, lazy initialization and bounded product caches before measuring memory cycles.
+4. When test-only GC is explicitly available, compare a multi-cycle post-GC series and growth trend; do not diagnose a leak from one before/after heap or RSS delta.
+5. Distinguish reachable JS retention from expected cache, V8/Chromium allocator retention, native memory and environment noise.
+6. If a broad gate fails outside the changed area, run the identical gate on the clean base before classifying it as a regression.
+
 ## Test layers
 
 Use what the task requires:
