@@ -128,6 +128,9 @@ const captureEnvironment = (directory: string): Record<string, string> => ({
   INKIVA_PERF_RUNNER_LABEL: 'fast-pr-smoke'
 })
 
+const performanceGraphicsSwitches = (): string[] =>
+  process.env.INKIVA_PERF_GRAPHICS_BACKEND === 'opengl' ? ['--use-angle=gl'] : []
+
 const launchCaptured = async(
   args: string[],
   capture: CaptureDirectory,
@@ -140,6 +143,7 @@ const launchCaptured = async(
     suppressErrorDialog: true,
     waitForReady: false,
     waitForEditorTimeout,
+    electronSwitches: performanceGraphicsSwitches(),
     env: captureEnvironment(capture.directory)
   })
 }

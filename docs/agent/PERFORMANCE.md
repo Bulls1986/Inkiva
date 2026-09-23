@@ -40,4 +40,12 @@ Repository/configured gate is authoritative if these change.
 
 A green CI job is not equivalent to passing the final threshold report.
 
+## Baseline collection rules
+
+For architecture-wide baselines, keep collection and evaluation separate: a Playwright collector can pass while the formal threshold evaluator still fails. Retain raw/statistics/evaluation artifacts, report the evaluator result, and never substitute a historical green run for current measurements.
+
+When comparing graphics backends, run identical workloads and sample counts serially and report each backend independently. Do not pool default and `--use-angle=gl` samples. Baseline-only focused scenarios may be opt-in via environment variables and must stay disabled in normal Required CI.
+
+For long Electron measurements, the Runner timeout must exceed the Playwright scenario timeout. If an outer Runner timeout kills an otherwise-running Electron test, classify it as **Test Infrastructure**, not Product Stability.
+
 Historical performance work: [PR-C ledger](../perf-pr-c-change-ledger.md).

@@ -170,7 +170,7 @@ const openEditSwitchClose = async(
     await page.waitForFunction(
       () => {
         const root = document.querySelector<HTMLElement>('.mu-container')
-        return root != null && Number(root.dataset.pendingDetachedBlocks ?? -1) === 0
+        return root != null && Number(root.dataset.virtualPendingDetachedBlocks ?? -1) === 0
       },
       null,
       { timeout: 30_000 }
