@@ -484,6 +484,12 @@ interface EditorHistoryRevisionSnapshot {
 // `replaceContent` as the rebuild boundary's restore-selection, so the first
 // undo after the handoff returns the caret to where source mode was entered.
 let preSourceModeSelection: unknown = null
+// Source -> WYSIWYG handoff rebuilds Muya from the canonical Source snapshot.
+// `replaceContent` emits a synchronous `json-change` while parsing that snapshot;
+// that event is a presentation rebuild, not a new user mutation. Recording it
+// would allocate a newer revision and serialize Muya's normalized Markdown back
+// over the exact Source text (for example auto-closing an unfinished fence).
+let suppressEditorMutationRecording = false
 
 // Per-tab monotonic save-tracking id allocator. The synthetic history entry id
 // is a MONOTONIC, never-reused id keyed on the live document content (see
@@ -2262,8 +2268,13 @@ const handleFileChange = (payload: unknown) => {
       // document is unchanged this is a no-op (returns false) and the existing
       // history/content already match — either way the caret still needs
       // remapping below.
-      editor.value.replaceContent(newMarkdown, preSourceModeSelection)
-      preSourceModeSelection = null
+      suppressEditorMutationRecording = true
+      try {
+        editor.value.replaceContent(newMarkdown, preSourceModeSelection)
+      } finally {
+        suppressEditorMutationRecording = false
+        preSourceModeSelection = null
+      }
       refreshEditorTocWhenReady(id)
       // `replaceContent` can restart progressive/virtual rendering. Restore the
       // source-mode caret at the render-complete boundary so a later render pass
@@ -2739,6 +2750,7 @@ onMounted(() => {
     if (!currentFile.value || !editor.value) return
     const { id } = currentFile.value
     if (!id) return
+    if (suppressEditorMutationRecording) return
     const policy = getEditorMutationPolicy(change)
     editorRuntime.recordMutation(
       id,

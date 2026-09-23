@@ -22,6 +22,28 @@ const sourceValue = (page: Page): Promise<string> =>
     return root.CodeMirror.getValue()
   })
 
+const ensureSourceSurface = async(page: Page, app: ElectronApplication): Promise<void> => {
+  const boundedSource = page.locator('.degraded-editor-component[data-editor-mode="bounded-source"]')
+  if (await boundedSource.count()) {
+    await page.waitForSelector(
+      '.degraded-editor-component[data-editor-mode="bounded-source"] .source-code .CodeMirror',
+      { state: 'attached', timeout: 60000 }
+    )
+    await page.waitForFunction(
+      () => {
+        const cm = document.querySelector(
+          '.degraded-editor-component[data-editor-mode="bounded-source"] .source-code .CodeMirror'
+        ) as (Element & { CodeMirror?: unknown }) | null
+        return !!cm?.CodeMirror
+      },
+      null,
+      { timeout: 60000 }
+    )
+    return
+  }
+  await enterSourceMode(page, app)
+}
+
 const replaceSourceRange = (
   page: Page,
   text: string,
@@ -160,6 +182,7 @@ test.describe('CORRECTNESS-02 / Source Mode readiness', () => {
       let expected = '# Switch baseline\n\nbody\n'
       for (let cycle = 1; cycle <= 100; cycle++) {
         await enterSourceMode(launched.page, launched.app)
+        await expect(launched.page.locator('.source-code .CodeMirror')).toHaveCount(1)
         if (cycle % 10 === 0) {
           const marker = 'cycle-' + String(cycle) + '\n'
           const lastLine = expected.split('\n').length - 1
@@ -168,6 +191,7 @@ test.describe('CORRECTNESS-02 / Source Mode readiness', () => {
         }
         expect(await sourceValue(launched.page)).toBe(expected)
         await exitSourceMode(launched.page, launched.app)
+        await expect(launched.page.locator('.source-code .CodeMirror')).toHaveCount(0)
       }
       await enterSourceMode(launched.page, launched.app)
       expect(await sourceValue(launched.page)).toBe(expected)
@@ -264,7 +288,7 @@ for (const [label, bytes] of [
     })
     try {
       await clearRendererErrors(launched.app)
-      await enterSourceMode(launched.page, launched.app)
+      await ensureSourceSurface(launched.page, launched.app)
       const source = await sourceValue(launched.page)
       expect(source).toBe(initial)
 

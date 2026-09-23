@@ -73,7 +73,11 @@ The new deterministic coverage fills gaps rather than duplicating the existing v
 
 ## Phase 3 — P0
 
-Test definitions added; execution evidence pending CI because the local harness is blocked. No production code has been changed without a red product test.
+First authoritative CI execution (run 603) completed 380 E2E cases: 363 passed, 15 skipped, 2 failed. Lint, unit Test, Windows build, macOS x64 build, and macOS arm64 build were green.
+
+The first failure is a confirmed existing product defect and Source truth-contract violation: the invalid/intermediate Markdown case survives inside CodeMirror, but Source -> WYSIWYG -> Source caused Muya `replaceContent()` to synchronously emit `json-change`; that event was recorded as a fresh user mutation and serialized Muya's normalized Markdown back over the exact Source snapshot. In the reproduced case an unfinished fenced block gained an auto-generated closing fence plus newline. The focused red E2E remains the regression gate.
+
+The minimal production fix is constrained to the handoff boundary: while Muya synchronously rebuilds presentation state from the canonical Source snapshot, its rebuild `json-change` is not recorded as a new document mutation. Normal WYSIWYG edits remain unchanged. This preserves Source Markdown as the canonical revision while still rebuilding the rendered editor and its single undo boundary.
 
 Existing coverage retained as supporting evidence:
 
@@ -86,15 +90,17 @@ Existing coverage retained as supporting evidence:
 
 ## Phase 4 — Large documents
 
-50K / 500K / 1M correctness probes are defined in `source-mode-readiness.spec.ts`. Each asserts complete initial Source text, head/middle/tail edits, an immediate save without waiting for the source debounce, actual disk content, and complete-document size/tail evidence. Execution evidence pending CI.
+50K / 500K / 1M correctness probes are defined in `source-mode-readiness.spec.ts`. Each asserts complete initial Source text, head/middle/tail edits, an immediate save without waiting for the source debounce, actual disk content, and complete-document size/tail evidence.
+
+Run 603 evidence: 50K and 500K passed. The 1M case failed in the test helper before content assertions because Inkiva intentionally enters `data-editor-mode="bounded-source"` for extreme documents; the existing helper treated the not-yet-mounted async CodeMirror as ordinary mode and toggled the Source menu, then timed out after 10 seconds. This is classified as test-infrastructure evidence, not a product correctness failure. The readiness test now recognizes bounded-source explicitly and waits for its real CodeMirror surface before running the same full-content/edit/save assertions; no workload or assertion is weakened.
 
 ## Phase 5 — Outline / Find / Tab / Selection / CJK
 
-Pending.
+P1 coverage is drafted in `source-mode-readiness-p1.spec.ts` for: latest-revision Find after an immediate Source edit and undo; eight independent Source tabs with no cross-document history/content leakage; exact CJK/Unicode surrogate-pair edit + Source undo/redo + mode round trip; and 500 Source headings propagated to Outline in exact order with navigation. CI execution is pending the P0 fix push.
 
 ## Phase 6 — Combination scenarios / lifecycle
 
-Pending.
+The 100-cycle Source/WYSIWYG test now also asserts exactly one CodeMirror instance while Source is active and zero after every exit, providing deterministic component-instance non-accumulation evidence alongside the static Source cleanup audit and scheduler disposal tests. Deeper memory/listener growth measurement remains STAB-01 scope; CORRECTNESS-02 will not invent a memory threshold.
 
 ## Phase 7 — Full regression
 
@@ -102,7 +108,7 @@ Pending.
 
 ## Phase 8 — CI
 
-Pending.
+PR #180 first substantive CI run: Lint green after test-style correction; unit Test green; Windows/macOS builds green; E2E red only on the invalid-Markdown product defect and the 1M bounded-source helper assumption described above. Next CI must prove both are closed and execute the added P1 gates.
 
 ## Phase 9 — Documentation / learning review
 
