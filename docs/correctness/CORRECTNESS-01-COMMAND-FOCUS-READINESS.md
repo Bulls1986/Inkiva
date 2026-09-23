@@ -145,7 +145,7 @@ sequenceDiagram
         E->>E: wait for render/selection/surface readiness
         E-->>X: ready=true
     else already ready
-        E->>E: restore DOM focus + Muya selection
+        E->>E: verify existing DOM focus + Muya selection
         E-->>X: ready=true
     end
     X->>E: mutate only after ready=true
@@ -161,8 +161,8 @@ sequenceDiagram
 - Tab/file changes invalidate readiness synchronously. Requests wait for the existing `runWhenEditorRenderComplete` lifecycle and, when scroll restoration hides the surface, also wait for the surface to become visible.
 - Readiness rejects when there is no current editor/document, Source Mode owns the surface, or an IME composition is active.
 - `compositionstart` rejects pending readiness rather than stealing focus or terminating the composition session; `compositionend` re-enables subsequent commands normally.
-- Successful readiness restores both DOM focus (`domNode.focus()`) and Muya selection (`focus()`) and verifies focus before acknowledging.
-- Menu/keyboard format and paragraph actions, plus editor-context edit actions such as Undo/Redo/Select All/clipboard mutations, use the same readiness boundary. Find/Find-in-Folder UI actions are intentionally not forced through editor focus readiness.
+- Successful readiness preserves an already-correct focused editor without calling `focus()` again; only a genuinely blurred editor restores DOM focus (`domNode.focus()`) and Muya selection (`focus()`) before acknowledging.
+- Menu/keyboard **WYSIWYG-only** format and paragraph actions use the readiness boundary. Surface/focus-owned edit actions such as Undo/Redo/Select All/clipboard remain direct bus dispatch so Source Mode and focused inputs keep authority. Find/Find-in-Folder UI actions also stay outside WYSIWYG readiness.
 - Focus Mode and Typewriter Mode are view-only commands and do not pass through selection-context readiness.
 - No timeout, sleep, retry, or second-trigger behavior is used as the correctness mechanism.
 
@@ -251,7 +251,7 @@ Completed locally:
 
 1. complete committed-range review: `677f96e1..b205478c`, 12 files changed, production/tests/docs all represented;
 2. workspace hygiene: **pass**, clean worktree, no untracked artifacts;
-3. focused Node contract gate: **5/5 passed**;
+3. focused Node contract gate before CI feedback: **5/5 passed**;
 4. CRLF-aware diff whitespace validation: **passed**;
 5. isolated branch committed in two implementation/test commits and pushed to `origin/correctness/command-focus-readiness`.
 
@@ -287,18 +287,46 @@ The first E2E pass exposed two real contract refinements and three test-modeling
 
 1. **Source Mode ownership** — generic Undo/Redo must not force WYSIWYG readiness. They now remain surface-owned, so Source Mode stays authoritative.
 2. **Selection preservation** — when Muya already owns the correct DOM focus, readiness no longer calls `domNode.focus()` / `ed.focus()` again; it only restores focus when actually missing.
-3. **Palette test** — changed from a heading fixture to a paragraph fixture and uses text-node selection rather than structural `selectNodeContents`.
-4. **Tab race test** — CI showed `"beta"` was modeled as selection `"b"`; the test now uses the repository-proven TreeWalker/text-node selection path and verifies live selection before racing the shortcut.
-5. **IME test** — no mutation is allowed during composition; after synthetic `compositionend`, the test re-selects visible text before asserting the command is accepted, avoiding the invalid assumption that a real IME commit must preserve a non-collapsed browser selection.
+3. **Palette test** — changed from a heading fixture to a paragraph fixture and now creates the selection through real editor keyboard interaction (`click -> Home -> Shift+End`) rather than synthetic DOM Range injection.
+4. **Tab race test** — CI showed `"beta"` was modeled as selection `"b"`; the test now uses the same real keyboard selection path and verifies the live selection before racing the shortcut.
+5. **IME test** — selection preparation now explicitly focuses the editor before committing the range; no mutation is allowed during composition, and after synthetic `compositionend` the test re-selects visible text before asserting the command is accepted, avoiding the invalid assumption that a real IME commit must preserve a non-collapsed browser selection.
 
 Current focused contract after these refinements:
 
 ```text
 node --test scripts/correctness-01-command-focus-readiness.test.mjs
-6/6 passed
+7/7 passed
 ```
 
 CRLF-aware `git diff --check`: passed.
 
 Next: commit/push this evidence-backed refinement set and observe PR #176 second CI pass.
+
+### Stage 6 update — second CI pass
+
+Second CI result for `f141ef86`:
+
+- lint: **passed**;
+- unit test: **passed**;
+- Desktop PR fast hard gate: **passed**;
+- macOS ARM64 build: **passed**;
+- macOS x64 build: **passed**;
+- Windows x64 build: **passed**;
+- Electron E2E: **355 passed / 15 skipped / 2 failed**.
+
+Only the two newly added readiness E2E cases failed:
+
+1. Tab switch immediate Bold path;
+2. IME composition re-enable path.
+
+Both failures had the same signature: the prepared selection remained valid, but `page.keyboard.press(Ctrl/Cmd+B)` did not produce any Markdown mutation under Linux/Xvfb. The Command Palette readiness E2E passed.
+
+The native accelerator path is now split into two deterministic gates:
+
+- **focused contract** proves the platform mappings remain `Ctrl+B` / `Command+B`, and that the native Format action sends `mt::editor-format-action`;
+- **Electron behavior E2E** injects that exact renderer IPC directly and verifies document/selection/IME readiness behavior without depending on Playwright emulation of Electron native menu accelerators.
+
+Current focused contract after this split: **7/7 passed**.
+
+Next: push this E2E/contract refinement and require a third CI pass with all CORRECTNESS-01 paths green.
 

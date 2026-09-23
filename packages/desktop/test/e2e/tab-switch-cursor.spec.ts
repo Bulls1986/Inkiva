@@ -107,11 +107,12 @@ test.describe('Tab switch restores the per-tab caret', () => {
   })
 })
 
-// CORRECTNESS-01 — an accelerator can arrive while the newly active tab is
-// still restoring its Muya document/selection. The command must wait for tab B
-// readiness, keep B's persisted selection, and never mutate stale tab A.
+// CORRECTNESS-01 — the renderer command ingress used by native menu/shortcut
+// actions can arrive while the newly active tab is still restoring its Muya
+// document/selection. The command must wait for tab B readiness, keep B's
+// persisted selection, and never mutate stale tab A.
 test.describe('Tab switch command readiness', () => {
-  test('immediate Bold shortcut after A -> B targets only B', async() => {
+  test('immediate Bold command ingress after A -> B targets only B', async() => {
     const { app, page } = await launchWithMarkdown('alpha\n')
 
     try {
@@ -131,9 +132,9 @@ test.describe('Tab switch command readiness', () => {
       await expect.poll(() => getMarkdownContent(page, app), { timeout: 10000 }).toContain('alpha')
 
       // Deliberately do not wait for B's render/selection restore before the
-      // accelerator. CORRECTNESS-01 must queue this mutation on B's readiness.
+      // native format ingress. CORRECTNESS-01 must queue this mutation on B.
       await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 1)
-      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+B' : 'Control+B')
+      await sendIpcToRenderer(app, 'mt::editor-format-action', { type: 'strong' })
 
       await expect.poll(() => getMarkdownContent(page, app), { timeout: 10000 })
         .toContain('**beta**')

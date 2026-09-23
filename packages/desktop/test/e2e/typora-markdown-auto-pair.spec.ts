@@ -6,6 +6,7 @@ import {
   getMarkdownContent,
   launchWithMarkdown,
   placeCaretAtTextBoundary,
+  sendIpcToRenderer,
   waitForEditor
 } from './helpers'
 
@@ -202,7 +203,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
       }))
     })
 
-    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+B' : 'Control+B')
+    await sendIpcToRenderer(app, 'mt::editor-format-action', { type: 'strong' })
     await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
     expect(await getMarkdownContent(page, app)).toBe('seed\n')
 
@@ -220,7 +221,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
     // Re-select the visible text and prove readiness is immediately available
     // again after compositionend; the command must no longer be rejected.
     await selectRenderedContents(page, '.mu-paragraph-content')
-    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+B' : 'Control+B')
+    await sendIpcToRenderer(app, 'mt::editor-format-action', { type: 'strong' })
     await expect.poll(() => getMarkdownContent(page, app), { timeout: 5000 }).toContain('**seed**')
   })
   test('does not pair markers during IME composition and commits CJK text afterward', async() => {

@@ -5,9 +5,12 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const renderer = resolve(here, '../../../src/renderer/src')
+const desktopSrc = resolve(here, '../../../src')
 
 const read = (relativePath: string): string =>
   readFileSync(resolve(renderer, relativePath), 'utf8')
+const readDesktop = (relativePath: string): string =>
+  readFileSync(resolve(desktopSrc, relativePath), 'utf8')
 
 describe('CORRECTNESS-01 command focus readiness contract', () => {
   it('uses an explicit editor-readiness acknowledgement instead of arbitrary timers', () => {
@@ -68,6 +71,18 @@ describe('CORRECTNESS-01 command focus readiness contract', () => {
     expect(commands).toContain("bus.emit('redo', 'redo')")
     expect(commands).not.toMatch(/focusEditorAndExecute\(\(\) => bus\.emit\('undo'/)
     expect(commands).not.toMatch(/focusEditorAndExecute\(\(\) => bus\.emit\('redo'/)
+  })
+
+  it('keeps the native Bold accelerator wired to the format readiness ingress', () => {
+    const windowsKeys = readDesktop('main/keyboard/keybindingsWindows.ts')
+    const linuxKeys = readDesktop('main/keyboard/keybindingsLinux.ts')
+    const darwinKeys = readDesktop('main/keyboard/keybindingsDarwin.ts')
+    const formatAction = readDesktop('main/menu/actions/format.ts')
+
+    expect(windowsKeys).toContain("['format.strong', 'Ctrl+B']")
+    expect(linuxKeys).toContain("['format.strong', 'Ctrl+B']")
+    expect(darwinKeys).toContain("['format.strong', 'Command+B']")
+    expect(formatAction).toContain("win.webContents.send('mt::editor-format-action', { type })")
   })
 
   it('keeps view-only commands outside selection-context readiness', () => {

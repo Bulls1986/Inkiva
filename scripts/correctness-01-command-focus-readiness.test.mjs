@@ -22,6 +22,22 @@ const mainListeners = readFileSync(
   new URL('../packages/desktop/src/renderer/src/store/listenForMain.ts', import.meta.url),
   'utf8'
 )
+const windowsKeys = readFileSync(
+  new URL('../packages/desktop/src/main/keyboard/keybindingsWindows.ts', import.meta.url),
+  'utf8'
+)
+const linuxKeys = readFileSync(
+  new URL('../packages/desktop/src/main/keyboard/keybindingsLinux.ts', import.meta.url),
+  'utf8'
+)
+const darwinKeys = readFileSync(
+  new URL('../packages/desktop/src/main/keyboard/keybindingsDarwin.ts', import.meta.url),
+  'utf8'
+)
+const formatAction = readFileSync(
+  new URL('../packages/desktop/src/main/menu/actions/format.ts', import.meta.url),
+  'utf8'
+)
 
 test('CORRECTNESS-01 uses explicit editor readiness instead of arbitrary timers', () => {
   assert.match(commands, /executeWhenEditorReady/)
@@ -61,6 +77,13 @@ test('CORRECTNESS-01 keeps undo and redo surface-owned', () => {
   assert.match(commands, /bus\.emit\('redo', 'redo'\)/)
   assert.doesNotMatch(commands, /focusEditorAndExecute\(\(\) => bus\.emit\('undo'/)
   assert.doesNotMatch(commands, /focusEditorAndExecute\(\(\) => bus\.emit\('redo'/)
+})
+
+test('CORRECTNESS-01 keeps the native Bold accelerator wired to format readiness ingress', () => {
+  assert.match(windowsKeys, /\['format\.strong', 'Ctrl\+B'\]/)
+  assert.match(linuxKeys, /\['format\.strong', 'Ctrl\+B'\]/)
+  assert.match(darwinKeys, /\['format\.strong', 'Command\+B'\]/)
+  assert.match(formatAction, /webContents\.send\('mt::editor-format-action', \{ type \}\)/)
 })
 
 test('CORRECTNESS-01 keeps view-only commands outside selection readiness', () => {
