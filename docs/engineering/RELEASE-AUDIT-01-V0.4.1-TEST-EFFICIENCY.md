@@ -1,6 +1,6 @@
 # RELEASE-AUDIT-01 — v0.4.1 Test & E2E Efficiency Audit
 
-> Status: IN PROGRESS — Phase 1 baseline collection
+> Status: BLOCKED ONLY BY REFERENCE RUNNER AVAILABILITY
 > Branch: `release/release-audit-01`
 > Worktree: `.worktrees/learning-review`
 > Base code: local `origin/develop@00acaf38227cf46dca6b87f237bbc4cee1a573ce`
@@ -22,8 +22,8 @@ No test/CI implementation change is allowed until Phase 1–4 evidence and the o
 | 4. Optimization Plan | Complete | P1/P2 plan and Test Contract Matrix recorded before implementation. |
 | 5. Implementation | Complete for P1-A | Removed only the redundant common-wrapper startup sleep; no coverage/gate weakening. |
 | 6. Before / After Validation | Complete for P1-A | Full PR E2E/Test/Lint green; PR Build platform legs green. Measured result recorded below. |
-| 7. Release Readiness Audit | In progress | Standard PR gates green; P0 Package Pipeline Efficiency Audit and release-only performance/reference gate must both close before version preparation. |
-| 8. v0.4.1 Version Preparation | Not started | Current authoritative package versions remain 0.4.0. |
+| 7. Release Readiness Audit | Blocked by infrastructure only | P0 package pipeline, full PR gates, docs-only quick path and experience review are complete. Required Performance Gate run `35887060407` targets behavior-bearing HEAD `73048182`, but no `reference-low-end` runner is registered. |
+| 8. v0.4.1 Version Preparation | Not started by contract | Current authoritative versions remain 0.4.0. Start only after the reference gate executes and passes. |
 
 ## Phase 1 — Current Test Baseline
 
@@ -534,6 +534,38 @@ Evidence:
 For v0.4.1, these four version-bearing sources must move together unless a dedicated
 single-source synchronization mechanism is introduced first. This audit will not invent such
 a mechanism immediately before release.
+
+### Final closure handoff
+
+All work that can be completed without weakening the release contract is finished.
+
+Frozen behavior-bearing audit HEAD: `73048182c6766ba59471c336dcbed2d93ecea759`.
+
+That HEAD has green:
+- E2E;
+- PR Build including package/install smoke and updater artifact smoke;
+- Performance Fast Gate;
+- Test;
+- Lint;
+- Validate Licenses.
+
+Pure documentation HEAD `1935ad1fa0bdd668c22f36fb60146ffc966fe529` then verified the new docs-only
+quick path: it triggered **no CI runs**, as intended.
+
+Remaining closure sequence when the required Windows `reference-low-end` runner is restored:
+
+1. allow existing Performance Gate run `35887060407` to execute against frozen behavior HEAD
+   `73048182`; do not dispatch another duplicate run;
+2. require successful completion with `graphics_backend=default`, P3 disabled;
+3. update exactly the four audited version-bearing sources from `0.4.0` to `0.4.1`;
+4. run the release-contract validation including `pnpm test:release`;
+5. verify the version-preparation CI/release-smoke evidence without weakening or bypassing any gate;
+6. update this document with the final run IDs/results;
+7. squash-merge PR #187 and verify both PR state and `develop` ref.
+
+Do **not** substitute a GitHub-hosted runner or other hardware for the reference gate, and do not
+interpret runner absence as a passing performance result.
+
 
 ## Docs-only CI quick path
 
