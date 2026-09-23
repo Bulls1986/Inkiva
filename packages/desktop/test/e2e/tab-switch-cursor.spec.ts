@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
-import { launchWithMarkdown, sendIpcToRenderer, waitForMenuReady } from './helpers'
+import { getMarkdownContent, launchWithMarkdown, sendIpcToRenderer, waitForMenuReady } from './helpers'
 
 const tabSelector = '.tabs-container > li'
 
@@ -104,6 +104,62 @@ test.describe('Tab switch restores the per-tab caret', () => {
     // The caret must be restored to the third paragraph at offset 6.
     const caret = await readCaret(page)
     expect(caret).toEqual({ index: 2, offset: 6 })
+  })
+})
+
+// CORRECTNESS-01 — an accelerator can arrive while the newly active tab is
+// still restoring its Muya document/selection. The command must wait for tab B
+// readiness, keep B's persisted selection, and never mutate stale tab A.
+test.describe('Tab switch command readiness', () => {
+  test('immediate Bold shortcut after A -> B targets only B', async() => {
+    const { app, page } = await launchWithMarkdown('alpha\n')
+
+    try {
+      await waitForMenuReady(app)
+      await sendIpcToRenderer(app, 'mt::new-untitled-tab', true, 'beta\n')
+      await expect.poll(() => getMarkdownContent(page, app), { timeout: 10000 }).toContain('beta')
+
+      const selected = await page.evaluate(() => {
+        const root = document.querySelector('.editor-component')
+        const target = root?.querySelector('span.mu-paragraph-content')
+        if (!(root instanceof HTMLElement) || !(target instanceof HTMLElement)) return ''
+
+        root.focus()
+        const range = document.createRange()
+        range.selectNodeContents(target)
+        const selection = window.getSelection()
+        if (!selection) return ''
+
+        selection.removeAllRanges()
+        selection.addRange(range)
+        document.dispatchEvent(new Event('selectionchange'))
+        root.dispatchEvent(new KeyboardEvent('keyup', {
+          key: 'ArrowRight',
+          bubbles: true,
+          cancelable: true
+        }))
+        return selection.toString()
+      })
+      expect(selected).toBe('beta')
+
+      await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 0)
+      await expect.poll(() => getMarkdownContent(page, app), { timeout: 10000 }).toContain('alpha')
+
+      // Deliberately do not wait for B's render/selection restore before the
+      // accelerator. CORRECTNESS-01 must queue this mutation on B's readiness.
+      await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 1)
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+B' : 'Control+B')
+
+      await expect.poll(() => getMarkdownContent(page, app), { timeout: 10000 })
+        .toContain('**beta**')
+
+      await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 0)
+      await expect.poll(() => getMarkdownContent(page, app), { timeout: 10000 })
+        .toContain('alpha')
+      expect(await getMarkdownContent(page, app)).not.toContain('**alpha**')
+    } finally {
+      await app.close()
+    }
   })
 })
 

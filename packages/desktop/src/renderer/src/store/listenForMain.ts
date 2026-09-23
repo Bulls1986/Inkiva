@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import bus from '../bus'
 import { useLayoutStore } from './layout'
 import type { EditorEditAction, FormatAction, ParagraphAction } from '@shared/types/bus'
+import { executeWhenEditorReady } from '../services/editorCommandReadiness'
 
 const EDITOR_EDIT_ACTIONS = new Set<EditorEditAction>([
   'undo',
@@ -65,6 +66,19 @@ const isEditorEditAction = (value: string): value is EditorEditAction => EDITOR_
 const isParagraphAction = (value: string): value is ParagraphAction => PARAGRAPH_ACTIONS.has(value as ParagraphAction)
 const isFormatAction = (value: string): value is FormatAction => FORMAT_ACTIONS.has(value as FormatAction)
 
+const EDITOR_CONTEXT_EDIT_ACTIONS = new Set<EditorEditAction>([
+  'undo',
+  'redo',
+  'copyAsRich',
+  'copyAsHtml',
+  'copyAsMarkdown',
+  'pasteAsPlainText',
+  'selectAll',
+  'duplicate',
+  'createParagraph',
+  'deleteParagraph'
+])
+
 const emitEditorEditAction = (type: EditorEditAction): void => {
   switch (type) {
     case 'undo': bus.emit('undo', 'undo'); break
@@ -85,6 +99,15 @@ const emitEditorEditAction = (type: EditorEditAction): void => {
   }
 }
 
+const emitEditorEditActionWhenReady = (type: EditorEditAction): void => {
+  if (EDITOR_CONTEXT_EDIT_ACTIONS.has(type)) {
+    executeWhenEditorReady(() => emitEditorEditAction(type))
+    return
+  }
+  emitEditorEditAction(type)
+}
+
+
 export const useListenForMainStore = defineStore('listenForMain', () => {
   function EDITOR_EDIT_ACTION(type: string): void {
     const layoutStore = useLayoutStore()
@@ -94,7 +117,7 @@ export const useListenForMainStore = defineStore('listenForMain', () => {
         showSideBar: true
       })
     }
-    if (isEditorEditAction(type)) emitEditorEditAction(type)
+    if (isEditorEditAction(type)) emitEditorEditActionWhenReady(type)
   }
 
   function LISTEN_FOR_EDIT(): void {
@@ -125,10 +148,10 @@ export const useListenForMainStore = defineStore('listenForMain', () => {
     // guard. Restore the same shape; bus listeners that expect a payload get
     // the same `type` value (string at runtime per main process emitters).
     window.electron.ipcRenderer.on('mt::editor-paragraph-action', (_e, { type }) => {
-      if (isParagraphAction(type)) bus.emit('paragraph', type)
+      if (isParagraphAction(type)) executeWhenEditorReady(() => bus.emit('paragraph', type))
     })
     window.electron.ipcRenderer.on('mt::editor-format-action', (_e, { type }) => {
-      if (isFormatAction(type)) bus.emit('format', type)
+      if (isFormatAction(type)) executeWhenEditorReady(() => bus.emit('format', type))
     })
   }
 

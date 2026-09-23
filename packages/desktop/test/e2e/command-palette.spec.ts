@@ -1,6 +1,30 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
-import { launchWithMarkdown, sendIpcToRenderer } from './helpers'
+import { getMarkdownContent, launchWithMarkdown, sendIpcToRenderer } from './helpers'
+
+const selectFirstEditorBlock = async(page: Page): Promise<string> => {
+  return await page.evaluate(() => {
+    const root = document.querySelector('.editor-component')
+    const target = root?.querySelector('span.mu-paragraph-content')
+    if (!(root instanceof HTMLElement) || !(target instanceof HTMLElement)) return ''
+
+    root.focus()
+    const range = document.createRange()
+    range.selectNodeContents(target)
+
+    const selection = window.getSelection()
+    if (!selection) return ''
+    selection.removeAllRanges()
+    selection.addRange(range)
+    document.dispatchEvent(new Event('selectionchange'))
+    root.dispatchEvent(new KeyboardEvent('keyup', {
+      key: 'ArrowRight',
+      bubbles: true,
+      cancelable: true
+    }))
+    return selection.toString()
+  })
+}
 
 test.describe('Command palette', () => {
   let app: ElectronApplication
@@ -64,5 +88,23 @@ test.describe('Command palette', () => {
       null,
       { timeout: 5000 }
     )
+  })
+
+  test('first palette format command restores the original editor selection', async() => {
+    const selected = await selectFirstEditorBlock(page)
+    expect(selected).toContain('Palette')
+
+    await sendIpcToRenderer(app, 'mt::show-command-palette')
+    const searchInput = page.locator('input.search').first()
+    await expect(searchInput).toBeVisible({ timeout: 5000 })
+    await searchInput.fill('format.strong')
+
+    const strongCommand = page.locator('#command-palette-option-format-strong')
+    await expect(strongCommand).toBeVisible({ timeout: 5000 })
+    await searchInput.press('Enter')
+
+    await expect(searchInput).toBeHidden({ timeout: 5000 })
+    await expect.poll(() => getMarkdownContent(page, app), { timeout: 8000 })
+      .toContain('# **Palette**')
   })
 })

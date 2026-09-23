@@ -188,6 +188,38 @@ test.describe('Typora-style Markdown auto pairing', () => {
     expect(markdown).toContain('seed **')
   })
 
+
+
+  test('command readiness does not steal IME composition and works immediately after compositionend', async() => {
+    await selectRenderedContents(page, '.mu-paragraph-content')
+
+    await page.evaluate(() => {
+      const node = document.querySelector('.editor-component span.mu-paragraph-content')
+      if (!(node instanceof HTMLElement)) throw new Error('Editor paragraph was not found')
+      node.dispatchEvent(new CompositionEvent('compositionstart', {
+        bubbles: true,
+        cancelable: true,
+        data: ''
+      }))
+    })
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+B' : 'Control+B')
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+    expect(await getMarkdownContent(page, app)).toBe('seed\n')
+
+    await page.evaluate(() => {
+      const node = document.querySelector('.editor-component span.mu-paragraph-content')
+      if (!(node instanceof HTMLElement)) throw new Error('Editor paragraph was not found')
+      node.dispatchEvent(new CompositionEvent('compositionend', {
+        bubbles: true,
+        cancelable: true,
+        data: ''
+      }))
+    })
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+B' : 'Control+B')
+    await expect.poll(() => getMarkdownContent(page, app), { timeout: 5000 }).toContain('**seed**')
+  })
   test('does not pair markers during IME composition and commits CJK text afterward', async() => {
     await placeCaretAtTextBoundary(page)
 

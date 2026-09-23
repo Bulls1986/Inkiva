@@ -3,6 +3,7 @@ import bus from '../bus'
 import { delay, isOsx } from '@/util'
 import getCommandDescriptionById from './descriptions'
 import { t } from '../i18n'
+import { executeWhenEditorReady } from '../services/editorCommandReadiness'
 
 export { default as FileEncodingCommand } from './fileEncoding'
 export { default as LineEndingCommand } from './lineEnding'
@@ -52,10 +53,7 @@ export class RootCommand {
   }
 }
 
-const focusEditorAndExecute = (fn: () => void): void => {
-  setTimeout(() => bus.emit('editor-focus'), 10)
-  setTimeout(() => fn(), 150)
-}
+const focusEditorAndExecute = executeWhenEditorReady
 
 const commands: CommandDescriptor[] = [
   // --------------------------------------------------------------------------
@@ -580,13 +578,13 @@ const commands: CommandDescriptor[] = [
   {
     id: 'view.typewriter-mode',
     execute: async() => {
-      focusEditorAndExecute(() => bus.emit('view:toggle-view-entry', 'typewriter'))
+      bus.emit('view:toggle-view-entry', 'typewriter')
     }
   },
   {
     id: 'view.focus-mode',
     execute: async() => {
-      focusEditorAndExecute(() => bus.emit('view:toggle-view-entry', 'focus'))
+      bus.emit('view:toggle-view-entry', 'focus')
     }
   },
   {
