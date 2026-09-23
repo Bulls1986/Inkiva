@@ -1,6 +1,6 @@
 # PERF-01 — Large Document Activation
 
-> Status: IMPLEMENTATION + REQUIRED CI COMPLETE — MERGE PENDING
+> Status: COMPLETE — MERGED TO `develop`
 > Branch: `perf/perf-01-large-document-activation`  
 > Base: `develop@cbc7e16221dafb342640872bbc022541d8562720`  
 > Principle: **Fast Activation First / Defer Everything Non-Critical**
@@ -41,7 +41,7 @@ BASELINE-02 subsequently hardened benchmark timing/provenance and corrected 50K 
 | 5. Focused failing benchmark/test | Complete for optimization 1 | 50K virtual activation was proven to execute two full virtual geometry rebuilds; warm `setContent(markdown)` was 62.2/71.1 ms in the initial two-switch probe. |
 | 6. Focused optimization | Complete | Optimization 1 removes the duplicate width-agnostic virtual geometry rebuild. Cold-path work defers initial caret placement and fresh-DOM TOC/layout geometry reads until after the relevant paint/editable boundaries without changing Muya public init semantics or milestone contracts. Focused correctness passed: desktop milestone/TOC 18/18, Muya virtual geometry 13/13, current Electron build passed. |
 | 7. After / scalability / regressions | Complete for PERF-01 activation scope | Final retained default-backend Fast Gate has first-screen p95 111.63 ms and editable p95 149.70 ms; activation gates are green. Repository-wide default evaluator still fails unrelated scroll/search metrics. Separate final OpenGL Fast Gate is P0 green with first-screen p95 59.94 ms, editable p95 89.84 ms and scroll minimum 60 FPS. 10K/50K/100K/200K warm activation diagnostic shows no obvious superlinear growth. |
-| 8. PR / Required CI / evaluator / merge | Required CI complete; merge pending | PR #184 is open and merge-clean. Required CI was fully green on `89893f8`, the branch head immediately before this closure-only stage-record update: E2E, desktop fast hard gate, Muya build/lint/spec/unit/E2E, repository test/lint, and Windows/macOS PR builds all passed. Final-source default evaluator still reports the pre-existing scroll/search failures (`50 < 55`, `340.57 > 300`), both materially improved from Before (`20`, `986.15`); they remain documented baseline failures rather than being hidden or thresholds weakened. The green OpenGL series remains diagnostic only. Per repository workflow, merge remains pending explicit authorization. |
+| 8. PR / Required CI / evaluator / merge | Complete | PR #184 passed all required CI and was squash-merged to `develop` as `d7f74cf4752d93a4c1b4a3bd32ed262d99a11604` on 2026-09-23. E2E, desktop fast hard gate, Muya build/lint/spec/unit/E2E, repository test/lint, and Windows/macOS PR builds all passed. Final-source default evaluator still reports the pre-existing scroll/search failures (`50 < 55`, `340.57 > 300`), both materially improved from Before (`20`, `986.15`); they remain documented baseline failures rather than being hidden or thresholds weakened. The green OpenGL series remains diagnostic only. |
 | 9. Experience closeout | Complete | Existing `docs/agent/PERFORMANCE.md` was refined rather than duplicated: merged-raw evaluator input and graphics-backend attribution rules are now canonical; low-frequency Windows launcher handling is retained on demand in `docs/agent/ENVIRONMENT_RECIPES.md`, while `ENVIRONMENT.md` stays a first-load quick contract. |
 
 ## Required final report
