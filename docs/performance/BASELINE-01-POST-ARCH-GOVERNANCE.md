@@ -30,7 +30,7 @@ No performance threshold, workload, sample count, or correctness assertion may b
 | Source / save / background / DI | Complete for automated baseline | Source Mode 23/23 pass; Revision Snapshot 7/7 pass; DI 1K/5K/10K probe complete; scheduler/DI/runtime contracts 35/35 pass; integrated background traces retained. |
 | CPU / resource classification | Complete for trace baseline | Main-thread/frame/background scheduling traces classified. Standalone DevTools/V8 `.cpuprofile` remains an optional manual follow-up. |
 | Tier 3 soak | Not executed by request | Definition retained only; no 30/60min soak in Required CI. |
-| PR / CI / closure | Pending | Only after evidence set and documentation are complete. |
+| PR / CI / closure | Complete | PR #174 passed Fast hard gate, E2E, lint, test, Windows/macOS matrix and was squash-merged into `develop` as `a6cd9160`. |
 
 ## 2. Environment
 
@@ -481,6 +481,10 @@ BASELINE-01 automated scope is complete. The post-ARCH-01～08 architecture is *
 The baseline is **not performance-clean**. The current 50K Fast Gate fails four existing hard metrics (Editable, Scroll minimum FPS, Folder Search, Save), the default graphics backend exhibits severe low-tail/anomalous stalls in some runs, and mixed 1M tab reactivation has ~1.8 s p95 latency. These are concrete Product Performance follow-ups and must not be masked by changing thresholds, workload, sample count, or statistics.
 
 Current evidence does not justify reopening the architecture-governance program. The next work should be narrowly targeted performance investigations using the architecture now in place.
+
+### Merge closure
+
+BASELINE-01 was delivered by PR #174 and squash-merged into `develop` as `a6cd9160488103ee7ed875786fc71a4e5968b24b` after all required CI checks passed. This closes the baseline task itself; the PERF follow-ups above remain separate future work.
 
 ### Required final summary table
 
