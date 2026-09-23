@@ -79,6 +79,8 @@ The first failure is a confirmed existing product defect and Source truth-contra
 
 The minimal production fix is constrained to the handoff boundary: while Muya synchronously rebuilds presentation state from the canonical Source snapshot, its rebuild `json-change` is not recorded as a new document mutation. Normal WYSIWYG edits remain unchanged. This preserves Source Markdown as the canonical revision while still rebuilding the rendered editor and its single undo boundary.
 
+Second CI execution confirmed that fix removed the parser/serializer corruption: the unfinished fenced block is no longer auto-closed. The remaining byte difference was reduced to exactly one trailing newline. Root cause is the editor store's generic `adjustTrailingNewlines()` normalization running on Source-origin snapshots. Source updates now carry an explicit `preserveTrailingNewlines` contract so CodeMirror text remains byte-identical through store/revision/mode-switch/save boundaries; WYSIWYG-origin updates retain the existing final-newline preference behavior.
+
 Existing coverage retained as supporting evidence:
 
 - Source CodeMirror undo/redo ownership: `issue-781-source-undo.spec.ts`;
@@ -96,7 +98,9 @@ Run 603 evidence: 50K and 500K passed. The 1M case failed in the test helper bef
 
 ## Phase 5 — Outline / Find / Tab / Selection / CJK
 
-P1 coverage is drafted in `source-mode-readiness-p1.spec.ts` for: latest-revision Find after an immediate Source edit and undo; eight independent Source tabs with no cross-document history/content leakage; exact CJK/Unicode surrogate-pair edit + Source undo/redo + mode round trip; and 500 Source headings propagated to Outline in exact order with navigation. CI execution is pending the P0 fix push.
+P1 coverage in `source-mode-readiness-p1.spec.ts` covers: latest-revision Find after an immediate Source edit and undo; eight independent Source tabs with no cross-document history/content leakage; exact CJK/Unicode surrogate-pair edit + Source undo/redo + mode round trip; and 500 Source headings propagated to Outline in exact order with navigation.
+
+The second CI execution exposed two separate facts. First, Find was genuinely unavailable in Source Mode because `EditorSearch` was mounted only under `v-if="!sourceCode"`; this is a real P1 product gap, not a stale-search race. The search UI is now owned by the editor-with-tabs container and Source Mode computes matches directly from current CodeMirror text, while hidden Muya search handlers are suppressed in Source Mode. Second, the 500-heading test expected all 500 Outline nodes to exist in the DOM simultaneously, but Inkiva intentionally virtualizes outlines above 300 rows; the store contains the full TOC while only a bounded visible window is mounted. The test now asserts the authoritative 500-item TOC snapshot, then verifies the virtualized first/last rows and navigation to heading 500.
 
 ## Phase 6 — Combination scenarios / lifecycle
 
@@ -108,7 +112,9 @@ Pending.
 
 ## Phase 8 — CI
 
-PR #180 first substantive CI run: Lint green after test-style correction; unit Test green; Windows/macOS builds green; E2E red only on the invalid-Markdown product defect and the 1M bounded-source helper assumption described above. Next CI must prove both are closed and execute the added P1 gates.
+PR #180 first substantive CI run: Lint green after test-style correction; unit Test green; Windows/macOS builds green; E2E red on invalid-Markdown and the 1M bounded-source helper assumption.
+
+Second substantive CI run on remote head `dafe8067`: Lint, Test, Performance Fast Gate, Windows build, macOS x64 build, macOS arm64 build, and artifact publication all green. E2E failed in four Source-readiness scenarios: invalid Markdown now differed only by one final newline (product contract gap identified above); 1M still entered the generic helper before the async bounded-source wrapper had mounted (test infrastructure, now waits explicitly for bounded-source); Find proved a real missing Source feature; and the 500-heading Outline assertion conflicted with the intentional Outline virtualization architecture. All four causes are now addressed without reducing document sizes, heading counts, or correctness requirements. A new CI run is required before readiness can advance.
 
 ## Phase 9 — Documentation / learning review
 

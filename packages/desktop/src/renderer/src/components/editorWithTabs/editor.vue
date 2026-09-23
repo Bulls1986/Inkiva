@@ -72,7 +72,6 @@
         </div>
       </template>
     </el-dialog>
-    <editor-search v-if="!sourceCode" />
   </div>
 </template>
 
@@ -114,7 +113,6 @@ import {
 } from '@muyajs/core'
 import { exportStyledHTML, type HeaderFooterPart } from '@/util/exportHtml'
 import { applyCursor, isIndexCursor } from '@/util/cursor'
-import EditorSearch from '../search/index.vue'
 import bus, { type BusEvents } from '@/bus'
 import type { Handler } from 'mitt'
 import { DEFAULT_EDITOR_FONT_FAMILY, DEFAULT_CODE_FONT_FAMILY } from '@/config'
@@ -1448,6 +1446,7 @@ const toSearchMatches = (result: unknown) => {
 let searchRequestGeneration = 0
 
 const handleSearch = (payload: unknown) => {
+  if (sourceCode.value) return
   const { value, opt } = payload as { value: string; opt: unknown }
   const requestGeneration = ++searchRequestGeneration
   let revealedFirstMatch = false
@@ -1468,6 +1467,7 @@ const handleSearch = (payload: unknown) => {
 }
 
 const handReplace = (payload: unknown) => {
+  if (sourceCode.value) return
   searchRequestGeneration += 1
   const { value, opt } = payload as { value: string; opt: unknown }
   editorStore.SEARCH(toSearchMatches(editor.value.replace(value, opt)))
@@ -1678,6 +1678,7 @@ const scrollToElement = (selector: string) => {
 }
 
 const handleFindAction = (action: unknown) => {
+  if (sourceCode.value) return
   editorStore.SEARCH(toSearchMatches(editor.value.find(action)))
   scrollToHighlight()
 }

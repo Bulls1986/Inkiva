@@ -210,14 +210,28 @@ test.describe('CORRECTNESS-02 / Source Mode P1 readiness', () => {
       await exitSourceMode(launched.page, launched.app)
       await showSidebarPanel(launched.app, launched.page, 'toc', 15000)
 
-      const labels = launched.page.locator('.side-bar-toc .el-tree-node__label')
-      await expect(labels).toHaveCount(500, { timeout: 30000 })
-      await expect(labels.first()).toHaveText('Source Heading 001')
-      await expect(labels.last()).toHaveText('Source Heading 500')
+      const tocSnapshot = await launched.page.evaluate(() => {
+        const root = document.querySelector('#app') as
+          | (Element & { __vue_app__?: { config?: { globalProperties?: { $pinia?: { _s?: Map<string, unknown> } } } } })
+          | null
+        const stores = root?.__vue_app__?.config?.globalProperties?.$pinia?._s
+        const editor = stores?.get('editor') as { listToc?: Array<{ label?: string }> } | undefined
+        return editor?.listToc?.map((item) => item.label ?? '') ?? []
+      })
+      expect(tocSnapshot).toHaveLength(500)
+      expect(tocSnapshot[0]).toBe('Source Heading 001')
+      expect(tocSnapshot[499]).toBe('Source Heading 500')
 
-      for (const index of [0, 49, 99, 199, 299, 399, 499]) {
-        await labels.nth(index).click()
-      }
+      const virtualTree = launched.page.locator('.side-bar-toc .toc-virtualized-tree')
+      await expect(virtualTree).toBeVisible({ timeout: 10000 })
+      const labels = virtualTree.locator('.toc-node-label')
+      await expect(labels.first()).toHaveText('Source Heading 001')
+      await virtualTree.evaluate((element) => {
+        element.scrollTop = element.scrollHeight
+        element.dispatchEvent(new Event('scroll'))
+      })
+      await expect(labels.last()).toHaveText('Source Heading 500', { timeout: 10000 })
+      await labels.last().click()
       await expect(
         launched.page.locator('.side-bar-toc .toc-node-label.is-active[aria-current="location"]')
       ).toContainText('Source Heading 500', { timeout: 10000 })
