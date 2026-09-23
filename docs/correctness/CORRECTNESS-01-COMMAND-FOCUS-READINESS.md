@@ -4,7 +4,7 @@
 
 - Branch: `correctness/command-focus-readiness`
 - Base: `develop@677f96e168e3043b42464bbaaca55948a68c44dc`
-- Current stage: **Stage 5 implementation/regression coverage complete / CI validation pending**
+- Current stage: **Stage 6 local closure complete / branch pushed / GitHub PR & CI status confirmation pending**
 - Scope: editor-context command focus / selection / active-document readiness only.
 
 ## Problem
@@ -244,14 +244,29 @@ CI must provide the authoritative dependency-backed evidence for:
 - Electron E2E including the three CORRECTNESS-01 paths above;
 - existing editing/selection/undo/redo/tab/IME regression suites.
 
-## Stage 6 — Pending
+## Stage 6 — Local closure status
 
-Before final closure:
+Completed locally:
 
-1. review the complete diff and workspace hygiene;
-2. commit and push the isolated branch;
-3. open the PR;
-4. observe every required CI check;
-5. fix only evidence-backed failures;
-6. update this document with final CI/PR/merge state and lessons learned.
+1. complete committed-range review: `677f96e1..b205478c`, 12 files changed, production/tests/docs all represented;
+2. workspace hygiene: **pass**, clean worktree, no untracked artifacts;
+3. focused Node contract gate: **5/5 passed**;
+4. CRLF-aware diff whitespace validation: **passed**;
+5. isolated branch committed in two implementation/test commits and pushed to `origin/correctness/command-focus-readiness`.
+
+Current branch head:
+
+```text
+b205478c test: satisfy correctness lint gate
+73da5472 fix(editor): enforce command focus readiness
+```
+
+GitHub PR/CI status is the only remaining external closure item. During this stage both `gh pr view` and a read-only `git ls-remote refs/pull/*/head` query stalled at the remote/network boundary and were terminated; no repository mutation depended on those calls.
+
+Remaining external closure:
+
+1. confirm/create the PR for `correctness/command-focus-readiness -> develop`;
+2. observe all required CI checks, including the dependency-backed Vitest/typecheck/Electron E2E gates;
+3. fix only evidence-backed failures if CI exposes any;
+4. after green CI, record PR/merge state and final lessons here.
 
