@@ -30,6 +30,7 @@ import {
   type EditorMilestoneTimestamps
 } from '../../../../perf/gate/editorMilestones'
 import { mergePerformanceTraceReports } from '../../../../perf/gate/trace-input'
+import { evaluateFastOffscreenImage, selectFastOffscreenImage } from '../../../../perf/soak/fast-media'
 import { collectMemoryLeakCycleSamples, createRendererHeapSampler } from './performanceMemory'
 import { calculateHeapDelta, MEMORY_FOOTPRINT_SAMPLE_COUNT } from '../../../../perf/gate/memory'
 import {
@@ -60,6 +61,7 @@ const runLargeGate = process.env.INKIVA_RUN_PERF_LARGE_GATE === 'true'
 const runTreeFocus = process.env.INKIVA_RUN_PERF_TREE_FOCUS === 'true'
 const runTabFocus = process.env.INKIVA_RUN_PERF_TAB_FOCUS === 'true'
 const runVirtualHeapFocus = process.env.INKIVA_RUN_PERF_VIRTUAL_HEAP_FOCUS === 'true'
+const runMixedTabBaseline = process.env.INKIVA_RUN_BASELINE_MIXED_TABS === 'true'
 const enabledLevels = runLargeGate ? parseLargeGateLevels(process.env.INKIVA_PERF_GATE_LEVELS) : []
 const configuredShard = process.env.INKIVA_PERF_GATE_SHARD
 const SAMPLE_COUNT = LARGE_GATE_SAMPLE_COUNT
@@ -152,6 +154,9 @@ const captureEnvironment = (directory: string): Record<string, string> => ({
   INKIVA_PERF_RUNNER_LABEL: 'reference-low-end'
 })
 
+const performanceGraphicsSwitches = (): string[] =>
+  process.env.INKIVA_PERF_GRAPHICS_BACKEND === 'opengl' ? ['--use-angle=gl'] : []
+
 const launchCaptured = async(
   args: string[],
   capture: CaptureDirectory,
@@ -162,6 +167,7 @@ const launchCaptured = async(
     suppressErrorDialog: true,
     waitForReady: false,
     waitForEditorTimeout,
+    electronSwitches: performanceGraphicsSwitches(),
     env: captureEnvironment(capture.directory)
   })
 }
@@ -635,6 +641,45 @@ const writeTabSet = (root: string, count = 8, tier: MarkdownDocumentTier = '50k'
   return paths
 }
 
+const writeMixedBaselineTabSet = (root: string): Array<{ path: string; label: string }> => {
+  const definitions: Array<{ label: string; markdown: string }> = [
+    { label: '50k-a', markdown: createMarkdownFixture('50k').markdown },
+    { label: '50k-b', markdown: createMarkdownFixture('50k').markdown },
+    { label: '500k-a', markdown: createMarkdownFixture('500k').markdown },
+    { label: '500k-b', markdown: createMarkdownFixture('500k').markdown },
+    { label: '500k-c', markdown: createMarkdownFixture('500k').markdown },
+    { label: '1m', markdown: createMarkdownFixture('1m').markdown }
+  ]
+
+  const imageData =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+  fs.writeFileSync(path.join(root, 'mixed-tab-image.png'), Buffer.from(imageData, 'base64'))
+
+  const diagramHeavy = Array.from({ length: 80 }, (_, index) =>
+    [
+      '## Diagram ' + index,
+      '',
+      '```mermaid',
+      'flowchart LR',
+      '  Start' + index + ' --> Mid' + index + ' --> End' + index,
+      '```',
+      ''
+    ].join('\n')
+  ).join('\n')
+  definitions.push({ label: 'diagram-heavy', markdown: '# Diagram-heavy tab\n\n' + diagramHeavy })
+
+  const imageHeavy = Array.from({ length: 240 }, (_, index) =>
+    '![Image ' + index + '](mixed-tab-image.png)\n'
+  ).join('\n')
+  definitions.push({ label: 'image-heavy', markdown: '# Image-heavy tab\n\n' + imageHeavy })
+
+  return definitions.map((definition, index) => {
+    const filePath = path.join(root, 'mixed-tab-' + String(index) + '-' + definition.label + '.md')
+    fs.writeFileSync(filePath, definition.markdown, 'utf8')
+    return { path: filePath, label: definition.label }
+  })
+}
+
 const readRawMetricCounts = (directory: string, level: LargeGateLevel): Map<string, number> => {
   const rawPath = path.join(directory, getLargeGateCollectionContract(level).rawFile)
   if (!fs.existsSync(rawPath)) throw new Error('raw report is missing: ' + rawPath)
@@ -780,7 +825,7 @@ const collectDocumentTier = async(
       })
       await recordSample(page, 'document.' + tier + '.headingJump', 'ms', headingDuration)
 
-      if (tier === '50k' || tier === '100k') {
+      if (tier === '50k' || tier === '100k' || tier === '500k' || tier === '1m') {
         const scrollFps = await measureElementScrollFps(page, '.editor-component')
         await recordSample(page, 'document.' + tier + '.scrollFps', 'count', scrollFps)
       }
@@ -1496,36 +1541,34 @@ const collectDiagramImageSamples = async(
           firstDiagramRenderStart < editorMilestones.timestamps.editableAt ? 1 : 0,
           'diagram'
         )
-        const imageStates = await page.locator('.mu-inline-image img').evaluateAll((images) =>
-          images.map((image) => {
-            const wrapper = image.closest('.mu-inline-image')
+        const imageStates = await page.locator('.mu-inline-image').evaluateAll((wrappers) =>
+          wrappers.map((wrapper) => {
+            const image = wrapper.querySelector('img')
             return {
-              complete: (image as HTMLImageElement).complete,
-              naturalWidth: (image as HTMLImageElement).naturalWidth,
-              top: (image as HTMLElement).getBoundingClientRect().top,
-              lazy: wrapper?.getAttribute('data-image-lazy'),
-              loadStarted: wrapper?.getAttribute('data-image-load-start')
+              complete: image?.complete ?? false,
+              naturalWidth: image?.naturalWidth ?? 0,
+              top: (wrapper as HTMLElement).getBoundingClientRect().top,
+              lazy: wrapper.getAttribute('data-image-lazy'),
+              loadStarted: wrapper.getAttribute('data-image-load-start'),
+              hasImage: image !== null
             }
           })
         )
         const viewportHeight = page.viewportSize()?.height ?? 720
-        const offscreen = imageStates.find((image) => image.top > viewportHeight)
-        if (!offscreen) {
-          throw new Error('diagram image gate produced no measurable offscreen image')
-        }
-        const offscreenLazy = offscreen.lazy === 'pending'
+        const offscreen = selectFastOffscreenImage(imageStates, viewportHeight)
+        const offscreenEvaluation = evaluateFastOffscreenImage(offscreen)
         await recordSample(
           page,
           'image.offscreenRequest',
           'count',
-          offscreenLazy && !offscreen.loadStarted ? 0 : 1,
+          offscreenEvaluation.request,
           'diagram'
         )
         await recordSample(
           page,
           'image.offscreenDecode',
           'count',
-          offscreenLazy && !offscreen.complete && offscreen.naturalWidth <= 0 ? 0 : 1,
+          offscreenEvaluation.decode,
           'diagram'
         )
         const attempts = Number(
@@ -1713,8 +1756,16 @@ const collectP1Shard = async(shard: LargeGateShard, capture: CaptureDirectory): 
   if (shard === 'doc-50k') return await collectDocumentTier('P1', '50k', capture)
   if (shard === 'doc-100k') return await collectDocumentTier('P1', '100k', capture)
   if (shard === 'doc-large') {
-    await collectDocumentTier('P1', '500k', capture)
-    await collectDocumentTier('P1', '1m', capture)
+    const baselineTier = process.env.INKIVA_BASELINE_DOC_TIER
+    if (baselineTier === undefined || baselineTier === '500k') {
+      await collectDocumentTier('P1', '500k', capture)
+    }
+    if (baselineTier === undefined || baselineTier === '1m') {
+      await collectDocumentTier('P1', '1m', capture)
+    }
+    if (baselineTier !== undefined && baselineTier !== '500k' && baselineTier !== '1m') {
+      throw new Error('INKIVA_BASELINE_DOC_TIER must be 500k or 1m')
+    }
     return
   }
   if (shard === 'tree') return await collectTreeSamples('P1', 10000, 1000, capture)
@@ -1806,6 +1857,77 @@ const collectLevel = async(level: LargeGateLevel, capture: CaptureDirectory): Pr
   assertRawCoverage(capture.directory, level)
 }
 
+const collectMixedTabBaselineSamples = async(capture: CaptureDirectory): Promise<void> => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-baseline-mixed-tabs-'))
+  const tabs = writeMixedBaselineTabSet(root)
+  let app: ElectronApplication | undefined
+  try {
+    const launched = await launchCaptured([root, tabs[0]?.path as string], capture, 240000)
+    app = launched.app
+    const { page } = launched
+    await installGateProbe(page)
+    await waitForEditor(page, 240000)
+    for (let index = 1; index < tabs.length; index += 1) {
+      await activateFile(app, page, tabs[index]?.path as string)
+    }
+    await expect(page.locator('.tabs-container > li')).toHaveCount(8, { timeout: 240000 })
+
+    const sampler = await createRendererHeapSampler(page)
+    try {
+      const loadedBaseline = await sampler.sample()
+      for (let index = 0; index < 100; index += 1) {
+        const targetIndex = (index + 1) % tabs.length
+        const target = page.locator('.tabs-container > li').nth(targetIndex)
+        const duration = await measurePageAction(page, async() => {
+          await target.click()
+          await expect(target).toHaveClass(/active/)
+        })
+        await recordSample(page, 'baseline.tabs.mixed.switch', 'ms', duration)
+        await recordSample(
+          page,
+          'baseline.tabs.mixed.switch.' + (tabs[targetIndex]?.label ?? 'unknown'),
+          'ms',
+          duration
+        )
+        await recordSample(page, 'baseline.tabs.mixed.freeze', 'count', duration > 100 ? 1 : 0)
+      }
+      const afterSwitches = await sampler.sample()
+      await recordSample(
+        page,
+        'baseline.tabs.mixed.heapDeltaAfter100Switches',
+        'bytes',
+        calculateHeapDelta(loadedBaseline, afterSwitches),
+        'memory'
+      )
+    } finally {
+      await sampler.dispose()
+    }
+
+    const errors = await getRendererErrors(app)
+    await recordSample(page, 'baseline.tabs.mixed.rendererErrors', 'count', errors.length)
+    expect(errors).toHaveLength(0)
+  } finally {
+    if (app) {
+      await closeElectron(app, 30_000)
+      appendCapture(capture.directory, 'P1')
+    }
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+test.describe('@baseline-mixed-tabs focused baseline', () => {
+  test.skip(!runMixedTabBaseline, 'Run with INKIVA_RUN_BASELINE_MIXED_TABS=true')
+  test.setTimeout(1_800_000)
+
+  test('switches 100 times across mixed 50K/500K/1M/diagram/image tabs', async() => {
+    const directory = path.resolve(__dirname, '../../../../perf-results/baseline-01/mixed-tabs')
+    fs.mkdirSync(directory, { recursive: true })
+    const capture: CaptureDirectory = { directory, cleanup: () => {} }
+    clearCaptureFiles(capture.directory, 'P1')
+    await collectMixedTabBaselineSamples(capture)
+  })
+})
+
 test.describe('@perf-gate-tree-focus focused diagnostic', () => {
   test.skip(!runTreeFocus, 'Run with INKIVA_RUN_PERF_TREE_FOCUS=true')
   test.setTimeout(900_000)
@@ -1846,14 +1968,12 @@ test.describe('@perf-gate-virtual-heap focused diagnostic', () => {
   test.setTimeout(3_600_000)
 
   test('500k and 1m virtualized open/edit/close cycles have no linear post-GC heap growth', async() => {
-    const capture = createCaptureDirectory()
-    try {
-      clearCaptureFiles(capture.directory, 'P1')
-      for (const tier of ['500k', '1m'] as const) {
-        await collectVirtualizedMemoryLeakSamples('P1', tier, capture)
-      }
-    } finally {
-      capture.cleanup()
+    const directory = path.resolve(__dirname, '../../../../perf-results/baseline-01/virtual-heap')
+    fs.mkdirSync(directory, { recursive: true })
+    const capture: CaptureDirectory = { directory, cleanup: () => {} }
+    clearCaptureFiles(capture.directory, 'P1')
+    for (const tier of ['500k', '1m'] as const) {
+      await collectVirtualizedMemoryLeakSamples('P1', tier, capture)
     }
   })
 })
