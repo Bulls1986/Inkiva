@@ -11,6 +11,7 @@
 - Keep implementation, regression tests, and required guards in one coherent change chain.
 - Do not mix unrelated cleanup into the task.
 - Do not auto-merge unless explicitly requested.
+- If WebCodex `show_changes` cannot obtain Git status, do not keep retrying the same inspection path. Fall back once to `git_status` / `git_diff_summary`, or bounded `git status --short` + `git diff --stat` + targeted `git diff -- <paths>`; continue review from that evidence and retry `show_changes` only after repository state changes or the underlying status path is known healthy.
 
 ## Stage records
 

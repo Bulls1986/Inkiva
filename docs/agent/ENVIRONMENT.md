@@ -191,6 +191,8 @@ pnpm exec vitest <focused args>
 
 A process that exits because tooling is missing, discovers `0 tests` because of dependency/bootstrap damage, or reports cross-worktree realpaths is environment evidence, not a product red test. This includes a pnpm link that exists but points to an incomplete package payload (for example Vitest resolving `tinyexec` while `tinyexec/index.js` or its package contents are missing): treat the donor dependency graph as unhealthy and repair/replace the slot rather than patching product code or repeatedly relaunching Vitest.
 
+On this Windows Runner, do not start multiple independent focused Vitest validations at the same time during diagnosis/closeout. Two package-local `pnpm exec vitest` launches can both remain at the Corepack/pnpm layer with near-zero CPU and no test discovery, producing misleading timeouts. Run one focused suite to confirmed discovery/completion before starting the next. If concurrent suites are already silent before discovery, inspect their process trees, terminate the redundant launchers after the Jobs are terminal/understood, and rerun serially; do not classify the stall as a product failure.
+
 ### Electron build artifacts are never shared across branches
 
 Dependencies may be reused. Electron build output may not. Before current-worktree E2E, build the current worktree so artifacts such as `out/main/index.js` come from the code under test:
@@ -252,6 +254,7 @@ For install/test/E2E/build/performance/release validation:
 | new worktree lacks dependencies | use healthy pre-warmed slot; otherwise one deliberate repair | ad-hoc package Junctions |
 | offline install silent | observe same Job | launch duplicate installs |
 | Vitest fails before discovery because tooling/`tinyexec` payload is missing (even if the pnpm link exists) | donor dependency graph incomplete; repair/replace slot or rely on clean CI for that gate | call it product regression / keep retrying Vitest |
+| multiple focused Vitest jobs are silent before discovery with pnpm/Corepack processes at near-zero CPU | stop parallel diagnosis and rerun focused suites serially, one confirmed discovery at a time | keep launching parallel Vitest jobs / report product regression |
 | Vite/Vitest resolves another worktree | topology invalid | Vite allowlist hacks |
 | relative Windows `.cmd` fails | `pnpm exec` | direct `vitest.cmd` calls |
 | main checkout dependencies incomplete | do not use as donor | copy/Junction incomplete tree |
