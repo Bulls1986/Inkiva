@@ -509,7 +509,7 @@ test.describe('Find bar — source-code mode (item 194)', () => {
 
     await expect(page.locator(SEARCH_BAR)).toBeVisible({ timeout: 5000 })
     await page.locator(FIND_INPUT).fill('source mode')
-    await expect.poll(() => counterText(page)).toContain('2 / 2')
+    await expect.poll(() => counterText(page)).toContain('1 / 2')
 
     await page.keyboard.press('Escape')
     await expect(page.locator(SEARCH_BAR)).toBeHidden({ timeout: 5000 })

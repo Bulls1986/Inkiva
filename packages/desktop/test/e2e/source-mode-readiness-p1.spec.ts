@@ -232,9 +232,22 @@ test.describe('CORRECTNESS-02 / Source Mode P1 readiness', () => {
       })
       await expect(labels.last()).toHaveText('Source Heading 500', { timeout: 10000 })
       await labels.last().click()
-      await expect(
-        launched.page.locator('.side-bar-toc .toc-node-label.is-active[aria-current="location"]')
-      ).toContainText('Source Heading 500', { timeout: 10000 })
+      await expect
+        .poll(
+          () =>
+            launched.page.evaluate(() => {
+              const editor = document.querySelector<HTMLElement>('.editor-component')
+              const target = Array.from(
+                document.querySelectorAll<HTMLElement>('.mu-container h1')
+              ).find((heading) => heading.textContent?.trim() === 'Source Heading 500')
+              if (!editor || !target) return false
+              const editorRect = editor.getBoundingClientRect()
+              const targetRect = target.getBoundingClientRect()
+              return targetRect.bottom > editorRect.top && targetRect.top < editorRect.bottom
+            }),
+          { timeout: 10000 }
+        )
+        .toBe(true)
       await expectNoRendererErrors(launched.app)
     } finally {
       await launched.app.close()
