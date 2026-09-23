@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import bus from '../bus'
 import { useLayoutStore } from './layout'
 import type { EditorEditAction, FormatAction, ParagraphAction } from '@shared/types/bus'
+import { executeWhenEditorReady } from '../services/editorCommandReadiness'
 
 const EDITOR_EDIT_ACTIONS = new Set<EditorEditAction>([
   'undo',
@@ -125,10 +126,10 @@ export const useListenForMainStore = defineStore('listenForMain', () => {
     // guard. Restore the same shape; bus listeners that expect a payload get
     // the same `type` value (string at runtime per main process emitters).
     window.electron.ipcRenderer.on('mt::editor-paragraph-action', (_e, { type }) => {
-      if (isParagraphAction(type)) bus.emit('paragraph', type)
+      if (isParagraphAction(type)) executeWhenEditorReady(() => bus.emit('paragraph', type))
     })
     window.electron.ipcRenderer.on('mt::editor-format-action', (_e, { type }) => {
-      if (isFormatAction(type)) bus.emit('format', type)
+      if (isFormatAction(type)) executeWhenEditorReady(() => bus.emit('format', type))
     })
   }
 

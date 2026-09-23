@@ -11,6 +11,7 @@
       width="min(640px, calc(100vw - 48px))"
       top="12vh"
       @close="handleDialogClose"
+      @closed="handleDialogClosed"
     >
       <div
         class="search-wrapper"
@@ -186,6 +187,7 @@ const searcherBusy = ref(false)
 const showLoadingMessage = ref(false)
 let searchRequestId = 0
 let commandOpenRequestId = 0
+let pendingCommandExecution: (() => void | Promise<void>) | null = null
 let loadingMessageTimer: ReturnType<typeof setTimeout> | null = null
 
 const defaultPlaceholderText = computed(() => t('commandPalette.placeholder'))
@@ -378,11 +380,21 @@ const handleDialogClose = (): void => {
   searchRequestId++
   commandInitializing.value = false
   searcherBusy.value = false
+}
+
+const handleDialogClosed = (): void => {
+  const pending = pendingCommandExecution
+  pendingCommandExecution = null
+  const command = currentCommand.value
+
   selectedCommandIndex.value = -1
   query.value = ''
   availableCommands.value = []
-  currentCommand.value?.unload?.()
   currentCommand.value = null
+
+  Promise.resolve(pending?.())
+    .catch((error: unknown) => log.error('Unable to execute command:', error))
+    .finally(() => command?.unload?.())
 }
 
 const handleBeforeInput = (event: KeyboardEvent): void => {
@@ -522,8 +534,8 @@ const executeCommand = (commandId: string): void => {
   const activeCommand = currentCommand.value
   if (!activeCommand) return
   if (activeCommand.executeSubcommand) {
+    pendingCommandExecution = () => activeCommand.executeSubcommand?.(commandId, command.value)
     showCommandPalette.value = false
-    activeCommand.executeSubcommand(commandId, command.value)
     return
   }
 
@@ -536,8 +548,8 @@ const executeCommand = (commandId: string): void => {
     return
   }
 
+  pendingCommandExecution = execute ?? null
   showCommandPalette.value = false
-  execute?.()
 }
 
 const handleLanguageChanged = (): void => {

@@ -113,6 +113,10 @@ export interface ReplaceMisspellingPayload {
   replacement: string
 }
 
+export interface EditorCommandReadinessRequest {
+  resolve: (ready: boolean) => void
+}
+
 export type BusEvents = {
   aboutDialog: undefined
   'cmd::execute': string
@@ -127,6 +131,7 @@ export type BusEvents = {
   'EDITOR_TABS::change-max-width': number
   'editor-blur': undefined
   'editor-focus': undefined
+  'editor-command-readiness': EditorCommandReadinessRequest
   export: object
   'export-again': undefined
   'file-changed': FileChangePayload

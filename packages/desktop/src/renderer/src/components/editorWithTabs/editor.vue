@@ -311,6 +311,42 @@ let scrollPositionPersistTimer: ReturnType<typeof setTimeout> | null = null
 let pendingScrollPosition: { id: string; scrollTop: number } | null = null
 let tocScrollSync: ReturnType<typeof createTocScrollSync> | null = null
 let editorLayoutReconciler: ReturnType<typeof createEditorLayoutReconciler> | null = null
+let editorCompositionActive = false
+type EditorCommandReadinessResolve = BusEvents['editor-command-readiness']['resolve']
+interface PendingEditorCommandReadiness {
+  documentId: string
+  resolve: EditorCommandReadinessResolve
+}
+let editorCommandReadyDocumentId: string | null = null
+const pendingEditorCommandReadiness = new Set<PendingEditorCommandReadiness>()
+
+const rejectPendingEditorCommandReadiness = (): void => {
+  for (const request of pendingEditorCommandReadiness) request.resolve(false)
+  pendingEditorCommandReadiness.clear()
+}
+
+const invalidateEditorCommandContext = (nextDocumentId?: string): void => {
+  editorCommandReadyDocumentId = null
+  for (const request of pendingEditorCommandReadiness) {
+    if (nextDocumentId && request.documentId === nextDocumentId) continue
+    request.resolve(false)
+    pendingEditorCommandReadiness.delete(request)
+  }
+}
+
+const markEditorCompositionStart = (): void => {
+  editorCompositionActive = true
+  rejectPendingEditorCommandReadiness()
+}
+const markEditorCompositionEnd = (): void => { editorCompositionActive = false }
+
+watch(
+  () => currentFile.value?.id,
+  (id, oldId) => {
+    if (id !== oldId) invalidateEditorCommandContext(id)
+  },
+  { flush: 'sync' }
+)
 const tocRefreshScheduler = createTocRefreshScheduler()
 function disposeEditorInstances (): void {
   if (imageViewer) {
@@ -335,7 +371,11 @@ function disposeEditorPresentationResources (): void {
     for (const eventName of ['beforeinput', 'compositionend', 'paste'] as const) {
       inputContainer.removeEventListener(eventName, inputParseProbe.begin, true)
     }
+    inputContainer.removeEventListener('compositionstart', markEditorCompositionStart, true)
+    inputContainer.removeEventListener('compositionend', markEditorCompositionEnd, true)
   }
+  rejectPendingEditorCommandReadiness()
+  editorCommandReadyDocumentId = null
   inputParseProbe.cancel()
 
   if (scrollHandler && editor.value) {
@@ -1061,6 +1101,8 @@ watch(
   sourceCode,
   (value, oldValue) => {
     if (value && value !== oldValue) {
+      rejectPendingEditorCommandReadiness()
+      editorCommandReadyDocumentId = null
       if (editor.value) {
         // Flush the WYSIWYG operation batch and its deferred snapshot before
         // the source editor mounts. The source view reads currentFile.markdown
@@ -1581,6 +1623,7 @@ const scrollToCords = (y: number) => {
     container.style.visibility = 'visible'
     container.style.pointerEvents = 'auto'
     checkPendingScrollRestore()
+    markEditorCommandContextReady(currentFile.value?.id)
   })
 }
 
@@ -2090,6 +2133,7 @@ const setMarkdownToEditor = (payload: unknown) => {
   } = (payload ?? {}) as FileLoadedPayload
   if (isStaleEditorEvent(id, currentFile.value?.id)) return
   if (editor.value) {
+    invalidateEditorCommandContext(id)
     if (!contentAlreadyLoaded) {
       beginEditorPerformanceOperation(id)
     }
@@ -2136,6 +2180,7 @@ const setMarkdownToEditor = (payload: unknown) => {
     // A freshly created/opened tab should be ready to type into.
     focusFreshEditor()
     scheduleEditorMilestones(id)
+    runWhenEditorRenderComplete(id, () => markEditorCommandContextReady(id))
   }
 }
 
@@ -2174,6 +2219,7 @@ const handleFileChange = (payload: unknown) => {
   if (!editor.value) return
   if (isStaleEditorEvent(id, currentFile.value?.id)) return
   const container = getScrollContainer()
+  invalidateEditorCommandContext(id)
   if (!container) return
 
   // Hide the live editor before replacing a large rendered tree. Visibility
@@ -2321,6 +2367,8 @@ const handleFileChange = (payload: unknown) => {
     scrollToCursor(0)
   }
 
+  runWhenEditorRenderComplete(id, () => markEditorCommandContextReady(id))
+
   if (typeof newMarkdown === 'string') {
     scheduleEditorMilestones(id)
   }
@@ -2336,6 +2384,65 @@ const blurEditor = () => {
 
 const focusEditor = () => {
   editor.value?.focus()
+}
+
+const resolveEditorCommandReadiness = (request: PendingEditorCommandReadiness): void => {
+  const ed = editor.value
+  const currentDocumentId = currentFile.value?.id
+  if (
+    !ed ||
+    !currentDocumentId ||
+    request.documentId !== currentDocumentId ||
+    sourceCode.value ||
+    editorCompositionActive
+  ) {
+    request.resolve(false)
+    return
+  }
+
+  const container = getScrollContainer()
+  if (
+    editorCommandReadyDocumentId !== currentDocumentId ||
+    container?.style.visibility === 'hidden'
+  ) {
+    pendingEditorCommandReadiness.add(request)
+    return
+  }
+
+  pendingEditorCommandReadiness.delete(request)
+  const activeElement = document.activeElement
+  const alreadyFocused = ed.hasFocus() && !!activeElement && ed.domNode.contains(activeElement)
+  if (!alreadyFocused) {
+    ed.domNode.focus()
+    ed.focus()
+  }
+
+  const resolvedActiveElement = document.activeElement
+  request.resolve(
+    ed.hasFocus() &&
+    !!resolvedActiveElement &&
+    ed.domNode.contains(resolvedActiveElement)
+  )
+}
+
+const markEditorCommandContextReady = (documentId?: string): void => {
+  if (!documentId || currentFile.value?.id !== documentId || sourceCode.value) return
+  const container = getScrollContainer()
+  if (container?.style.visibility === 'hidden') return
+
+  editorCommandReadyDocumentId = documentId
+  for (const request of [...pendingEditorCommandReadiness]) {
+    if (request.documentId === documentId) resolveEditorCommandReadiness(request)
+  }
+}
+
+const ensureEditorCommandReadiness = ({ resolve }: BusEvents['editor-command-readiness']) => {
+  const documentId = currentFile.value?.id
+  if (!documentId || sourceCode.value || editorCompositionActive) {
+    resolve(false)
+    return
+  }
+  resolveEditorCommandReadiness({ documentId, resolve })
 }
 
 // Focus a freshly opened/created tab's editor. The sibling `file-changed`
@@ -2502,6 +2609,9 @@ onMounted(() => {
     documentId: performanceDocumentId
   })
   editor.value = muya
+  runWhenEditorRenderComplete(currentFile.value?.id, () => {
+    markEditorCommandContextReady(currentFile.value?.id)
+  })
   // The first document's content is set via constructor options, so no
   // `file-loaded` / `setMarkdownToEditor` runs for it — seed its TOC here.
   refreshEditorTocWhenReady(currentFile.value?.id)
@@ -2524,6 +2634,8 @@ onMounted(() => {
   for (const eventName of inputParseStartEvents) {
     container.addEventListener(eventName, inputParseProbe.begin, true)
   }
+  container.addEventListener('compositionstart', markEditorCompositionStart, true)
+  container.addEventListener('compositionend', markEditorCompositionEnd, true)
 
   // Cache top-level heading positions for active-TOC highlighting. The sync
   // reads layout only during outline/DOM rebuilds; scroll events use a binary
@@ -2594,6 +2706,7 @@ onMounted(() => {
   registerBusHandler('flush-active-editor-for-tab-switch', flushActiveEditorForTabSwitch)
   registerBusHandler('editor-blur', blurEditor)
   registerBusHandler('editor-focus', focusEditor)
+  registerBusHandler('editor-command-readiness', ensureEditorCommandReadiness)
   registerBusHandler('copyAsRich', handleCopyPaste)
   registerBusHandler('copyAsMarkdown', handleCopyPaste)
   registerBusHandler('copyAsHtml', handleCopyPaste)

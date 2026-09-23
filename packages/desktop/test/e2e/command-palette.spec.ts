@@ -1,13 +1,22 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
-import { launchWithMarkdown, sendIpcToRenderer } from './helpers'
+import { getMarkdownContent, launchWithMarkdown, sendIpcToRenderer } from './helpers'
+
+const selectFirstEditorBlock = async(page: Page): Promise<string> => {
+  const target = page.locator('.editor-component span.mu-paragraph-content').first()
+  await expect(target).toBeVisible({ timeout: 5000 })
+  await target.click()
+  await page.keyboard.press('Home')
+  await page.keyboard.press('Shift+End')
+  return await page.evaluate(() => window.getSelection()?.toString() ?? '')
+}
 
 test.describe('Command palette', () => {
   let app: ElectronApplication
   let page: Page
 
   test.beforeAll(async() => {
-    const launched = await launchWithMarkdown('# Palette\n')
+    const launched = await launchWithMarkdown('Palette\n')
     app = launched.app
     page = launched.page
   })
@@ -64,5 +73,23 @@ test.describe('Command palette', () => {
       null,
       { timeout: 5000 }
     )
+  })
+
+  test('first palette format command restores the original editor selection', async() => {
+    const selected = await selectFirstEditorBlock(page)
+    expect(selected).toContain('Palette')
+
+    await sendIpcToRenderer(app, 'mt::show-command-palette')
+    const searchInput = page.locator('input.search').first()
+    await expect(searchInput).toBeVisible({ timeout: 5000 })
+    await searchInput.fill('format.strong')
+
+    const strongCommand = page.locator('#command-palette-option-format-strong')
+    await expect(strongCommand).toBeVisible({ timeout: 5000 })
+    await searchInput.press('Enter')
+
+    await expect(searchInput).toBeHidden({ timeout: 5000 })
+    await expect.poll(() => getMarkdownContent(page, app), { timeout: 8000 })
+      .toContain('**Palette**')
   })
 })
