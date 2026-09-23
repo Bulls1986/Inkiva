@@ -108,7 +108,7 @@ The 100-cycle Source/WYSIWYG test now also asserts exactly one CodeMirror instan
 
 ## Phase 7 — Full regression
 
-Pending.
+Run 610 kept Lint, unit Test, PR Build, and Performance Fast Gate green. E2E completed 368 passed / 15 skipped / 1 failed. The sole remaining failure was again an assertion-observation defect in the 500-heading navigation gate, not a product failure: the target heading lookup compared clean TOC text (`Source Heading 500`) against raw Muya ATX heading `textContent`, which includes the rendered Markdown `# ` syntax marker. The existing `toc-scroll.spec.ts` already documents and normalizes this representation. The readiness gate now uses the same semantic normalization before checking viewport intersection; no workload or product behavior was changed.
 
 ## Phase 8 — CI
 
@@ -124,7 +124,16 @@ Fourth substantive CI run on remote-equivalent tree `ab58edbf` (run 609) confirm
 
 ## Phase 9 — Documentation / learning review
 
-Pending.
+Completed review against `docs/agent/WORKFLOW.md`, `docs/agent/TESTING.md`, and the existing TOC/navigation E2E contract. Reusable lessons were consolidated into the existing Testing guide rather than adding a new standalone rule:
+
+- Source Markdown is canonical across Source -> WYSIWYG handoff; presentation rebuild events must not allocate a newer content revision or normalize exact Source bytes.
+- Suppressing a synthetic presentation mutation does not remove the need to maintain save/history identity; content revision ownership and editor-engine history metadata are separate correctness concerns.
+- TOC/virtualization tests must distinguish authoritative logical model state from the mounted DOM window.
+- Clean TOC labels and rendered heading DOM are different representations; ATX DOM text may include Markdown syntax markers and must be normalized before semantic comparison.
+- A clicked TOC target and the settled viewport-active heading are not the same contract near document boundaries because scroll clamping can make an earlier heading active.
+- Test helpers must encode actual architecture thresholds and public contracts rather than inferred assumptions (for example 1 MiB vs the real 2 MiB bounded-source threshold).
+
+Invalid approaches identified during this task were: treating bootstrap failure as product red evidence, allowing Muya handoff serialization to overwrite exact Source text, assuming virtualized Outline DOM cardinality equals logical TOC cardinality, and adjusting assertions before tracing the underlying representation/scroll contract.
 
 ## Phase 10 — PR closeout
 

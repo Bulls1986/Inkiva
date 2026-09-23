@@ -237,9 +237,10 @@ test.describe('CORRECTNESS-02 / Source Mode P1 readiness', () => {
           () =>
             launched.page.evaluate(() => {
               const editor = document.querySelector<HTMLElement>('.editor-component')
+              const normalizeHeading = (text: string): string => text.replace(/^[#\s]+/, '').trim()
               const target = Array.from(
                 document.querySelectorAll<HTMLElement>('.mu-container h1')
-              ).find((heading) => heading.textContent?.trim() === 'Source Heading 500')
+              ).find((heading) => normalizeHeading(heading.textContent ?? '') === 'Source Heading 500')
               if (!editor || !target) return false
               const editorRect = editor.getBoundingClientRect()
               const targetRect = target.getBoundingClientRect()
