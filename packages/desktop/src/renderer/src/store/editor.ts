@@ -1413,6 +1413,7 @@ export const useEditorStore = defineStore('editor', {
           window.electron.ipcRenderer.send('mt::window-tab-closed', pathname)
         }
 
+        autosaveQueue.cancel(id)
         this.tabs.splice(index, 1)
         this.pinnedTabIds = this.pinnedTabIds.filter((tabId) => tabId !== id)
         if (this.currentFile?.id === id) {

@@ -126,6 +126,36 @@ describe('useEditorStore LISTEN_FOR_CONTENT_CHANGE — source-mode dirty trackin
     store.FORCE_CLOSE_TAB(tab as unknown as Parameters<typeof store.FORCE_CLOSE_TAB>[0])
   })
 
+  it('cancels delayed autosave work when tabs are bulk-closed', () => {
+    vi.useFakeTimers()
+    const store = useEditorStore()
+    const preferences = usePreferencesStore()
+    preferences.autoSaveDelay = 1000
+    const tab = makeSavedTab(store)
+    const sendSpy = vi.spyOn(window.electron.ipcRenderer, 'send')
+
+    store.HANDLE_AUTO_SAVE({
+      id: tab.id,
+      revision: 1,
+      filename: tab.filename,
+      pathname: tab.pathname,
+      markdown: 'pending autosave',
+      options: {
+        encoding: { encoding: 'utf8', isBom: false },
+        lineEnding: 'lf',
+        adjustLineEndingOnSave: false,
+        trimTrailingNewline: 0
+      }
+    })
+    store.CLOSE_TABS([tab.id])
+
+    vi.advanceTimersByTime(1000)
+
+    expect(
+      sendSpy.mock.calls.filter(([channel]) => channel === 'mt::response-file-save')
+    ).toHaveLength(0)
+  })
+
   it('queues an undo-to-clean snapshot while an older autosave is pending', () => {
     const store = useEditorStore()
     const preferences = usePreferencesStore()

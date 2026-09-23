@@ -350,4 +350,29 @@ describe('main ripgrep IPC backpressure protocol', () => {
     expect(child.kill).toHaveBeenCalled()
     expect(sender.messages.filter(({ channel }) => channel === 'mt::rg::match')).toHaveLength(1)
   })
+
+  it('releases the sender destroyed listener after a search completes', async() => {
+    const sender = new FakeSender()
+    const child = new FakeChild()
+    spawn.mockReturnValue(child)
+
+    await getHandler('mt::rg::start')(
+      { sender },
+      {
+        searchId: 'ipc-listener-lifecycle',
+        mode: 'text',
+        directories: ['/workspace'],
+        pattern: 'needle',
+        options: {}
+      }
+    )
+
+    expect(sender.listenerCount('destroyed')).toBe(1)
+
+    child.stdout.emit('end')
+    child.emit('close', 0)
+
+    expect(sender.messages.filter(({ channel }) => channel === 'mt::rg::done')).toHaveLength(1)
+    expect(sender.listenerCount('destroyed')).toBe(0)
+  })
 })

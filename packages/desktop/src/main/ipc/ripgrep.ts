@@ -15,6 +15,7 @@ interface ActiveSearch {
   sender: WebContents
   cancel: () => void
   ack: (batchId: number) => boolean
+  dispose: () => void
 }
 
 const activeSearches = new Map<string, ActiveSearch>()
@@ -25,7 +26,10 @@ const MAX_QUEUED_BATCHES = 2
 
 const removeActiveSearch = (searchId: string, cancel: () => void): void => {
   const entry = activeSearches.get(searchId)
-  if (entry?.cancel === cancel) activeSearches.delete(searchId)
+  if (entry?.cancel === cancel) {
+    entry.dispose()
+    activeSearches.delete(searchId)
+  }
 }
 
 const sendIfAlive = (
@@ -51,17 +55,20 @@ const terminateChild = (child: ChildProcess): void => {
   try { child.kill() } catch { /* process already dead */ }
 }
 
-const cleanupAtSenderDestroy = (sender: WebContents | null | undefined): void => {
-  if (!sender) return
-  const handler = (): void => {
-    for (const [id, entry] of activeSearches.entries()) {
-      if (entry.sender === sender) {
-        entry.cancel()
-        removeActiveSearch(id, entry.cancel)
-      }
-    }
-  }
-  sender.once('destroyed', handler)
+const registerActiveSearch = (
+  searchId: string,
+  sender: WebContents,
+  cancel: () => void,
+  ack: (batchId: number) => boolean
+): void => {
+  const onDestroyed = (): void => cancel()
+  sender.once('destroyed', onDestroyed)
+  activeSearches.set(searchId, {
+    sender,
+    cancel,
+    ack,
+    dispose: () => sender.removeListener('destroyed', onDestroyed)
+  })
 }
 
 interface TextInput {
@@ -282,7 +289,7 @@ const startTextSearch = (
     }
   )
 
-  activeSearches.set(searchId, { sender, cancel, ack: (batchId) => gate.ack(batchId) })
+  registerActiveSearch(searchId, sender, cancel, (batchId) => gate.ack(batchId))
 
   for (const directoryPath of directories) {
     let regexpStr: string | null = null
@@ -578,7 +585,7 @@ const startFileSearch = (
     }
   )
 
-  activeSearches.set(searchId, { sender, cancel, ack: (batchId) => gate.ack(batchId) })
+  registerActiveSearch(searchId, sender, cancel, (batchId) => gate.ack(batchId))
 
   for (const directoryPath of directories) {
     const args = ['--files']
@@ -698,7 +705,6 @@ export const registerRipgrepHandlers = (): void => {
   ipcMain.handle('mt::rg::start', (event, req: RipgrepRequest) => {
     const { searchId, mode, directories, pattern, options } = req
     activeSearches.get(searchId)?.cancel()
-    cleanupAtSenderDestroy(event.sender)
     if (mode === 'files') startFileSearch(event.sender, searchId, directories, options || {})
     else startTextSearch(event.sender, searchId, directories, pattern, options || {})
     return { searchId }
