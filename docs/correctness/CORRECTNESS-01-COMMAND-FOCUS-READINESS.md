@@ -328,5 +328,65 @@ The native accelerator path is now split into two deterministic gates:
 
 Current focused contract after this split: **7/7 passed**.
 
-Next: push this E2E/contract refinement and require a third CI pass with all CORRECTNESS-01 paths green.
+### Stage 6 update — third CI pass / authoritative green
+
+Third CI result for `8ecc0015`:
+
+- lint: **passed**;
+- unit test: **passed**;
+- Desktop PR fast hard gate: **passed**;
+- macOS ARM64 build: **passed**;
+- macOS x64 build: **passed**;
+- Windows x64 build: **passed**;
+- Electron E2E: **passed** (7m20s);
+- PR artifact-link comment: **passed**.
+
+This is the authoritative dependency-backed closure for CORRECTNESS-01. The three focused behavior paths are now green in CI:
+
+1. Command Palette closes fully before the first selection-dependent format command executes;
+2. an A -> B tab switch can receive the renderer format ingress immediately and the mutation waits for B readiness without touching stale A;
+3. IME composition rejects readiness while composition is active and accepts the same format ingress again after `compositionend`.
+
+The native accelerator itself is covered separately by the focused contract gate, which verifies the platform mappings (`Ctrl+B` / `Command+B`) and the main-process Format action -> `mt::editor-format-action` bridge. This keeps the CI behavior test deterministic without pretending Playwright keyboard injection is equivalent to Electron native accelerator dispatch.
+
+## Final outcome
+
+CORRECTNESS-01 is **ready to merge**.
+
+The final contract is:
+
+```text
+UI / native command ingress
+        |
+        v
+classify command ownership
+        |
+        +--> surface-owned command (Undo/Redo/find/input-owned action)
+        |       -> active surface handles directly
+        |
+        +--> WYSIWYG selection/document command
+                -> executeWhenEditorReady()
+                -> bind request to originating documentId
+                -> reject stale / Source Mode / IME-active contexts
+                -> wait for render + selection + visible surface if needed
+                -> preserve existing valid focus/selection
+                -> restore focus only when actually missing
+                -> execute exactly once
+```
+
+### Lessons retained
+
+- Event emission is not readiness; mutation requires an explicit acknowledgement boundary.
+- Dialog `close` and `closed` are different lifecycle states; selection-dependent commands belong behind `closed`.
+- Readiness must be document-bound or a queued command can mutate a later tab.
+- Readiness must preserve already-valid focus/selection rather than re-focusing unconditionally.
+- Cross-surface commands such as Undo/Redo must remain owned by the active editing surface; forcing WYSIWYG focus breaks Source Mode.
+- IME composition is a hard exclusion boundary: never steal focus or force mutation during composition.
+- Native accelerator wiring and renderer readiness are separate test concerns; validate the wiring statically and the readiness behavior at the deterministic renderer ingress.
+- Arbitrary delays, retries, and second-trigger behavior are not acceptable correctness mechanisms.
+
+Final focused gate: **7/7 passed**.
+Final required CI: **all green**.
+
+Next closure action: merge PR #176 into `develop` and record the merge commit if required.
 
