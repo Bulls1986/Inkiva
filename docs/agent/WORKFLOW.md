@@ -11,6 +11,7 @@
 - Keep implementation, regression tests, and required guards in one coherent change chain.
 - Do not mix unrelated cleanup into the task.
 - Do not auto-merge unless explicitly requested.
+- Before merging, confirm which merge strategies the repository actually allows. A merge-strategy rejection is repository-policy evidence, not a PR/CI failure: query the repository merge capabilities once, switch to the permitted strategy, and do not repeat a known-disallowed `merge` / `rebase` / `squash` attempt. After a successful merge, verify both the PR state and the target branch ref before recording the task as merged.
 - If WebCodex `show_changes` cannot obtain Git status, do not keep retrying the same inspection path. Fall back once to `git_status` / `git_diff_summary`, or bounded `git status --short` + `git diff --stat` + targeted `git diff -- <paths>`; continue review from that evidence and retry `show_changes` only after repository state changes or the underlying status path is known healthy.
 
 ## Stage records
