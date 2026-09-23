@@ -411,7 +411,230 @@ describe('stage C1 virtualization production contract', () => {
         assertViewportCovered();
     });
 
-    it('replaces a stale exact viewport anchor with the live DOM anchor when measured geometry changes', async () => {
+    it('propagates async height growth for the final virtual block into total document height', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + VIRTUAL_RENDERER_SEGMENT_BLOCKS * 2 + 7;
+        const muya = new Muya(host, {
+            markdown: paragraphs(totalBlocks),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const lastIndex = totalBlocks - 1;
+        const lastOffset = scrollPage.getVirtualBlockOffset(lastIndex);
+        if (lastOffset == null)
+            throw new Error('expected final virtual block offset');
+
+        scrollPage.updateVirtualWindowForViewport(lastOffset, 720);
+        const internals = scrollPage as unknown as {
+            _virtualBlocks: Array<{ domNode: HTMLElement | null }>;
+            _virtualAfterSpacer: HTMLElement | null;
+            _measureVirtualBlockHeights: (entries: readonly ResizeObserverEntry[]) => void;
+            _virtualMeasuredHeights: Map<number, number>;
+        };
+        const lastNode = internals._virtualBlocks[lastIndex]?.domNode;
+        const afterSpacer = internals._virtualAfterSpacer;
+        if (!lastNode || !afterSpacer)
+            throw new Error('expected mounted final block and after spacer');
+
+        vi.spyOn(lastNode, 'getBoundingClientRect').mockReturnValue({ top: 100 } as DOMRect);
+        vi.spyOn(afterSpacer, 'getBoundingClientRect').mockReturnValue({ top: 500 } as DOMRect);
+
+        internals._measureVirtualBlockHeights([
+            { target: lastNode } as unknown as ResizeObserverEntry,
+        ]);
+
+        expect(internals._virtualMeasuredHeights.get(lastIndex)).toBeCloseTo(400, 4);
+        expect(scrollPage.getVirtualizationSnapshot().totalEstimatedHeight).toBeCloseTo(lastOffset + 400, 4);
+    });
+
+    it('ignores stale geometry invalidation from an older surface generation', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, {
+            markdown: paragraphs(PROGRESSIVE_RENDER_THRESHOLD + 80),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const internals = scrollPage as unknown as {
+            _virtualBlocks: Array<{ domNode: HTMLElement | null }>;
+            _virtualGeometryGeneration: number;
+            _virtualMeasuredHeights: Map<number, number>;
+            _invalidateVirtualGeometry: (invalidation: {
+                reason: 'mounted-block-resized';
+                generation: number;
+                entries: readonly ResizeObserverEntry[];
+            }) => void;
+        };
+        const firstNode = internals._virtualBlocks[0]?.domNode;
+        const secondNode = internals._virtualBlocks[1]?.domNode;
+        if (!firstNode || !secondNode)
+            throw new Error('expected adjacent mounted virtual blocks');
+
+        vi.spyOn(firstNode, 'getBoundingClientRect').mockReturnValue({ top: 10 } as DOMRect);
+        vi.spyOn(secondNode, 'getBoundingClientRect').mockReturnValue({ top: 90 } as DOMRect);
+        const generation = internals._virtualGeometryGeneration;
+
+        internals._invalidateVirtualGeometry({
+            reason: 'mounted-block-resized',
+            generation: generation - 1,
+            entries: [{ target: firstNode } as unknown as ResizeObserverEntry],
+        });
+
+        expect(internals._virtualMeasuredHeights.get(0)).toBeUndefined();
+    });
+
+    it('ignores a resize result for a block that has already unmounted', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + 320;
+        const muya = new Muya(host, {
+            markdown: paragraphs(totalBlocks),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const internals = scrollPage as unknown as {
+            _virtualBlocks: Array<{ domNode: HTMLElement | null }>;
+            _virtualGeometryGeneration: number;
+            _virtualMeasuredHeights: Map<number, number>;
+            _invalidateVirtualGeometry: (invalidation: {
+                reason: 'mounted-block-resized';
+                generation: number;
+                entries: readonly ResizeObserverEntry[];
+            }) => void;
+        };
+        const staleIndex = 160;
+        const staleOffset = scrollPage.getVirtualBlockOffset(staleIndex);
+        if (staleOffset == null)
+            throw new Error('expected stale-block virtual offset');
+        scrollPage.updateVirtualWindowForViewport(staleOffset, 600);
+        const staleNode = internals._virtualBlocks[staleIndex]?.domNode;
+        if (!staleNode || !staleNode.isConnected)
+            throw new Error('expected ordinary mounted block before moving away');
+
+        const distantOffset = scrollPage.getVirtualBlockOffset(totalBlocks - 40);
+        if (distantOffset == null)
+            throw new Error('expected distant virtual offset');
+        scrollPage.updateVirtualWindowForViewport(distantOffset, 600);
+        expect(staleNode.isConnected).toBe(false);
+
+        internals._invalidateVirtualGeometry({
+            reason: 'mounted-block-resized',
+            generation: internals._virtualGeometryGeneration,
+            entries: [{ target: staleNode } as unknown as ResizeObserverEntry],
+        });
+
+        expect(internals._virtualMeasuredHeights.get(staleIndex)).toBeUndefined();
+    });
+
+    it('applies out-of-order async resize results without breaking offset monotonicity', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const totalBlocks = PROGRESSIVE_RENDER_THRESHOLD + 80;
+        const muya = new Muya(host, {
+            markdown: paragraphs(totalBlocks),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const internals = scrollPage as unknown as {
+            _virtualBlocks: Array<{ domNode: HTMLElement | null }>;
+            _measureVirtualBlockHeights: (entries: readonly ResizeObserverEntry[]) => void;
+        };
+        const firstNode = internals._virtualBlocks[0]?.domNode;
+        const secondNode = internals._virtualBlocks[1]?.domNode;
+        const thirdNode = internals._virtualBlocks[2]?.domNode;
+        if (!firstNode || !secondNode || !thirdNode)
+            throw new Error('expected three mounted virtual blocks');
+
+        vi.spyOn(firstNode, 'getBoundingClientRect').mockReturnValue({ top: 10 } as DOMRect);
+        vi.spyOn(secondNode, 'getBoundingClientRect').mockReturnValue({ top: 110 } as DOMRect);
+        vi.spyOn(thirdNode, 'getBoundingClientRect').mockReturnValue({ top: 270 } as DOMRect);
+
+        internals._measureVirtualBlockHeights([
+            { target: secondNode } as unknown as ResizeObserverEntry,
+            { target: firstNode } as unknown as ResizeObserverEntry,
+        ]);
+
+        expect(scrollPage.getVirtualBlockOffset(1)).toBeCloseTo(100, 4);
+        expect(scrollPage.getVirtualBlockOffset(2)).toBeCloseTo(260, 4);
+        let previous = -1;
+        for (let index = 0; index <= totalBlocks; index += 1) {
+            const offset = scrollPage.getVirtualBlockOffset(index);
+            if (offset == null)
+                break;
+            expect(Number.isFinite(offset)).toBe(true);
+            expect(offset).toBeGreaterThanOrEqual(previous);
+            previous = offset;
+        }
+        const snapshot = scrollPage.getVirtualizationSnapshot();
+        expect(Number.isFinite(snapshot.totalEstimatedHeight)).toBe(true);
+        expect(snapshot.totalEstimatedHeight).toBeGreaterThanOrEqual(previous);
+    });
+
+    it('replays a mounted block resize that arrives while measurement is deferred', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, {
+            markdown: paragraphs(PROGRESSIVE_RENDER_THRESHOLD + 80),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const internals = scrollPage as unknown as {
+            _virtualBlocks: Array<{ domNode: HTMLElement | null }>;
+            _virtualGeometryGeneration: number;
+            _virtualBlockMeasurementDeferred: boolean;
+            _invalidateVirtualGeometry: (invalidation: {
+                reason: 'mounted-block-resized';
+                generation: number;
+                entries: readonly ResizeObserverEntry[];
+            }) => void;
+            _resumeVirtualBlockMeasurement: () => void;
+        };
+        const firstNode = internals._virtualBlocks[0]?.domNode;
+        const secondNode = internals._virtualBlocks[1]?.domNode;
+        if (!firstNode || !secondNode)
+            throw new Error('expected adjacent mounted virtual blocks');
+
+        const nextOffsetBefore = scrollPage.getVirtualBlockOffset(1);
+        if (nextOffsetBefore == null)
+            throw new Error('expected next virtual offset');
+        vi.spyOn(firstNode, 'getBoundingClientRect').mockReturnValue({ top: 100 } as DOMRect);
+        vi.spyOn(secondNode, 'getBoundingClientRect').mockReturnValue({ top: 420 } as DOMRect);
+
+        internals._virtualBlockMeasurementDeferred = true;
+        internals._invalidateVirtualGeometry({
+            reason: 'mounted-block-resized',
+            generation: internals._virtualGeometryGeneration,
+            entries: [{ target: firstNode } as unknown as ResizeObserverEntry],
+        });
+        expect(scrollPage.getVirtualBlockOffset(1)).toBeCloseTo(nextOffsetBefore, 4);
+
+        internals._resumeVirtualBlockMeasurement();
+
+        expect(scrollPage.getVirtualBlockOffset(1)).toBeCloseTo(320, 4);
+    });
+
+    it('preserves the latest logical viewport anchor when measured geometry changes above it', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);
         const muya = new Muya(host, {
@@ -428,6 +651,8 @@ describe('stage C1 virtualization production contract', () => {
             _virtualViewportAnchorIndex: number | null;
             _virtualViewportAnchorOffset: number | null;
             _virtualViewportAnchorExact: boolean;
+            _virtualUserScrollIntent: boolean;
+            _virtualLastScrollTop: number;
             _virtualNavigationTarget: unknown;
             _virtualResizeCorrectionTarget: number | null;
             _captureVirtualViewportAnchor: (container: HTMLElement) => { index: number; viewportOffset: number };
@@ -442,7 +667,9 @@ describe('stage C1 virtualization production contract', () => {
         vi.spyOn(secondNode, 'getBoundingClientRect').mockReturnValue({ top: 90 } as DOMRect);
         internals._virtualViewportAnchorIndex = 37;
         internals._virtualViewportAnchorOffset = -20;
-        internals._virtualViewportAnchorExact = true;
+        internals._virtualViewportAnchorExact = false;
+        internals._virtualUserScrollIntent = false;
+        internals._virtualLastScrollTop = 0;
         internals._virtualNavigationTarget = null;
         internals._virtualResizeCorrectionTarget = null;
         const capture = vi.spyOn(internals, '_captureVirtualViewportAnchor').mockReturnValue({
@@ -453,8 +680,8 @@ describe('stage C1 virtualization production contract', () => {
         internals._measureVirtualBlockHeights([{ target: firstNode } as unknown as ResizeObserverEntry]);
 
         expect(capture).toHaveBeenCalled();
-        expect(internals._virtualViewportAnchorIndex).toBe(0);
-        expect(internals._virtualViewportAnchorOffset).toBe(12);
+        expect(internals._virtualViewportAnchorIndex).toBe(37);
+        expect(internals._virtualViewportAnchorOffset).toBe(-20);
         expect(internals._virtualViewportAnchorExact).toBe(true);
     });
 
@@ -640,6 +867,8 @@ describe('stage C1 virtualization production contract', () => {
             internals._hydrateVirtualWindowAtCurrentViewport(container);
             expect(internals._virtualBlockMeasurementDeferred).toBe(false);
             expect(observe).toHaveBeenCalled();
+            for (const call of observe.mock.calls)
+                expect(call[1]).toEqual({ box: 'border-box' });
         }
         finally {
             vi.useRealTimers();

@@ -80,6 +80,16 @@ interface IVirtualRange {
     end: number;
 }
 
+interface IVirtualBlockMeasurementEntry {
+    target: Element;
+}
+
+interface IVirtualGeometryInvalidation {
+    reason: 'mounted-block-resized';
+    generation: number;
+    entries: readonly ResizeObserverEntry[];
+}
+
 class VirtualOffsetIndex {
     private _values: number[] = [];
     private _tree: number[] = [0];
@@ -383,6 +393,7 @@ export class ScrollPage extends Parent implements IDocumentSurface {
     private _virtualOffsetIndex = new VirtualOffsetIndex();
     private _virtualSegmentOffsetIndex = new VirtualOffsetIndex();
     private _virtualMeasuredHeights = new Map<number, number>();
+    private _virtualGeometryGeneration = 0;
     private _virtualGeometryRevision = 0;
     private _virtualGeometryWidth: number | null = null;
     private _virtualAppliedGeometryRevision = -1;
@@ -403,6 +414,7 @@ export class ScrollPage extends Parent implements IDocumentSurface {
     private _virtualResizeObserver: ResizeObserver | null = null;
     private _virtualBlockResizeObserver: ResizeObserver | null = null;
     private _virtualBlockMeasurementDeferred = false;
+    private _virtualDeferredMeasurementNodes = new Set<HTMLElement>();
     private _virtualScrollHydrationFrameId: number | null = null;
     private _virtualScrollHydrationGeneration = 0;
     private _virtualWindowResizeHandler: (() => void) | null = null;
@@ -827,12 +839,22 @@ export class ScrollPage extends Parent implements IDocumentSurface {
         if (!observer || !this._virtualBlockMeasurementDeferred)
             return;
         this._virtualBlockMeasurementDeferred = false;
-        if (!this._virtualizationEnabled || this._virtualBlockResizeObserver !== observer)
+        if (!this._virtualizationEnabled || this._virtualBlockResizeObserver !== observer) {
+            this._virtualDeferredMeasurementNodes.clear();
             return;
+        }
         for (const index of this._virtualMountedIndexes) {
             const node = this._virtualBlocks[index]?.domNode;
             if (node instanceof HTMLElement && this.domNode?.contains(node))
-                observer.observe(node);
+                observer.observe(node, { box: 'border-box' });
+        }
+        if (this._virtualDeferredMeasurementNodes.size > 0) {
+            const entries: IVirtualBlockMeasurementEntry[] = Array.from(
+                this._virtualDeferredMeasurementNodes,
+                target => ({ target }),
+            );
+            this._virtualDeferredMeasurementNodes.clear();
+            this._measureVirtualBlockHeights(entries);
         }
     }
 
@@ -912,6 +934,7 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             return;
 
         const container = findScrollContainer(this.muya.domNode);
+        const geometryGeneration = this._virtualGeometryGeneration;
         const contentWidth = () => this.domNode?.clientWidth || container.clientWidth || undefined;
         let observedContentWidth = contentWidth();
         let observedViewportHeight = container.clientHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX;
@@ -1119,9 +1142,11 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             container.addEventListener(eventName, cancelResizeCorrection, { passive: true });
         if (typeof ResizeObserver !== 'undefined') {
             this._virtualBlockResizeObserver = new ResizeObserver((entries) => {
-                if (this._virtualBlockMeasurementDeferred)
-                    return;
-                this._measureVirtualBlockHeights(entries);
+                this._invalidateVirtualGeometry({
+                    reason: 'mounted-block-resized',
+                    generation: geometryGeneration,
+                    entries,
+                });
             });
             this._virtualResizeObserver = new ResizeObserver(resizeHandler);
             this._virtualResizeObserver.observe(container);
@@ -1138,6 +1163,10 @@ export class ScrollPage extends Parent implements IDocumentSurface {
     }
 
     private _teardownVirtualization(): void {
+        // Invalidate already-queued ResizeObserver callbacks before disconnecting
+        // the current surface. A callback from an older mount may still be delivered
+        // by the browser, but it cannot mutate the next surface generation.
+        this._virtualGeometryGeneration += 1;
         if (this._virtualScrollContainer && this._virtualScrollHandler)
             this._virtualScrollContainer.removeEventListener('scroll', this._virtualScrollHandler);
         if (this._virtualScrollContainer && this._virtualScrollEndHandler)
@@ -1155,6 +1184,7 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             this._virtualScrollHydrationFrameId = null;
         }
         this._virtualBlockMeasurementDeferred = false;
+        this._virtualDeferredMeasurementNodes.clear();
         if (this._virtualWindowResizeHandler && typeof window !== 'undefined')
             window.removeEventListener('resize', this._virtualWindowResizeHandler);
 
@@ -1315,7 +1345,56 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             && nextNode.previousElementSibling === null;
     }
 
-    private _measureVirtualBlockHeights(entries: readonly ResizeObserverEntry[]): void {
+    private _virtualBlockAdvanceEndNode(node: HTMLElement, index: number): HTMLElement | null {
+        const nextNode = this._virtualBlocks[index + 1]?.domNode;
+        if (nextNode && this._canMeasureVirtualBlockAdvance(node, nextNode, index))
+            return nextNode;
+
+        if (index !== this._virtualBlocks.length - 1)
+            return null;
+
+        const segment = node.parentElement;
+        const after = this._virtualAfterSpacer;
+        if (
+            !segment?.classList.contains('mu-virtual-segment')
+            || segment.parentElement !== this.domNode
+            || node.nextElementSibling !== null
+            || !after
+            || after.parentElement !== this.domNode
+            || segment.nextElementSibling !== after
+        ) {
+            return null;
+        }
+
+        // The trailing spacer is the document-end boundary. When the final block
+        // is mounted, its top-to-spacer-top distance is the exact last block
+        // advance, including collapsed margins that borderBoxSize cannot express.
+        return after;
+    }
+
+    private _invalidateVirtualGeometry(invalidation: IVirtualGeometryInvalidation): void {
+        if (
+            invalidation.generation !== this._virtualGeometryGeneration
+            || !this._virtualizationEnabled
+        ) {
+            return;
+        }
+
+        switch (invalidation.reason) {
+            case 'mounted-block-resized':
+                if (this._virtualBlockMeasurementDeferred) {
+                    for (const entry of invalidation.entries) {
+                        if (entry.target instanceof HTMLElement)
+                            this._virtualDeferredMeasurementNodes.add(entry.target);
+                    }
+                    return;
+                }
+                this._measureVirtualBlockHeights(invalidation.entries);
+                break;
+        }
+    }
+
+    private _measureVirtualBlockHeights(entries: readonly IVirtualBlockMeasurementEntry[]): void {
         if (!this._virtualizationEnabled || !this._virtualScrollContainer)
             return;
 
@@ -1338,10 +1417,30 @@ export class ScrollPage extends Parent implements IDocumentSurface {
         }
 
         let changed = false;
-        const measurementAnchor = (
+        let earliestChangedIndex = Number.POSITIVE_INFINITY;
+        const canPreserveViewportAnchor = (
             this._virtualNavigationTarget === null
             && this._virtualResizeCorrectionTarget === null
+        );
+        const rememberedMeasurementAnchor = (
+            canPreserveViewportAnchor
+            && !this._virtualUserScrollIntent
+            && this._virtualViewportAnchorIndex !== null
+            && this._virtualViewportAnchorOffset !== null
+            && Math.abs(container.scrollTop - this._virtualLastScrollTop) <= 2
         )
+            ? {
+                    index: this._virtualViewportAnchorIndex,
+                    viewportOffset: this._virtualViewportAnchorOffset,
+                }
+            : null;
+        // ResizeObserver runs after layout, so this live capture already includes
+        // the resized block's visual delta. The remembered logical anchor is still
+        // valid before hydration marks it exact as long as no newer user scroll has
+        // superseded it and scrollTop still matches the last handled scroll. Keep
+        // live DOM capture as the natural-layout fallback for mutations at/after
+        // the viewport.
+        const liveMeasurementAnchor = canPreserveViewportAnchor
             ? this._captureVirtualViewportAnchor(container)
             : null;
         const previousMaxScrollTop = Math.max(
@@ -1370,24 +1469,17 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             if (index === undefined)
                 continue;
 
-            const nextBlock = this._virtualBlocks[index + 1];
-            const nextNode = nextBlock?.domNode;
-            // ResizeObserver border-box height excludes collapsed margins. Only
-            // replace an estimate when we can measure the exact top-to-top
-            // advance to the logical next block in one contiguous mounted region.
-            // A segment wrapper is only a virtualization mutation boundary
-            // (display: contents); logically adjacent mounted blocks on either
-            // side of a segment boundary still form one exact geometry span.
-            if (
-                !nextNode
-                || !this._canMeasureVirtualBlockAdvance(node, nextNode, index)
-            ) {
+            // ResizeObserver border-box height excludes collapsed margins. Measure
+            // the exact logical advance from this block's top to the next logical
+            // boundary. For ordinary blocks that is the next block top; for the
+            // final document block it is the trailing spacer top.
+            const advanceEndNode = this._virtualBlockAdvanceEndNode(node, index);
+            if (!advanceEndNode)
                 continue;
-            }
 
             const currentTop = node.getBoundingClientRect().top;
-            const nextTop = nextNode.getBoundingClientRect().top;
-            const advance = nextTop - currentTop;
+            const advanceEndTop = advanceEndNode.getBoundingClientRect().top;
+            const advance = advanceEndTop - currentTop;
             if (!Number.isFinite(advance) || advance <= 0)
                 continue;
 
@@ -1399,6 +1491,7 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             this._virtualOffsetIndex.update(index, advance);
             this._updateVirtualSegmentOffsetForBlock(index);
             changed = true;
+            earliestChangedIndex = Math.min(earliestChangedIndex, index);
         }
 
         if (!changed)
@@ -1438,22 +1531,30 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             if (Math.abs(container.scrollTop - correctedScrollTop) > 1)
                 container.scrollTop = correctedScrollTop;
         }
-        else if (measurementAnchor) {
-            const correctedScrollTop = this._virtualResizeScrollTopFromMountedAnchor(
-                container,
-                measurementAnchor.index,
-                measurementAnchor.viewportOffset,
-            ) ?? Math.max(
-                0,
-                this._virtualOffsetAt(measurementAnchor.index)
-                - measurementAnchor.viewportOffset,
-            );
-            if (Math.abs(container.scrollTop - correctedScrollTop) > 1)
-                container.scrollTop = correctedScrollTop;
-            this._virtualViewportAnchorIndex = measurementAnchor.index;
-            this._virtualViewportAnchorOffset = measurementAnchor.viewportOffset;
-            this._virtualViewportAnchorExact = true;
-            this._virtualUserScrollIntent = false;
+        else {
+            const measurementAnchor = (
+                rememberedMeasurementAnchor
+                && earliestChangedIndex < rememberedMeasurementAnchor.index
+            )
+                ? rememberedMeasurementAnchor
+                : liveMeasurementAnchor;
+            if (measurementAnchor) {
+                const correctedScrollTop = this._virtualResizeScrollTopFromMountedAnchor(
+                    container,
+                    measurementAnchor.index,
+                    measurementAnchor.viewportOffset,
+                ) ?? Math.max(
+                    0,
+                    this._virtualOffsetAt(measurementAnchor.index)
+                    - measurementAnchor.viewportOffset,
+                );
+                if (Math.abs(container.scrollTop - correctedScrollTop) > 1)
+                    container.scrollTop = correctedScrollTop;
+                this._virtualViewportAnchorIndex = measurementAnchor.index;
+                this._virtualViewportAnchorOffset = measurementAnchor.viewportOffset;
+                this._virtualViewportAnchorExact = true;
+                this._virtualUserScrollIntent = false;
+            }
         }
         this.updateVirtualWindowForViewport(
             container.scrollTop,
@@ -1852,7 +1953,7 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             return;
 
         if (!this._virtualBlockMeasurementDeferred)
-            this._virtualBlockResizeObserver?.observe(node);
+            this._virtualBlockResizeObserver?.observe(node, { box: 'border-box' });
 
         node.querySelectorAll<HTMLElement>('[data-image-lazy="pending"]').forEach((image) => {
             image.dispatchEvent(new Event(VIRTUAL_BLOCK_MOUNT_EVENT));
