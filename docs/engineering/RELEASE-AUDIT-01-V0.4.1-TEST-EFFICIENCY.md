@@ -575,29 +575,47 @@ That is an upper bound, not an expected saving:
 
 Therefore fixed-wait cleanup alone cannot plausibly produce a large second-stage speedup.
 
-### Electron-launch reuse ceiling
+### Measured Electron launch/readiness cost
 
-If every spec could safely run with only one Electron launch, the static launch count would fall
-from **174 to 96**, removing at most **78 launch call sites (44.8%)**. This is also only a structural
-ceiling: launch-isolation semantics intentionally differ across updater, crash, workspace, restore,
-source-readiness and lifecycle regressions.
+A temporary, opt-in diagnostic probe was enabled for PR E2E run `35881831754`, then removed
+after measurement. It did not change any wait condition, assertion, timeout, retry, worker count,
+fixture, test list or release gate.
 
-Because a trustworthy per-launch startup cost has not yet been measured on the reference CI runner,
-the model keeps startup cost as **T seconds** instead of inventing a number:
+The run passed **378 tests in 6.6 minutes** and produced **226 executed wrapper-launch profiles**
+(`launchWithMarkdown` / `launchWithDoc`). This dynamic count is intentionally distinguished from
+the **174 static launch call sites** above: a static call site can execute repeatedly through
+`beforeEach`, loops or multiple test cases.
 
-- absolute within-file ceiling with two workers: approximately **39 × T seconds** wall-clock;
-- if only 25% of the 78 excess launches are safely reusable: approximately **10 × T seconds**;
-- if 50% are safely reusable: approximately **19.5 × T seconds**;
-- reaching a 20% reduction of a 406 s body from within-file launch reuse alone would require both
-  nearly all excess launches to be removable and average launch cost to exceed about **2.1 s**.
+Measured distributions:
 
-This makes launch timing the next required measurement before any lifecycle-reuse implementation.
+| Phase | Average | P50 | P95 | Max |
+| --- | ---: | ---: | ---: | ---: |
+| Electron process launch / first-window return | 807.7 ms | **770.4 ms** | **887.0 ms** | 5,099.3 ms |
+| Editor-ready stabilization after launch | 1,025.6 ms | **805.6 ms** | **1,225.6 ms** | 36,528 ms |
+| Menu-ready after editor-ready | 3.8 ms | **3.4 ms** | **7.8 ms** | 16.9 ms |
+| Total wrapper launch → editor + menu ready | 1,837.1 ms | **1,595.0 ms** | **2,042.6 ms** | 37,297.6 ms |
 
-The current highest-density files are also obvious audit targets rather than global-reuse candidates:
-`editor-switch-performance.spec.ts` has 11 launch sites,
-`find-replace.spec.ts` and `parity-source-undo-saved.spec.ts` have 8 each,
-`source-mode-readiness.spec.ts` has 6, and several source/tab/workspace suites have 3–4.
-Each must be classified by isolation contract before consolidation.
+The important root-cause result is that launch/readiness cost is split roughly between **Electron
+process/window startup (~0.77 s P50)** and **editor bootstrap/readiness (~0.81 s P50)**. Menu
+construction is negligible. The large max outlier is editor stabilization, so global process reuse
+alone cannot eliminate all launch-path cost.
+
+The measured **226 dynamic wrapper launches × 1.595 s P50** represent about **360 s of aggregate
+worker-time**, or about **180 s idealized wall-clock** with two perfectly balanced workers. This
+does **not** mean 180 s is removable: most launches are required for isolation and correctness.
+It does prove that launch/readiness is a major component of the current E2E cost model.
+
+The previous static “78 excess call sites” calculation must therefore not be multiplied directly
+by P50 launch time. Static call sites and dynamic executions are different populations. Before any
+lifecycle reuse change, the 28 multi-launch specs must be classified by *executed* launch count and
+isolation contract.
+
+The highest-density static candidates remain:
+`editor-switch-performance.spec.ts` (11 launch sites),
+`find-replace.spec.ts` and `parity-source-undo-saved.spec.ts` (8 each),
+`source-mode-readiness.spec.ts` (6), plus several source/tab/workspace suites at 3–4.
+Crash, updater, restore, profile-state and lifecycle tests should be presumed isolation-sensitive
+until proven otherwise.
 
 ### Sharding ceiling
 
@@ -614,24 +632,26 @@ Using the stable **406 s** post-P1-A E2E body as the scheduling baseline:
 - it does **not** reduce aggregate test computation and may increase CI resource consumption because
   job bootstrap is duplicated.
 
-Therefore sharding has the largest plausible wall-clock benefit, but it is CI scheduling
-optimization rather than test-architecture efficiency.
+Therefore sharding remains the largest plausible wall-clock improvement, but it is CI scheduling
+optimization rather than reduction of total E2E work.
 
 ### Phase-2 benefit conclusion
 
-The evidence supports three separate benefit bands:
+The measured evidence now supports a tighter model:
 
 | Direction | Evidence-based benefit | Risk / interpretation |
 | --- | ---: | --- |
-| Replace only provably redundant remaining fixed waits | **~2–5% likely ceiling** | Low/medium; improves determinism, but 5.8% is already the mathematical ceiling from the static wait budget |
-| Consolidate safe repeated launches inside selected multi-launch specs | **~5–15% plausible**, potentially higher only if reference launch timing proves expensive | Medium; must preserve fresh-profile/process isolation contracts |
-| Split default E2E into two balanced CI shards | **~35–45% plausible CI wall-clock reduction** | Medium; largest user-visible CI gain, but does not reduce total compute and duplicates bootstrap unless artifact reuse is added |
+| Replace only provably redundant remaining fixed waits | **~2–5% ceiling** | Low/medium; 5.8% is already the mathematical ceiling from the static wait budget |
+| Selective lifecycle reuse after executed-launch/isolation classification | **~5–15% plausible test-body reduction** | Medium/high; P50 wrapper startup is 1.595 s, but only a subset is safely removable |
+| Split default E2E into two balanced CI shards | **~35–45% plausible CI wall-clock reduction** | Medium; largest critical-path gain, but does not reduce total compute and duplicates bootstrap unless artifact reuse is added |
 
-A combined **15–25% E2E-body reduction** is worth pursuing only if reference-runner launch profiling
-shows Electron startup is materially expensive and a meaningful subset of the 78 excess launch sites
-can be removed without weakening isolation. Claims above that level require measured evidence.
+A **10–20% test-body reduction** is now a reasonable post-release target if dynamic profiling proves
+that a meaningful fraction of the 226 wrapper launches are redundant rather than correctness
+boundaries. A result materially above **20%** should not be claimed without per-spec executed-launch
+mapping and equivalent full-suite evidence.
 
 For v0.4.1 the decision remains: **do not implement Phase-2 lifecycle reuse before release**.
-If pursued after release, measure per-launch startup/readiness cost first, classify the 28 multi-launch
-specs by isolation contract second, and evaluate sharding independently from test-body optimization.
+The next post-release audit step is per-spec executed-launch mapping for the 28 multi-launch specs,
+followed by isolation classification. Sharding should be evaluated independently because its benefit
+and cost model are different.
 
