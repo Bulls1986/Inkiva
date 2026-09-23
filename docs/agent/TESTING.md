@@ -66,3 +66,14 @@ corepack pnpm -C packages/desktop exec playwright test <spec>
 For editor correctness, explicitly cover selection/caret, IME, undo/redo, scrolling, outline/TOC, source mode, view modes, images/diagrams, and responsive behavior when affected.
 
 For TOC/navigation assertions, test the contract at the correct layer. The TOC model is authoritative for full logical ordering, while virtualized DOM contains only a mounted window. Normalize rendered heading text when comparing it with clean TOC labels because ATX heading DOM may include Markdown syntax markers. After navigation, assert the requested target is actually revealed/scroll-reachable; do not require the settled viewport-active TOC slug to equal the clicked item at document boundaries where scroll clamping can select an earlier active heading.
+
+## E2E efficiency and ownership
+
+- Put a contract at the lowest-cost layer that can still observe the real failure mode. Keep Electron E2E for lifecycle/native-window/IPC/filesystem and real editor interaction contracts such as keyboard/focus/selection/IME/source-mode integration; do not use Electron merely to verify pure state or transformation logic.
+- Before adding a regression E2E, name the contract it protects and check whether an existing unit/integration/E2E already protects the same failure mode. A new historical bug does not automatically require a new full Electron flow.
+- Treat fixed sleeps as debt, not as a default readiness mechanism. Prefer observable application state, DOM conditions, IPC/events, or bounded polling. Do not delete a sleep until the replacement condition proves the same contract, especially for debounce/history/negative-condition timing windows.
+- Reuse Electron lifetime only where isolation is explicit. File-level `beforeAll` reuse is acceptable when each case restores deterministic state; do not introduce cross-file process reuse merely to reduce launch count.
+- Do not tune Playwright worker count or remove `serial` based on elapsed time alone. First prove tests do not share process/profile/filesystem/measurement state and that the runner has spare CPU/memory capacity.
+- Keep performance sampling/diagnostic workloads out of the default correctness lane once an equivalent canonical performance lane owns them. Moving such a case is valid only when the diagnostic coverage still runs somewhere authoritative.
+- Compare CI timing as a distribution, not one run. Use several same-workload successful runs (median plus range/outliers) before claiming a speedup or regression; shared runners can vary enough to invert a single before/after sample.
+- Optimize setup/build duplication only after measuring the test body itself. If the test body dominates wall time, CI cache/artifact reuse is secondary and should not distract from test architecture.

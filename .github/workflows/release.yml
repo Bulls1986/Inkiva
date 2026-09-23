@@ -97,6 +97,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           npm_config_user_agent: 'pnpm'
 
+      - name: Build application
+        run: pnpm --filter inkiva build:app
+
       # Mac builds are unsigned (no Developer ID); see release notes for the
       # user-side xattr/codesign workaround. Per-arch script: electron-builder's
       # --arm64/--x64 flags are additive over the config's arch list, so
@@ -114,7 +117,7 @@ jobs:
           set +e
           for attempt in 1 2 3; do
             log_file="$(mktemp)"
-            pnpm run build:mac:${{ matrix.arch }} 2>&1 | tee "$log_file"
+            pnpm --filter inkiva package:mac:${{ matrix.arch }} 2>&1 | tee "$log_file"
             status=${PIPESTATUS[0]}
 
             if [[ $status -eq 0 ]]; then
@@ -142,7 +145,7 @@ jobs:
 
       - name: build-win
         if: matrix.platform == 'windows'
-        run: pnpm run build:win:${{ matrix.arch }}
+        run: pnpm --filter inkiva package:win:${{ matrix.arch }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -159,9 +162,46 @@ jobs:
             dist/*.blockmap
             dist/*.yml
 
+  package-smoke:
+    name: Package smoke (${{ matrix.name }})
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+            platform: windows
+          - name: macos-x64
+            os: macos-15-intel
+            platform: macos
+          - name: macos-arm64
+            os: macos-15
+            platform: macos
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4.3.1
+
+      - name: Download packaged artifact
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: inkiva-${{ matrix.name }}
+          path: dist
+
+      - name: Smoke Windows installer and ZIP
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: ./scripts/smokeWindowsPackage.ps1 dist
+
+      - name: Smoke macOS DMG install and ZIP
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: bash scripts/smokeMacPackage.sh dist
+
   release:
     name: Publish GitHub Release
-    needs: build
+    needs: [build, package-smoke]
     runs-on: ubuntu-latest
     # Per-job permissions REPLACE workflow-level ones, so re-declare
     # both: contents:write to publish the release, actions:read for
@@ -187,123 +227,7 @@ jobs:
           path: artifact-downloads
 
       - name: Assemble release artifacts
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf dist
-          mkdir -p dist
-          find artifact-downloads -type f ! -name 'latest-mac.yml' -exec cp -- {} dist/ \;
-
-      - name: Merge macOS updater metadata
-        shell: bash
-        run: |
-          node --input-type=module <<'NODE'
-          import { readdir, readFile, writeFile } from 'node:fs/promises'
-          import path from 'node:path'
-
-          const scalar = (value) => value.trim().replace(/^['"]|['"]$/g, '')
-
-          const walk = async (directory) => {
-            const entries = await readdir(directory, { withFileTypes: true })
-            const files = []
-            for (const entry of entries) {
-              const entryPath = path.join(directory, entry.name)
-              if (entry.isDirectory()) files.push(...await walk(entryPath))
-              else files.push(entryPath)
-            }
-            return files
-          }
-
-          const parseMetadata = (filename, source) => {
-            const versionMatch = source.match(/^version:\s*(.+?)\s*$/m)
-            if (!versionMatch) throw new Error(`${filename} is missing a version`)
-
-            const lines = source.split(/\r?\n/)
-            const files = []
-            for (let index = 0; index < lines.length; index += 1) {
-              const urlMatch = lines[index].match(/^\s*-\s+url:\s*(.+?)\s*$/)
-              if (!urlMatch) continue
-              let sha512
-              let size
-              for (let next = index + 1; next < lines.length; next += 1) {
-                if (/^\s*-\s+url:\s*/.test(lines[next])) break
-                const shaMatch = lines[next].match(/^\s+sha512:\s*(.+?)\s*$/)
-                if (shaMatch) sha512 = scalar(shaMatch[1])
-                const sizeMatch = lines[next].match(/^\s+size:\s*(\d+)\s*$/)
-                if (sizeMatch) size = Number(sizeMatch[1])
-              }
-              if (!sha512) throw new Error(`${filename} has a file entry without sha512 metadata`)
-              files.push({ url: scalar(urlMatch[1]), sha512, ...(size === undefined ? {} : { size }) })
-            }
-            if (!files.length) throw new Error(`${filename} has no file entries`)
-            return {
-              version: scalar(versionMatch[1]),
-              files,
-              releaseDate: source.match(/^releaseDate:\s*(.+?)\s*$/m)?.[1]
-            }
-          }
-
-          const metadataFiles = (await walk('artifact-downloads'))
-            .filter((filename) => path.basename(filename) === 'latest-mac.yml')
-          if (metadataFiles.length !== 2) {
-            throw new Error(`Expected exactly two macOS updater metadata files, found ${metadataFiles.length}`)
-          }
-
-          const metadata = await Promise.all(
-            metadataFiles.map(async (filename) => parseMetadata(filename, await readFile(filename, 'utf8')))
-          )
-          const version = metadata[0].version
-          if (metadata.some((item) => item.version !== version)) {
-            throw new Error('macOS updater metadata files describe different versions')
-          }
-
-          const entriesByUrl = new Map()
-          for (const item of metadata) {
-            for (const entry of item.files) {
-              const existing = entriesByUrl.get(entry.url)
-              if (existing && (existing.sha512 !== entry.sha512 || existing.size !== entry.size)) {
-                throw new Error(`Conflicting macOS updater metadata for ${entry.url}`)
-              }
-              entriesByUrl.set(entry.url, entry)
-            }
-          }
-
-          const entries = [...entriesByUrl.values()].sort((left, right) => {
-            const leftIsZip = left.url.endsWith('.zip')
-            const rightIsZip = right.url.endsWith('.zip')
-            if (leftIsZip !== rightIsZip) return leftIsZip ? -1 : 1
-            return left.url.localeCompare(right.url)
-          })
-          for (const required of [`inkiva-mac-x64-${version}.zip`, `inkiva-mac-arm64-${version}.zip`]) {
-            if (!entriesByUrl.has(required)) throw new Error(`Merged metadata is missing ${required}`)
-          }
-
-          const first = entries[0]
-          const output = [
-            `version: ${version}`,
-            'files:',
-            ...entries.flatMap(({ url, sha512, size }) => [
-              `  - url: ${url}`,
-              `    sha512: ${sha512}`,
-              ...(size === undefined ? [] : [`    size: ${size}`])
-            ]),
-            `path: ${first.url}`,
-            `sha512: ${first.sha512}`,
-            ...(metadata[0].releaseDate ? [`releaseDate: ${scalar(metadata[0].releaseDate)}`] : []),
-            ''
-          ].join('\n')
-          await writeFile('dist/latest-mac.yml', output)
-          NODE
-
-      - name: Generate SHA256SUMS.txt
-        working-directory: dist
-        run: |
-          # Deterministic ordering so identical inputs always produce identical output
-          find . -maxdepth 1 -type f ! -name 'SHA256SUMS.txt' -printf '%f\n' \
-            | LC_ALL=C sort \
-            | xargs -I{} sha256sum "{}" > SHA256SUMS.txt
-          echo "---"
-          cat SHA256SUMS.txt
+        run: pnpm tsx scripts/assembleReleaseArtifacts.ts artifact-downloads dist
 
       - name: Verify stable updater artifact contract
         run: pnpm verify-update-artifacts

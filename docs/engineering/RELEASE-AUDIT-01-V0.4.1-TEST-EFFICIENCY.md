@@ -16,13 +16,13 @@ No test/CI implementation change is allowed until Phase 1–4 evidence and the o
 
 | Phase | Status | Current evidence / next action |
 | --- | --- | --- |
-| 1. Current Test Baseline | In progress | Static inventory, CI timings, harness configuration and environment limitations captured below. Complete case-level inventory / CI log analysis and identify slow suites/setups. |
-| 2. Test Architecture Audit | Not started | Audit duplicate contracts, wrong-layer coverage, oversized flows, fixtures, waits, lifecycle, flakiness and shared state. |
-| 3. Root Cause Analysis | Not started | Synthesize evidence before proposing changes. |
-| 4. Optimization Plan | Not started | Write P0/P1/P2 plan and Test Contract Matrix before implementation. |
-| 5. Implementation | Blocked by Phase 4 | No test/CI optimization has been applied yet. |
-| 6. Before / After Validation | Not started | Must use equivalent workloads and preserve all gates. |
-| 7. Release Readiness Audit | Not started | Version change remains forbidden until this passes. |
+| 1. Current Test Baseline | Complete | Repository inventory, recent CI timing distribution, harness structure and environment limitations recorded. |
+| 2. Test Architecture Audit | Complete (release scope) | Contract/layering, lifecycle reuse, waits, performance-lane leakage and artifact policy audited. |
+| 3. Root Cause Analysis | Complete | Main E2E cost model and unsupported optimization directions recorded. |
+| 4. Optimization Plan | Complete | P1/P2 plan and Test Contract Matrix recorded before implementation. |
+| 5. Implementation | Complete for P1-A | Removed only the redundant common-wrapper startup sleep; no coverage/gate weakening. |
+| 6. Before / After Validation | Complete for P1-A | Full PR E2E/Test/Lint green; PR Build platform legs green. Measured result recorded below. |
+| 7. Release Readiness Audit | In progress | Standard PR gates green; P0 Package Pipeline Efficiency Audit and release-only performance/reference gate must both close before version preparation. |
 | 8. v0.4.1 Version Preparation | Not started | Current authoritative package versions remain 0.4.0. |
 
 ## Phase 1 — Current Test Baseline
@@ -281,4 +281,221 @@ The local Windows worktree currently does not pass the repository readiness gate
 
 The implementation must be validated by a clean PR CI run. Version preparation remains
 blocked until that CI evidence and the subsequent release-readiness audit are complete.
+
+## Phase 6 — Before / After Validation
+
+> Status: COMPLETE for P1-A.
+
+### Full E2E result
+
+PR #187 run `35867346741` completed successfully:
+
+- full E2E job: 510 s;
+- `Run E2E Tests`: **406 s**;
+- no retry policy was added;
+- no skipped correctness case was introduced;
+- failure-artifact upload was skipped because the suite passed;
+- performance-report upload completed normally.
+
+The previously selected single baseline run (364 s) was unusually fast and is not a stable
+comparison point. Recent successful pre-change E2E bodies were:
+
+`364 / 421 / 420 / 425 / 425 / 420 s`.
+
+Their median is **420.5 s**. Against that distribution, P1-A improves the full E2E body by
+about **14.5 s (~3.4%)** while preserving the exact test inventory and gate semantics.
+
+This is materially smaller than the 71.5 s theoretical worker-time budget because:
+
+- Playwright runs two workers, so worker-time does not translate 1:1 to wall clock;
+- not every static wrapper call executes in every full-suite path;
+- scheduler/runner variance remains significant;
+- Electron startup, editor scenario execution and other fixed waits still dominate a large
+  share of total time.
+
+Therefore P1-A is retained as a valid low-risk improvement, but the audit explicitly rejects
+the claim that the generic 500 ms wait was the primary E2E bottleneck.
+
+### Other PR gates
+
+- Lint: success.
+- Test: success.
+  - website tests/build/SEO verification succeeded;
+  - desktop unit-test step: 63 s versus the earlier observed ~68 s baseline (normal variance;
+    P1-A does not affect unit tests).
+- PR Build:
+  - macOS arm64 build/package: success;
+  - macOS x64 build/package: success;
+  - Windows x64 build/package: success.
+
+No new flaky/retry signal was introduced by P1-A.
+
+### Metric summary
+
+| Metric | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| Desktop unit-test step | ~68 s observed baseline | 63 s | normal variance; unrelated to P1-A |
+| Full E2E body | 420.5 s recent-success median | 406 s | -14.5 s / ~-3.4% |
+| Single fastest recent E2E sample | 364 s | 406 s | after is slower than the outlier; not used as stable baseline |
+| E2E job total | recent runs ~443–525 s | 510 s | within recent distribution |
+| Test count / contract coverage | unchanged | unchanged | no reduction |
+| Assertions / timeout / retry | unchanged | unchanged | no weakening |
+| Playwright workers | 2 | 2 | unchanged |
+| Explicit serial suites | 4 performance lanes | 4 | unchanged |
+| New flaky / retry | none evidenced | none evidenced | no regression observed |
+
+Local full-suite duration remains intentionally unreported because the current Windows
+worktree dependency topology did not satisfy the repository readiness gate.
+
+## P0 — Package Pipeline Efficiency Audit
+
+> Status: BASELINE + ROOT CAUSE COMPLETE; optimization implementation not yet started.
+>
+> This P0 subtask is a mandatory prerequisite for Phase 8. The target is
+> **build once → package once → artifact reuse → package/install/update smoke** without
+> reducing package/install/updater correctness coverage or platform validation.
+
+### Baseline — PR package pipeline
+
+PR #187 run `35867346689` provides current package/build timing on the exact audit branch:
+
+| Platform | Setup | postinstall | combined build/package step | artifact upload | job total |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| macOS arm64 | 61 s | 21 s | 121 s | 12 s | 267 s |
+| macOS x64 | 172 s | 68 s | 290 s | 23 s | 615 s |
+| Windows x64 | 60 s | 54 s | 248 s | 11 s | 415 s |
+
+The combined build/package step is the dominant controllable cost on all three platforms.
+Setup variability is substantial on shared runners, so optimization claims must compare the
+same step boundaries and use multiple successful runs where practical.
+
+### Baseline — v0.4.0 release pipeline
+
+Release run `35572798801` shows the same architecture:
+
+| Platform / stage | Duration |
+| --- | ---: |
+| macOS arm64 build/package | 114 s |
+| macOS x64 build/package | 164 s |
+| Windows x64 build/package | 241 s |
+| Publish job total | 51 s |
+| Download all platform artifacts | 9 s |
+| Assemble artifacts + merge mac metadata + checksums | < 1 s each |
+| Verify stable updater artifact contract | 4 s |
+| Upload draft GitHub Release assets | 12 s |
+
+The release publish/update-metadata path is already comparatively cheap and already reuses
+the platform artifacts. The primary cost is producing those artifacts.
+
+### Internal build/package timing
+
+Current `build:*` scripts combine locale generation, native rebuild, `electron-vite build`,
+and `electron-builder` in one command. Release logs expose the internal boundaries:
+
+- Windows x64:
+  - postinstall native rebuild: about 51 s;
+  - the `build:win:x64` script invokes `electron-rebuild` again;
+  - `electron-vite build`: about 30 s (`07:26:51 → 07:27:21`);
+  - electron-builder/package: about 208 s (`07:27:21 → 07:30:49`);
+  - package sub-stages include app packaging, ZIP generation, NSIS generation and blockmap.
+- macOS x64:
+  - `electron-vite build`: about 37 s;
+  - electron-builder/package: about 124 s;
+  - ZIP and DMG are generated from the same packaged app.
+- macOS arm64:
+  - `electron-vite build`: about 34 s;
+  - electron-builder/package: about 77 s.
+
+### Root causes
+
+1. **Native rebuild is expressed twice in the current CI path.**
+   `scripts/postinstall.ts` forcibly runs `electron-rebuild -f`, and every platform
+   `build:*` script invokes `electron-rebuild` again. The second invocation is usually short
+   because the modules are already rebuilt, but it is redundant lifecycle work and obscures
+   the authoritative package-preparation boundary.
+2. **Build and packaging are coupled into one opaque command.**
+   CI cannot time, cache or reuse `electron-vite` output independently from
+   electron-builder/NSIS/DMG work.
+3. **The JavaScript Electron/Vite build has no OS/arch branch in
+   `electron.vite.config.ts`.**
+   This is evidence that cross-platform `out/` reuse is plausible, not proof that it is safe
+   for release. Native dependencies are deliberately externalized and remain
+   platform-specific, so a cross-OS shared build artifact requires explicit validation before
+   adoption.
+4. **Release publishing already consumes uploaded platform artifacts correctly.**
+   Rebuilding in the publish job is not the problem; the expensive work is upstream.
+5. **Package/install smoke is not a first-class pipeline layer today.**
+   PR Build proves artifact creation, while release publish verifies metadata/hashes. There is
+   no separate smoke stage that consumes the already-generated installer/package artifact.
+   Future smoke must reuse the artifact and must not re-run build/electron-builder.
+6. **Updater correctness exists at unit + artifact-contract layers but is split.**
+   `update-manager`/provider unit tests protect updater behavior; `verifyUpdateArtifacts.ts`
+   protects published artifact names, metadata, hashes and supported platforms. The final
+   package pipeline should preserve both and add artifact-consuming smoke rather than moving
+   updater correctness into functional E2E.
+
+### P0 optimization plan
+
+| Item | Change | Risk | Expected gain | Quality impact | Validation |
+| --- | --- | --- | --- | --- | --- |
+| P0-PKG-1 | Split CI build and package commands: postinstall/native prep once, `electron-vite build` once, `electron-builder` package once | Low | removes duplicate rebuild expression; exposes real build/package timing | Neutral | all three PR package jobs + release scripts |
+| P0-PKG-2 | Add artifact-consuming package/install smoke after packaging; never rebuild in smoke | Medium | no direct speed gain; prevents future duplicate build when smoke grows | Positive | Windows installer smoke + macOS package/install smoke using generated artifacts |
+| P0-PKG-3 | Run updater artifact verification from reused platform artifacts before release publication | Low | preserves cheap updater gate while separating it from build | Positive | existing verifier + release contract tests |
+| P0-PKG-4 | Evaluate one shared `electron-vite out/` artifact across platform package jobs only after P0-PKG-1 proves identical build outputs/contracts | Medium/High | roughly 30–40 s per avoided platform build plus setup overlap | Neutral only if byte/source/version provenance is proven | SHA-bound artifact, platform packages + install/update smoke |
+
+Implementation starts with P0-PKG-1 and P0-PKG-2. Cross-platform `out/` reuse is intentionally
+withheld until the split pipeline supplies evidence; release readiness must not depend on an
+unproven cross-OS artifact assumption.
+
+## Phase 7 — Release Readiness Audit
+
+> Status: IN PROGRESS.
+
+### Passed so far
+
+- Lint green.
+- Unit/Test workflow green.
+- Full desktop E2E green.
+- PR Build platform legs green for Windows x64 and macOS x64/arm64.
+- Repository worktree is clean after committed changes.
+- No product code changed in this audit slice.
+- No test was deleted, skipped, weakened or hidden behind retry/timeout changes.
+- No other open repository PR currently represents an unfinished release-blocking task.
+
+### Release-only gates / blockers
+
+The general PR workflows do **not** automatically prove all release readiness:
+
+1. `Performance Fast Gate` is path-filtered and this helper-only change does not trigger it.
+2. The authoritative `Performance Gate` is workflow-dispatch-only and runs on the
+   `reference-low-end` Windows self-hosted runner.
+3. A release-scope Performance Gate run (`35868236440`, default backend, P3 disabled) has
+   been dispatched; its P0 reference job is currently queued waiting for that runner.
+4. `pnpm test:release` is not part of the ordinary PR Test workflow and must be validated
+   after the final version update because its fixture version is version-specific.
+
+Queued reference-runner availability is infrastructure state, not product failure. It also
+means Phase 7 cannot yet be declared complete and the version must not be changed yet.
+
+### Version-source audit
+
+The current release documentation saying “edit root package.json only” is stale relative to
+actual repository behavior.
+
+Evidence:
+
+- root `package.json` is `0.4.0`;
+- `packages/desktop/package.json` is `0.4.0` and is the package Electron/electron-builder
+  uses for application/package versioning;
+- `scripts/verifyUpdateArtifacts.ts` explicitly compares the release tag to
+  `packages/desktop/package.json`;
+- `packages/website/package.json` is also kept at the product release version;
+- `scripts/verifyUpdateArtifacts.test.ts` currently has a version-specific `0.4.0`
+  fixture constant;
+- the previous v0.4.0 release commit `5257570` changed exactly these four files together:
+  root package, desktop package, website package, and the release-artifact test fixture.
+
+For v0.4.1, these four version-bearing sources must move together unless a dedicated
+single-source synchronization mechanism is introduced first. This audit will not invent such
+a mechanism immediately before release.
 

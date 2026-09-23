@@ -34,7 +34,7 @@
     "test:e2e:perf": "pnpm --filter inkiva test:e2e:perf",
     "test:e2e:perf:fast": "pnpm --filter inkiva test:e2e:perf:fast",
     "test:perf:fast": "node --import tsx --test perf/soak/fast-policy.spec.ts perf/soak/fast-runner.spec.ts",
-    "test:release": "node --import tsx --test scripts/verifyUpdateArtifacts.test.ts",
+    "test:release": "node --import tsx --test scripts/assembleReleaseArtifacts.test.ts scripts/verifyUpdateArtifacts.test.ts",
     "test:arch:muya-types": "node --test scripts/muya-public-type-boundary.test.mjs",
     "typecheck": "pnpm test:arch:muya-types && pnpm --filter @muyajs/core build:types && pnpm --filter inkiva typecheck",
     "typecheck:watch": "pnpm --filter inkiva typecheck:watch",

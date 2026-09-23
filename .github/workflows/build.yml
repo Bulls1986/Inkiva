@@ -55,13 +55,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           npm_config_user_agent: 'pnpm'
 
+      - name: Build application
+        run: pnpm --filter inkiva build:app
+
       - name: build-mac
         if: matrix.platform == 'macos'
-        run: pnpm run build:mac:${{ matrix.arch }}
+        run: pnpm --filter inkiva package:mac:${{ matrix.arch }}
 
       - name: build-win
         if: matrix.platform == 'windows'
-        run: pnpm run build:win:${{ matrix.arch }}
+        run: pnpm --filter inkiva package:win:${{ matrix.arch }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -75,6 +78,69 @@ jobs:
             dist/*.blockmap
             dist/*.yml
           if-no-files-found: error
+
+  package-smoke:
+    name: Package smoke (${{ matrix.name }})
+    needs: run-on-pr-head
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+            platform: windows
+          - name: macos-x64
+            os: macos-15-intel
+            platform: macos
+          - name: macos-arm64
+            os: macos-15
+            platform: macos
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download packaged artifact
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: inkiva-${{ matrix.name }}
+          path: dist
+
+      - name: Smoke Windows installer and ZIP
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: ./scripts/smokeWindowsPackage.ps1 dist
+
+      - name: Smoke macOS DMG install and ZIP
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: bash scripts/smokeMacPackage.sh dist
+
+  update-smoke:
+    name: Updater artifact smoke
+    needs: package-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - name: Download all packaged artifacts
+        uses: actions/download-artifact@v4.3.0
+        with:
+          pattern: inkiva-*
+          path: artifact-downloads
+
+      - name: Assemble reused release artifacts
+        run: pnpm tsx scripts/assembleReleaseArtifacts.ts artifact-downloads dist
+
+      - name: Validate release assembly contracts
+        run: pnpm test:release
+
+      - name: Smoke updater artifact contract
+        shell: bash
+        run: |
+          version="$(node -p "require('./packages/desktop/package.json').version")"
+          GITHUB_REF_NAME="v${version}" pnpm verify-update-artifacts
 
   comment-on-pr:
     name: Comment artifact links on PR
