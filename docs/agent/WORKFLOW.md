@@ -13,6 +13,8 @@
 - Do not auto-merge unless explicitly requested.
 - Inkiva currently allows **squash merge only**. When an authorized PR is ready to merge, use `gh pr merge <PR> --squash`; do not first try `--merge` or `--rebase`. A rejected merge strategy is repository-policy evidence, not a PR/CI failure. After a successful squash merge, verify both the PR state and the target branch ref before recording the task as merged.
 - If WebCodex `show_changes` cannot obtain Git status, do not keep retrying the same inspection path. Fall back once to `git_status` / `git_diff_summary`, or bounded `git status --short` + `git diff --stat` + targeted `git diff -- <paths>`; continue review from that evidence and retry `show_changes` only after repository state changes or the underlying status path is known healthy.
+- Documentation-only PR changes under `docs/**`, root `*.md`, or package `README*.md` / `CHANGELOG*.md` do not run the heavyweight desktop Build, Test, Lint or E2E workflows. Do not broaden this to arbitrary `**/*.md`: Markdown files may be test fixtures and must still trigger product gates. Changes under `.github/**`, source, tests, scripts, manifests, lockfiles or version-bearing files are never docs-only.
+- This path-skip rule is valid because `develop` currently has no enabled required-status-check branch protection. If required checks/rulesets are enabled later, re-audit this design before relying on skipped workflows; use an always-reporting aggregate gate if path-skipped required checks would otherwise remain pending.
 
 ## Stage records
 

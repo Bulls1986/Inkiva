@@ -7,6 +7,14 @@ on:
     # own e2e under packages/muya/e2e/ wired via muya-e2e.yml.
     paths-ignore:
       - 'packages/muya/**'
+      # Documentation-only PR updates do not need desktop build/test/E2E work.
+      # Keep fixture Markdown outside these narrow documentation patterns.
+      - 'docs/**'
+      - '*.md'
+      - '**/README.md'
+      - '**/README.*.md'
+      - '**/CHANGELOG.md'
+      - '**/CHANGELOG.*.md'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

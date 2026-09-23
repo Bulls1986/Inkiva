@@ -7,6 +7,14 @@ on:
     # Skip the desktop unit tests on muya-only PRs.
     paths-ignore:
       - 'packages/muya/**'
+      # Documentation-only PR updates do not need desktop build/test/E2E work.
+      # Keep fixture Markdown outside these narrow documentation patterns.
+      - 'docs/**'
+      - '*.md'
+      - '**/README.md'
+      - '**/README.*.md'
+      - '**/CHANGELOG.md'
+      - '**/CHANGELOG.*.md'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

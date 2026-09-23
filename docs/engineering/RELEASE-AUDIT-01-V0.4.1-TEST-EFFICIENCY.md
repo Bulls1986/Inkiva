@@ -484,7 +484,7 @@ verification.
 
 ## Phase 7 — Release Readiness Audit
 
-> Status: IN PROGRESS.
+> Status: READY FOR RELEASE-ONLY REFERENCE GATE.
 
 ### Passed so far
 
@@ -496,6 +496,9 @@ verification.
 - No product code changed in this audit slice.
 - No test was deleted, skipped, weakened or hidden behind retry/timeout changes.
 - No other open repository PR currently represents an unfinished release-blocking task.
+- Final PR HEAD `c61ad496` passed E2E, PR Build, Performance Fast Gate, Test, Lint and Validate Licenses after temporary profiling code was removed.
+- Package/install smoke and updater artifact smoke remain green on the artifact-driven pipeline; no build/package step is repeated inside those smoke stages.
+
 
 ### Release-only gates / blockers
 
@@ -504,13 +507,11 @@ The general PR workflows do **not** automatically prove all release readiness:
 1. `Performance Fast Gate` is path-filtered and this helper-only change does not trigger it.
 2. The authoritative `Performance Gate` is workflow-dispatch-only and runs on the
    `reference-low-end` Windows self-hosted runner.
-3. A release-scope Performance Gate run (`35868236440`, default backend, P3 disabled) has
-   been dispatched; its P0 reference job is currently queued waiting for that runner.
-4. `pnpm test:release` is not part of the ordinary PR Test workflow and must be validated
-   after the final version update because its fixture version is version-specific.
+3. Earlier release-scope Performance Gate runs are historical evidence only because they predate the final package/E2E audit HEAD.
+4. A fresh Performance Gate must be dispatched against the final documentation/experience HEAD with the default graphics backend and P3 disabled.
+5. `pnpm test:release` is not part of the ordinary PR Test workflow and must be validated after the final version update because its fixture version is version-specific.
 
-Queued reference-runner availability is infrastructure state, not product failure. It also
-means Phase 7 cannot yet be declared complete and the version must not be changed yet.
+Until the fresh reference Performance Gate passes on the final audit HEAD, Phase 7 remains open and the version must not be changed.
 
 ### Version-source audit
 
@@ -533,6 +534,27 @@ Evidence:
 For v0.4.1, these four version-bearing sources must move together unless a dedicated
 single-source synchronization mechanism is introduced first. This audit will not invent such
 a mechanism immediately before release.
+
+## Docs-only CI quick path
+
+Release-audit closure also reviewed why pure documentation updates repeatedly retriggered the full
+desktop pipeline.
+
+Repository protection state was checked before changing workflow semantics:
+
+- `develop` currently has no branch-protection required status checks;
+- the repository ruleset named `dev` is disabled;
+- therefore path-skipped desktop workflows cannot currently leave a required check permanently pending.
+
+The desktop `PR Build`, `E2E Test`, `Lint` and `Test` workflows now ignore only narrow
+documentation patterns: `docs/**`, root `*.md`, and package `README*.md` /
+`CHANGELOG*.md`. The rule deliberately does **not** ignore arbitrary `**/*.md`, because Markdown
+under test/fixture paths can be executable test input. Workflow files, code, tests, scripts,
+manifests, lockfiles and version-bearing changes still trigger their normal gates.
+
+If branch protection or required checks are enabled later, this optimization must be re-audited;
+an always-reporting aggregate CI gate is the preferred replacement if skipped required workflows
+would otherwise remain pending.
 
 ## E2E Phase-2 — Benefit Model (measurement only)
 
