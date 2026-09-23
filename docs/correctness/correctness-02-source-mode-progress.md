@@ -2,7 +2,7 @@
 
 Branch: `correctness-02-source-mode-readiness`
 Base: `origin/develop@cbc7e162` (rebased after BASELINE-02 closure)
-Status: in progress
+Status: complete / ready to merge
 
 ## Phase 1 — Architecture / data-flow audit
 
@@ -110,6 +110,8 @@ The 100-cycle Source/WYSIWYG test now also asserts exactly one CodeMirror instan
 
 Run 610 kept Lint, unit Test, PR Build, and Performance Fast Gate green. E2E completed 368 passed / 15 skipped / 1 failed. The sole remaining failure was again an assertion-observation defect in the 500-heading navigation gate, not a product failure: the target heading lookup compared clean TOC text (`Source Heading 500`) against raw Muya ATX heading `textContent`, which includes the rendered Markdown `# ` syntax marker. The existing `toc-scroll.spec.ts` already documents and normalizes this representation. The readiness gate now uses the same semantic normalization before checking viewport intersection; no workload or product behavior was changed.
 
+Final diagnosis continued one layer deeper after that normalization still failed. The 500-heading document contains heading/body pairs, so TOC heading 500 maps to the document surface's logical block index near the tail rather than to the 500th mounted heading DOM node. The virtual surface already exposes the authoritative navigation contract through TOC `blockIndex`, `data-virtual-block-index`, and `virtualWindowStart` / `virtualWindowEnd`. The readiness gate was therefore corrected to assert that the clicked TOC item's logical block enters the mounted virtual window and is connected after the editor scrolls. On commit `b7be1c2` that exact gate passed in the full E2E suite, proving the product reveal/window path itself was correct; the previous failures were observation-layer mistakes, not a virtualization product defect.
+
 ## Phase 8 — CI
 
 PR #180 first substantive CI run: Lint green after test-style correction; unit Test green; Windows/macOS builds green; E2E red on invalid-Markdown and the 1M bounded-source helper assumption.
@@ -121,6 +123,8 @@ Third substantive CI run on remote head `bf13e2f3`: all non-E2E gates were green
 The replace-all/undo saved-state failure was traced to the first P0 handoff fix rather than dismissed as unrelated flake. Suppressing Muya's synchronous Source-handoff `json-change` correctly protected canonical Markdown, but also skipped the synthetic save-history update. A Source-seeded baseline could therefore be saved with one history id while a later WYSIWYG undo revisited the same content under another id, leaving the tab falsely dirty. The handoff now explicitly publishes only synthetic history metadata computed from Muya's normalized presentation state while carrying the exact Source Markdown/revision back through the store. This preserves Source truth ownership and restores undo-to-saved identity without re-enabling serializer overwrite.
 
 Fourth substantive CI run on remote-equivalent tree `ab58edbf` (run 609) confirms the P0 invalid-Markdown and handoff-history regressions are no longer present: Lint, Test, PR Build, and Performance Fast Gate are green, with 367 E2E passed / 15 skipped / 2 failed. Both remaining failures were traced to incorrect test contracts rather than product behavior. Source Find returned `1 / 2`, proving both matches were found while the test incorrectly expected the initial current-match index to be `2 / 2`. The 500-heading Outline test clicked heading 500 successfully, but then required `activeTocSlug` to remain 500; the established scroll-sync contract recomputes active heading from the settled viewport activation line, and bottom-of-document scroll clamping legitimately makes heading 494 the active viewport heading. The gates now assert the real contracts: `1 / 2` for the initial Find result and actual viewport intersection of heading 500 after navigation, without changing the 500-heading workload.
+
+Final CI on `ff0105e2` is fully green: Lint, unit Test, Performance Fast Gate, E2E Test, and PR Build all completed successfully. The immediately preceding `b7be1c2` run also proved the corrected block-index virtual navigation assertion in the full E2E suite; `ff0105e2` only changed lint formatting around that already-passing assertion. CORRECTNESS-02 therefore has authoritative CI evidence for both product correctness and the final readiness gates.
 
 ## Phase 9 — Documentation / learning review
 
@@ -137,4 +141,4 @@ Invalid approaches identified during this task were: treating bootstrap failure 
 
 ## Phase 10 — PR closeout
 
-Pending.
+Complete. Final branch head `ff0105e2` is green across Lint, unit Test, Performance Fast Gate, E2E Test, and PR Build. PR #180 is ready for merge into `develop`. The final change set includes the diagnosed Source truth/history/find fixes, deterministic Source readiness coverage, and the consolidated testing guidance above; no unresolved CORRECTNESS-02 product defect remains.
