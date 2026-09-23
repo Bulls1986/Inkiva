@@ -73,6 +73,7 @@ interface IVirtualizationSnapshot {
     mountedSegments: number;
     windowStartSegment: number;
     windowEndSegment: number;
+    geometryRevision: number;
 }
 
 interface IVirtualRange {
@@ -655,12 +656,13 @@ export class ScrollPage extends Parent implements IDocumentSurface {
         this._virtualGeometryRevision = 0;
         this._virtualAppliedGeometryRevision = -1;
         this._virtualBlocks = this._createVirtualBlocks(state, cloneBlocks);
+
         this._virtualBlocks.forEach((block) => {
             block.parent = this;
         });
+
         this._reindexVirtualBlocks();
         this.children.append(...this._virtualBlocks);
-        this._rebuildVirtualOffsets(state);
 
         const before = document.createElement('div');
         before.className = 'mu-virtual-render-placeholder mu-virtual-render-placeholder-before';
@@ -2072,6 +2074,7 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             windowEndSegment: this._virtualWindowEnd > 0
                 ? Math.min(totalSegments, Math.ceil(this._virtualWindowEnd / VIRTUAL_RENDERER_SEGMENT_BLOCKS))
                 : 0,
+            geometryRevision: this._virtualGeometryRevision,
         };
     }
 

@@ -24,6 +24,22 @@ function paragraphs(count: number): string {
 }
 
 describe('scrollPage progressive rendering', () => {
+    it('builds virtual activation geometry once from the live content width', () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, {
+            markdown: paragraphs(PROGRESSIVE_RENDER_THRESHOLD + 20),
+            virtualizeLargeDocuments: true,
+        });
+        mountedEditors.push(muya);
+
+        muya.init();
+
+        const snapshot = muya.editor.scrollPage!.getVirtualizationPrototypeSnapshot();
+        expect(snapshot.enabled).toBe(true);
+        expect(snapshot.geometryRevision).toBe(1);
+    });
+
     it('defers the progressive tail to idle time and cancels stale work', async () => {
         vi.useFakeTimers();
         const idleCallbacks = new Map<number, () => void>();

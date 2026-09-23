@@ -4,13 +4,14 @@ import { scheduleEditorPerformanceMilestones } from '../../../src/renderer/src/c
 type FrameCallback = () => void
 
 describe('editor performance milestone scheduling', () => {
-  it('records screen, interactive, and editable only across ordered paint frames', () => {
+  it('records post-paint work between first-screen and interactive', () => {
     const frames: FrameCallback[] = []
     const requestFrame = (callback: FrameCallback): void => {
       frames.push(callback)
     }
     const callbacks = {
       firstScreen: vi.fn(),
+      afterFirstScreen: vi.fn(),
       interactive: vi.fn(),
       editable: vi.fn(),
       notify: vi.fn()
@@ -20,21 +21,21 @@ describe('editor performance milestone scheduling', () => {
       requestFrame,
       isCurrent: () => true,
       markFirstScreen: callbacks.firstScreen,
+      afterFirstScreen: callbacks.afterFirstScreen,
       markInteractive: callbacks.interactive,
       markEditable: callbacks.editable,
       notifyMainProcess: callbacks.notify
     })
 
     expect(frames).toHaveLength(1)
-    expect(callbacks.firstScreen).not.toHaveBeenCalled()
     flushFrame(frames)
-    expect(frames).toHaveLength(1)
     expect(callbacks.firstScreen).not.toHaveBeenCalled()
     flushFrame(frames)
     expect(callbacks.firstScreen).toHaveBeenCalledOnce()
+    expect(callbacks.afterFirstScreen).not.toHaveBeenCalled()
     expect(callbacks.interactive).not.toHaveBeenCalled()
-    expect(callbacks.editable).not.toHaveBeenCalled()
     flushFrame(frames)
+    expect(callbacks.afterFirstScreen).toHaveBeenCalledOnce()
     expect(callbacks.interactive).toHaveBeenCalledOnce()
     expect(callbacks.editable).not.toHaveBeenCalled()
     flushFrame(frames)
@@ -52,12 +53,20 @@ describe('editor performance milestone scheduling', () => {
       markFirstScreen: () => order.push('first-screen'),
       markInteractive: () => order.push('interactive'),
       markEditable: () => order.push('editable'),
+      afterEditable: () => order.push('post-editable'),
       prewarmFrame: () => order.push('prewarm')
     })
 
     while (frames.length > 0) flushFrame(frames)
 
-    expect(order).toEqual(['first-screen', 'interactive', 'editable', 'prewarm', 'prewarm'])
+    expect(order).toEqual([
+      'first-screen',
+      'interactive',
+      'editable',
+      'post-editable',
+      'prewarm',
+      'prewarm'
+    ])
   })
 
   it('cancels stale milestone callbacks after a newer document operation begins', () => {

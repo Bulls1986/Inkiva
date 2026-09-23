@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from 'playwright'
+import { createMarkdownFixture } from '../../../../perf/gate/fixtures'
 import { launchWithMarkdown, placeCaretInEditor, sendIpcToRenderer } from './helpers'
 
 type EditorMetrics = {
@@ -7,6 +8,7 @@ type EditorMetrics = {
   setContentSources: string[]
   markdownSerializationCalls: number
   markdownSerializationRevisions: number[]
+  activationPhaseDurations: Record<string, number[]>
 }
 
 type RevisionSnapshotMetrics = {
@@ -32,7 +34,8 @@ const readEditorMetrics = (page: Page): Promise<EditorMetrics> =>
         setContentCalls: 0,
         setContentSources: [],
         markdownSerializationCalls: 0,
-        markdownSerializationRevisions: []
+        markdownSerializationRevisions: [],
+        activationPhaseDurations: {}
       }
     )
   })
@@ -49,6 +52,7 @@ const resetEditorMetrics = (page: Page): Promise<void> =>
       state.setContentSources = []
       state.markdownSerializationCalls = 0
       state.markdownSerializationRevisions = []
+      state.activationPhaseDurations = {}
     }
   })
 
@@ -79,8 +83,50 @@ const typeAtCommittedCaret = async(page: Page, text: string): Promise<void> => {
 const readEditorText = (page: Page): Promise<string> =>
   page.evaluate(() => document.querySelector('.editor-component')?.textContent ?? '')
 
+const percentile = (values: number[], ratio: number): number => {
+  const sorted = [...values].sort((a, b) => a - b)
+  const position = ratio * (sorted.length - 1)
+  const lower = Math.floor(position)
+  const upper = Math.ceil(position)
+  const weight = position - lower
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * weight
+}
+
+const measureTabActivation = async(page: Page, targetIndex: number): Promise<number> => {
+  return page.evaluate(async(index) => {
+    const tab = document.querySelectorAll<HTMLElement>('.tabs-container > li')[index]
+    if (!tab) throw new Error(`missing tab ${index}`)
+    const startedAt = performance.now()
+    await new Promise<void>((resolve) => {
+      let settled = false
+      const observer = new MutationObserver(() => {
+        if (settled || !tab.classList.contains('active')) return
+        settled = true
+        observer.disconnect()
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      })
+      observer.observe(tab, { attributes: true, attributeFilter: ['class'] })
+      tab.click()
+      if (tab.classList.contains('active')) {
+        settled = true
+        observer.disconnect()
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      }
+    })
+    return performance.now() - startedAt
+  }, targetIndex)
+}
+
 const createLargeDocument = (prefix: string): string =>
   `${Array.from({ length: 240 }, (_, index) => `${prefix} paragraph ${index}`).join('\n\n')}\n`
+
+const createPerf01ActivationFixture = (targetChars: 10000 | 50000 | 100000 | 200000): string => {
+  if (targetChars === 50000) return createMarkdownFixture('50k').markdown
+  if (targetChars === 100000) return createMarkdownFixture('100k').markdown
+  if (targetChars === 10000) return createMarkdownFixture('50k').markdown.slice(0, targetChars)
+  const base = createMarkdownFixture('100k').markdown
+  return `${base}\n\n${base}`.slice(0, targetChars)
+}
 
 test.describe('editor switch rebuild performance', () => {
   test('opening a new document mounts its content only once', async() => {
@@ -310,6 +356,221 @@ test.describe('editor switch rebuild performance', () => {
       expect(virtualized.mountedBlocks).toBeGreaterThan(0)
       expect(virtualized.mountedBlocks).toBeLessThan(virtualized.totalBlocks)
       expect(virtualized.staleDomRetained).toBe(false)
+    } finally {
+      await app.close()
+    }
+  })
+
+  test('captures 50K warm activation critical-path phase costs without retaining virtual DOM', async() => {
+    const markdown = createMarkdownFixture('50k').markdown
+    const { app, page } = await launchWithMarkdown(markdown)
+
+    try {
+      await sendIpcToRenderer(app, 'mt::new-untitled-tab', true, markdown.replace('Section 0', 'Section B'))
+      await expect.poll(() => readEditorText(page), { timeout: 10000 }).toContain('Section B')
+      await page.waitForTimeout(200)
+
+      await resetEditorMetrics(page)
+      await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 0)
+      await expect.poll(() => readEditorText(page), { timeout: 10000 }).toContain('Section 0')
+      await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 1)
+      await expect.poll(() => readEditorText(page), { timeout: 10000 }).toContain('Section B')
+
+      const metrics = await readEditorMetrics(page)
+      expect(metrics.setContentCalls).toBe(2)
+      expect(metrics.setContentSources).toEqual(['markdown', 'markdown'])
+      expect(metrics.markdownSerializationCalls).toBe(0)
+      expect(metrics.activationPhaseDurations['set-content-markdown']).toHaveLength(2)
+      expect(
+        metrics.activationPhaseDurations['set-content-markdown'].every(
+          (duration) => Number.isFinite(duration) && duration >= 0
+        )
+      ).toBe(true)
+      console.log('PERF-01 50K warm activation phases', JSON.stringify(metrics))
+    } finally {
+      await app.close()
+    }
+  })
+
+  test('captures 50K cold activation constructor/init/serialization phase costs', async() => {
+    const markdown = createMarkdownFixture('50k').markdown
+    const frameDeliveryExperiment = true
+    const { app, page } = await launchWithMarkdown(markdown, frameDeliveryExperiment
+      ? {
+        electronSwitches: [
+          '--disable-background-timer-throttling',
+          '--disable-renderer-backgrounding',
+          '--disable-backgrounding-occluded-windows',
+          ...(process.env.INKIVA_PERF_GRAPHICS_BACKEND === 'opengl' ? ['--use-angle=gl'] : [])
+        ]
+      }
+      : {})
+
+    try {
+      await expect.poll(() => readEditorText(page), { timeout: 15000 }).toContain('Section 0')
+      await page.waitForFunction(() => {
+        const editor = document.querySelector<HTMLElement>('.editor-component')
+        return Number.isFinite(Number(editor?.dataset.editorEditableAt))
+      }, undefined, { timeout: 15000 })
+      await page.waitForFunction(() => {
+        const editor = document.querySelector<HTMLElement>('.editor-component')
+        return Number.isFinite(Number(editor?.dataset.editorUiPluginsReadyAt))
+      }, undefined, { timeout: 15000 })
+
+      const metrics = await readEditorMetrics(page)
+      const virtualization = await page.evaluate(() => {
+        const container = document.querySelector<HTMLElement>('.editor-component .mu-container')
+        return {
+          totalBlocks: Number(container?.dataset.virtualTotalBlocks ?? 0),
+          mountedBlocks: Number(container?.dataset.virtualMountedBlocks ?? 0)
+        }
+      })
+      const milestones = await page.evaluate(() => {
+        const editor = document.querySelector<HTMLElement>('.editor-component')
+        return {
+          openStartAt: Number(editor?.dataset.editorOpenStartAt),
+          firstScreenAt: Number(editor?.dataset.editorFirstScreenAt),
+          interactiveAt: Number(editor?.dataset.editorInteractiveAt),
+          editableAt: Number(editor?.dataset.editorEditableAt),
+          uiPluginsReadyAt: Number(editor?.dataset.editorUiPluginsReadyAt),
+          milestoneFrameTimings: editor?.dataset.editorMilestoneFrameTimings
+            ? JSON.parse(editor.dataset.editorMilestoneFrameTimings)
+            : [],
+          milestoneLongTasks: editor?.dataset.editorMilestoneLongTasks
+            ? JSON.parse(editor.dataset.editorMilestoneLongTasks)
+            : []
+        }
+      })
+      const windowState = await app.evaluate(({ BrowserWindow }) => {
+        const win = BrowserWindow.getAllWindows()[0]
+        return {
+          visible: win?.isVisible() ?? false,
+          focused: win?.isFocused() ?? false,
+          minimized: win?.isMinimized() ?? false
+        }
+      })
+      const rendererState = await page.evaluate(() => {
+        const canvas = document.createElement('canvas')
+        const gl = canvas.getContext('webgl')
+        const debugInfo = gl?.getExtension('WEBGL_debug_renderer_info')
+        return {
+          visibilityState: document.visibilityState,
+          hasFocus: document.hasFocus(),
+          webgl: gl
+            ? {
+              vendor: String(gl.getParameter(gl.VENDOR)),
+              renderer: String(gl.getParameter(gl.RENDERER)),
+              unmaskedVendor: debugInfo ? String(gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL)) : null,
+              unmaskedRenderer: debugInfo ? String(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)) : null
+            }
+            : null
+        }
+      })
+      expect(metrics.activationPhaseDurations['muya-constructor']).toHaveLength(1)
+      expect(metrics.activationPhaseDurations['muya-init']).toHaveLength(1)
+      expect(metrics.activationPhaseDurations['serialize-markdown']).toHaveLength(1)
+      expect(milestones.firstScreenAt).toBeGreaterThanOrEqual(milestones.openStartAt)
+      expect(milestones.editableAt).toBeGreaterThan(milestones.firstScreenAt)
+      expect(milestones.uiPluginsReadyAt).toBeGreaterThanOrEqual(milestones.editableAt)
+      const pluginSlices = metrics.activationPhaseDurations['muya-ui-plugin-slice'] ?? []
+      expect(pluginSlices.length).toBeGreaterThan(0)
+      expect(pluginSlices.every((duration) => Number.isFinite(duration) && duration >= 0)).toBe(true)
+      console.log('PERF-01 50K cold activation phases', JSON.stringify({
+        metrics,
+        milestones,
+        virtualization,
+        windowState,
+        rendererState
+      }))
+    } finally {
+      await app.close()
+    }
+  })
+
+  test('captures PERF-01 10K/50K/100K/200K warm setContent scaling', async() => {
+    test.setTimeout(120000)
+    const results: Array<{ chars: number; totalBlocks: number; durationMs: number }> = []
+
+    for (const chars of [10000, 50000, 100000, 200000] as const) {
+      const markdown = createPerf01ActivationFixture(chars)
+      const alternate = markdown.replace('Section 0', `Section PERF01 ${chars}`)
+      const { app, page } = await launchWithMarkdown(markdown)
+
+      try {
+        await sendIpcToRenderer(app, 'mt::new-untitled-tab', true, alternate)
+        await expect.poll(() => readEditorText(page), { timeout: 15000 }).toContain(`Section PERF01 ${chars}`)
+        await page.waitForTimeout(150)
+        await resetEditorMetrics(page)
+
+        await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 0)
+        await expect.poll(() => readEditorText(page), { timeout: 15000 }).toContain('Section 0')
+
+        const metrics = await readEditorMetrics(page)
+        const durations = metrics.activationPhaseDurations['set-content-markdown'] ?? []
+        expect(metrics.setContentSources).toEqual(['markdown'])
+        expect(durations).toHaveLength(1)
+        const totalBlocks = await page.evaluate(() => {
+          const container = document.querySelector<HTMLElement>('.editor-component .mu-container')
+          return Number(container?.dataset.virtualTotalBlocks ?? 0)
+        })
+        results.push({ chars, totalBlocks, durationMs: durations[0] })
+      } finally {
+        await app.close()
+      }
+    }
+
+    expect(results.map((entry) => entry.chars)).toEqual([10000, 50000, 100000, 200000])
+    expect(results.every((entry) => Number.isFinite(entry.durationMs) && entry.durationMs >= 0)).toBe(true)
+    console.log('PERF-01 activation scaling', JSON.stringify(results))
+  })
+
+  test('captures twenty real 50K warm tab activations for paired PERF-01 comparison', async() => {
+    test.setTimeout(60000)
+    const markdown = createMarkdownFixture('50k').markdown
+    const alternate = markdown.replace('Section 0', 'Section PERF01 paired')
+    const { app, page } = await launchWithMarkdown(markdown)
+
+    try {
+      await sendIpcToRenderer(app, 'mt::new-untitled-tab', true, alternate)
+      await expect.poll(() => readEditorText(page), { timeout: 15000 }).toContain('Section PERF01 paired')
+      await page.waitForTimeout(200)
+
+      // Warm both cache keys before sampling so this measures reactivation,
+      // not first-open construction or one-time parser initialization.
+      await measureTabActivation(page, 0)
+      await measureTabActivation(page, 1)
+      await resetEditorMetrics(page)
+
+      const activationMs: number[] = []
+      for (let index = 0; index < 20; index += 1) {
+        activationMs.push(await measureTabActivation(page, index % 2 === 0 ? 0 : 1))
+      }
+
+      const metrics = await readEditorMetrics(page)
+      const setContentMs = metrics.activationPhaseDurations['set-content-markdown'] ?? []
+      expect(activationMs).toHaveLength(20)
+      expect(setContentMs).toHaveLength(20)
+      expect(metrics.setContentSources).toEqual(Array.from({ length: 20 }, () => 'markdown'))
+      expect(activationMs.every(Number.isFinite)).toBe(true)
+      expect(setContentMs.every(Number.isFinite)).toBe(true)
+
+      console.log(
+        'PERF-01 paired warm activation',
+        JSON.stringify({
+          activation: {
+            p50: percentile(activationMs, 0.5),
+            p95: percentile(activationMs, 0.95),
+            max: Math.max(...activationMs),
+            samples: activationMs
+          },
+          setContent: {
+            p50: percentile(setContentMs, 0.5),
+            p95: percentile(setContentMs, 0.95),
+            max: Math.max(...setContentMs),
+            samples: setContentMs
+          }
+        })
+      )
     } finally {
       await app.close()
     }

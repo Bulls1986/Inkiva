@@ -435,4 +435,38 @@ describe('TOC outline utilities', () => {
     sync.destroy()
     container.remove()
   })
+
+  it('schedules the initial rebuild on attach without requiring refresh', () => {
+    const callbacks: FrameRequestCallback[] = []
+    const requestFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        callbacks.push(callback)
+        return callbacks.length
+      })
+    const container = document.createElement('div')
+    container.scrollTop = 850
+    const onActiveChange = vi.fn()
+    const offsets = new Map([[2, 0], [40, 800], [80, 1600]])
+    const sync = createTocScrollSync(
+      container,
+      onActiveChange,
+      40,
+      (blockIndex) => offsets.get(blockIndex) ?? null
+    )
+    sync.update([
+      { slug: 'uid-first', blockIndex: 2 },
+      { slug: 'uid-middle', blockIndex: 40 },
+      { slug: 'uid-later', blockIndex: 80 }
+    ])
+
+    sync.attach()
+    expect(onActiveChange).not.toHaveBeenCalled()
+    expect(callbacks).toHaveLength(1)
+    callbacks.shift()?.(0)
+    expect(onActiveChange).toHaveBeenLastCalledWith('uid-middle')
+
+    sync.destroy()
+    requestFrame.mockRestore()
+  })
 })

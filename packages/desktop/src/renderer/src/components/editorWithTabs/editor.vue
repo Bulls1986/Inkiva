@@ -151,6 +151,7 @@ import { rendererPerformance, rendererPerformanceMonitor } from '@/services/perf
 import { createInputParseProbe } from '@/services/performance/inputParse'
 import { scheduleEditorPerformanceMilestones } from './editorPerformanceMilestones'
 import { markEditorScrollInteraction } from '@/services/editorInteraction'
+import { BACKGROUND_PRIORITY, BackgroundTaskScheduler } from '@/util/backgroundScheduler'
 
 // Importing the engine entrypoint auto-injects its editor CSS (the muya.ts
 // module imports its stylesheets at load time). Inkiva owns the application
@@ -511,23 +512,95 @@ const makeSyntheticHistory = (id: string, content: string, revision: number): IF
   return getSyntheticHistory(id, content).build(content, revision)
 }
 
-const recordEditorMarkdownSerialization = (revision?: number): void => {
-  if (window.electron?.process?.env?.PERF_TESTING !== 'true') return
+type EditorE2eMetrics = {
+  setContentCalls: number
+  setContentSources: EditorSetContentSource[]
+  markdownSerializationCalls: number
+  markdownSerializationRevisions: number[]
+  activationPhaseDurations: Record<string, number[]>
+}
+
+const getEditorE2eMetrics = (): EditorE2eMetrics | null => {
+  if (window.electron?.process?.env?.PERF_TESTING !== 'true') return null
 
   const globalState = globalThis as typeof globalThis & {
-    __inkiva_e2e_editor_metrics__?: {
-      setContentCalls: number
-      setContentSources: EditorSetContentSource[]
-      markdownSerializationCalls: number
-      markdownSerializationRevisions: number[]
-    }
+    __inkiva_e2e_editor_metrics__?: EditorE2eMetrics
   }
   const metrics = (globalState.__inkiva_e2e_editor_metrics__ ??= {
     setContentCalls: 0,
     setContentSources: [],
     markdownSerializationCalls: 0,
-    markdownSerializationRevisions: []
+    markdownSerializationRevisions: [],
+    activationPhaseDurations: {}
   })
+  metrics.activationPhaseDurations ??= {}
+  return metrics
+}
+
+const recordEditorActivationPhase = (phase: string, durationMs: number): void => {
+  const metrics = getEditorE2eMetrics()
+  if (!metrics) return
+  const samples = (metrics.activationPhaseDurations[phase] ??= [])
+  samples.push(Math.max(0, durationMs))
+}
+
+function measureEditorActivationPhase<T> (phase: string, action: () => T): T {
+  if (window.electron?.process?.env?.PERF_TESTING !== 'true') return action()
+  const startedAt = performance.now()
+  try {
+    return action()
+  } finally {
+    recordEditorActivationPhase(phase, performance.now() - startedAt)
+  }
+}
+
+const editorUiPluginScheduler = new BackgroundTaskScheduler({
+  onError: (error) => {
+    log.error('Deferred Muya UI plugin initialization failed', error)
+  },
+  onSlice: (task, durationMs) => {
+    recordEditorActivationPhase('muya-ui-plugin-slice', durationMs)
+    if (!rendererPerformance.enabled) return
+    rendererPerformance.recordSample('background.taskSlice', 'ms', durationMs, {
+      phase: 'editor',
+      metadata: { task: task.id, priority: task.priority }
+    })
+  }
+})
+editorRuntime.registerDisposable(() => editorUiPluginScheduler.close())
+let editorUiPluginsReady = false
+
+const scheduleEditorUiPlugins = (): void => {
+  if (editorUiPluginsReady) return
+  const instance = editor.value
+  if (!instance) return
+
+  const enqueueNext = (): void => {
+    editorUiPluginScheduler.enqueue({
+      id: 'editor-ui-plugin-init',
+      priority: BACKGROUND_PRIORITY.backgroundIndexing,
+      run: () => {
+        if (editor.value !== instance || editorRuntime.isDisposed) return
+        const hasMore = instance.initNextUiPlugin()
+        if (hasMore) {
+          enqueueNext()
+          return
+        }
+        editorUiPluginsReady = true
+        if (window.electron?.process?.env?.PERF_TESTING === 'true') {
+          const element = getEditorPerformanceElement()
+          if (element) element.dataset.editorUiPluginsReadyAt = String(performance.now())
+        }
+      }
+    })
+  }
+
+  enqueueNext()
+}
+
+const recordEditorMarkdownSerialization = (revision?: number): void => {
+  const metrics = getEditorE2eMetrics()
+  if (!metrics) return
   metrics.markdownSerializationCalls = (metrics.markdownSerializationCalls ?? 0) + 1
   metrics.markdownSerializationRevisions ??= []
   if (typeof revision === 'number') metrics.markdownSerializationRevisions.push(revision)
@@ -535,7 +608,7 @@ const recordEditorMarkdownSerialization = (revision?: number): void => {
 
 const serializeEditorMarkdown = (instance: MuyaInstance, revision?: number): string => {
   recordEditorMarkdownSerialization(revision)
-  return instance.getMarkdown()
+  return measureEditorActivationPhase('serialize-markdown', () => instance.getMarkdown())
 }
 
 const serializeEditorMarkdownForRevision = (
@@ -1934,24 +2007,8 @@ interface FileLoadedPayload {
 type EditorSetContentSource = 'markdown' | 'blocks'
 
 const recordEditorSetContent = (source: EditorSetContentSource): void => {
-  if (window.electron?.process?.env?.PERF_TESTING !== 'true') return
-
-  const globalState = globalThis as typeof globalThis & {
-    __inkiva_e2e_editor_metrics__?: {
-      setContentCalls: number
-      setContentSources: EditorSetContentSource[]
-      markdownSerializationCalls: number
-      markdownSerializationRevisions: number[]
-    }
-  }
-  const metrics = (globalState.__inkiva_e2e_editor_metrics__ ??= {
-    setContentCalls: 0,
-    setContentSources: [],
-    markdownSerializationCalls: 0,
-    markdownSerializationRevisions: []
-  })
-  metrics.markdownSerializationCalls ??= 0
-  metrics.markdownSerializationRevisions ??= []
+  const metrics = getEditorE2eMetrics()
+  if (!metrics) return
   metrics.setContentCalls += 1
   metrics.setContentSources.push(source)
 }
@@ -2023,6 +2080,7 @@ const getEditorPerformanceElement = (): HTMLElement | null =>
 
 const beginEditorPerformanceOperation = (documentId?: string): void => {
   editorPerformanceGeneration += 1
+  editorUiPluginScheduler.setInteractivePending(true)
   const element = getEditorPerformanceElement()
   if (element) {
     element.dataset.editorOpenStartAt = String(performance.now())
@@ -2095,16 +2153,76 @@ const createMountedBlockPrewarmer = (generation: number): (() => void) => {
   }
 }
 
-const scheduleEditorMilestones = (documentId?: string, notifyMainProcess = false): void => {
+const scheduleEditorMilestones = (
+  documentId?: string,
+  notifyMainProcess = false,
+  afterFirstScreen?: () => void,
+  afterEditable?: () => void
+): void => {
   const generation = editorPerformanceGeneration
   const prewarmMountedBlocks = createMountedBlockPrewarmer(generation)
+  const captureFrameDiagnostics = window.electron?.process?.env?.PERF_TESTING === 'true'
+  let frameSequence = 0
+  const milestoneFrameTimings: Array<{
+    sequence: number
+    requestedAt: number
+    timerRanAt?: number
+    ranAt?: number
+  }> = []
+  const milestoneLongTasks: Array<{ startTime: number; duration: number }> = []
+  const longTaskObserver =
+    captureFrameDiagnostics && typeof PerformanceObserver !== 'undefined'
+      ? new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          milestoneLongTasks.push({ startTime: entry.startTime, duration: entry.duration })
+        }
+        getEditorPerformanceElement()?.setAttribute(
+          'data-editor-milestone-long-tasks',
+          JSON.stringify(milestoneLongTasks)
+        )
+      })
+      : null
+  try {
+    longTaskObserver?.observe({ entryTypes: ['longtask'] })
+  } catch {
+    longTaskObserver?.disconnect()
+  }
+
   scheduleEditorPerformanceMilestones({
     requestFrame: (callback) => {
-      window.requestAnimationFrame(callback)
+      if (!captureFrameDiagnostics) {
+        window.requestAnimationFrame(() => callback())
+        return
+      }
+      const sequence = ++frameSequence
+      const entry = { sequence, requestedAt: performance.now() } as {
+        sequence: number
+        requestedAt: number
+        timerRanAt?: number
+        ranAt?: number
+      }
+      milestoneFrameTimings.push(entry)
+      window.setTimeout(() => {
+        entry.timerRanAt = performance.now()
+        getEditorPerformanceElement()?.setAttribute(
+          'data-editor-milestone-frame-timings',
+          JSON.stringify(milestoneFrameTimings)
+        )
+      }, 0)
+      window.requestAnimationFrame(() => {
+        entry.ranAt = performance.now()
+        getEditorPerformanceElement()?.setAttribute(
+          'data-editor-milestone-frame-timings',
+          JSON.stringify(milestoneFrameTimings)
+        )
+        callback()
+      })
     },
     isCurrent: () => generation === editorPerformanceGeneration,
     markFirstScreen: () => markEditorFirstScreen(documentId),
+    afterFirstScreen,
     markInteractive: () => markEditorInteractive(documentId),
+    afterEditable,
     prewarmFrame: prewarmMountedBlocks,
     markEditable: () => {
       const element = getEditorPerformanceElement()
@@ -2117,6 +2235,9 @@ const scheduleEditorMilestones = (documentId?: string, notifyMainProcess = false
         operationId: editorPerformanceOperationId(documentId),
         documentId
       })
+      editorUiPluginScheduler.setInteractivePending(false)
+      scheduleEditorUiPlugins()
+      longTaskObserver?.disconnect()
     },
     notifyMainProcess: notifyMainProcess
       ? () => window.electron.ipcRenderer.send('mt::document-editable')
@@ -2149,7 +2270,9 @@ const setMarkdownToEditor = (payload: unknown) => {
       // `setContent` resets the document and clears the undo history; only set
       // a cursor afterwards (a freshly-opened file has no history to restore).
       recordEditorSetContent('markdown')
-      editor.value.setContent(newMarkdown ?? '')
+      measureEditorActivationPhase('set-content-markdown', () =>
+        editor.value.setContent(newMarkdown ?? '')
+      )
       editorLayoutReconciler?.reset(true)
     }
     // The freshly loaded content is this tab's clean baseline (id 0). History
@@ -2309,21 +2432,25 @@ const handleFileChange = (payload: unknown) => {
         recordEditorSetContent('blocks')
         // `blocks` came through Pinia and may be reactive. Give Muya the raw
         // snapshot so its document model does not retain Vue proxies.
-        editor.value.setContent(
-          toRaw(reusableBlocks),
-          false,
-          true,
-          CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
-          id ?? null
+        measureEditorActivationPhase('set-content-blocks', () =>
+          editor.value.setContent(
+            toRaw(reusableBlocks),
+            false,
+            true,
+            CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
+            id ?? null
+          )
         )
       } else {
         recordEditorSetContent('markdown')
-        editor.value.setContent(
-          newMarkdown,
-          false,
-          true,
-          CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
-          id ?? null
+        measureEditorActivationPhase('set-content-markdown', () =>
+          editor.value.setContent(
+            newMarkdown,
+            false,
+            true,
+            CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
+            id ?? null
+          )
         )
       }
       // Tab switch swaps content without firing `json-change`, so re-seed the
@@ -2594,7 +2721,7 @@ onMounted(() => {
   // The engine stores live DOM nodes and block-tree references and patches the
   // DOM via snabbdom; proxying them silently breaks identity checks so the
   // document tree never renders.
-  const muya = markRaw(new Muya(ele, options))
+  const muya = markRaw(measureEditorActivationPhase('muya-constructor', () => new Muya(ele, options)))
   // The new engine requires an explicit init() after construction (it builds
   // the document tree and instantiates the registered UI plugins).
   rendererPerformance.mark('muya_init_start', {
@@ -2602,7 +2729,9 @@ onMounted(() => {
     operationId: performanceOperationId,
     documentId: performanceDocumentId
   })
-  muya.init()
+  measureEditorActivationPhase('muya-init', () =>
+    measureEditorActivationPhase('muya-editor-core-init', () => muya.initEditorCore(false))
+  )
   rendererPerformance.measure('muya_init_end', 'muya_init_start', {
     phase: 'document-open',
     operationId: performanceOperationId,
@@ -2650,24 +2779,24 @@ onMounted(() => {
     documentGeometry.getBlockOffset
   )
   tocScrollSync.update(listToc.value)
-  tocScrollSync.attach()
-  tocScrollSync.refresh()
 
-  // Reconcile asynchronous block geometry at the editor's direct-child
-  // boundary. Diagram descendants can mutate repeatedly while rendering; the
-  // reconciler batches those signals and hands the same local changes to TOC
-  // cache maintenance and pending tab-scroll restoration.
-  editorLayoutReconciler = createEditorLayoutReconciler(container, {
-    // Render Surface 2.0 owns scroll anchoring while large-document
-    // virtualization is active. The desktop layout reconciler must still
-    // observe geometry for TOC/tab restoration, but must not compete with
-    // Muya by writing scrollTop on diagram/image/table resize.
-    getScrollOwner: documentGeometry.getScrollOwner,
-    onChange: (changes) => {
-      schedulePendingScrollRestoreCheck()
-      tocScrollSync?.reconcile(changes)
-    }
-  })
+  const activatePostPaintGeometry = (): void => {
+    tocScrollSync?.attach()
+    // Reconcile asynchronous block geometry at the editor's direct-child
+    // boundary only after editable. Fresh-DOM geometry reads otherwise force
+    // Chromium to synchronously lay out the full activation surface.
+    editorLayoutReconciler = createEditorLayoutReconciler(container, {
+      // Render Surface 2.0 owns scroll anchoring while large-document
+      // virtualization is active. The desktop layout reconciler must still
+      // observe geometry for TOC/tab restoration, but must not compete with
+      // Muya by writing scrollTop on diagram/image/table resize.
+      getScrollOwner: documentGeometry.getScrollOwner,
+      onChange: (changes) => {
+        schedulePendingScrollRestoreCheck()
+        tocScrollSync?.reconcile(changes)
+      }
+    })
+  }
 
   // Listen for language changes and update the engine locale.
   registerBusHandler('language-changed', handleLanguageChanged)
@@ -2857,7 +2986,12 @@ onMounted(() => {
   // to release deferred startup work and safe-restore state. The scheduler
   // crosses a paint boundary before first-screen, then publishes interactive
   // and editable in order.
-  scheduleEditorMilestones(performanceDocumentId, true)
+  scheduleEditorMilestones(
+    performanceDocumentId,
+    true,
+    () => editor.value?.focus(),
+    activatePostPaintGeometry
+  )
 })
 
 onBeforeUnmount(() => {
