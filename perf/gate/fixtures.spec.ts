@@ -38,6 +38,7 @@ test('document fixtures match exact character targets and required structures', 
     const specification = MARKDOWN_DOCUMENT_SPECS[fixture.tier]
     assert.equal(fixture.actualChars, specification.targetChars)
     assert.equal(fixture.markdown.length, specification.targetChars)
+    assert.match(fixture.contentHash, /^[a-f0-9]{64}$/)
     assert.ok(fixture.headingCount >= specification.minimumHeadings)
     assert.equal(fixture.headingCount, countHeadings(fixture.markdown))
     assert.equal(fixture.blockCount, countBlocks(fixture.markdown))
@@ -62,6 +63,7 @@ test('document fixtures are deterministic across repeated generation', () => {
   assert.equal(first.headingCount, second.headingCount)
   assert.equal(first.blockCount, second.blockCount)
   assert.equal(first.markdown, second.markdown)
+  assert.equal(first.contentHash, second.contentHash)
 })
 
 test('heading storm fixtures contain exactly the requested heading count', () => {
@@ -74,6 +76,7 @@ test('heading storm fixtures contain exactly the requested heading count', () =>
     assert.equal(countHeadings(fixture.markdown), fixture.headingCount)
     assert.ok(fixture.blockCount >= fixture.headingCount)
     assert.ok(fixture.actualChars > fixture.headingCount)
+    assert.match(fixture.contentHash, /^[a-f0-9]{64}$/)
   }
 })
 
@@ -90,6 +93,7 @@ test('workspace fixtures contain exact node counts without duplicate paths', () 
     assert.ok(fixture.fileCount > 0)
     assert.ok(fixture.directoryCount > 0)
     assert.equal(new Set(fixture.nodes.map((node) => node.path)).size, fixture.targetNodes)
+    assert.match(fixture.contentHash, /^[a-f0-9]{64}$/)
   }
 })
 
@@ -109,4 +113,5 @@ test('large workspace generation remains deterministic', () => {
   assert.equal(first.directoryCount, second.directoryCount)
   assert.deepEqual(first.nodes.slice(0, 5), second.nodes.slice(0, 5))
   assert.deepEqual(first.nodes.slice(-5), second.nodes.slice(-5))
+  assert.equal(first.contentHash, second.contentHash)
 })

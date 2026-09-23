@@ -6,6 +6,7 @@ import {
   type GateLevel
 } from '../perf/gate/contract.js'
 import { createPerformanceGateMetadata } from '../perf/gate/metadata.js'
+import { readBenchmarkProvenance } from '../perf/gate/provenance.js'
 
 const readValue = (args: string[], flag: string): string => {
   const index = args.indexOf(flag)
@@ -49,7 +50,13 @@ const main = (): void => {
   const metadata = createPerformanceGateMetadata(
     readEnvironment(environmentPath),
     level as GateLevel,
-    readPackageVersion()
+    readPackageVersion(),
+    'inkiva-reference-gate',
+    readBenchmarkProvenance({
+      repoRoot: resolve(dirname(fileURLToPath(import.meta.url)), '..'),
+      runMode: 'reference-' + level.toLowerCase(),
+      warmState: 'mixed'
+    })
   )
   mkdirSync(dirname(outputPath), { recursive: true })
   writeFileSync(outputPath, JSON.stringify(metadata, null, 2) + '\n', 'utf8')

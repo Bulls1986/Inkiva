@@ -1,7 +1,8 @@
 import {
   validateReferenceEnvironment,
   type GateLevel,
-  type PerformanceGateEnvironment
+  type PerformanceGateEnvironment,
+  type PerformanceGateProvenance
 } from './contract.js'
 import type { PerformanceGateReportMetadata } from './runner.js'
 
@@ -9,7 +10,8 @@ export const createPerformanceGateMetadata = (
   environment: unknown,
   level: GateLevel,
   productVersion: string,
-  suite = 'inkiva-reference-gate'
+  suite = 'inkiva-reference-gate',
+  provenance?: PerformanceGateProvenance
 ): PerformanceGateReportMetadata => {
   validateReferenceEnvironment(environment)
   if (productVersion.trim() === '') {
@@ -22,6 +24,7 @@ export const createPerformanceGateMetadata = (
     productVersion,
     suite,
     level,
-    environment: environment as PerformanceGateEnvironment
+    environment: environment as PerformanceGateEnvironment,
+    ...(provenance === undefined ? {} : { provenance })
   }
 }

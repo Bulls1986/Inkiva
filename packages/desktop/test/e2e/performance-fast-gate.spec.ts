@@ -37,6 +37,7 @@ type GatePhase =
   | 'editor'
   | 'diagram'
   | 'search'
+  | 'save'
   | 'autosave'
   | 'memory'
 
@@ -751,10 +752,10 @@ const activateFile = async(
   await sendIpcFromRenderer(page, 'mt::open-file', filePath, {})
   await waitForActiveFile(page, filePath)
   const milestones = await readEditorMilestones(page, startedAt)
-  return {
-    firstScreenMs: Math.max(0, milestones.timestamps.firstScreenAt - startedAt),
-    editableMs: Math.max(0, milestones.timestamps.editableAt - startedAt)
-  }
+  // Keep every sample on the same renderer-owned measurement boundary.
+  // startedAt is only a lower bound used to select the new editor instance;
+  // the benchmark duration itself starts at the editor's openStartAt milestone.
+  return measureEditorMilestones(milestones.timestamps)
 }
 
 const readStability = async(
@@ -893,7 +894,7 @@ const collectDocumentSamples = async(
           timeout: 60_000
         })
         .toContain(saveToken)
-      await recordSample(page, 'save.50k', 'ms', saveDuration, 'autosave')
+      await recordSample(page, 'save.50k', 'ms', saveDuration, 'save')
 
       await showSidebarPanel(app, page, 'search')
       const searchInput = page.locator('.side-bar-search input.search-input')

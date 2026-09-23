@@ -77,6 +77,28 @@ test('report creation keeps all raw samples and round-trips through disk', () =>
   }
 })
 
+test('report creation preserves benchmark provenance', () => {
+  const collector = new PerformanceSampleCollector()
+  collector.addMany('input', 'ms', twentySamples(3))
+  const report = createPerformanceGateReport(collector, {
+    ...metadata,
+    provenance: {
+      commit: '0123456789abcdef',
+      branch: 'develop',
+      nodeVersion: 'v24.21.0',
+      electronVersion: '42.1.0',
+      graphicsBackend: 'opengl',
+      runMode: 'baseline-02',
+      warmState: 'warm',
+      runId: 'unit',
+      fixtureHashes: { 'markdown-50k': 'b'.repeat(64) }
+    }
+  })
+
+  assert.equal(report.provenance?.graphicsBackend, 'opengl')
+  assert.equal(report.provenance?.fixtureHashes?.['markdown-50k'], 'b'.repeat(64))
+})
+
 test('collector exposes deterministic metric names and can be cleared', () => {
   const collector = new PerformanceSampleCollector()
   collector.addMany('zeta', 'count', twentySamples(0))

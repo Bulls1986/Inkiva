@@ -54,6 +54,7 @@ type GatePhase =
   | 'editor'
   | 'diagram'
   | 'search'
+  | 'save'
   | 'autosave'
   | 'memory'
 
@@ -874,9 +875,9 @@ const collectDocumentTier = async(
             })
             .toContain(saveToken)
         })
-        await recordSample(page, 'save.' + tier, 'ms', saveDuration, 'autosave')
+        await recordSample(page, 'save.' + tier, 'ms', saveDuration, 'save')
         if (tier === '50k') {
-          await recordSample(page, 'document.50k.save', 'ms', saveDuration, 'autosave')
+          await recordSample(page, 'document.50k.save', 'ms', saveDuration, 'save')
         }
 
         const normalUndoDuration = await measurePageAction(page, async() => {
