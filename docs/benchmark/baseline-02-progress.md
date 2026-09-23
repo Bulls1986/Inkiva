@@ -19,8 +19,8 @@
 | Statistics schema | Complete | `calculateStatistics` exposes min/p50/p95/p99/max/count plus mean, population stddev and CV; zero-mean CV is defined as 0. |
 | Harness validation | Core Node suites green | Donor `tsx@4.22.4` payload executes current-worktree sources correctly. `perf/gate/*.spec.ts`: 72/72 pass. `perf/soak` fast suites: 14/14 pass. Metadata CLI provenance path also passes. |
 | Desktop type/E2E validation | CI path proven | Local donor `vue-tsc` remains invalid environment topology, but PR #177 standard CI built the app and completed the real Electron Fast Gate successfully. This is the authoritative Desktop path for BASELINE-02. |
-| Variance/reproducibility | Fast Gate round available; reference rounds pending | PR Fast Gate completed successfully on standard CI. Two independent reference-runner rounds remain pending; the first queued reference run was cancelled before execution after provenance identity semantics were tightened. |
-| Default GPU vs OpenGL | Pending real Electron runs | Must remain separate baselines; data must never be pooled. |
+| Variance/reproducibility | Fast Gate validated; final reference tree being prepared | Latest PR Fast Gate completed successfully. The previously queued reference Round 1 has not executed any measurement and is superseded by final fixture-provenance/backend-selection hardening; it must be cancelled before publishing the final measurement tree. Two independent reference rounds will start only from that final tree when the Windows reference runner is available. |
+| Default GPU vs OpenGL | Workflow support complete; runner unavailable | Reference workflow now exposes an explicit `graphics_backend` choice (`default` / `opengl`) and propagates it into Electron launch/provenance. Default behavior remains unchanged. Measurements remain blocked until an eligible Windows `reference-low-end` runner is online, and backend samples must stay separate. |
 | Controlled slowdown | Complete at evaluator layer | Synthetic unchanged control passes and uniform known slowdown fails the declared p95 gate. Real Electron slowdown injection is not required for the evaluator correctness proof and no production slowdown code was added. |
 | Trustworthiness matrix | Draft complete | First-pass TRUSTED / CONDITIONALLY TRUSTED classifications and comparison restrictions are in the benchmark inventory; final labels await reproducibility runs. |
 | Pooling comparability | Complete | Added programmatic pooling contract: same product/suite/level, environment, Git tree, Node/Electron, graphics backend, run mode, warm state and fixture hashes are required. Checkout commit/source commit/branch/run id may differ when the executed code tree is identical. Missing tree/provenance is non-poolable. |
@@ -161,6 +161,56 @@ Run `35814000281` completed **successfully** on the standard PR CI path. The for
 
 This run proved the standard CI build/Electron/evaluator/artifact pipeline is operational. Its artifact also directly led to BT-012, so it is retained as diagnostic trustworthiness evidence rather than the final reproducibility baseline.
 
+### CI evidence — PR #177 corrected-provenance Fast Gate
+
+Run `35814583862` on branch tree `0c68be162d4fc7ea08448b6d05d4f8a30a1a8147` completed **successfully**. The standard PR path completed checkout, setup, contract validation, postinstall, current-tree app build, real Desktop Electron fast measurements, formal threshold evaluation, and artifact upload.
+
+This is stronger evidence than the earlier diagnostic Fast Gate because it runs after BT-012 separated checkout commit/source commit/tree provenance. It confirms the corrected benchmark metadata path works in the actual GitHub PR merge-checkout topology.
+
+### Reference runner status — Round 1 blocked before execution
+
+The current authoritative reference run is `35814670143`, bound to the latest remote branch commit `43b5cde45cab06302ccc9c23729a7f8747344d0c`, whose Git tree exactly matches local checkpoint `832ecf4a` tree `0c68be162d4fc7ea08448b6d05d4f8a30a1a8147`.
+
+Current evidence:
+- workflow status: `queued`;
+- P0 job status: `queued`;
+- P3: correctly skipped;
+- repository Actions runner API: `total_count = 0`;
+- required workflow labels: `[self-hosted, Windows, X64, reference-low-end]`;
+- previous stale reference run `35814017781` on the older tree was explicitly cancelled to prevent future concurrency interference.
+
+Classification: **Test infrastructure / runner availability**, not product stability or performance.
+
+Round 2 must not be started while Round 1 has not executed. Default GPU/OpenGL reference comparisons likewise remain blocked until an eligible Windows reference runner is online.
+
+### BT-013 — Fixture hashes are now carried by canonical metadata
+
+Earlier BASELINE-02 work added deterministic `contentHash` values to fixture objects and provenance schema support, but canonical Fast/Reference metadata did not yet populate those hashes.
+
+Final harness hardening:
+- Fast Gate provenance records exact deterministic hashes for `50k-markdown` and `regular-markdown`;
+- Reference P0 records `regular-markdown`;
+- Reference P1/P2/P3 record only fixture ids whose content is exactly reproducible from the repository fixture generators;
+- workspace, diagram/image, and combination fixture ids are deliberately omitted until their full generated content has an authoritative deterministic identity;
+- the large-gate P2 manifest was corrected to declare the real `50k-markdown` workload already measured by its P2 document scenario.
+
+Focused validation:
+- fixture provenance: **3/3 pass**;
+- large-scenario manifest: **3/3 pass**;
+- workflow contract: **1/1 pass**;
+- Fast CLI report wiring test: **1/1 pass**;
+- P2 metadata CLI emitted OpenGL backend plus deterministic 50K/5K heading hashes and correctly omitted workspace hash.
+
+Classification: **Fixture traceability / fail-closed provenance**.
+
+### BT-014 — Reference backend selection is explicit and defaults safely
+
+The reference workflow now declares a required choice input `graphics_backend` with options `default` and `opengl`, defaulting to `default`. The selected value is propagated to all reference jobs as `INKIVA_PERF_GRAPHICS_BACKEND`.
+
+Reference Electron launch adds `--use-angle=gl` **only** when the selected backend is `opengl`; the default path passes no graphics override. The same backend value is recorded in report provenance, allowing the pooling contract to reject mixed-backend aggregation.
+
+Classification: **Measurement environment control / comparability**.
+
 ## Guardrails retained
 
 - No product optimization to improve numbers.
@@ -172,9 +222,10 @@ This run proved the standard CI build/Electron/evaluator/artifact pipeline is op
 
 ## Next actions
 
-1. Complete benchmark inventory across startup/open, large-doc, save, render/scroll, resource, stability, DI/background, and CI gates.
-2. Map each metric to its exact start/end boundary and clock source.
-3. Audit result/statistics schema and percentile/CV calculations.
-4. Add provenance metadata and deterministic fixture identity where missing.
-5. Add FPS frame-time/long-frame companion evidence without changing current product workload.
-6. Run two independent reproducibility rounds for core benchmarks, separately for default GPU and `--use-angle=gl`.
+1. Cancel the still-unexecuted queued reference run `35814670143`; it belongs to the pre-BT-013/BT-014 tree and must not become authoritative later.
+2. Commit and publish the final BASELINE-02 measurement tree, then let PR CI revalidate it.
+3. Keep that final tree frozen for all authoritative reference measurements.
+4. When an eligible `reference-low-end` Windows runner is available, run Default GPU Round 1 and Round 2 serially, retain raw/report/evaluation artifacts, verify provenance/tree/environment, then run `analyzeBenchmarkRepeatability`.
+5. Run OpenGL Round 1 and Round 2 serially on the same final tree using `graphics_backend=opengl`; never pool Default/OpenGL samples.
+6. Finalize the TRUSTED / CONDITIONALLY TRUSTED / UNTRUSTED matrix from real repeatability evidence.
+7. Do not treat current runner unavailability or donor Node open-handle behavior as a product regression.

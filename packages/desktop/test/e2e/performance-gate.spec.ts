@@ -99,6 +99,9 @@ const captureEnvironment = (directory: string): Record<string, string> => ({
   INKIVA_PERF_RUNNER_LABEL: 'reference-low-end'
 })
 
+const performanceGraphicsSwitches = (): string[] =>
+  process.env.INKIVA_PERF_GRAPHICS_BACKEND === 'opengl' ? ['--use-angle=gl'] : []
+
 const openCaptured = async(
   filePath: string,
   capture: CaptureDirectory,
@@ -112,6 +115,7 @@ const openCaptured = async(
     waitForReady: false,
     waitForEditorTimeout,
     userDataDir,
+    electronSwitches: performanceGraphicsSwitches(),
     env: captureEnvironment(capture.directory)
   })
   return launched

@@ -8,6 +8,14 @@ on:
         required: false
         default: false
         type: boolean
+      graphics_backend:
+        description: Graphics backend for this serial reference run
+        required: true
+        default: default
+        type: choice
+        options:
+          - default
+          - opengl
 
 concurrency:
   group: performance-gate-${{ github.ref }}
@@ -19,6 +27,8 @@ permissions:
 jobs:
   reference-p0:
     name: Reference Windows P0 Milk Gate
+    env:
+      INKIVA_PERF_GRAPHICS_BACKEND: ${{ inputs.graphics_backend }}
     runs-on: [self-hosted, Windows, X64, reference-low-end]
     timeout-minutes: 45
     steps:
@@ -83,6 +93,8 @@ jobs:
 
   reference-large-shards:
     name: Reference Windows ${{ matrix.level }} / ${{ matrix.shard }}
+    env:
+      INKIVA_PERF_GRAPHICS_BACKEND: ${{ inputs.graphics_backend }}
     needs: reference-p0
     runs-on: [self-hosted, Windows, X64, reference-low-end]
     timeout-minutes: 90
@@ -161,6 +173,8 @@ jobs:
 
   reference-large:
     name: Reference Windows P1/P2 Large Gates
+    env:
+      INKIVA_PERF_GRAPHICS_BACKEND: ${{ inputs.graphics_backend }}
     needs: [reference-p0, reference-large-shards]
     if: always()
     runs-on: [self-hosted, Windows, X64, reference-low-end]
@@ -232,6 +246,8 @@ jobs:
 
   reference-p3:
     name: Reference Windows P3 Extreme Gate
+    env:
+      INKIVA_PERF_GRAPHICS_BACKEND: ${{ inputs.graphics_backend }}
     if: github.event_name == 'workflow_dispatch' && inputs.run_p3 == true
     runs-on: [self-hosted, Windows, X64, reference-low-end]
     timeout-minutes: 240

@@ -18,6 +18,7 @@ import {
 } from '../gate/runner.js'
 import { mergePerformanceTraceReports } from '../gate/trace-input.js'
 import { readBenchmarkProvenance } from '../gate/provenance.js'
+import { getFastFixtureHashes } from '../gate/fixture-provenance.js'
 import {
   FAST_GATE_MODE,
   FAST_GATE_REQUIRED_METRICS,
@@ -146,7 +147,8 @@ const createFastMetadata = (environment: FastGateEnvironment): PerformanceGateRe
       repoRoot: resolve(currentDirectory, '../..'),
       runMode: FAST_GATE_MODE,
       warmState: 'mixed',
-      environment
+      environment,
+      fixtureHashes: getFastFixtureHashes()
     }),
     environment: {
       os: process.platform,

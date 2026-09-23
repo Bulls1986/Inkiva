@@ -196,6 +196,8 @@ test('fast runner CLI writes a report and rejects alternate thresholds', () => {
     assert.equal(typeof diskReport.provenance?.commit, 'string')
     assert.equal(diskReport.provenance?.runMode, 'pr-smoke')
     assert.equal(diskReport.provenance?.graphicsBackend, 'default')
+    assert.match(diskReport.provenance?.fixtureHashes?.['50k-markdown'], /^[a-f0-9]{64}$/)
+    assert.match(diskReport.provenance?.fixtureHashes?.['regular-markdown'], /^[a-f0-9]{64}$/)
     assert.throws(
       () =>
         runFastPerformanceGateCli(
