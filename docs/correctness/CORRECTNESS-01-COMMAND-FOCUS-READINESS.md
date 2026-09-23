@@ -351,7 +351,7 @@ The native accelerator itself is covered separately by the focused contract gate
 
 ## Final outcome
 
-CORRECTNESS-01 is **ready to merge**.
+CORRECTNESS-01 is **merged and closed**.
 
 The final contract is:
 
@@ -388,5 +388,13 @@ classify command ownership
 Final focused gate: **7/7 passed**.
 Final required CI: **all green**.
 
-Next closure action: merge PR #176 into `develop` and record the merge commit if required.
+### Merge closure
+
+- PR: **#176 — fix(editor): enforce command focus readiness**
+- Merge method: **Squash Merge** (the repository disables merge commits and rebase merges)
+- Merged at: **2026-09-23T03:56:11Z**
+- Squash commit: `3e425b00d7e0fbc60bce3b5a6da6a62bea195022`
+- Remote `develop` after merge: `3e425b00d7e0fbc60bce3b5a6da6a62bea195022`
+
+CORRECTNESS-01 has no remaining implementation, test, CI, PR, or merge action.
 
