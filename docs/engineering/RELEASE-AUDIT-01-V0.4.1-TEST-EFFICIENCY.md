@@ -508,10 +508,10 @@ The general PR workflows do **not** automatically prove all release readiness:
 2. The authoritative `Performance Gate` is workflow-dispatch-only and runs on the
    `reference-low-end` Windows self-hosted runner.
 3. Earlier release-scope Performance Gate runs are historical evidence only because they predate the final package/E2E audit HEAD.
-4. A fresh Performance Gate must be dispatched against the final documentation/experience HEAD with the default graphics backend and P3 disabled.
+4. A fresh Performance Gate must be dispatched against the final behavior-bearing audit HEAD with the default graphics backend and P3 disabled. A later docs-only closure commit does not invalidate that result because it cannot change executable behavior or release artifacts.
 5. `pnpm test:release` is not part of the ordinary PR Test workflow and must be validated after the final version update because its fixture version is version-specific.
 
-Until the fresh reference Performance Gate passes on the final audit HEAD, Phase 7 remains open and the version must not be changed.
+Run `35887060407` is bound to behavior-bearing HEAD `73048182`. It cannot currently start because the repository reports **zero registered self-hosted runners**, so the required `reference-low-end` runner is unavailable. This is an infrastructure blocker, not product evidence. Phase 7 remains open and the version must not be changed until that gate can actually execute and pass.
 
 ### Version-source audit
 
@@ -555,6 +555,11 @@ manifests, lockfiles and version-bearing changes still trigger their normal gate
 If branch protection or required checks are enabled later, this optimization must be re-audited;
 an always-reporting aggregate CI gate is the preferred replacement if skipped required workflows
 would otherwise remain pending.
+
+The quick path also defines closure semantics: documentation-only stage-record updates after the last
+behavior-bearing commit do not invalidate already-completed product/performance gates. This prevents
+an impossible loop where recording a gate result creates a new commit that would require the same
+gate again.
 
 ## E2E Phase-2 — Benefit Model (measurement only)
 
