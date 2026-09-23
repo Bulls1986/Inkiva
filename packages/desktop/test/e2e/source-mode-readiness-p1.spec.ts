@@ -215,12 +215,19 @@ test.describe('CORRECTNESS-02 / Source Mode P1 readiness', () => {
           | (Element & { __vue_app__?: { config?: { globalProperties?: { $pinia?: { _s?: Map<string, unknown> } } } } })
           | null
         const stores = root?.__vue_app__?.config?.globalProperties?.$pinia?._s
-        const editor = stores?.get('editor') as { listToc?: Array<{ content?: string }> } | undefined
-        return editor?.listToc?.map((item) => item.content ?? '') ?? []
+        const editor = stores?.get('editor') as {
+          listToc?: Array<{ content?: string; blockIndex?: number }>
+        } | undefined
+        return editor?.listToc?.map((item) => ({
+          content: item.content ?? '',
+          blockIndex: item.blockIndex ?? -1
+        })) ?? []
       })
       expect(tocSnapshot).toHaveLength(500)
-      expect(tocSnapshot[0]).toBe('Source Heading 001')
-      expect(tocSnapshot[499]).toBe('Source Heading 500')
+      expect(tocSnapshot[0]?.content).toBe('Source Heading 001')
+      expect(tocSnapshot[499]?.content).toBe('Source Heading 500')
+      const targetBlockIndex = tocSnapshot[499]?.blockIndex ?? -1
+      expect(targetBlockIndex).toBeGreaterThanOrEqual(0)
 
       const virtualTree = launched.page.locator('.side-bar-toc .toc-virtualized-tree')
       await expect(virtualTree).toBeVisible({ timeout: 10000 })
@@ -235,17 +242,20 @@ test.describe('CORRECTNESS-02 / Source Mode P1 readiness', () => {
       await expect
         .poll(
           () =>
-            launched.page.evaluate(() => {
+            launched.page.evaluate((blockIndex) => {
               const editor = document.querySelector<HTMLElement>('.editor-component')
-              const normalizeHeading = (text: string): string => text.replace(/^[#\s]+/, '').trim()
-              const target = Array.from(
-                document.querySelectorAll<HTMLElement>('.mu-container h1')
-              ).find((heading) => normalizeHeading(heading.textContent ?? '') === 'Source Heading 500')
-              if (!editor || !target) return false
-              const editorRect = editor.getBoundingClientRect()
-              const targetRect = target.getBoundingClientRect()
-              return targetRect.bottom > editorRect.top && targetRect.top < editorRect.bottom
-            }),
+              const surface = document.querySelector<HTMLElement>('.mu-container[data-virtualization-enabled="true"]')
+              if (!editor || !surface) return false
+              const windowStart = Number(surface.dataset.virtualWindowStart ?? -1)
+              const windowEnd = Number(surface.dataset.virtualWindowEnd ?? -1)
+              const target = surface.querySelector<HTMLElement>(
+                `[data-virtual-block-index="${blockIndex}"]`
+              )
+              return editor.scrollTop > 0
+                && windowStart <= blockIndex
+                && blockIndex < windowEnd
+                && target?.isConnected === true
+            }, targetBlockIndex),
           { timeout: 10000 }
         )
         .toBe(true)
