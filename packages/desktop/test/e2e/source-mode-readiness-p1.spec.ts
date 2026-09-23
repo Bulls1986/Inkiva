@@ -251,10 +251,10 @@ test.describe('CORRECTNESS-02 / Source Mode P1 readiness', () => {
               const target = surface.querySelector<HTMLElement>(
                 `[data-virtual-block-index="${blockIndex}"]`
               )
-              return editor.scrollTop > 0
-                && windowStart <= blockIndex
-                && blockIndex < windowEnd
-                && target?.isConnected === true
+              return editor.scrollTop > 0 &&
+                windowStart <= blockIndex &&
+                blockIndex < windowEnd &&
+                target?.isConnected === true
             }, targetBlockIndex),
           { timeout: 10000 }
         )
