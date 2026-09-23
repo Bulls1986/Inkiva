@@ -107,7 +107,6 @@ const emitEditorEditActionWhenReady = (type: EditorEditAction): void => {
   emitEditorEditAction(type)
 }
 
-
 export const useListenForMainStore = defineStore('listenForMain', () => {
   function EDITOR_EDIT_ACTION(type: string): void {
     const layoutStore = useLayoutStore()

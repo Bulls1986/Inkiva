@@ -188,8 +188,6 @@ test.describe('Typora-style Markdown auto pairing', () => {
     expect(markdown).toContain('seed **')
   })
 
-
-
   test('command readiness does not steal IME composition and works immediately after compositionend', async() => {
     await selectRenderedContents(page, '.mu-paragraph-content')
 
