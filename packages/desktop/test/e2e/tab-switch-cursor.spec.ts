@@ -119,28 +119,13 @@ test.describe('Tab switch command readiness', () => {
       await sendIpcToRenderer(app, 'mt::new-untitled-tab', true, 'beta\n')
       await expect.poll(() => getMarkdownContent(page, app), { timeout: 10000 }).toContain('beta')
 
-      const selected = await page.evaluate(() => {
-        const root = document.querySelector('.editor-component')
-        const target = root?.querySelector('span.mu-paragraph-content')
-        if (!(root instanceof HTMLElement) || !(target instanceof HTMLElement)) return ''
-
-        root.focus()
-        const range = document.createRange()
-        range.selectNodeContents(target)
-        const selection = window.getSelection()
-        if (!selection) return ''
-
-        selection.removeAllRanges()
-        selection.addRange(range)
-        document.dispatchEvent(new Event('selectionchange'))
-        root.dispatchEvent(new KeyboardEvent('keyup', {
-          key: 'ArrowRight',
-          bubbles: true,
-          cancelable: true
-        }))
-        return selection.toString()
-      })
-      expect(selected).toBe('beta')
+      const target = page.locator('.editor-component span.mu-paragraph-content').first()
+      await expect(target).toContainText('beta')
+      await target.click()
+      await page.keyboard.press('Home')
+      await page.keyboard.press('Shift+End')
+      await expect.poll(() => page.evaluate(() => window.getSelection()?.toString() ?? ''))
+        .toBe('beta')
 
       await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 0)
       await expect.poll(() => getMarkdownContent(page, app), { timeout: 10000 }).toContain('alpha')

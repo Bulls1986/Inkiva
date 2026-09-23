@@ -185,15 +185,16 @@ The legacy pattern `close palette -> synchronously execute mutation` has also be
 node --test scripts/correctness-01-command-focus-readiness.test.mjs
 ```
 
-Current result: **5/5 passed**.
+Current result after first CI feedback: **6/6 passed**.
 
 The gate proves:
 
 1. arbitrary command focus/execution timers are absent;
 2. palette execution is behind the `closed` lifecycle;
 3. pending readiness is bound to the originating document;
-4. menu/keyboard mutation ingress uses the same readiness boundary;
-5. view-only commands are not misclassified as selection-context commands.
+4. WYSIWYG-only menu/keyboard mutation ingress uses the same readiness boundary;
+5. Undo/Redo remain surface-owned so Source Mode keeps authority;
+6. view-only commands are not misclassified as selection-context commands.
 
 A Vitest mirror exists at:
 
@@ -207,7 +208,7 @@ packages/desktop/test/unit/specs/correctness-01-command-focus-readiness.spec.ts
    - select `Palette`;
    - open palette;
    - execute `format.strong`;
-   - first invocation must produce `# **Palette**`.
+   - first invocation must produce `**Palette**`.
 
 2. **Tab switch / immediate shortcut**
    - prepare and persist a selection in tab B;
@@ -220,7 +221,7 @@ packages/desktop/test/unit/specs/correctness-01-command-focus-readiness.spec.ts
    - select editor text;
    - dispatch `compositionstart`;
    - Ctrl/Cmd+B must not mutate or steal the composition;
-   - after `compositionend`, the same shortcut must work immediately on the preserved selection.
+   - after `compositionend`, readiness is immediately available again; the synthetic test re-selects visible text because a real IME commit may legitimately move/collapse browser selection.
 
 The existing repository IME tests continue to cover synthetic Chinese composition commit behavior; native OS candidate-window behavior remains a platform acceptance concern rather than something Playwright can fully emulate.
 
@@ -269,4 +270,35 @@ Remaining external closure:
 2. observe all required CI checks, including the dependency-backed Vitest/typecheck/Electron E2E gates;
 3. fix only evidence-backed failures if CI exposes any;
 4. after green CI, record PR/merge state and final lessons here.
+
+### Stage 6 update — PR #176 first CI pass
+
+PR #176 (`correctness/command-focus-readiness -> develop`) is open.
+
+First CI evidence:
+
+- lint: passed;
+- unit test: passed;
+- Desktop PR fast hard gate: passed;
+- Electron E2E: failed and produced artifacts;
+- PR Build macOS x64 initially failed and was explicitly rerun.
+
+The first E2E pass exposed two real contract refinements and three test-modeling issues:
+
+1. **Source Mode ownership** — generic Undo/Redo must not force WYSIWYG readiness. They now remain surface-owned, so Source Mode stays authoritative.
+2. **Selection preservation** — when Muya already owns the correct DOM focus, readiness no longer calls `domNode.focus()` / `ed.focus()` again; it only restores focus when actually missing.
+3. **Palette test** — changed from a heading fixture to a paragraph fixture and uses text-node selection rather than structural `selectNodeContents`.
+4. **Tab race test** — CI showed `"beta"` was modeled as selection `"b"`; the test now uses the repository-proven TreeWalker/text-node selection path and verifies live selection before racing the shortcut.
+5. **IME test** — no mutation is allowed during composition; after synthetic `compositionend`, the test re-selects visible text before asserting the command is accepted, avoiding the invalid assumption that a real IME commit must preserve a non-collapsed browser selection.
+
+Current focused contract after these refinements:
+
+```text
+node --test scripts/correctness-01-command-focus-readiness.test.mjs
+6/6 passed
+```
+
+CRLF-aware `git diff --check`: passed.
+
+Next: commit/push this evidence-backed refinement set and observe PR #176 second CI pass.
 

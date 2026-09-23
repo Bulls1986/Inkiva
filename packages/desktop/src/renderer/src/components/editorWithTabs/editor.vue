@@ -2410,11 +2410,19 @@ const resolveEditorCommandReadiness = (request: PendingEditorCommandReadiness): 
   }
 
   pendingEditorCommandReadiness.delete(request)
-  ed.domNode.focus()
-  ed.focus()
-
   const activeElement = document.activeElement
-  request.resolve(ed.hasFocus() && !!activeElement && ed.domNode.contains(activeElement))
+  const alreadyFocused = ed.hasFocus() && !!activeElement && ed.domNode.contains(activeElement)
+  if (!alreadyFocused) {
+    ed.domNode.focus()
+    ed.focus()
+  }
+
+  const resolvedActiveElement = document.activeElement
+  request.resolve(
+    ed.hasFocus() &&
+    !!resolvedActiveElement &&
+    ed.domNode.contains(resolvedActiveElement)
+  )
 }
 
 const markEditorCommandContextReady = (documentId?: string): void => {

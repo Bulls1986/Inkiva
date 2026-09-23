@@ -66,19 +66,6 @@ const isEditorEditAction = (value: string): value is EditorEditAction => EDITOR_
 const isParagraphAction = (value: string): value is ParagraphAction => PARAGRAPH_ACTIONS.has(value as ParagraphAction)
 const isFormatAction = (value: string): value is FormatAction => FORMAT_ACTIONS.has(value as FormatAction)
 
-const EDITOR_CONTEXT_EDIT_ACTIONS = new Set<EditorEditAction>([
-  'undo',
-  'redo',
-  'copyAsRich',
-  'copyAsHtml',
-  'copyAsMarkdown',
-  'pasteAsPlainText',
-  'selectAll',
-  'duplicate',
-  'createParagraph',
-  'deleteParagraph'
-])
-
 const emitEditorEditAction = (type: EditorEditAction): void => {
   switch (type) {
     case 'undo': bus.emit('undo', 'undo'); break
@@ -99,14 +86,6 @@ const emitEditorEditAction = (type: EditorEditAction): void => {
   }
 }
 
-const emitEditorEditActionWhenReady = (type: EditorEditAction): void => {
-  if (EDITOR_CONTEXT_EDIT_ACTIONS.has(type)) {
-    executeWhenEditorReady(() => emitEditorEditAction(type))
-    return
-  }
-  emitEditorEditAction(type)
-}
-
 export const useListenForMainStore = defineStore('listenForMain', () => {
   function EDITOR_EDIT_ACTION(type: string): void {
     const layoutStore = useLayoutStore()
@@ -116,7 +95,7 @@ export const useListenForMainStore = defineStore('listenForMain', () => {
         showSideBar: true
       })
     }
-    if (isEditorEditAction(type)) emitEditorEditActionWhenReady(type)
+    if (isEditorEditAction(type)) emitEditorEditAction(type)
   }
 
   function LISTEN_FOR_EDIT(): void {

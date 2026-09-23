@@ -23,6 +23,7 @@ const selectRenderedContents = async(page: Page, selector: string): Promise<void
     const root = document.querySelector('.editor-component')
     const target = document.querySelector(targetSelector)
     if (!(root instanceof HTMLElement) || !(target instanceof HTMLElement)) return false
+    root.focus()
 
     const range = document.createRange()
     const textNodes: Text[] = []
@@ -188,7 +189,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
     expect(markdown).toContain('seed **')
   })
 
-  test('command readiness does not steal IME composition and works immediately after compositionend', async() => {
+  test('command readiness does not steal IME composition and re-enables commands after compositionend', async() => {
     await selectRenderedContents(page, '.mu-paragraph-content')
 
     await page.evaluate(() => {
@@ -215,6 +216,10 @@ test.describe('Typora-style Markdown auto pairing', () => {
       }))
     })
 
+    // A real IME commit is allowed to collapse/move the browser selection.
+    // Re-select the visible text and prove readiness is immediately available
+    // again after compositionend; the command must no longer be rejected.
+    await selectRenderedContents(page, '.mu-paragraph-content')
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+B' : 'Control+B')
     await expect.poll(() => getMarkdownContent(page, app), { timeout: 5000 }).toContain('**seed**')
   })

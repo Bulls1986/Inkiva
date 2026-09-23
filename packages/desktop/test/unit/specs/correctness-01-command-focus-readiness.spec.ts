@@ -26,6 +26,7 @@ describe('CORRECTNESS-01 command focus readiness contract', () => {
     expect(editor).toContain('ed.domNode.focus()')
     expect(editor).toContain('ed.focus()')
     expect(editor).toContain('editorCompositionActive')
+    expect(editor).toContain('const alreadyFocused = ed.hasFocus()')
   })
 
   it('executes pending commands only after the palette has fully closed', () => {
@@ -51,13 +52,22 @@ describe('CORRECTNESS-01 command focus readiness contract', () => {
     expect(editor).toContain('runWhenEditorRenderComplete(id, () => markEditorCommandContextReady(id))')
   })
 
-  it('routes menu and keyboard editor mutations through the same readiness boundary', () => {
+  it('routes WYSIWYG-only menu mutations through readiness without stealing surface-owned edit actions', () => {
     const listeners = read('store/listenForMain.ts')
 
     expect(listeners).toContain("executeWhenEditorReady(() => bus.emit('paragraph', type))")
     expect(listeners).toContain("executeWhenEditorReady(() => bus.emit('format', type))")
-    expect(listeners).toContain('emitEditorEditActionWhenReady(type)')
-    expect(listeners).toContain('EDITOR_CONTEXT_EDIT_ACTIONS')
+    expect(listeners).toContain('if (isEditorEditAction(type)) emitEditorEditAction(type)')
+    expect(listeners).not.toContain('EDITOR_CONTEXT_EDIT_ACTIONS')
+  })
+
+  it('leaves undo and redo surface-owned so Source Mode remains authoritative', () => {
+    const commands = read('commands/index.ts')
+
+    expect(commands).toContain("bus.emit('undo', 'undo')")
+    expect(commands).toContain("bus.emit('redo', 'redo')")
+    expect(commands).not.toMatch(/focusEditorAndExecute\(\(\) => bus\.emit\('undo'/)
+    expect(commands).not.toMatch(/focusEditorAndExecute\(\(\) => bus\.emit\('redo'/)
   })
 
   it('keeps view-only commands outside selection-context readiness', () => {

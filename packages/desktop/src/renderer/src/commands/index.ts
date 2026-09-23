@@ -174,13 +174,13 @@ const commands: CommandDescriptor[] = [
   {
     id: 'edit.undo',
     execute: async() => {
-      focusEditorAndExecute(() => bus.emit('undo', 'undo'))
+      bus.emit('undo', 'undo')
     }
   },
   {
     id: 'edit.redo',
     execute: async() => {
-      focusEditorAndExecute(() => bus.emit('redo', 'redo'))
+      bus.emit('redo', 'redo')
     }
   },
   {

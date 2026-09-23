@@ -3,27 +3,12 @@ import type { ElectronApplication, Page } from 'playwright'
 import { getMarkdownContent, launchWithMarkdown, sendIpcToRenderer } from './helpers'
 
 const selectFirstEditorBlock = async(page: Page): Promise<string> => {
-  return await page.evaluate(() => {
-    const root = document.querySelector('.editor-component')
-    const target = root?.querySelector('span.mu-paragraph-content')
-    if (!(root instanceof HTMLElement) || !(target instanceof HTMLElement)) return ''
-
-    root.focus()
-    const range = document.createRange()
-    range.selectNodeContents(target)
-
-    const selection = window.getSelection()
-    if (!selection) return ''
-    selection.removeAllRanges()
-    selection.addRange(range)
-    document.dispatchEvent(new Event('selectionchange'))
-    root.dispatchEvent(new KeyboardEvent('keyup', {
-      key: 'ArrowRight',
-      bubbles: true,
-      cancelable: true
-    }))
-    return selection.toString()
-  })
+  const target = page.locator('.editor-component span.mu-paragraph-content').first()
+  await expect(target).toBeVisible({ timeout: 5000 })
+  await target.click()
+  await page.keyboard.press('Home')
+  await page.keyboard.press('Shift+End')
+  return await page.evaluate(() => window.getSelection()?.toString() ?? '')
 }
 
 test.describe('Command palette', () => {
@@ -31,7 +16,7 @@ test.describe('Command palette', () => {
   let page: Page
 
   test.beforeAll(async() => {
-    const launched = await launchWithMarkdown('# Palette\n')
+    const launched = await launchWithMarkdown('Palette\n')
     app = launched.app
     page = launched.page
   })
@@ -105,6 +90,6 @@ test.describe('Command palette', () => {
 
     await expect(searchInput).toBeHidden({ timeout: 5000 })
     await expect.poll(() => getMarkdownContent(page, app), { timeout: 8000 })
-      .toContain('# **Palette**')
+      .toContain('**Palette**')
   })
 })

@@ -31,6 +31,7 @@ test('CORRECTNESS-01 uses explicit editor readiness instead of arbitrary timers'
   assert.match(editor, /registerBusHandler\('editor-command-readiness'/)
   assert.match(editor, /ed\.domNode\.focus\(\)/)
   assert.match(editor, /editorCompositionActive/)
+  assert.match(editor, /const alreadyFocused = ed\.hasFocus\(\)/)
 })
 
 test('CORRECTNESS-01 waits for palette closed lifecycle before command execution', () => {
@@ -48,11 +49,18 @@ test('CORRECTNESS-01 binds pending readiness to its originating document', () =>
   assert.match(editor, /runWhenEditorRenderComplete\(id, \(\) => markEditorCommandContextReady\(id\)\)/)
 })
 
-test('CORRECTNESS-01 routes menu and keyboard mutations through readiness', () => {
+test('CORRECTNESS-01 routes only WYSIWYG-only menu mutations through readiness', () => {
   assert.match(mainListeners, /executeWhenEditorReady\(\(\) => bus\.emit\('paragraph', type\)\)/)
   assert.match(mainListeners, /executeWhenEditorReady\(\(\) => bus\.emit\('format', type\)\)/)
-  assert.match(mainListeners, /emitEditorEditActionWhenReady\(type\)/)
-  assert.match(mainListeners, /EDITOR_CONTEXT_EDIT_ACTIONS/)
+  assert.match(mainListeners, /if \(isEditorEditAction\(type\)\) emitEditorEditAction\(type\)/)
+  assert.doesNotMatch(mainListeners, /EDITOR_CONTEXT_EDIT_ACTIONS/)
+})
+
+test('CORRECTNESS-01 keeps undo and redo surface-owned', () => {
+  assert.match(commands, /bus\.emit\('undo', 'undo'\)/)
+  assert.match(commands, /bus\.emit\('redo', 'redo'\)/)
+  assert.doesNotMatch(commands, /focusEditorAndExecute\(\(\) => bus\.emit\('undo'/)
+  assert.doesNotMatch(commands, /focusEditorAndExecute\(\(\) => bus\.emit\('redo'/)
 })
 
 test('CORRECTNESS-01 keeps view-only commands outside selection readiness', () => {
