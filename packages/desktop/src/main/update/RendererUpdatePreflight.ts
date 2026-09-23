@@ -6,7 +6,7 @@ const PREFLIGHT_TIMEOUT = 15_000
 interface PendingRequest {
   resolve: (files: UnsavedFile[]) => void
   reject: (error: Error) => void
-  timer: ReturnType<typeof setTimeout>
+  dispose: () => void
 }
 
 export class RendererUpdatePreflight {
@@ -14,15 +14,35 @@ export class RendererUpdatePreflight {
   private readonly _pending = new Map<string, PendingRequest>()
 
   request(win: BrowserWindow): Promise<UnsavedFile[]> {
-    const requestId = `${win.id}-${Date.now()}-${this._sequence++}`
+    const windowId = win.id
+    const sender = win.webContents
+    const requestId = `${windowId}-${Date.now()}-${this._sequence++}`
     return new Promise<UnsavedFile[]>((resolve, reject) => {
-      const timer = setTimeout(() => {
+      const rejectPending = (error: Error): void => {
+        const pending = this._pending.get(requestId)
+        if (!pending) return
         this._pending.delete(requestId)
-        reject(new Error(`Renderer update preflight timed out for window ${win.id}`))
+        pending.dispose()
+        pending.reject(error)
+      }
+      const onDestroyed = (): void => {
+        rejectPending(new Error(`Renderer update preflight owner destroyed for window ${windowId}`))
+      }
+      const timer = setTimeout(() => {
+        rejectPending(new Error(`Renderer update preflight timed out for window ${windowId}`))
       }, PREFLIGHT_TIMEOUT)
+      const dispose = (): void => {
+        clearTimeout(timer)
+        sender.removeListener('destroyed', onDestroyed)
+      }
 
-      this._pending.set(requestId, { resolve, reject, timer })
-      win.webContents.send('mt::update-preflight-request', requestId)
+      sender.once('destroyed', onDestroyed)
+      this._pending.set(requestId, { resolve, reject, dispose })
+      try {
+        sender.send('mt::update-preflight-request', requestId)
+      } catch (error) {
+        rejectPending(error instanceof Error ? error : new Error(String(error)))
+      }
     })
   }
 
@@ -30,8 +50,8 @@ export class RendererUpdatePreflight {
     const pending = this._pending.get(requestId)
     if (!pending) return false
 
-    clearTimeout(pending.timer)
     this._pending.delete(requestId)
+    pending.dispose()
     pending.resolve(files)
     return true
   }
