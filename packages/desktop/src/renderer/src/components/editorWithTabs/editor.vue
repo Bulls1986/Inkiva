@@ -2276,6 +2276,24 @@ const handleFileChange = (payload: unknown) => {
         suppressEditorMutationRecording = false
         preSourceModeSelection = null
       }
+      if (id) {
+        // `replaceContent` updated the engine history, but its synchronous
+        // `json-change` was intentionally suppressed so canonical Source text
+        // cannot be normalized back over the document revision. Publish only
+        // the save-tracking history metadata against the exact Source Markdown.
+        // This keeps Source edits dirty, and lets a later WYSIWYG undo revisit
+        // the same synthetic history id that was marked saved in the meantime.
+        const revision = editorRuntime.currentRevision(id)
+        const normalizedMarkdown = serializeEditorMarkdown(editor.value)
+        const history = makeSyntheticHistory(id, normalizedMarkdown, revision)
+        editorStore.LISTEN_FOR_CONTENT_CHANGE({
+          id,
+          revision,
+          markdown: newMarkdown,
+          history,
+          preserveTrailingNewlines: true
+        })
+      }
       refreshEditorTocWhenReady(id)
       // `replaceContent` can restart progressive/virtual rendering. Restore the
       // source-mode caret at the render-complete boundary so a later render pass

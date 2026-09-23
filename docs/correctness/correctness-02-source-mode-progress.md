@@ -118,6 +118,8 @@ Second substantive CI run on remote head `dafe8067`: Lint, Test, Performance Fas
 
 Third substantive CI run on remote head `bf13e2f3`: all non-E2E gates were green again. The invalid-Markdown defect and P1 Source Find scenario no longer appeared as failures. Remaining Source-readiness failures were test-contract issues: the 1 MiB case incorrectly expected the 2 MiB bounded-source threshold, the Outline store probe read nonexistent `label` rather than authoritative `content`, and the legacy find-replace suite still asserted that Find must be absent in Source Mode. Those tests are now aligned with the current Source contract without reducing the 1 MiB or 500-heading workloads. One unrelated WYSIWYG replace-all/undo saved-state assertion also failed in the same run and remains a full-regression item to re-check before closeout.
 
+The replace-all/undo saved-state failure was traced to the first P0 handoff fix rather than dismissed as unrelated flake. Suppressing Muya's synchronous Source-handoff `json-change` correctly protected canonical Markdown, but also skipped the synthetic save-history update. A Source-seeded baseline could therefore be saved with one history id while a later WYSIWYG undo revisited the same content under another id, leaving the tab falsely dirty. The handoff now explicitly publishes only synthetic history metadata computed from Muya's normalized presentation state while carrying the exact Source Markdown/revision back through the store. This preserves Source truth ownership and restores undo-to-saved identity without re-enabling serializer overwrite.
+
 ## Phase 9 — Documentation / learning review
 
 Pending.
