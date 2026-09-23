@@ -41,7 +41,7 @@ These are the durable architecture constraints after governance closure:
 
 ## Architecture governance documents
 
-Start here for architecture work:
+Start here for architecture work. The audit document preserves the original planning context; when its historical roadmap conflicts with completed implementation, the ARCH-01～ARCH-08 durable documents and final closure report are authoritative.
 
 - [Architecture audit / governance sequence](../architecture/ARCHITECTURE_AUDIT_2026-09.md)
 - [ARCH-01 — Editor runtime ownership/lifecycle](../architecture/ARCH-01_EDITOR_RUNTIME_PROGRESS.md)
