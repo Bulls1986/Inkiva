@@ -56,6 +56,76 @@ const { theme, sourceCode } = storeToRefs(preferencesStore)
 const isSourceSurface = (): boolean => sourceCode.value || props.degraded === true
 const { currentFile: currentTab } = storeToRefs(editorStore)
 
+type SourceSearchOptions = {
+  isCaseSensitive?: boolean
+  isWholeWord?: boolean
+  isRegexp?: boolean
+}
+
+type SourceSearchMatch = { start: number; end: number; match: string }
+let sourceSearchValue = ''
+let sourceSearchMatches: SourceSearchMatch[] = []
+let sourceSearchIndex = -1
+
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+const revealSourceSearchMatch = (index: number): void => {
+  const cm = editor.value
+  const match = sourceSearchMatches[index]
+  if (!cm || !match) return
+  const from = cm.posFromIndex(match.start)
+  const to = cm.posFromIndex(match.end)
+  cm.setSelection(from, to)
+  scrollSourceEditorToLine(cm, from.line, sourceCodeContainer.value)
+}
+
+const publishSourceSearch = (): void => {
+  editorStore.SEARCH({
+    index: sourceSearchIndex,
+    matches: sourceSearchMatches,
+    value: sourceSearchValue
+  })
+}
+
+const handleSourceSearch = (payload: unknown): void => {
+  if (!isSourceSurface() || !editor.value) return
+  const { value, opt } = payload as { value: string; opt?: SourceSearchOptions }
+  sourceSearchValue = value ?? ''
+  sourceSearchMatches = []
+  sourceSearchIndex = -1
+  if (!sourceSearchValue) {
+    publishSourceSearch()
+    return
+  }
+
+  const options = opt ?? {}
+  const pattern = options.isRegexp ? sourceSearchValue : escapeRegExp(sourceSearchValue)
+  const boundedPattern = options.isWholeWord ? `\\b(?:${pattern})\\b` : pattern
+  const flags = options.isCaseSensitive ? 'g' : 'gi'
+  const regex = new RegExp(boundedPattern, flags)
+  const markdown = editor.value.getValue() as string
+  let match: RegExpExecArray | null
+  while ((match = regex.exec(markdown)) !== null) {
+    if (match[0].length === 0) break
+    sourceSearchMatches.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      match: match[0]
+    })
+  }
+  sourceSearchIndex = sourceSearchMatches.length ? 0 : -1
+  publishSourceSearch()
+  if (sourceSearchIndex >= 0) revealSourceSearchMatch(sourceSearchIndex)
+}
+
+const handleSourceFindAction = (action: unknown): void => {
+  if (!isSourceSurface() || sourceSearchMatches.length === 0) return
+  const delta = action === 'previous' ? -1 : 1
+  sourceSearchIndex = (sourceSearchIndex + delta + sourceSearchMatches.length) % sourceSearchMatches.length
+  publishSourceSearch()
+  revealSourceSearchMatch(sourceSearchIndex)
+}
+
 const isValidMuyaIndexCursor = (cursor: unknown): cursor is MuyaIndexCursorLike => {
   const c = cursor as MuyaIndexCursorLike | null | undefined
   return !!(c && c.anchor && c.focus)
@@ -117,7 +187,8 @@ const commitWordCount = (id: string, markdown: string): void => {
     id,
     revision,
     markdown: documentRevisionSnapshots.readMarkdown(id, revision) ?? markdown,
-    wordCount
+    wordCount,
+    preserveTrailingNewlines: true
   })
 }
 
@@ -131,7 +202,8 @@ const captureSourceSnapshot = (id: string, revision: number, cm: CMInstance): vo
     id,
     markdown,
     revision,
-    muyaIndexCursor: getCursor(cm)
+    muyaIndexCursor: getCursor(cm),
+    preserveTrailingNewlines: true
   })
 }
 
@@ -161,7 +233,8 @@ const prepareTabSwitch = () => {
       // The word-count timer is metadata-only. Reuse the last completed value
       // at a tab boundary so a large source document does not pay another full
       // text scan in the tab-switch critical path.
-      wordCount: documentRevisionSnapshots.readWordCount(id, revision) ?? latestWordCount
+      wordCount: documentRevisionSnapshots.readWordCount(id, revision) ?? latestWordCount,
+      preserveTrailingNewlines: true
     })
     tabId.value = null
   }
@@ -444,6 +517,8 @@ onMounted(() => {
   bus.on('redo', handleRedo)
   bus.on('image-action', handleImageAction)
   bus.on('scroll-to-header', handleScrollToHeader)
+  bus.on('searchValue', handleSourceSearch)
+  bus.on('find-action', handleSourceFindAction)
   bus.on('flush-active-editor', flushSourceSnapshot)
   bus.on('flush-active-editor-for-save', flushSourceSnapshot)
   bus.on('flush-active-editor-for-tab-switch', flushSourceSnapshot)
@@ -486,6 +561,8 @@ onBeforeUnmount(() => {
   bus.off('redo', handleRedo)
   bus.off('image-action', handleImageAction)
   bus.off('scroll-to-header', handleScrollToHeader)
+  bus.off('searchValue', handleSourceSearch)
+  bus.off('find-action', handleSourceFindAction)
   bus.off('flush-active-editor', flushSourceSnapshot)
   bus.off('flush-active-editor-for-save', flushSourceSnapshot)
   bus.off('flush-active-editor-for-tab-switch', flushSourceSnapshot)

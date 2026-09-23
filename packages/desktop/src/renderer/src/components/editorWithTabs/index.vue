@@ -53,6 +53,7 @@
         @activate="activateSecondary"
       />
     </div>
+    <editor-search />
     <tab-notifications />
   </div>
 </template>
@@ -64,6 +65,7 @@ import { rendererPerformance } from '@/services/performance/runtime'
 import bus from '../../bus'
 import { scheduleDegradedEditorPerformanceMilestones } from './degradedEditorPerformance'
 import Editor from './editor.vue'
+import EditorSearch from '../search/index.vue'
 import TabNotifications from './notifications.vue'
 import SplitDocumentPane from './splitDocumentPane.vue'
 import { storeToRefs } from 'pinia'

@@ -152,6 +152,7 @@ interface ContentChangePayload {
   history?: IFileState['history']
   toc?: TocItem[]
   blocks?: unknown
+  preserveTrailingNewlines?: boolean
 }
 
 interface AffiliationEntry {
@@ -1751,7 +1752,8 @@ export const useEditorStore = defineStore('editor', {
       muyaIndexCursor,
       history,
       toc,
-      blocks
+      blocks,
+      preserveTrailingNewlines
     }: ContentChangePayload): void {
       const preferencesStore = usePreferencesStore()
       const { autoSave } = preferencesStore
@@ -1777,7 +1779,9 @@ export const useEditorStore = defineStore('editor', {
         return
       }
 
-      markdown = adjustTrailingNewlines(markdown, trimTrailingNewline)
+      if (!preserveTrailingNewlines) {
+        markdown = adjustTrailingNewlines(markdown, trimTrailingNewline)
+      }
       const revision =
         incomingRevision ??
         (markdown !== oldMarkdown ? nextDocumentRevision(id) : getDocumentRevision(id))
