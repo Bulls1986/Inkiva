@@ -162,6 +162,12 @@ If Vite/Vitest reports `Denied ID ...other-worktree...` or equivalent realpath l
 
 Pre-warmed slot-local dependencies remain preferred when they are already complete and healthy.
 
+### CRLF / trailing-whitespace diagnostics on Windows
+
+On Windows worktrees, a `git diff --check` report of `trailing whitespace` can be caused by line-ending conversion rather than literal spaces/tabs added by the change. Before editing source, inspect the repository's `.gitattributes`, `core.autocrlf` / `core.eol`, the file's existing line-ending convention, and the exact bytes of one reported line. Do not bulk-convert an existing file from CRLF to LF (or vice versa) just to make `git diff --check` quiet; that creates a large unrelated diff and can hide the real signal. Remove literal trailing spaces/tabs only when byte-level inspection confirms they exist. Change line endings only when the repository policy explicitly requires it, and keep the conversion isolated from product changes whenever possible.
+
+If the warning appears only on newly added lines in an otherwise CRLF file, compare Git's index/blob representation with the working-tree representation before concluding the source is dirty. Treat line-ending normalization as an environment/repository-format concern, not as a product correctness or performance regression.
+
 ### Git staging fallback on Windows worktrees
 
 If a bounded `git add <explicit paths...>` stalls on the Windows Runner and may have partially staged files, do not repeat the same batch blindly. After the Job is terminal, verify there is no `index.lock` or residual Git process, inspect `git status --short`, unstage any partial results with exact-path `git reset HEAD -- <paths>`, then prefer WebCodex `git_commit_paths` with an exact `expected_head` and explicit path list. Its isolated temporary index avoids partial staging and cannot pull unrelated files into the commit.
