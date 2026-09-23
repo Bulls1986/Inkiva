@@ -52,4 +52,4 @@ Backend A/B evidence localizes a graphics-path problem; it does not by itself au
 
 For long Electron measurements, the Runner timeout must exceed the Playwright scenario timeout. If an outer Runner timeout kills an otherwise-running Electron test, classify it as **Test Infrastructure**, not Product Stability.
 
-Historical performance work: [PR-C ledger](../perf-pr-c-change-ledger.md).
+Performance stages and historical investigations are indexed in [docs/performance](../performance/README.md).

@@ -21,12 +21,12 @@ Record completed work, unfinished work, blockers/root cause, validation evidence
 
 Never invent historical measurements. If a prior change was not independently measured, say so.
 
-Examples:
+Stage records are grouped by domain; use the domain index instead of preloading individual histories:
 
-- [Architecture audit](../architecture/ARCHITECTURE_AUDIT_2026-09.md)
-- [ARCH-01 progress](../architecture/ARCH-01_EDITOR_RUNTIME_PROGRESS.md)
-- [ARCH-05 event-bus contract](../architecture/ARCH-05-EVENT-BUS-CONTRACT.md)
-- [PR-C change ledger](../perf-pr-c-change-ledger.md)
+- [Architecture](../architecture/README.md)
+- [Performance](../performance/README.md)
+- [Benchmark](../benchmark/README.md)
+- [Correctness](../correctness/README.md)
 
 ## End-of-task learning review
 

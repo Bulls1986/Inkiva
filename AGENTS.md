@@ -30,17 +30,10 @@ Read only what the task needs.
 | Unit/integration/Electron E2E, red/green evidence | [Testing](docs/agent/TESTING.md) |
 | Benchmarks, Fast Gate, Before/After, thresholds | [Performance](docs/agent/PERFORMANCE.md) |
 | Repository boundaries, code conventions, release rules | [Architecture & release](docs/agent/ARCHITECTURE_RELEASE.md) |
-| Current architecture audit and governance sequence | [Architecture audit](docs/architecture/ARCHITECTURE_AUDIT_2026-09.md) |
-| Editor runtime ownership/lifecycle governance | [ARCH-01](docs/architecture/ARCH-01_EDITOR_RUNTIME_PROGRESS.md) |
-| IPC contract governance | [ARCH-02](docs/architecture/ARCH-02-IPC-CONTRACT.md) |
-| Virtual surface contract | [ARCH-03](docs/architecture/ARCH-03-VIRTUAL-SURFACE-CONTRACT.md) |
-| Block geometry unification | [ARCH-04](docs/architecture/ARCH-04-BLOCK-GEOMETRY-UNIFICATION.md) |
-| Renderer event-bus contract | [ARCH-05](docs/architecture/ARCH-05-EVENT-BUS-CONTRACT.md) |
-| Muya public type boundary / legacy cleanup | [ARCH-06](docs/architecture/ARCH-06-MUYA-PUBLIC-TYPE-BOUNDARY.md) |
-| Background scheduler / services governance | [ARCH-07](docs/architecture/ARCH-07-BACKGROUND-SCHEDULER.md) |
-| Legacy patch debt / governance closure | [ARCH-08](docs/architecture/ARCH-08-LEGACY-PATCH-CLOSURE.md) |
-| ARCH-01～08 final closure report | [Architecture governance closure](docs/architecture/ARCH-08-ARCHITECTURE-GOVERNANCE-CLOSURE-REPORT.md) |
-| Long-running PR-C performance history | [PR-C ledger](docs/perf-pr-c-change-ledger.md) |
+| Architecture governance/contracts — open only for architecture work | [Architecture index](docs/architecture/README.md) |
+| Performance baselines/stages/history | [Performance index](docs/performance/README.md) |
+| Benchmark inventory/trustworthiness | [Benchmark index](docs/benchmark/README.md) |
+| Correctness/readiness/functional gates | [Correctness index](docs/correctness/README.md) |
 
 For comments, follow [.github/COMMENTING-GUIDELINES.md](.github/COMMENTING-GUIDELINES.md).
 
