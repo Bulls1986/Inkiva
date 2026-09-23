@@ -1,9 +1,9 @@
 # BASELINE-02 — Benchmark Trustworthiness Progress
 
-> Status: IN PROGRESS  
-> Branch: `perf/baseline-02-benchmark-trustworthiness`  
-> Base: `develop@677f96e168e3043b42464bbaaca55948a68c44dc`  
-> Task: audit and harden benchmark repeatability, measurement validity, comparability, and traceability without optimizing product behavior.
+> Status: CLOSED — implementation merged; reference reproducibility deferred by runner availability
+> Implementation merge: PR #177 → `develop@41c0992b019fb0ae07419cddbb0c808630e849a7`
+> Final validated measurement tree: `a0d43677673791054f0c27fbcffc862aa351697d`
+> Final report: `docs/benchmark/benchmark-trustworthiness.md`
 
 ## Stage record
 
@@ -19,8 +19,8 @@
 | Statistics schema | Complete | `calculateStatistics` exposes min/p50/p95/p99/max/count plus mean, population stddev and CV; zero-mean CV is defined as 0. |
 | Harness validation | Core Node suites green | Donor `tsx@4.22.4` payload executes current-worktree sources correctly. `perf/gate/*.spec.ts`: 72/72 pass. `perf/soak` fast suites: 14/14 pass. Metadata CLI provenance path also passes. |
 | Desktop type/E2E validation | CI path proven | Local donor `vue-tsc` remains invalid environment topology, but PR #177 standard CI built the app and completed the real Electron Fast Gate successfully. This is the authoritative Desktop path for BASELINE-02. |
-| Variance/reproducibility | Fast Gate validated; final reference tree being prepared | Latest PR Fast Gate completed successfully. The previously queued reference Round 1 has not executed any measurement and is superseded by final fixture-provenance/backend-selection hardening; it must be cancelled before publishing the final measurement tree. Two independent reference rounds will start only from that final tree when the Windows reference runner is available. |
-| Default GPU vs OpenGL | Workflow support complete; runner unavailable | Reference workflow now exposes an explicit `graphics_backend` choice (`default` / `opengl`) and propagates it into Electron launch/provenance. Default behavior remains unchanged. Measurements remain blocked until an eligible Windows `reference-low-end` runner is online, and backend samples must stay separate. |
+| Variance/reproducibility | Final Fast Gate validated; reference rounds runner-blocked | Final measurement tree `a0d43677…` passed the PR Fast Gate and its retained artifact was inspected successfully. Reference rounds are intentionally not dispatched while the repository exposes zero eligible self-hosted runners. |
+| Default GPU vs OpenGL | Workflow support complete; runner unavailable | Final measurement tree exposes explicit `graphics_backend` choice (`default` / `opengl`), propagates it into Electron launch and provenance, and defaults safely to `default`. No backend reference run is dispatched until an eligible Windows `reference-low-end` runner is online. |
 | Controlled slowdown | Complete at evaluator layer | Synthetic unchanged control passes and uniform known slowdown fails the declared p95 gate. Real Electron slowdown injection is not required for the evaluator correctness proof and no production slowdown code was added. |
 | Trustworthiness matrix | Draft complete | First-pass TRUSTED / CONDITIONALLY TRUSTED classifications and comparison restrictions are in the benchmark inventory; final labels await reproducibility runs. |
 | Pooling comparability | Complete | Added programmatic pooling contract: same product/suite/level, environment, Git tree, Node/Electron, graphics backend, run mode, warm state and fixture hashes are required. Checkout commit/source commit/branch/run id may differ when the executed code tree is identical. Missing tree/provenance is non-poolable. |
@@ -211,6 +211,36 @@ Reference Electron launch adds `--use-angle=gl` **only** when the selected backe
 
 Classification: **Measurement environment control / comparability**.
 
+### CI evidence — final frozen measurement tree
+
+The final remote measurement branch commit is `b2d6ac818200dffe05bcebe7985de863f0dca85b`, created by the documented Git Data API fallback. Its Git tree is exactly `a0d43677673791054f0c27fbcffc862aa351697d`, matching local checkpoint `0f390d94` tree byte-for-byte.
+
+PR #177 Performance Fast Gate run `35815774859` completed **successfully** on that final tree:
+- current-tree build: success;
+- real Desktop Electron fast measurement: success;
+- formal threshold evaluation: success;
+- artifact upload: success.
+
+The downloaded `fast-report.json` / `fast-evaluation.json` were then inspected directly:
+- evaluation `passed = true`;
+- failures = `0`;
+- product version = `0.4.0`;
+- checkout commit = temporary PR merge commit `10c5b7be…`;
+- source commit = `b2d6ac81…`;
+- executed Git tree = `a0d43677…`;
+- graphics backend = `default`;
+- deterministic `50k-markdown` and `regular-markdown` SHA-256 fixture hashes are present.
+
+This is the authoritative PR/fast-gate trustworthiness evidence for BASELINE-02. Subsequent documentation-only checkpoints must **not** be pushed to the measurement branch until reference collection is complete, because doing so would change the Git tree used by the strict pooling contract.
+
+### Reference collection infrastructure status
+
+The previously queued pre-final-tree reference run was cancelled before any measurement executed. Its P0 job was cancelled with no runner assignment. The repository Actions runner API currently returns `total_count = 0`, while the authoritative reference workflow requires labels `[self-hosted, Windows, X64, reference-low-end]`.
+
+Decision: do not enqueue replacement reference runs while no eligible runner is visible. When the runner is restored, all Default/OpenGL Round 1/2 measurements must target the frozen remote tree `a0d43677…`.
+
+Classification: **Test infrastructure / runner availability**.
+
 ## Guardrails retained
 
 - No product optimization to improve numbers.
@@ -222,10 +252,10 @@ Classification: **Measurement environment control / comparability**.
 
 ## Next actions
 
-1. Cancel the still-unexecuted queued reference run `35814670143`; it belongs to the pre-BT-013/BT-014 tree and must not become authoritative later.
-2. Commit and publish the final BASELINE-02 measurement tree, then let PR CI revalidate it.
-3. Keep that final tree frozen for all authoritative reference measurements.
-4. When an eligible `reference-low-end` Windows runner is available, run Default GPU Round 1 and Round 2 serially, retain raw/report/evaluation artifacts, verify provenance/tree/environment, then run `analyzeBenchmarkRepeatability`.
-5. Run OpenGL Round 1 and Round 2 serially on the same final tree using `graphics_backend=opengl`; never pool Default/OpenGL samples.
-6. Finalize the TRUSTED / CONDITIONALLY TRUSTED / UNTRUSTED matrix from real repeatability evidence.
-7. Do not treat current runner unavailability or donor Node open-handle behavior as a product regression.
+1. Keep remote measurement tree `a0d43677673791054f0c27fbcffc862aa351697d` frozen; do not push documentation-only changes to the measurement branch before reference collection completes.
+2. When an eligible `reference-low-end` Windows self-hosted runner is restored, dispatch Default GPU Round 1 on the frozen tree and verify raw/report/evaluation provenance before accepting any metric.
+3. Dispatch Default GPU Round 2 serially on the same tree/environment and run `analyzeBenchmarkRepeatability`.
+4. Dispatch OpenGL Round 1 and Round 2 serially with `graphics_backend=opengl` on the same tree; never pool Default/OpenGL samples.
+5. Finalize the TRUSTED / CONDITIONALLY TRUSTED / UNTRUSTED matrix from real repeatability evidence.
+6. Only after reference collection is complete may documentation-only closure commits advance the PR branch.
+7. Do not treat runner unavailability or donor Node open-handle behavior as a product regression.

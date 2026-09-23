@@ -1,7 +1,7 @@
 # BASELINE-02 — Benchmark Inventory and Measurement Contract
 
-> Status: IN PROGRESS  
-> Base: `develop@677f96e1`  
+> Status: CLOSED CONTRACT — reference repeatability evidence remains pending runner availability
+> Implementation merge: `develop@41c0992b019fb0ae07419cddbb0c808630e849a7`
 > Purpose: make every benchmark result answer “what exactly was measured, by which clock, under which fixture/environment, and what may it be compared with?”
 
 ## Trust labels
@@ -87,10 +87,15 @@ Authoritative summary for repeated samples:
 
 No result becomes authoritative from a single run. Run-to-run repeatability is evaluated separately from within-run sample dispersion.
 
-## Pending before final TRUSTED classification
+## Remaining evidence before promoting conditional reference metrics
 
-1. Local/CI execution of the changed benchmark contract tests.
-2. Two independent rounds for core metrics with unchanged source/fixture/environment.
-3. Separate default-GPU and `--use-angle=gl` runs; never pool them.
-4. Controlled slowdown experiment proving the evaluator detects a known regression without flagging the unchanged control.
-5. Provenance present in retained reports: commit, branch, Node, installed Electron, graphics backend, run mode, warm state, run id, and fixture hashes where applicable.
+The contract/harness work, CI execution, controlled slowdown check, provenance wiring, fixture hashes and Fast Gate revalidation are complete.
+
+Still pending because no eligible `reference-low-end` Windows self-hosted runner is currently available:
+
+1. two independent Default GPU reference rounds;
+2. Default across-run repeatability / CV analysis;
+3. two independent `--use-angle=gl` reference rounds;
+4. OpenGL across-run repeatability / CV analysis.
+
+Default and OpenGL evidence must remain separate and must never be pooled.
