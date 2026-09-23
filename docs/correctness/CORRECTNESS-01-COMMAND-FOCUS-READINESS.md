@@ -4,7 +4,7 @@
 
 - Branch: `correctness/command-focus-readiness`
 - Base: `develop@677f96e168e3043b42464bbaaca55948a68c44dc`
-- Current stage: **Stage 6 local closure complete / branch pushed / GitHub PR & CI status confirmation pending**
+- Current stage: **Merged and closed / PR #176 implementation + PR #178 merge-closure documentation are in develop**
 - Scope: editor-context command focus / selection / active-document readiness only.
 
 ## Problem
