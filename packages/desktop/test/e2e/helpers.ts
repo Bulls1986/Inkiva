@@ -573,7 +573,10 @@ export const launchWithDoc = async(
   relativeFixture: string,
   options: LaunchOptions = {}
 ): Promise<LaunchResult> => {
-  const { app, page } = await launchElectron([relativeFixture], options)
+  const { app, page } = await launchElectron([relativeFixture], {
+    ...options,
+    waitForReady: false
+  })
   await waitForEditor(page, options.waitForEditorTimeout)
   await waitForMenuReady(app)
   return { app, page }
@@ -588,7 +591,10 @@ export const launchWithMarkdown = async(
   options: LaunchOptions = {}
 ): Promise<LaunchWithMarkdownResult> => {
   const filePath = writeTempMarkdown(markdown, options.filename)
-  const { app, page } = await launchElectron([filePath], options)
+  const { app, page } = await launchElectron([filePath], {
+    ...options,
+    waitForReady: false
+  })
   await waitForEditor(page, options.waitForEditorTimeout)
   await waitForMenuReady(app)
   return { app, page, filePath }
