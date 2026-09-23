@@ -32,11 +32,11 @@ const replaceSourceRange = (
     ({ text, from, to }) => {
       const root = document.querySelector('.source-code .CodeMirror') as
         | (Element & {
-            CodeMirror?: {
-              focus(): void
-              replaceRange(text: string, from: SourcePosition, to?: SourcePosition): void
-            }
-          })
+          CodeMirror?: {
+            focus(): void
+            replaceRange(text: string, from: SourcePosition, to?: SourcePosition): void
+          }
+        })
         | null
       if (!root?.CodeMirror) throw new Error('CodeMirror source editor is unavailable')
       root.CodeMirror.focus()
@@ -72,12 +72,12 @@ const sourceSelectAll = (page: Page): Promise<string> =>
   page.evaluate(() => {
     const root = document.querySelector('.source-code .CodeMirror') as
       | (Element & {
-          CodeMirror?: {
-            focus(): void
-            execCommand(name: string): void
-            getSelection(): string
-          }
-        })
+        CodeMirror?: {
+          focus(): void
+          execCommand(name: string): void
+          getSelection(): string
+        }
+      })
       | null
     if (!root?.CodeMirror) throw new Error('CodeMirror source editor is unavailable')
     root.CodeMirror.focus()
