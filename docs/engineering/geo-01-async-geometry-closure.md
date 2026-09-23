@@ -150,4 +150,31 @@ The complete desktop `@virtualization-core` gate passed **49/49** on the task wo
 
 ## Phase 6 — CI / closure
 
-Status: in progress.
+Status: completed through PR validation; merge remains a separate explicit action.
+
+Final branch / PR state at closure:
+
+- branch: `fix/geo-01-async-geometry-closure`;
+- rebased/synchronized onto the latest `origin/develop` before final validation;
+- final runtime commit under review: `cd08fb6` (`fix(geometry): close async block invalidation gaps`);
+- PR: **#183 — `fix: close async geometry propagation gaps`** targeting `develop`.
+
+Post-sync local evidence on the final runtime commit:
+
+- Muya focused virtualization regression: **35/35 passed**;
+- current-worktree Electron build: **passed**;
+- canonical Desktop `test:e2e:virtualization`: **49/49 passed** in about 3 minutes;
+- Muya changed-file ESLint: **0 errors / 5 pre-existing complexity/max-lines warnings**;
+- Desktop changed E2E-file ESLint: **passed**;
+- Muya type validation: **passed**;
+- Desktop typecheck remains at the documented pre-existing baseline shared with clean `develop`.
+
+PR #183 CI completed green across the required checks: Desktop E2E, Desktop Performance Fast Gate, Muya unit/lint/build/spec/E2E/circular checks, Test, and Windows/macOS PR builds. No test assertion, workload, threshold, overscan, timeout, or sample requirement was relaxed to obtain green results.
+
+### Learning review
+
+- A geometry observer must watch the box that represents document-space geometry. For top-level virtual blocks, content-box observation is insufficient because padding/border changes alter document advance without changing content-box size; the authoritative block observer therefore uses `border-box`.
+- Temporary measurement deferral is a scheduling boundary, not permission to drop invalidations. Deferred resize targets must be coalesced and replayed after hydration, while generation/DOM ownership checks continue to reject stale work.
+- Anchor correction should be diagnosed only after proving that the geometry transaction actually ran. In this task, the unchanged geometry revision was the decisive evidence that isolated observer delivery from downstream anchor logic.
+- Invalid local/CI evidence caused by bootstrap, overlapping build/Electron jobs, or incorrect test entrypoints must remain classified as environment/timing evidence rather than product regressions.
+- These lessons are task/geometry-contract specific and are captured here; no new generic environment rule was needed beyond the existing `AGENTS.md` / `docs/agent` guidance.
