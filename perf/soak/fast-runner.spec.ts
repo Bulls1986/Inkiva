@@ -164,7 +164,13 @@ test('fast runner CLI writes a report and rejects alternate thresholds', () => {
   const inputPath = path.join(directory, 'capture.json')
   const outputPath = path.join(directory, 'evaluation.json')
   const reportOutputPath = path.join(directory, 'report.json')
-  const environment = { INKIVA_PERF_MODE: 'pr-smoke', INKIVA_PERF_RUNNER_LABEL: 'fast-pr-smoke' }
+  const environment = {
+    INKIVA_PERF_MODE: 'pr-smoke',
+    INKIVA_PERF_RUNNER_LABEL: 'fast-pr-smoke',
+    INKIVA_PERF_ELECTRON_VERSION: '42.1.0',
+    GITHUB_SHA: '0123456789abcdef',
+    GITHUB_REF_NAME: 'unit-test'
+  }
 
   try {
     writeFileSync(inputPath, JSON.stringify(rawReport()), 'utf8')
@@ -184,7 +190,14 @@ test('fast runner CLI writes a report and rejects alternate thresholds', () => {
 
     assert.equal(result.passed, true)
     assert.equal(JSON.parse(readFileSync(outputPath, 'utf8')).passed, true)
-    assert.equal(JSON.parse(readFileSync(reportOutputPath, 'utf8')).level, 'P0')
+    const diskReport = JSON.parse(readFileSync(reportOutputPath, 'utf8'))
+    assert.equal(diskReport.level, 'P0')
+    assert.equal(diskReport.productVersion, '0.4.0')
+    assert.equal(typeof diskReport.provenance?.commit, 'string')
+    assert.equal(diskReport.provenance?.runMode, 'pr-smoke')
+    assert.equal(diskReport.provenance?.graphicsBackend, 'default')
+    assert.match(diskReport.provenance?.fixtureHashes?.['50k-markdown'], /^[a-f0-9]{64}$/)
+    assert.match(diskReport.provenance?.fixtureHashes?.['regular-markdown'], /^[a-f0-9]{64}$/)
     assert.throws(
       () =>
         runFastPerformanceGateCli(

@@ -60,6 +60,20 @@ export interface PerformanceGateEnvironment {
   runner: string
 }
 
+export interface PerformanceGateProvenance {
+  commit: string
+  sourceCommit?: string
+  tree?: string
+  branch: string
+  nodeVersion: string
+  electronVersion: string
+  graphicsBackend: string
+  runMode: string
+  warmState: string
+  runId: string
+  fixtureHashes?: Record<string, string>
+}
+
 export interface PerformanceGateReport {
   schemaVersion: number
   productVersion: string
@@ -67,6 +81,7 @@ export interface PerformanceGateReport {
   level: GateLevel
   generatedAt: string
   environment: PerformanceGateEnvironment
+  provenance?: PerformanceGateProvenance
   metrics: Record<string, MetricSeries>
 }
 
@@ -231,6 +246,56 @@ export function validateReferenceEnvironment(
   }
 }
 
+function validateProvenance(value: unknown): asserts value is PerformanceGateProvenance {
+  const provenance = asRecord(value, 'report.provenance')
+  assertKnownKeys(
+    provenance,
+    [
+      'commit',
+      'sourceCommit',
+      'tree',
+      'branch',
+      'nodeVersion',
+      'electronVersion',
+      'graphicsBackend',
+      'runMode',
+      'warmState',
+      'runId',
+      'fixtureHashes',
+    ],
+    'report.provenance',
+  )
+  for (const key of [
+    'commit',
+    'branch',
+    'nodeVersion',
+    'electronVersion',
+    'graphicsBackend',
+    'runMode',
+    'warmState',
+    'runId',
+  ] as const) {
+    assertNonEmptyString(provenance[key], 'report.provenance.' + key)
+  }
+  if (provenance.sourceCommit !== undefined) {
+    assertNonEmptyString(provenance.sourceCommit, 'report.provenance.sourceCommit')
+  }
+  if (provenance.tree !== undefined) {
+    if (typeof provenance.tree !== 'string' || !/^[a-f0-9]{40}$/.test(provenance.tree)) {
+      throw new Error('report.provenance.tree must be a 40-character Git tree SHA')
+    }
+  }
+  if (provenance.fixtureHashes !== undefined) {
+    const hashes = asRecord(provenance.fixtureHashes, 'report.provenance.fixtureHashes')
+    for (const [fixtureId, hash] of Object.entries(hashes)) {
+      assertNonEmptyString(fixtureId, 'report.provenance.fixtureHashes key')
+      if (typeof hash !== 'string' || !/^[a-f0-9]{64}$/.test(hash)) {
+        throw new Error('report.provenance.fixtureHashes.' + fixtureId + ' must be a SHA-256 hex digest')
+      }
+    }
+  }
+}
+
 function validateMetricSeries(
   value: unknown,
   label: string,
@@ -254,6 +319,7 @@ function validateReport(value: unknown): asserts value is PerformanceGateReport 
       'level',
       'generatedAt',
       'environment',
+      'provenance',
       'metrics',
     ],
     'report',
@@ -268,6 +334,7 @@ function validateReport(value: unknown): asserts value is PerformanceGateReport 
   }
   assertNonEmptyString(report.generatedAt, 'report.generatedAt')
   validateEnvironment(report.environment)
+  if (report.provenance !== undefined) validateProvenance(report.provenance)
   const metrics = asRecord(report.metrics, 'report.metrics')
   for (const [metricName, metric] of Object.entries(metrics)) {
     assertNonEmptyString(metricName, 'report.metrics key')
@@ -427,6 +494,9 @@ export interface MetricStatistics {
   p95: number
   p99: number
   max: number
+  mean: number
+  stddev: number
+  cv: number
   count: number
 }
 
@@ -438,12 +508,19 @@ export function calculateStatistics(series: MetricSeries): MetricStatistics {
   if (first === undefined || last === undefined) {
     throw new Error('metric series must not be empty')
   }
+  const mean = sorted.reduce((sum, value) => sum + value, 0) / sorted.length
+  const variance =
+    sorted.reduce((sum, value) => sum + (value - mean) ** 2, 0) / sorted.length
+  const stddev = Math.sqrt(variance)
   return {
     min: first,
     p50: percentile(sorted, 0.5),
     p95: percentile(sorted, 0.95),
     p99: percentile(sorted, 0.99),
     max: last,
+    mean,
+    stddev,
+    cv: mean === 0 ? 0 : stddev / mean,
     count: sorted.length,
   }
 }

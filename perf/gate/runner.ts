@@ -9,6 +9,7 @@ import {
   type MetricSeries,
   type MetricUnit,
   type PerformanceGateEnvironment,
+  type PerformanceGateProvenance,
   type PerformanceGateReport,
 } from './contract.js'
 
@@ -22,6 +23,7 @@ export interface PerformanceGateReportMetadata {
   suite: string
   level: GateLevel
   environment: PerformanceGateEnvironment
+  provenance?: PerformanceGateProvenance
   generatedAt?: string
 }
 
@@ -121,6 +123,7 @@ export const createPerformanceGateReport = (
     level: metadata.level,
     generatedAt: metadata.generatedAt ?? new Date().toISOString(),
     environment: metadata.environment,
+    ...(metadata.provenance === undefined ? {} : { provenance: metadata.provenance }),
     metrics,
   })
 }

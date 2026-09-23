@@ -83,13 +83,52 @@ test('statistics use deterministic interpolated percentiles', () => {
   assert.equal(statistics.p95, 19.05)
   assert.equal(statistics.p99, 19.81)
   assert.equal(statistics.max, 20)
+  assert.equal(statistics.mean, 10.5)
+  assert.ok(Math.abs(statistics.stddev - 5.766281297335398) < 1e-12)
+  assert.ok(Math.abs(statistics.cv - 0.549169647365276) < 1e-12)
   assert.equal(statistics.count, 20)
+})
+
+test('statistics report zero CV for an all-zero metric', () => {
+  const statistics = calculateStatistics(series(constantSamples(0), 'count'))
+  assert.equal(statistics.mean, 0)
+  assert.equal(statistics.stddev, 0)
+  assert.equal(statistics.cv, 0)
 })
 
 test('the reference environment contract is explicit and rejects a developer machine', () => {
   assert.doesNotThrow(() => validateReferenceEnvironment(REFERENCE_ENVIRONMENT))
   assert.throws(() => validateReferenceEnvironment({ ...REFERENCE_ENVIRONMENT, os: 'macOS' }))
   assert.throws(() => validateReferenceEnvironment({ ...REFERENCE_ENVIRONMENT, network: 'online' }))
+})
+
+test('report provenance accepts exact fixture hashes and rejects malformed hashes', () => {
+  const valid = report('P0', { input: series(constantSamples(1)) })
+  valid.provenance = {
+    commit: '0123456789abcdef',
+    sourceCommit: 'fedcba9876543210',
+    tree: 'a'.repeat(40),
+    branch: 'develop',
+    nodeVersion: 'v24.21.0',
+    electronVersion: '42.1.0',
+    graphicsBackend: 'default',
+    runMode: 'reference-p0',
+    warmState: 'mixed',
+    runId: 'unit',
+    fixtureHashes: { 'markdown-50k': 'a'.repeat(64) }
+  }
+  assert.doesNotThrow(() => evaluatePerformanceGate(valid, configFor([])))
+
+  const invalid = {
+    ...valid,
+    provenance: {
+      ...valid.provenance,
+      fixtureHashes: { 'markdown-50k': 'not-a-sha256' }
+    }
+  }
+  const result = evaluatePerformanceGate(invalid as PerformanceGateReport, configFor([]))
+  assert.equal(result.passed, false)
+  assert.equal(result.failures[0]?.code, 'invalid-report')
 })
 
 test('canonical thresholds validate and cover every release level', async() => {
@@ -112,6 +151,34 @@ test('every release level includes the 200-cycle memory leak gate', async() => {
       level + ' must gate 200-cycle heap linear growth'
     )
   }
+})
+
+test('controlled slowdown experiment detects a known regression without false-positive control', () => {
+  const config = configFor([
+    {
+      id: 'controlled-input-p95',
+      metric: 'input',
+      unit: 'ms',
+      statistic: 'p95',
+      operator: 'lt',
+      limit: 20,
+    },
+  ])
+
+  const control = evaluatePerformanceGate(
+    report('P0', { input: series(constantSamples(10)) }),
+    config,
+  )
+  const slowed = evaluatePerformanceGate(
+    report('P0', { input: series(constantSamples(25)) }),
+    config,
+  )
+
+  assert.equal(control.passed, true)
+  assert.equal(control.failures.length, 0)
+  assert.equal(slowed.passed, false)
+  assert.equal(slowed.failures[0]?.code, 'threshold-failed')
+  assert.equal(slowed.failures[0]?.metric, 'input')
 })
 
 test('a report passes when every absolute gate passes', () => {

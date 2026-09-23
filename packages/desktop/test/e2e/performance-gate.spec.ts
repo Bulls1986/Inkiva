@@ -20,7 +20,7 @@ import {
 
 type GateLevel = 'P0' | 'P1' | 'P2'
 type GateUnit = 'ms' | 'count' | 'bytes' | 'ratio'
-type GatePhase = 'startup' | 'document-open' | 'editor' | 'diagram' | 'search' | 'autosave' | 'memory'
+type GatePhase = 'startup' | 'document-open' | 'editor' | 'diagram' | 'search' | 'save' | 'autosave' | 'memory'
 
 const runGate = process.env.INKIVA_RUN_PERF_GATE === 'true'
 const SAMPLE_COUNT = 20
@@ -99,6 +99,9 @@ const captureEnvironment = (directory: string): Record<string, string> => ({
   INKIVA_PERF_RUNNER_LABEL: 'reference-low-end'
 })
 
+const performanceGraphicsSwitches = (): string[] =>
+  process.env.INKIVA_PERF_GRAPHICS_BACKEND === 'opengl' ? ['--use-angle=gl'] : []
+
 const openCaptured = async(
   filePath: string,
   capture: CaptureDirectory,
@@ -112,6 +115,7 @@ const openCaptured = async(
     waitForReady: false,
     waitForEditorTimeout,
     userDataDir,
+    electronSwitches: performanceGraphicsSwitches(),
     env: captureEnvironment(capture.directory)
   })
   return launched
@@ -409,7 +413,7 @@ const runColdRegularSample = async(
         })
         .toContain('gate-input-' + iteration)
     })
-    await recordSample(page, 'document.regular.save', 'ms', saveDuration)
+    await recordSample(page, 'document.regular.save', 'ms', saveDuration, 'save')
     await expectNoRendererErrors(app)
   } finally {
     if (launched) {

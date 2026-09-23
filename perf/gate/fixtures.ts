@@ -1,3 +1,7 @@
+import { createHash } from 'node:crypto'
+
+const sha256 = (value: string): string => createHash('sha256').update(value, 'utf8').digest('hex')
+
 export const MARKDOWN_DOCUMENT_SPECS = {
   regular: { targetChars: 30000, minimumHeadings: 100 },
   '50k': { targetChars: 50000, minimumHeadings: 300 },
@@ -36,6 +40,7 @@ export interface MarkdownFixture {
   targetChars: number
   actualChars: number
   markdown: string
+  contentHash: string
   headingCount: number
   blockCount: number
   features: readonly MarkdownFeature[]
@@ -45,6 +50,7 @@ export interface HeadingStormFixture {
   id: string
   headingCount: HeadingStormCount
   markdown: string
+  contentHash: string
   actualChars: number
   blockCount: number
 }
@@ -61,6 +67,7 @@ export interface WorkspaceFixture {
   actualNodes: number
   fileCount: number
   directoryCount: number
+  contentHash: string
   nodes: WorkspaceNode[]
 }
 
@@ -139,6 +146,7 @@ export const createMarkdownFixture = (tier: MarkdownDocumentTier): MarkdownFixtu
     targetChars: specification.targetChars,
     actualChars: markdown.length,
     markdown,
+    contentHash: sha256(markdown),
     headingCount: countHeadings(markdown),
     blockCount: countBlocks(markdown),
     features: REQUIRED_MARKDOWN_FEATURES,
@@ -167,6 +175,7 @@ export const createHeadingStormFixture = (
     id: 'heading-storm-' + headingCount,
     headingCount,
     markdown,
+    contentHash: sha256(markdown),
     actualChars: markdown.length,
     blockCount: countBlocks(markdown),
   }
@@ -203,6 +212,7 @@ export const createWorkspaceFixture = (targetNodes: WorkspaceNodeCount): Workspa
     actualNodes: nodes.length,
     fileCount,
     directoryCount,
+    contentHash: sha256(nodes.map((node) => node.kind + ':' + node.path + ':' + node.parentPath).join('\n')),
     nodes,
   }
 }

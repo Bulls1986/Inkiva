@@ -52,6 +52,7 @@ export type PerformancePhase =
   | 'editor'
   | 'diagram'
   | 'search'
+  | 'save'
   | 'autosave'
   | 'memory'
 
@@ -113,6 +114,7 @@ const PERFORMANCE_PHASES: ReadonlySet<PerformancePhase> = new Set([
   'editor',
   'diagram',
   'search',
+  'save',
   'autosave',
   'memory'
 ])

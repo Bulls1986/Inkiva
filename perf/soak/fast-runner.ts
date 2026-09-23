@@ -17,6 +17,8 @@ import {
   type PerformanceGateReportMetadata
 } from '../gate/runner.js'
 import { mergePerformanceTraceReports } from '../gate/trace-input.js'
+import { readBenchmarkProvenance } from '../gate/provenance.js'
+import { getFastFixtureHashes } from '../gate/fixture-provenance.js'
 import {
   FAST_GATE_MODE,
   FAST_GATE_REQUIRED_METRICS,
@@ -29,6 +31,12 @@ const thresholdsPath = resolve(currentDirectory, 'thresholds-fast.json')
 const fastThresholds = parsePerformanceGateConfig(
   JSON.parse(readFileSync(thresholdsPath, 'utf8')) as unknown
 )
+const packagePath = resolve(currentDirectory, '../../package.json')
+const packageJson = JSON.parse(readFileSync(packagePath, 'utf8')) as { version?: unknown }
+const productVersion = packageJson.version
+if (typeof productVersion !== 'string' || productVersion.trim() === '') {
+  throw new Error('package.json version is missing')
+}
 const requiredMetricSet = new Set<string>(FAST_GATE_REQUIRED_METRICS)
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -132,9 +140,16 @@ const readTraceInput = (inputPath: string): unknown => {
 const createFastMetadata = (environment: FastGateEnvironment): PerformanceGateReportMetadata => {
   resolveFastGateMode(environment)
   return {
-    productVersion: '0.3.0',
+    productVersion,
     suite: 'inkiva-desktop-fast-pr-smoke',
     level: 'P0',
+    provenance: readBenchmarkProvenance({
+      repoRoot: resolve(currentDirectory, '../..'),
+      runMode: FAST_GATE_MODE,
+      warmState: 'mixed',
+      environment,
+      fixtureHashes: getFastFixtureHashes()
+    }),
     environment: {
       os: process.platform,
       cpu: process.arch,

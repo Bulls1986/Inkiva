@@ -18,6 +18,14 @@ test('the release workflow shards blocking P1/P2 gates and keeps opt-in P3', asy
   )
   assert.equal(referenceRunnerMatches?.length, 4)
 
+  assert.match(workflow, /graphics_backend:/)
+  assert.match(workflow, /type: choice/)
+  assert.match(workflow, /- default[\s\S]*?- opengl/)
+  const backendEnvMatches = workflow.match(
+    /INKIVA_PERF_GRAPHICS_BACKEND: \$\{\{ inputs\.graphics_backend \}\}/g
+  )
+  assert.equal(backendEnvMatches?.length, 4)
+
   assert.match(workflow, /reference-large-shards:/)
   assert.match(workflow, /fail-fast: false/)
   assert.match(workflow, /level: P1, shard: doc-50k/)

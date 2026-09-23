@@ -33,7 +33,7 @@ export const FAST_GATE_REQUIRED_METRICS = [
 ] as const
 
 export type FastGateMode = typeof FAST_GATE_MODE
-export type FastGateEnvironment = {
+export type FastGateEnvironment = NodeJS.ProcessEnv & {
   INKIVA_PERF_MODE?: string
   INKIVA_PERF_RUNNER_LABEL?: string
 }
