@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation and local functional validation complete on `feat/v0.5-us06`; branch still needs synchronization with the latest `develop` and normal PR/CI before merge.
+Implementation complete on `feat/v0.5-us06`, rebased onto `develop` at `c54a03e`, with post-rebase local build and Electron functional validation passing. Normal PR/CI remains required before merge.
 
 ## Product contract
 
@@ -66,6 +66,13 @@ Local evidence before base synchronization:
 - the first full Electron rerun had one existing font/restart case exceed the global 30 s Playwright timeout; the identical focused case then passed in 16.0 s, and the final full gate passed all 6 cases, so this was treated as runner timing variance rather than a product regression;
 - focused Vitest contracts: **not executed locally** because package-local Vitest is absent and the documented donor probe is unhealthy (`tinyexec/index.js` missing before discovery);
 - desktop `vue-tsc`: the worktree package-local launcher is absent. A donor `vue-tsc` probe reached current-worktree source but is not comparable with latest `develop`, whose donor topology expands into Muya source and produces known boundary/type errors. Per the environment contract this is not used as US06 product evidence.
+
+Post-rebase evidence on `develop` `c54a03e`:
+
+- rebase conflict scope: one typed IPC contract overlap; Recovery Center invoke channels from `develop` and US06 `mt::preferences::set` were both preserved;
+- current-worktree Electron build: **PASS** (`electron-vite build`, 44.14 s);
+- Settings + writing-area Electron functional gate: **6/6 PASS** using one worker and the post-rebase current-worktree build output (42.9 s);
+- `git diff --check`: **PASS** before synchronization; final hygiene is rechecked after this record update.
 
 ## Architecture review
 
