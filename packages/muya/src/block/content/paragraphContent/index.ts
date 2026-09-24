@@ -42,6 +42,7 @@ const debug = logger('paragraph:content');
 const HTML_BLOCK_REG = /^<([a-z\d-]+)(?=\s|>)[^<>]*>$/i;
 const CODE_BLOCK_REG = /(^ {0,3}`{3,})([^` ]*)/;
 const MATH_BLOCK_REG = /^\$\$/;
+const FENCE_DISAMBIGUATION_MS = 250;
 // eslint-disable-next-line regexp/no-super-linear-backtracking
 const TABLE_BLOCK_REG = /^\|.*?(\\*)\|.*?(\\*)\|/;
 
@@ -189,6 +190,7 @@ class ParagraphContent extends Format {
     public override parent: Nullable<Paragraph> = null;
 
     private _referenceDefinitionKey: string | null = null;
+    private _pendingFenceConversion: ReturnType<typeof setTimeout> | null = null;
 
     private _syncReferenceDefinition(): string | null {
         const { label, info } = this.inlineRenderer.getLabelInfo(this);
@@ -229,6 +231,10 @@ class ParagraphContent extends Format {
     }
 
     override dispose(): void {
+        if (this._pendingFenceConversion !== null) {
+            clearTimeout(this._pendingFenceConversion);
+            this._pendingFenceConversion = null;
+        }
         if (this._referenceDefinitionKey !== null) {
             this.inlineRenderer.invalidateReferenceDefinitions();
             this._referenceDefinitionKey = null;
@@ -268,8 +274,34 @@ class ParagraphContent extends Format {
 
     override inputHandler(event: Event) {
         super.inputHandler(event);
-        const { eventCenter } = this.muya;
 
+        if (this._pendingFenceConversion !== null) {
+            clearTimeout(this._pendingFenceConversion);
+            this._pendingFenceConversion = null;
+        }
+
+        const inputType = 'inputType' in event && typeof event.inputType === 'string'
+            ? event.inputType
+            : '';
+        const isHistoryInput = /historyUndo|historyRedo/.test(inputType);
+
+        // ` ``` ` is both a complete US08 trigger and the prefix for ` ```lang`.
+        // Keep a short disambiguation window: stopping at the fence converts it,
+        // while continuous language typing cancels this timer and preserves the
+        // existing language-picker / diagram-fence path.
+        if (!this.isComposed && !isHistoryInput && this.text === '```') {
+            this._pendingFenceConversion = setTimeout(() => {
+                this._pendingFenceConversion = null;
+                if (this.isComposed || this.text !== '```' || !this.parent)
+                    return;
+
+                const match = matchBlockConversion(this.text);
+                if (match?.kind === 'code')
+                    this._convertBlock(match);
+            }, FENCE_DISAMBIGUATION_MS);
+        }
+
+        const { eventCenter } = this.muya;
         eventCenter.emit('content-change', { block: this });
     }
 
@@ -281,6 +313,10 @@ class ParagraphContent extends Format {
         if (!match)
             return super.enterHandler(event);
 
+        this._convertBlock(match);
+    }
+
+    private _convertBlock(match: BlockConversion) {
         switch (match.kind) {
             case 'math': {
                 const state = {
@@ -339,7 +375,7 @@ class ParagraphContent extends Format {
 
                     this.parent!.replaceWith(codeBlock);
 
-                    codeBlock.lastContentInDescendant().setCursor(0, 0);
+                    codeBlock.lastContentInDescendant().setCursor(0, 0, true);
                 }
                 break;
             }

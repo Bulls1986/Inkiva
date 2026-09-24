@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures/muya';
-import { getMarkdown } from '../helpers/api';
+import { getMarkdown, getState } from '../helpers/api';
 import { slowType } from '../helpers/keyboard';
 import { editor, floats, quickInsertItem } from '../helpers/selectors';
 
@@ -12,6 +12,25 @@ test.describe('paragraphs and headings', () => {
         await slowType(page, ' world');
         await expect(para).toContainText('hello world');
         expect(await getMarkdown(page)).toContain('hello world');
+    });
+
+    test('US08: mixed CJK/Latin typing with Enter and Backspace preserves exact text', async ({ page }) => {
+        await page.evaluate(() => window.muya!.setContent(''));
+        await page.locator(editor.paragraph).first().click();
+
+        await page.keyboard.type('abc', { delay: 10 });
+        await page.keyboard.insertText('中文');
+        await page.keyboard.type('123', { delay: 10 });
+        await page.keyboard.press('Enter');
+        await page.keyboard.type('taiX', { delay: 10 });
+        await page.keyboard.press('Backspace');
+        await page.keyboard.type('l');
+
+        const state = await getState(page) as Array<{ name: string; text?: string }>;
+        expect(state).toEqual([
+            { name: 'paragraph', text: 'abc中文123' },
+            { name: 'paragraph', text: 'tail' },
+        ]);
     });
 
     test('slash menu converts an empty paragraph to atx-heading level 1', async ({ page }) => {
