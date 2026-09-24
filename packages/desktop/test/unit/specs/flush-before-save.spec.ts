@@ -113,13 +113,17 @@ describe('editor store — flush pending edits before saving (#3803)', () => {
     const store = useEditorStore()
     seedCurrentFile(store)
     detach = onSaveFlushCommit(store)
-    const sendSpy = vi.spyOn(window.electron.ipcRenderer, 'send')
+    const scheduleSpy = vi.spyOn(AutosaveQueue.prototype, 'schedule')
 
-    store.FILE_SAVE()
+    try {
+      store.FILE_SAVE()
 
-    const call = sendSpy.mock.calls.find((c) => c[0] === 'mt::response-file-save')
-    expect(call).toBeDefined()
-    expect(call?.[MARKDOWN_ARG]).toBe(FLUSHED)
+      const request = scheduleSpy.mock.calls.find(([, delay]) => delay === 0)?.[0]
+      expect(request).toBeDefined()
+      expect(request?.markdown).toBe(FLUSHED)
+    } finally {
+      scheduleSpy.mockRestore()
+    }
   })
 
   it('FILE_SAVE uses the persistence-only flush event', () => {
@@ -138,17 +142,21 @@ describe('editor store — flush pending edits before saving (#3803)', () => {
     seedCurrentFile(store)
     detach = onSaveFlushCommit(store)
     const cancelSpy = vi.spyOn(AutosaveQueue.prototype, 'cancel')
-    const sendSpy = vi.spyOn(window.electron.ipcRenderer, 'send')
+    const scheduleSpy = vi.spyOn(AutosaveQueue.prototype, 'schedule')
+    const flushSpy = vi.spyOn(AutosaveQueue.prototype, 'flush')
 
     try {
       store.FILE_SAVE()
 
-      const call = sendSpy.mock.calls.find((c) => c[0] === 'mt::response-file-save')
+      const request = scheduleSpy.mock.calls.find(([, delay]) => delay === 0)?.[0]
       expect(cancelSpy).toHaveBeenCalledWith('tab-1')
-      expect(call).toBeDefined()
-      expect(typeof call?.[REVISION_ARG]).toBe('number')
+      expect(request).toBeDefined()
+      expect(typeof request?.revision).toBe('number')
+      expect(flushSpy).toHaveBeenCalledWith('tab-1')
     } finally {
       cancelSpy.mockRestore()
+      scheduleSpy.mockRestore()
+      flushSpy.mockRestore()
     }
   })
 

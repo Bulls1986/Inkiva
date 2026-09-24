@@ -13,7 +13,7 @@ describe('Inkiva UI-02 chrome contract', () => {
     const css = read('titleBar/index.vue')
 
     expect(css).toContain('height: var(--titleBarHeight);')
-    expect(css).toContain('transition: background-color var(--motion-fast)')
+    expect(css).toMatch(/transition:\s*background-color var\(--motion-fast\)/)
     expect(css).toContain('background: var(--surface-hover);')
     expect(css).not.toContain('background: rgba(11, 99, 229, 0.12);')
     expect(css).not.toContain('transition: all')
@@ -25,7 +25,7 @@ describe('Inkiva UI-02 chrome contract', () => {
     expect(css).toContain('height: var(--documentTabsHeight);')
     expect(css).toContain('transition: background-color var(--motion-fast)')
     expect(css).toContain('color: var(--text-secondary);')
-    expect(css).toContain('  & > li.active {\n    background: transparent;')
+    expect(css).toMatch(/& > li\.active\s*\{\s*background: transparent;/)
     expect(css).toContain('height: 7px;')
     expect(css).toContain('background: linear-gradient(')
     expect(css).toContain('var(--color-accent) 0 1px')

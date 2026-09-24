@@ -24,10 +24,9 @@ test.describe('closing a document with unsaved changes', () => {
     app = launched.app
     page = launched.page
     // Keep the window open after observing the real unsaved-changes prompt.
-    // Response 2 is the dialog's configured Cancel action; returning the default
-    // response 0 (Save) legitimately closes the window before assertions can read
-    // the captured prompt.
-    await installMessageBoxCapture(app, 2)
+    // US-01 adds Keep for Recovery and explicit Discard, so Cancel is response 3.
+    // Returning response 2 would intentionally enter the secondary discard confirmation.
+    await installMessageBoxCapture(app, 3)
     await setUserPreferences(page, { startUpAction: 'blank' })
 
     await typeIntoEditor(page, ' unsaved')
@@ -47,9 +46,9 @@ test.describe('closing a document with unsaved changes', () => {
     expect(messageBox?.message).toBeTruthy()
     expect(messageBox?.detail).toBeTruthy()
 
-    // Let the explicit cleanup close the dirty document without saving, then
-    // clear `app` so the shared afterEach does not issue a second close request.
-    await setMessageBoxResponse(app, 1)
+    // Let cleanup take the normal Save path; discard now has its own confirmation
+    // and must not be used as an implicit test teardown shortcut.
+    await setMessageBoxResponse(app, 0)
     await app.close()
     app = undefined as unknown as ElectronApplication
   })

@@ -1,6 +1,10 @@
 <template>
   <div>
-    <div v-if="showTitleBar" class="title-bar-editor-bg" :class="{ 'tabs-visible': showTabBar }" />
+    <div
+      v-if="showTitleBar"
+      class="title-bar-editor-bg"
+      :class="{ 'tabs-visible': showTabBar }"
+    />
     <div
       v-if="showTitleBar"
       class="title-bar"
@@ -11,19 +15,36 @@
         { isOsx: isOsx }
       ]"
     >
-      <div class="title" data-testid="titlebar-document" @dblclick.stop="toggleMaxmizeOnMacOS">
+      <div
+        class="title"
+        data-testid="titlebar-document"
+        @dblclick.stop="toggleMaxmizeOnMacOS"
+      >
         <span v-if="!filename">Inkiva</span>
         <span v-else>
-          <span v-for="(path, index) of paths" :key="index">
+          <span
+            v-for="(path, index) of paths"
+            :key="index"
+          >
             {{ path }}
-            <el-icon class="path-arrow" :size="12">
+            <el-icon
+              class="path-arrow"
+              :size="12"
+            >
               <ArrowRight />
             </el-icon>
           </span>
-          <span class="filename" :class="{ isOsx: platform === 'darwin' }" @click="rename">
+          <span
+            class="filename"
+            :class="{ isOsx: platform === 'darwin' }"
+            @click="rename"
+          >
             {{ filename }}
           </span>
-          <span class="save-dot" :class="{ show: !isSaved }" />
+          <span
+            class="save-dot"
+            :class="{ show: !isSaved }"
+          />
         </span>
       </div>
       <div
@@ -32,7 +53,11 @@
         data-testid="titlebar-brand"
         aria-label="Inkiva"
       >
-        <img :src="inkivaLogo" alt="" aria-hidden="true" />
+        <img
+          :src="inkivaLogo"
+          alt=""
+          aria-hidden="true"
+        >
         <span>Inkiva</span>
       </div>
       <nav
@@ -76,7 +101,10 @@
           role="status"
           :aria-label="saveStatusLabel"
         >
-          <span class="save-status-dot" aria-hidden="true" />
+          <span
+            class="save-status-dot"
+            aria-hidden="true"
+          />
           {{ saveStatusLabel }}
         </span>
         <el-tooltip
@@ -109,19 +137,20 @@
         >
           <template #content>
             <div class="title-item">
-              <span class="front">{{ t('menu.counter.words') }}:</span
-              ><span class="text">{{ wordCount['word'] }}</span>
+              <span class="front">{{ t('menu.counter.words') }}:</span><span class="text">{{ wordCount['word'] }}</span>
             </div>
             <div class="title-item">
-              <span class="front">{{ t('menu.counter.characters') }}:</span
-              ><span class="text">{{ wordCount['character'] }}</span>
+              <span class="front">{{ t('menu.counter.characters') }}:</span><span class="text">{{ wordCount['character'] }}</span>
             </div>
             <div class="title-item">
-              <span class="front">{{ t('menu.counter.paragraphs') }}:</span
-              ><span class="text">{{ wordCount['paragraph'] }}</span>
+              <span class="front">{{ t('menu.counter.paragraphs') }}:</span><span class="text">{{ wordCount['paragraph'] }}</span>
             </div>
           </template>
-          <div v-if="wordCount" class="word-count" @click.stop="handleWordClick">
+          <div
+            v-if="wordCount"
+            class="word-count"
+            @click.stop="handleWordClick"
+          >
             <span class="text-center-vertical">{{ `${HASH[show].short} ${wordCount[show]}` }}</span>
           </div>
         </el-tooltip>
@@ -139,7 +168,10 @@
           @click.stop="handleCloseClick"
         >
           <div>
-            <svg width="10" height="10">
+            <svg
+              width="10"
+              height="10"
+            >
               <path :d="windowIconClose" />
             </svg>
           </div>
@@ -151,9 +183,18 @@
           @click.stop="handleMaximizeClick"
         >
           <div>
-            <svg width="10" height="10">
-              <path v-show="!isMaximized" :d="windowIconMaximize" />
-              <path v-show="isMaximized" :d="windowIconRestore" />
+            <svg
+              width="10"
+              height="10"
+            >
+              <path
+                v-show="!isMaximized"
+                :d="windowIconMaximize"
+              />
+              <path
+                v-show="isMaximized"
+                :d="windowIconRestore"
+              />
             </svg>
           </div>
         </button>
@@ -164,7 +205,10 @@
           @click.stop="handleMinimizeClick"
         >
           <div>
-            <svg width="10" height="10">
+            <svg
+              width="10"
+              height="10"
+            >
               <path :d="windowIconMinimize" />
             </svg>
           </div>

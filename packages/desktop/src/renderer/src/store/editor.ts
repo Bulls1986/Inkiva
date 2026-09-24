@@ -491,8 +491,8 @@ export const useEditorStore = defineStore('editor', {
         const tab = restoredTabId
           ? this.tabs.find((t) => t.id === restoredTabId)
           : this.tabs.find((t) =>
-              window.fileUtils.isSamePathSync(t.pathname, warning.pathname ?? '')
-            )
+            window.fileUtils.isSamePathSync(t.pathname, warning.pathname ?? '')
+          )
 
         if (!tab) continue
 
@@ -1086,7 +1086,7 @@ export const useEditorStore = defineStore('editor', {
     },
 
     LISTEN_FOR_UPDATE_PREFLIGHT(): void {
-      window.electron.ipcRenderer.on('mt::update-preflight-request', async (_, requestId) => {
+      window.electron.ipcRenderer.on('mt::update-preflight-request', async(_, requestId) => {
         this.flushActiveEditor()
         try {
           await sendBufferedState()
@@ -1114,7 +1114,7 @@ export const useEditorStore = defineStore('editor', {
           this.CLOSE_TABS(tabIdList, discard !== true)
         }
       })
-      window.electron.ipcRenderer.on('mt::retain-and-close-tabs-by-id', async (_, tabIdList) => {
+      window.electron.ipcRenderer.on('mt::retain-and-close-tabs-by-id', async(_, tabIdList) => {
         if (!Array.isArray(tabIdList) || tabIdList.length === 0) return
         this.flushActiveEditorForSave()
         const retainedIds = new Set(tabIdList)
@@ -1136,7 +1136,7 @@ export const useEditorStore = defineStore('editor', {
           (tab) => !retainedIds.has(tab.id)
         )
       })
-      window.electron.ipcRenderer.on('mt::retain-and-close-window', async () => {
+      window.electron.ipcRenderer.on('mt::retain-and-close-window', async() => {
         this.flushActiveEditorForSave()
         try {
           const persisted = await sendBufferedState()
@@ -2724,14 +2724,14 @@ interface BufferedEditorState {
 const createBufferedEditorState = (state: unknown): BufferedEditorState | null => {
   const s = state as
     | {
-        tabs?: unknown
-        currentFileId?: string
-        currentFile?: { id?: string } | null
-        pinnedPathnames?: unknown
-        pinnedTabIds?: unknown
-        retainedRecoveryTabs?: unknown
-        restoreWarnings?: unknown
-      }
+      tabs?: unknown
+      currentFileId?: string
+      currentFile?: { id?: string } | null
+      pinnedPathnames?: unknown
+      pinnedTabIds?: unknown
+      retainedRecoveryTabs?: unknown
+      restoreWarnings?: unknown
+    }
     | null
     | undefined
   if (!s || !Array.isArray(s.tabs)) {
@@ -2743,10 +2743,10 @@ const createBufferedEditorState = (state: unknown): BufferedEditorState | null =
     ? s.pinnedPathnames.filter((pathname): pathname is string => typeof pathname === 'string')
     : Array.isArray(s.pinnedTabIds)
       ? s.pinnedTabIds
-          .map((id) => tabs.find((tab) => tab.id === id)?.pathname)
-          .filter(
-            (pathname): pathname is string => typeof pathname === 'string' && pathname.length > 0
-          )
+        .map((id) => tabs.find((tab) => tab.id === id)?.pathname)
+        .filter(
+          (pathname): pathname is string => typeof pathname === 'string' && pathname.length > 0
+        )
       : []
 
   return {
@@ -2754,14 +2754,14 @@ const createBufferedEditorState = (state: unknown): BufferedEditorState | null =
     tabs: (s.tabs as Array<Partial<IFileState> & { id: string }>).map(createBufferedTabState),
     retainedRecoveryTabs: Array.isArray(s.retainedRecoveryTabs)
       ? (s.retainedRecoveryTabs as Array<Partial<IFileState> & { id: string }>).map(
-          createBufferedTabState
-        )
+        createBufferedTabState
+      )
       : [],
     pinnedPathnames,
     restoreWarnings: Array.isArray(s.restoreWarnings)
       ? (s.restoreWarnings as RestoreWarning[])
-          .map(createBufferedRestoreWarning)
-          .filter((w): w is BufferedRestoreWarning => w !== null)
+        .map(createBufferedRestoreWarning)
+        .filter((w): w is BufferedRestoreWarning => w !== null)
       : []
   }
 }
