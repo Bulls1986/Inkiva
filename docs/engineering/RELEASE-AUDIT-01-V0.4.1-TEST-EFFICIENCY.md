@@ -1,6 +1,6 @@
 # RELEASE-AUDIT-01 — v0.4.1 Test & E2E Efficiency Audit
 
-> Status: RELEASE CLOSURE IN PROGRESS — REFERENCE GATE TRUSTWORTHINESS DEBT RECORDED
+> Status: COMPLETE — v0.4.1 RELEASE AUDIT CLOSED / READY TO SQUASH MERGE
 > Branch: `release/release-audit-01`
 > Worktree: `.worktrees/learning-review`
 > Base code: local `origin/develop@00acaf38227cf46dca6b87f237bbc4cee1a573ce`
@@ -23,7 +23,7 @@ No test/CI implementation change is allowed until Phase 1–4 evidence and the o
 | 5. Implementation | Complete for P1-A | Removed only the redundant common-wrapper startup sleep; no coverage/gate weakening. |
 | 6. Before / After Validation | Complete for P1-A | Full PR E2E/Test/Lint green; PR Build platform legs green. Measured result recorded below. |
 | 7. Release Readiness Audit | Complete for v0.4.1 | Package pipeline, full PR gates, docs-only quick path, experience review and local reference-gate trustworthiness audit are complete. P0 absolute reference qualification is moved to post-release trustworthiness debt; no threshold was relaxed. |
-| 8. v0.4.1 Version Preparation | In progress | Update the four audited version-bearing sources together, then run release-contract and package/install/updater validation. |
+| 8. v0.4.1 Version Preparation | Complete | Version sources and version-bound fixtures are synchronized at 0.4.1; release contract and all final PR gates are green. |
 
 ## Phase 1 — Current Test Baseline
 
@@ -522,48 +522,38 @@ actual repository behavior.
 
 Evidence:
 
-- root `package.json` is `0.4.0`;
-- `packages/desktop/package.json` is `0.4.0` and is the package Electron/electron-builder
-  uses for application/package versioning;
-- `scripts/verifyUpdateArtifacts.ts` explicitly compares the release tag to
-  `packages/desktop/package.json`;
-- `packages/website/package.json` is also kept at the product release version;
-- `scripts/verifyUpdateArtifacts.test.ts` currently has a version-specific `0.4.0`
-  fixture constant;
+- root `package.json` is `0.4.1`;
+- `packages/desktop/package.json` is `0.4.1` and is the package Electron/electron-builder uses for application/package versioning;
+- `scripts/verifyUpdateArtifacts.ts` explicitly compares the release tag to `packages/desktop/package.json`;
+- `packages/website/package.json` is `0.4.1`;
+- `scripts/verifyUpdateArtifacts.test.ts` is synchronized to `0.4.1`;
 - the previous v0.4.0 release commit `5257570` changed the four authoritative version sources together: root package, desktop package, website package, and the updater-artifact test fixture;
 - the v0.4.1 preparation CI additionally exposed three tests that deliberately assert the current release version: `inkiva-release-identifiers.spec.ts`, `fast-runner.spec.ts`, and `assembleReleaseArtifacts.test.ts`.
 
 For v0.4.1, the four authoritative version-bearing sources and these three version-bound test fixtures must move together. Historical benchmark fixtures and Markdown content that merely contain the text `0.4.0` are not product-version sources and must not be mechanically rewritten.
 
-### Final closure handoff
+### Final closure evidence
 
-All work that can be completed without weakening the release contract is finished.
+Final version-preparation behavior HEAD: `2dda7a430be9b3db6dc58860d1ce21d824787ae9`.
 
-Frozen behavior-bearing audit HEAD: `73048182c6766ba59471c336dcbed2d93ecea759`.
+Local focused release validation after synchronizing all version-bound fixtures:
+- release identifiers: 4 / 4 pass;
+- Fast Gate contract: 14 / 14 pass;
+- release assembly / updater contract: 8 / 8 pass.
 
-That HEAD has green:
-- E2E;
-- PR Build including package/install smoke and updater artifact smoke;
-- Performance Fast Gate;
-- Test;
-- Lint;
-- Validate Licenses.
+Final PR CI on that exact HEAD is fully green:
+- E2E Test `35940751841`: success;
+- Lint `35940751876`: success;
+- Performance Fast Gate `35940751899`: success;
+- PR Build `35940751845`: success, including package/install smoke and updater artifact smoke;
+- Test `35940751847`: success;
+- Validate Licenses `35940751864`: success.
+
+The P0 absolute reference gate remains a post-release Performance Gate Trustworthiness debt, not a v0.4.1 product-release blocker. No threshold, workload, sample count, retry or timeout was relaxed to reach this conclusion.
 
 A first check after documentation HEAD `1935ad1fa0bdd668c22f36fb60146ffc966fe529` was queried too early and incorrectly appeared to show no CI. A later docs-only HEAD `89f896410719e6b40614d5f57609cfa68fdec80e` proved the important GitHub behavior: because this is a mixed PR, `pull_request.paths-ignore` is evaluated against the whole PR diff and the heavyweight workflows were retriggered. Those docs-only duplicate runs were cancelled. The durable rule is therefore: path filters handle wholly docs-only PRs; mixed-PR docs-only follow-up commits use `[skip ci]` after verifying their delta is documentation-only.
 
-Remaining closure sequence when the required Windows `reference-low-end` runner is restored:
-
-1. allow existing Performance Gate run `35887060407` to execute against frozen behavior HEAD
-   `73048182`; do not dispatch another duplicate run;
-2. require successful completion with `graphics_backend=default`, P3 disabled;
-3. update exactly the four audited version-bearing sources from `0.4.0` to `0.4.1`;
-4. run the release-contract validation including `pnpm test:release`;
-5. verify the version-preparation CI/release-smoke evidence without weakening or bypassing any gate;
-6. update this document with the final run IDs/results;
-7. squash-merge PR #187 and verify both PR state and `develop` ref.
-
-Do **not** substitute a GitHub-hosted runner or other hardware for the reference gate, and do not
-interpret runner absence as a passing performance result.
+RELEASE-AUDIT-01 is complete. The remaining repository action is squash-merge PR #187 and verify the merged PR state plus the remote `develop` ref.
 
 
 ## Docs-only CI quick path
