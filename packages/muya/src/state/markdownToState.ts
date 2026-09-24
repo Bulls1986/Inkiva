@@ -45,6 +45,29 @@ const CONTAINER_TOKEN_TYPES = new Set([
     'footnote',
 ]);
 
+interface IFenceSourceMeta {
+    fenceLength?: number;
+    fenceClosed?: boolean;
+}
+
+function getFenceSourceMeta(raw: string): IFenceSourceMeta {
+    const openingFence = /^ {0,3}([`~]{3,})/.exec(raw)?.[1];
+    if (!openingFence)
+        return {};
+
+    const rawWithoutTrailingNewline = raw.replace(/\r?\n$/, '');
+    const rawLines = rawWithoutTrailingNewline.split(/\r?\n/);
+    const closingLine = rawLines[rawLines.length - 1] ?? '';
+    const closingFence = new RegExp(
+        `^ {0,3}${openingFence[0]}{${openingFence.length},}[ \\t]*$`,
+    );
+
+    return {
+        fenceLength: openingFence.length,
+        fenceClosed: closingFence.test(closingLine),
+    };
+}
+
 export class MarkdownToState {
     constructor(private _options: IMarkdownToStateOptions = DEFAULT_OPTIONS) {}
 
@@ -286,13 +309,8 @@ export class MarkdownToState {
             }
 
             case 'code': {
-                const { codeBlockStyle, text, lang: infoString = '', raw = '' } = token;
-                // marked >=17 appends a trailing newline to indented code text
-                // (fenced text has none); strip it so indented blocks round-trip.
-                const codeText = codeBlockStyle === 'indented' ? text.replace(/\n$/, '') : text;
-                const fenceLength = /^ {0,3}([`~]{3,})/.exec(raw)?.[1].length;
                 currentParent.push(
-                    this._buildCodeState(codeText, infoString, codeBlockStyle, trimUnnecessaryCodeBlockEmptyLines, fenceLength),
+                    this._buildCodeStateFromToken(token, trimUnnecessaryCodeBlockEmptyLines),
                 );
                 break;
             }
@@ -418,12 +436,33 @@ export class MarkdownToState {
         }
     }
 
+    private _buildCodeStateFromToken(
+        token: Extract<TBlockToken, { type: 'code' }>,
+        trimUnnecessaryCodeBlockEmptyLines: boolean,
+    ): TState {
+        const { codeBlockStyle, text, lang: infoString = '', raw = '' } = token;
+        // marked >=17 appends a trailing newline to indented code text
+        // (fenced text has none); strip it so indented blocks round-trip.
+        const codeText = codeBlockStyle === 'indented' ? text.replace(/\n$/, '') : text;
+        const { fenceLength, fenceClosed } = getFenceSourceMeta(raw);
+
+        return this._buildCodeState(
+            codeText,
+            infoString,
+            codeBlockStyle,
+            trimUnnecessaryCodeBlockEmptyLines,
+            fenceLength,
+            fenceClosed,
+        );
+    }
+
     private _buildCodeState(
         text: string,
         infoString: string,
         codeBlockStyle: 'indented' | undefined,
         trimUnnecessaryCodeBlockEmptyLines: boolean,
         fenceLength?: number,
+        fenceClosed?: boolean,
     ): TState {
         // Keep the whole info string; the language for highlighting / diagram
         // detection is its first word (CommonMark §4.5).
@@ -466,6 +505,7 @@ export class MarkdownToState {
                 // language is its first word — see `firstWordOfInfo`.
                 lang: info,
                 ...(isFenced && fenceLength && fenceLength > 3 ? { fenceLength } : {}),
+                ...(isFenced && fenceClosed === false ? { fenceClosed: false } : {}),
             },
             text: value,
         };
