@@ -106,9 +106,8 @@ const modifyImageFolderPath = (value: string | undefined): void => {
   preferenceStore.SET_IMAGE_FOLDER_PATH(value)
 }
 
-const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
+const onSelectChange = (type: keyof PreferencesState, value: unknown) =>
   preferenceStore.SET_SINGLE_PREFERENCE({ type, value })
-}
 </script>
 
 <style scoped>

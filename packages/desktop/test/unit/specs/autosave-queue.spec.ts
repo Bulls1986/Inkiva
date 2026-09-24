@@ -36,6 +36,30 @@ describe('AutosaveQueue', () => {
     queue.dispose()
   })
 
+  it('reschedules the same document with the latest autosave delay and keeps other documents isolated', () => {
+    const sent: AutosaveRequest[] = []
+    const queue = new AutosaveQueue({ send: value => sent.push(value) })
+    const other = { ...request(1), id: 'doc-2', pathname: '/tmp/other.md' }
+
+    queue.schedule(request(1), 5000)
+    queue.schedule(other, 2000)
+    queue.schedule(request(2), 6200)
+
+    vi.advanceTimersByTime(2000)
+    expect(sent.map(value => value.id)).toEqual(['doc-2'])
+
+    vi.advanceTimersByTime(4199)
+    expect(sent.map(value => value.revision)).toEqual([1])
+
+    vi.advanceTimersByTime(1)
+    expect(sent.map(value => [value.id, value.revision])).toEqual([
+      ['doc-2', 1],
+      ['doc-1', 2]
+    ])
+
+    queue.dispose()
+  })
+
   it('drops delayed autosave work when an explicit save supersedes it', () => {
     const sent: AutosaveRequest[] = []
     const queue = new AutosaveQueue({ send: value => sent.push(value) })

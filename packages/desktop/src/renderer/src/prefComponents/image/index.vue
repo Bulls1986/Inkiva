@@ -34,9 +34,8 @@ const { imageInsertAction } = storeToRefs(preferenceStore)
 
 const imageActions = getImageActions()
 
-const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
+const onSelectChange = (type: keyof PreferencesState, value: unknown) =>
   preferenceStore.SET_SINGLE_PREFERENCE({ type, value })
-}
 </script>
 
 <style>

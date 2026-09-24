@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import bus from '../bus'
 import { setLanguage } from '../i18n'
+import type { PreferenceMutationResult } from '@shared/types/ipc'
 
 // Finite-value unions where the runtime currently constrains the field.
 // We keep these as plain strings everywhere else to avoid forcing prematurely
@@ -292,21 +293,43 @@ export const usePreferencesStore = defineStore('preferences', {
       })
     },
 
-    SET_SINGLE_PREFERENCE({ type, value }: SingleSetPreferencePayload): void {
+    async SET_SINGLE_PREFERENCE({
+      type,
+      value
+    }: SingleSetPreferencePayload): Promise<PreferenceMutationResult> {
       const normalizedValue = type === 'editorLineWidth' ? normalizeEditorLineWidth(value) : value
+      const target = this as unknown as Record<string, unknown>
+      const previousValue = target[type as string]
+      const previousLanguage = this.language
 
-      // Update local state
-      ;(this as unknown as Record<string, unknown>)[type as string] = normalizedValue
-
-      // Update i18n language if language preference changed
+      target[type as string] = normalizedValue
       if (type === 'language' && typeof normalizedValue === 'string') {
         setLanguage(normalizedValue)
       }
 
-      // save to electron-store
-      window.electron.ipcRenderer.send('mt::set-user-preference', {
-        [type as string]: normalizedValue
-      })
+      try {
+        const result = await window.electron.ipcRenderer.invoke('mt::preferences::set', {
+          [type as string]: normalizedValue
+        })
+        if (!result.ok) {
+          target[type as string] = previousValue
+          if (type === 'language') {
+            setLanguage(previousLanguage)
+          }
+        } else {
+          this.SET_USER_PREFERENCE(result.applied as Partial<PreferencesState>)
+        }
+        return result
+      } catch (error) {
+        target[type as string] = previousValue
+        if (type === 'language') {
+          setLanguage(previousLanguage)
+        }
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : 'Preference could not be saved'
+        }
+      }
     },
 
     SET_USER_DATA({ type, value }: SetUserDataPayload): void {

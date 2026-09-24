@@ -23,6 +23,7 @@
       size="small"
       clearable
       @input="handleInput"
+      @blur="handleBlur"
     />
     <div
       v-if="notes"
@@ -30,18 +31,27 @@
     >
       {{ notes }}
     </div>
+    <preference-status
+      v-if="!disable"
+      :timing="effectTiming"
+      :error="mutationError"
+      :pending="mutationSaved"
+      :on-retry="retry"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import LinkIcon from '@/components/icons/LinkIcon.vue'
-import type { PrefControlBaseProps } from '../types'
+import PreferenceStatus from '../preferenceStatus.vue'
+import { usePreferenceMutation } from '../usePreferenceMutation'
+import type { PrefControlBaseProps, PreferenceChangeHandler } from '../types'
 
 interface TextBoxProps extends PrefControlBaseProps {
   notes?: string
   input: string
-  onChange: (value: string) => void
+  onChange: PreferenceChangeHandler<string>
   defaultValue?: string
   emitTime?: number
   regexValidator?: RegExp
@@ -54,12 +64,14 @@ const props = withDefaults(defineProps<TextBoxProps>(), {
   disable: false,
   defaultValue: '',
   emitTime: 800,
-  regexValidator: () => /(.*?)/
+  regexValidator: () => /(.*?)/,
+  effectTiming: 'immediate'
 })
 
 let inputTimer: ReturnType<typeof setTimeout> | null = null
 const inputText = ref(props.input)
 const invalidInput = ref(false)
+const { error: mutationError, saved: mutationSaved, commit, retry } = usePreferenceMutation<string>(() => props.onChange)
 
 watch(
   () => props.input,
@@ -86,16 +98,23 @@ const handleInput = (value: string) => {
     }
 
     if (props.emitTime === 0) {
-      props.onChange(value)
+      commit(value)
       return
     }
 
     inputTimer = setTimeout(() => {
       inputTimer = null
-      props.onChange(value)
+      commit(value)
     }, props.emitTime)
   }
 }
+const handleBlur = (): void => {
+  if (invalidInput.value) {
+    inputText.value = props.input
+    invalidInput.value = false
+  }
+}
+
 </script>
 
 <style>

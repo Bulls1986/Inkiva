@@ -30,19 +30,28 @@
       :step="step"
       @change="select"
     />
+    <preference-status
+      v-if="!disable"
+      :timing="effectTiming"
+      :error="mutationError"
+      :pending="mutationSaved"
+      :on-retry="retry"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import LinkIcon from '@/components/icons/LinkIcon.vue'
-import type { PrefControlBaseProps } from '../types'
+import PreferenceStatus from '../preferenceStatus.vue'
+import { usePreferenceMutation } from '../usePreferenceMutation'
+import type { PrefControlBaseProps, PreferenceChangeHandler } from '../types'
 
 interface RangeProps extends PrefControlBaseProps {
   value: number
   min?: number
   max?: number
-  onChange: (value: number) => void
+  onChange: PreferenceChangeHandler<number>
   unit?: string
   step?: number
 }
@@ -51,10 +60,12 @@ const props = withDefaults(defineProps<RangeProps>(), {
   description: '',
   more: '',
   unit: '',
-  disable: false
+  disable: false,
+  effectTiming: 'immediate'
 })
 
 const selectValue = ref(props.value)
+const { error: mutationError, saved: mutationSaved, commit, retry } = usePreferenceMutation<number>(() => props.onChange)
 
 watch(
   () => props.value,
@@ -74,7 +85,7 @@ const handleMoreClick = () => {
 const select = (value: number | number[]) => {
   // el-slider may emit number[] in range mode; this control is single-value only.
   if (typeof value === 'number') {
-    props.onChange(value)
+    commit(value)
   }
 }
 </script>

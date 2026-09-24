@@ -18,7 +18,7 @@
         :aria-label="themeLabel(themeItem.name)"
         :aria-pressed="themeItem.name === theme"
         :aria-disabled="followSystemTheme ? 'true' : undefined"
-        @click="!followSystemTheme && onSelectChange('theme', themeItem.name)"
+        @click="!followSystemTheme && commitTheme(themeItem.name)"
         @keydown="handleThemeKeydown($event, themeItem.name)"
       >
         <div class="theme-preview-label">
@@ -32,6 +32,10 @@
       </div>
     </section>
     <separator />
+    <preference-status
+      :error="themeMutationError"
+      :on-retry="retryTheme"
+    />
 
     <Bool
       :description="t('preferences.theme.followSystemTheme')"
@@ -59,12 +63,15 @@
         placeholder=":root {\n  --color-accent: #0B63E5;\n}"
         :value="customCss"
         @change="
-          (event: Event) =>
-            onSelectChange('customCss', (event.target as HTMLTextAreaElement).value)
+          (event: Event) => commitCustomCss((event.target as HTMLTextAreaElement).value)
         "
       />
     </div>
     <separator v-show="false" />
+      <preference-status
+        :error="customCssMutationError"
+        :on-retry="retryCustomCss"
+      />
     <section
       v-show="false"
       class="import-themes ag-underdevelop"
@@ -97,6 +104,8 @@ import { themes as configThemes } from './config'
 import markdownToHtml from '@/util/markdownToHtml'
 import Bool from '../common/bool/index.vue'
 import Separator from '../common/separator/index.vue'
+import PreferenceStatus from '../common/preferenceStatus.vue'
+import { usePreferenceMutation } from '../common/usePreferenceMutation'
 
 interface ThemePreview {
   name: string
@@ -107,6 +116,20 @@ const themes = ref<ThemePreview[]>([])
 
 const { t } = useI18n()
 const preferenceStore = usePreferencesStore()
+const {
+  error: themeMutationError,
+  commit: commitTheme,
+  retry: retryTheme
+} = usePreferenceMutation<string>(() => (value) =>
+  preferenceStore.SET_SINGLE_PREFERENCE({ type: 'theme', value })
+)
+const {
+  error: customCssMutationError,
+  commit: commitCustomCss,
+  retry: retryCustomCss
+} = usePreferenceMutation<string>(() => (value) =>
+  preferenceStore.SET_SINGLE_PREFERENCE({ type: 'customCss', value })
+)
 
 const { followSystemTheme, theme, customCss } = storeToRefs(preferenceStore)
 
@@ -122,9 +145,8 @@ onMounted(async () => {
   themes.value = newThemes
 })
 
-const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
+const onSelectChange = (type: keyof PreferencesState, value: unknown) =>
   preferenceStore.SET_SINGLE_PREFERENCE({ type, value })
-}
 
 const themeLabel = (name: string): string => t(`preferences.theme.options.${name}`)
 
@@ -132,7 +154,7 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
   if (event.target !== event.currentTarget) return
   if (event.key !== 'Enter' && event.key !== ' ') return
   event.preventDefault()
-  if (!followSystemTheme.value) onSelectChange('theme', name)
+  if (!followSystemTheme.value) commitTheme(name)
 }
 </script>
 

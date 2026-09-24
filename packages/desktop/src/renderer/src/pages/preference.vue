@@ -146,6 +146,13 @@ onMounted(() => {
     padding-top: 0;
   }
 
+  & .pref-search-target {
+    border-radius: var(--radius-md);
+    outline: none;
+    box-shadow: 0 0 0 2px var(--border-focus);
+    transition: box-shadow var(--motion-normal);
+  }
+
   & .pref-setting > h4 {
     margin: 0 0 var(--space-6);
     color: var(--text-primary);

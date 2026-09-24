@@ -34,6 +34,13 @@
         </div>
       </template>
     </el-autocomplete>
+    <preference-status
+      v-if="!disable"
+      :timing="effectTiming"
+      :error="mutationError"
+      :pending="mutationSaved"
+      :on-retry="retry"
+    />
   </section>
 </template>
 
@@ -43,6 +50,8 @@ import { ArrowDown } from '@element-plus/icons-vue'
 import LinkIcon from '@/components/icons/LinkIcon.vue'
 import { useI18n } from 'vue-i18n'
 import type { PrefControlProps } from '../types'
+import PreferenceStatus from '../preferenceStatus.vue'
+import { usePreferenceMutation } from '../usePreferenceMutation'
 import { withBundledFonts } from './bundledFonts'
 
 const { t } = useI18n()
@@ -55,7 +64,8 @@ const props = withDefaults(defineProps<FontTextBoxProps>(), {
   description: '',
   more: '',
   disable: false,
-  onlyMonospace: false
+  onlyMonospace: false,
+  effectTiming: 'immediate'
 })
 
 let defaultValue = props.value
@@ -63,6 +73,7 @@ let defaultValue = props.value
 // a fast user interaction cannot race the native system-font enumeration.
 const fontFamilies = ref<string[]>(withBundledFonts([], props.onlyMonospace))
 const selectValue = ref(props.value)
+const { error: mutationError, saved: mutationSaved, commit, retry } = usePreferenceMutation<string>(() => props.onChange)
 
 watch(
   () => props.value,
@@ -88,7 +99,7 @@ const handleSelect = (selection: { value?: string } | string) => {
   const value = typeof selection === 'string' ? selection : (selection?.value ?? '')
   if (/^[^\s]+((-|\s)*[^\s])*$/.test(value)) {
     selectValue.value = value
-    props.onChange(value)
+    commit(value)
   }
 }
 

@@ -94,6 +94,10 @@ export interface RipgrepStartResult {
 
 export type PreferencePatch = Record<string, unknown>
 
+export type PreferenceMutationResult =
+  | { ok: true; applied: PreferencePatch }
+  | { ok: false; error: string }
+
 // =================================================================
 // Invoke channels (renderer → main, returns Promise<T>)
 // =================================================================
@@ -108,6 +112,10 @@ export interface IpcInvokeChannels {
   'mt::recovery-center::discard': { args: [itemId: string]; ret: boolean }
   'mt::recovery-center::discard-workspace': { args: []; ret: boolean }
   'mt::recovery-center::retry': { args: [itemId: string]; ret: RecoveryCenterState }
+  'mt::preferences::set': {
+    args: [partial: PreferencePatch]
+    ret: PreferenceMutationResult
+  }
   'mt::document-intelligence::index-document': {
     args: [pathname: string, markdown: string]
     ret: void

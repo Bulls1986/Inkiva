@@ -8,6 +8,7 @@
     "description": "General--The time in ms after a change that the file is saved.",
     "type": "number",
     "minimum": 1000,
+    "maximum": 10000,
     "default": 5000
   },
   "titleBarStyle": {
