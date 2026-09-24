@@ -59,9 +59,13 @@ Focused red signal before implementation:
 - WYSIWYG editable landing surfaces lacked an explicit text-cursor contract.
 - Source Mode editable surface lacked an explicit text-cursor contract.
 
-Post-change source-level contract probe: **PASS**.
+Post-change validation: **PASS**.
 
-The normal Vitest launcher could not be established in this fresh worktree because the main checkout's dependency graph was incomplete (`tinyexec` missing) and the documented offline repair timed out without creating a local dependency graph. Per `docs/agent/ENVIRONMENT_RECIPES.md`, that is environment evidence and must not be reported as a product failure or worked around by linking a package-level `node_modules` tree. Canonical CI remains required for executable unit/E2E proof.
+- Desktop focused correctness: `correctness-01-command-focus-readiness.spec.ts` + `us09-selection-caret-contract.spec.ts` → **14/14 passed**.
+- Muya selection/toolbar regression: `formatToggle.spec.ts` + `uiHandleContentKeydown.spec.ts` → **33/33 passed**, **0 unhandled errors** after applying the repository's documented minimal `packages/muya/node_modules/prismjs` compatibility path.
+- Targeted ESLint for the modified Vue editor and US09 contract spec → **PASS**.
+
+Initial validation attempts exposed only environment/bootstrap evidence: the worktree had no root dependency graph, and Muya's legacy Prism loader requires a physical package-local path. Both were resolved strictly through the documented dependency-reuse and minimal compatibility-path recipes; no product assertions or implementation were weakened.
 
 ## Learning review
 
