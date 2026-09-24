@@ -18,13 +18,44 @@ async function getBlocks(page: Page): Promise<IStateNode[]> {
 }
 
 test.describe('code block', () => {
-    test('typing ``` + Enter converts paragraph to a fenced code block', async ({ page }) => {
+    test('US08: typing three backticks converts immediately and preserves the next character', async ({ page }) => {
+        await page.evaluate(() => window.muya!.setContent(''));
+        await page.locator(editor.paragraph).first().click();
+
+        await page.keyboard.type('```');
+        await expect(page.locator(editor.codeBlock).first()).toBeVisible();
+        await expect(page.locator(editor.languageInput).first()).toBeVisible();
+
+        await page.keyboard.type('x');
+        await expect(page.locator(editor.codeContent).first()).toHaveText('x');
+        await expect.poll(async () => {
+            const blocks = await getBlocks(page);
+            return {
+                length: blocks.length,
+                name: blocks[0]?.name,
+                text: blocks[0]?.text,
+                lang: blocks[0]?.meta?.lang,
+            };
+        }).toEqual({
+            length: 1,
+            name: 'code-block',
+            text: 'x',
+            lang: '',
+        });
+    });
+
+    test('US08: code-fence conversion is one understandable Undo/Redo step', async ({ page }) => {
         await page.evaluate(() => window.muya!.setContent(''));
         await page.locator(editor.paragraph).first().click();
         await page.keyboard.type('```');
-        await page.keyboard.press('Enter');
         await expect(page.locator(editor.codeBlock).first()).toBeVisible();
-        await expect(page.locator(editor.languageInput).first()).toBeVisible();
+
+        await page.evaluate(() => window.muya!.undo());
+        await expect(page.locator(editor.paragraph).first()).toBeVisible();
+        await expect(page.locator(editor.codeBlock)).toHaveCount(0);
+
+        await page.evaluate(() => window.muya!.redo());
+        await expect(page.locator(editor.codeBlock).first()).toBeVisible();
     });
 
     test('typing ```<lang> + Enter records the lang via setContent path', async ({ page }) => {

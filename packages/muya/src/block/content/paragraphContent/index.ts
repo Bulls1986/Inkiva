@@ -268,8 +268,18 @@ class ParagraphContent extends Format {
 
     override inputHandler(event: Event) {
         super.inputHandler(event);
-        const { eventCenter } = this.muya;
 
+        // US08: unlike language-qualified fences (which still convert on Enter),
+        // an exact triple-backtick trigger is itself a complete editing command.
+        // Run this only after the normal input/composition pipeline has committed
+        // text so IME candidate updates remain inert.
+        const match = !this.isComposed && this.text === '```'
+            ? matchBlockConversion(this.text)
+            : null;
+        if (match?.kind === 'code')
+            this._convertBlock(match);
+
+        const { eventCenter } = this.muya;
         eventCenter.emit('content-change', { block: this });
     }
 
@@ -281,6 +291,10 @@ class ParagraphContent extends Format {
         if (!match)
             return super.enterHandler(event);
 
+        this._convertBlock(match);
+    }
+
+    private _convertBlock(match: BlockConversion) {
         switch (match.kind) {
             case 'math': {
                 const state = {
@@ -339,7 +353,7 @@ class ParagraphContent extends Format {
 
                     this.parent!.replaceWith(codeBlock);
 
-                    codeBlock.lastContentInDescendant().setCursor(0, 0);
+                    codeBlock.lastContentInDescendant().setCursor(0, 0, true);
                 }
                 break;
             }

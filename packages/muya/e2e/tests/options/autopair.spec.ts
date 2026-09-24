@@ -211,6 +211,19 @@ test.describe('options / auto-pair matrix', () => {
         await expect.poll(() => getFirstBlockText(page)).toBe('"');
     });
 
+    test('US08: typing an existing generated closer skips over it', async ({ page }) => {
+        await rebuildAndFocus(page, {
+            autoPairBracket: true,
+            autoPairMarkdownSyntax: true,
+            autoPairQuote: true,
+        });
+
+        await page.keyboard.type('(');
+        await expect.poll(() => getFirstBlockText(page)).toBe('()');
+        await page.keyboard.type(')');
+        await expect.poll(() => getFirstBlockText(page)).toBe('()');
+    });
+
     test('typing an auto-pair character over a selection wraps the selected text', async ({ page }) => {
         await rebuildAndFocus(page, {
             autoPairBracket: true,

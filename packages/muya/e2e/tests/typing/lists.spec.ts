@@ -32,6 +32,20 @@ test.describe('lists', () => {
         await expect(page.locator(editor.taskListItem).first()).toBeVisible();
     });
 
+    for (const { label, trigger, selector, expectedMarkdown } of [
+        { label: 'unordered', trigger: '- ', selector: editor.bulletList, expectedMarkdown: '- x' },
+        { label: 'ordered', trigger: '1. ', selector: editor.orderList, expectedMarkdown: '1. x' },
+    ]) {
+        test(`US08: ${label} list trigger preserves the immediately following character`, async ({ page }) => {
+            await emptyParagraph(page);
+            await page.keyboard.type(`${trigger}x`, { delay: 10 });
+
+            await expect(page.locator(selector).first()).toBeVisible();
+            await expect(page.locator(selector).first()).toContainText('x');
+            expect(await getMarkdown(page)).toContain(expectedMarkdown);
+        });
+    }
+
     test('typing inside a bullet list reflects in getMarkdown', async ({ page }) => {
         await emptyParagraph(page);
         await page.keyboard.type('/');
