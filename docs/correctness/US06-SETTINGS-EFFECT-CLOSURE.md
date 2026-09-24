@@ -90,12 +90,20 @@ CI lint follow-up on PR #200:
 - current-worktree Electron build after the lint fix: **PASS**;
 - Settings + writing-area Electron functional gate after the lint fix: **6/6 PASS** using one worker and rebuilt current-worktree output.
 
+CI visual-regression follow-up on PR #200:
+
+- the remaining E2E failure was `UI-14 visual regression baseline › captures the preferences surface`, with a stable **2%** screenshot difference (7539 Playwright-different pixels);
+- downloaded CI Linux failure artifacts showed all changed pixels bounded to the Settings content area (`x=267..947`, `y=194..649` in the 950×650 screenshot), while the Settings navigation/window chrome remained unchanged;
+- the changed rows align with US06's intentional effect-status / retry / restart feedback additions, so this is an expected visual contract change rather than unrelated visual drift;
+- `preferences-linux.png` was updated from the exact CI Linux actual screenshot; SHA-256 of source artifact and committed baseline both equal `332B85210DA41F430DA0D3498DDB9F59B42CE29175CCA52C5356BFE4CD498489`;
+- all non-E2E PR gates before the baseline update were green, including lint, unit test, Desktop Fast Gate, Windows/macOS builds, all package smoke jobs and updater artifact smoke.
+
 ## Architecture review
 
 - No new persistent preference store.
 - No duplicate cross-window event bus.
 - Main/preload/renderer boundary remains typed through `src/shared/types/ipc.ts`.
-- Existing Settings page/navigation and current visual baseline remain in place.
+- Existing Settings page/navigation and visual structure remain in place; only the Linux Preferences screenshot baseline is intentionally advanced for the new US06 status feedback.
 - Existing `mt::set-user-preference` compatibility listener delegates to the same authoritative writer rather than creating a separate implementation.
 - The v0.5 prototype does not overwrite current UI.
 
@@ -109,3 +117,4 @@ CI lint follow-up on PR #200:
 6. The environment recipe already covers missing package-local Vitest, incomplete donor `tinyexec`, and donor typecheck topology leakage. US06 reused those rules instead of adding duplicate environment guidance.
 7. Restart-scoped preferences must not be asserted against a live editor store when the architecture intentionally withholds them from the live broadcast. The correct observable contract is acknowledged persistence in Settings plus explicit delayed-effect feedback.
 8. Local format rejection and persistence failure are different UX states: local invalid text should restore the last valid value; only an attempted acknowledged mutation that fails persistence/authoritative validation should expose retry.
+9. A visual baseline should only move after the failure artifact proves the diff is scoped to the intentional UI contract. For cross-platform baselines, prefer the exact CI platform screenshot over regenerating it on another OS.
