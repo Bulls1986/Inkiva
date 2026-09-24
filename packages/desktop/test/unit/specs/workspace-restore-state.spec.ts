@@ -37,6 +37,7 @@ vi.mock('@/services/notification', () => ({
 }))
 
 import { useEditorStore } from '@/store/editor'
+import { useLayoutStore } from '@/store/layout'
 import { usePreferencesStore } from '@/store/preferences'
 import type { IFileState } from '@shared/types/files'
 
@@ -173,5 +174,109 @@ describe('US05 workspace restore state', () => {
     expect(preferences.sourceCodeModeEnabled).toBe(true)
     expect(sourceTab.sourceCodeMode).toBe(true)
     expect(wysiwygTab.sourceCodeMode).toBe(false)
+  })
+
+  it.each([
+    'restoreAll',
+    'openLastFolder',
+    'folder',
+    'blank'
+  ])('keeps the startup target independent from blank-layout restore policy: %s', (startUpAction) => {
+    const editor = useEditorStore()
+    const preferences = usePreferencesStore()
+    const layout = useLayoutStore()
+    preferences.startUpAction = startUpAction
+    preferences.restoreLayoutState = false
+    layout.SET_LAYOUT(
+      {
+        rightColumn: 'files',
+        showSideBar: true,
+        showTabBar: true,
+        sideBarWidth: 320,
+        splitEditor: false,
+        splitTabId: null
+      },
+      { scheduleBufferUpdate: false }
+    )
+
+    editor.RESTORE_BUFFERED_STATE({
+      editor: {
+        tabs: [makeTab('restored')],
+        retainedRecoveryTabs: [],
+        pinnedPathnames: [],
+        currentFileId: 'restored'
+      },
+      layout: {
+        rightColumn: 'toc',
+        showSideBar: false,
+        showTabBar: false,
+        sideBarWidth: 480,
+        splitEditor: true,
+        splitTabId: 'restored'
+      }
+    })
+
+    expect(layout.rightColumn).toBe('files')
+    expect(layout.showSideBar).toBe(true)
+    expect(layout.showTabBar).toBe(true)
+    expect(layout.sideBarWidth).toBe(320)
+    expect(layout.splitEditor).toBe(false)
+  })
+
+  it('keeps per-tab mode and viewport but resets outline expansion for blank layout', () => {
+    const editor = useEditorStore()
+    const preferences = usePreferencesStore()
+    preferences.restoreLayoutState = false
+
+    editor.RESTORE_BUFFERED_STATE({
+      editor: {
+        tabs: [
+          makeTab('restored', {
+            sourceCodeMode: true,
+            viewportAnchorSlug: 'section-8',
+            tocCollapsedKeys: ['section-2>details']
+          })
+        ],
+        retainedRecoveryTabs: [],
+        pinnedPathnames: [],
+        currentFileId: 'restored'
+      }
+    })
+
+    expect(editor.currentFile).toMatchObject({
+      sourceCodeMode: true,
+      viewportAnchorSlug: 'section-8',
+      tocCollapsedKeys: []
+    })
+  })
+
+  it('restores buffered layout when layout restoration is enabled', () => {
+    const editor = useEditorStore()
+    const preferences = usePreferencesStore()
+    const layout = useLayoutStore()
+    preferences.startUpAction = 'restoreAll'
+    preferences.restoreLayoutState = true
+
+    editor.RESTORE_BUFFERED_STATE({
+      editor: {
+        tabs: [makeTab('restored')],
+        retainedRecoveryTabs: [],
+        pinnedPathnames: [],
+        currentFileId: 'restored'
+      },
+      layout: {
+        rightColumn: 'toc',
+        showSideBar: true,
+        showTabBar: false,
+        sideBarWidth: 360,
+        splitEditor: false,
+        splitTabId: null
+      }
+    })
+
+    expect(layout.rightColumn).toBe('toc')
+    expect(layout.showSideBar).toBe(true)
+    expect(layout.showTabBar).toBe(false)
+    expect(layout.sideBarWidth).toBe(360)
   })
 })

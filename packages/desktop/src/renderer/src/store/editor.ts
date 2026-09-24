@@ -18,7 +18,7 @@ import { defineStore } from 'pinia'
 import { usePreferencesStore } from './preferences'
 import { useProjectStore } from './project'
 import { useRecentDocumentsStore } from './recentDocuments'
-import { DEFAULT_RIGHT_COLUMN, useLayoutStore } from './layout'
+import { DEFAULT_RIGHT_COLUMN, DEFAULT_SIDE_BAR_WIDTH, useLayoutStore } from './layout'
 import { useMainStore } from '.'
 import { t } from '../i18n'
 import { documentRevisionSnapshots } from '../services/documentRevisionSnapshot'
@@ -422,6 +422,8 @@ export const useEditorStore = defineStore('editor', {
         return
       }
 
+      const preferencesStore = usePreferencesStore()
+
       // US-02 owns how recovery candidates are surfaced. Feed US-01 retained
       // drafts into the same classification path instead of restoring them
       // through a parallel tab path. A snapshot taken just before retain-close
@@ -444,6 +446,12 @@ export const useEditorStore = defineStore('editor', {
       const oldIdToNewId: Record<string, string> = {}
       const tabs: IFileState[] = visibleBufferedTabs.map((tab) => {
         const fileState = createDocumentState(tab as unknown as Record<string, unknown>)
+        if (!preferencesStore.restoreLayoutState) {
+          // Outline expansion belongs to the restored window layout. Preserve
+          // document-owned mode and viewport state, but start outline layout
+          // from its default state when blank-layout startup is requested.
+          fileState.tocCollapsedKeys = []
+        }
         oldIdToNewId[tab.id] = fileState.id
         return fileState
       })
@@ -457,7 +465,9 @@ export const useEditorStore = defineStore('editor', {
       const layoutStore = useLayoutStore()
 
       projectStore.RESTORE_BUFFERED_STATE(rawState?.project)
-      layoutStore.RESTORE_BUFFERED_STATE(rawState?.layout)
+      if (preferencesStore.restoreLayoutState) {
+        layoutStore.RESTORE_BUFFERED_STATE(rawState?.layout)
+      }
       this.$patch((s) => {
         s.tabs = tabs
         s.pendingUntitledRecoveries = pendingUntitledRecoveries
@@ -492,7 +502,6 @@ export const useEditorStore = defineStore('editor', {
       window.DIRNAME = currentFile?.pathname ? window.path.dirname(currentFile.pathname) : ''
       this.UPDATE_LINE_ENDING_MENU()
       if (currentFile) {
-        const preferencesStore = usePreferencesStore()
         const restoredSourceMode =
           typeof currentFile.sourceCodeMode === 'boolean'
             ? currentFile.sourceCodeMode
@@ -1077,17 +1086,17 @@ export const useEditorStore = defineStore('editor', {
     },
 
     LISTEN_FOR_CLOSE(): void {
-      const preferencesStore = usePreferencesStore()
       window.electron.ipcRenderer.on('mt::ask-for-close', () => {
         // A close boundary must materialize the newest active revision exactly
         // once so the prompt/save-all path never falls back to stale tab text.
         this.flushActiveEditorForSave()
         const unsavedFiles = this.GET_UNSAVED_FILES()
 
-        if (unsavedFiles.length && preferencesStore.startUpAction !== 'restoreAll') {
-          // Ignore unsaved files when user has chosen to restore all on startup, as they will be restored anyway.
+        if (unsavedFiles.length) {
           // Do not deep-clone the markdown here: IPC already clones its arguments, and the
           // extra JSON round-trip made large documents wait before the native dialog opened.
+          // Startup recovery is not a substitute for an explicit close decision: every dirty
+          // document must still enter the Save / Keep / Discard transaction.
           window.electron.ipcRenderer.send('mt::close-window-confirm', unsavedFiles)
         } else {
           window.electron.ipcRenderer.send('mt::close-window')
@@ -1397,6 +1406,7 @@ export const useEditorStore = defineStore('editor', {
           addBlankTab,
           markdownList,
           lineEnding,
+          restoreLayoutState,
           sideBarVisibility,
           tabBarVisibility,
           sourceCodeModeEnabled
@@ -1404,11 +1414,16 @@ export const useEditorStore = defineStore('editor', {
 
         window.electron.ipcRenderer.send('mt::window-initialized')
         mainStore.SET_INITIALIZED()
-        preferencesStore.SET_USER_PREFERENCE({ endOfLine: lineEnding })
+        preferencesStore.SET_USER_PREFERENCE({ endOfLine: lineEnding, restoreLayoutState })
+        if (!restoreLayoutState) {
+          layoutStore.SET_SIDE_BAR_WIDTH(DEFAULT_SIDE_BAR_WIDTH, { scheduleBufferUpdate: false })
+        }
         layoutStore.SET_LAYOUT({
           rightColumn: DEFAULT_RIGHT_COLUMN,
           showSideBar: !!sideBarVisibility,
-          showTabBar: !!tabBarVisibility
+          showTabBar: !!tabBarVisibility,
+          splitEditor: false,
+          splitTabId: null
         })
         layoutStore.DISPATCH_LAYOUT_MENU_ITEMS()
         preferencesStore.SET_MODE({

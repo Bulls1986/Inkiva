@@ -112,6 +112,7 @@ export interface LocalHistoryCreateRequest {
   createdAt?: number
   reason?: LocalHistoryReason
   encoding?: string
+  isBom?: boolean
   lineEnding?: 'lf' | 'crlf'
 }
 
@@ -122,6 +123,7 @@ export interface LocalHistoryEntry {
   reason: LocalHistoryReason
   size: number
   encoding?: string
+  isBom?: boolean
   lineEnding?: 'lf' | 'crlf'
 }
 

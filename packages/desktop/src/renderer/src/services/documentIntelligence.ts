@@ -17,6 +17,7 @@ export interface DocumentIntelligenceDocument {
   markdown: string
   isSaved: boolean
   encoding?: string
+  isBom?: boolean
   lineEnding?: 'lf' | 'crlf'
 }
 
@@ -394,6 +395,7 @@ export class DocumentIntelligenceCoordinator {
                 content: document.markdown,
                 reason,
                 ...(document.encoding ? { encoding: document.encoding } : {}),
+                ...(typeof document.isBom === 'boolean' ? { isBom: document.isBom } : {}),
                 ...(document.lineEnding ? { lineEnding: document.lineEnding } : {})
               })
           )
