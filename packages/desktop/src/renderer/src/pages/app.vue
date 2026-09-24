@@ -50,6 +50,7 @@
     <export-setting-dialog />
     <rename />
     <import-modal />
+    <untitled-recovery-center />
   </div>
 </template>
 
@@ -71,6 +72,7 @@ import EditorWithTabs from '@/components/editorWithTabs/index.vue'
 import Tabs from '@/components/editorWithTabs/tabs.vue'
 import TitleBar from '@/components/titleBar/index.vue'
 import SideBar from '@/components/sideBar/index.vue'
+import UntitledRecoveryCenter from '@/components/recovery/untitledRecoveryCenter.vue'
 import bus from '@/bus'
 import { DEFAULT_STYLE } from '@/config'
 import { useLayoutStore } from '@/store/layout'

@@ -192,6 +192,7 @@ interface ProjectStoreLike {
 export interface EditorState {
   currentFile: IFileState | null
   tabs: IFileState[]
+  pendingUntitledRecoveries: UntitledRecoveryDraft[]
   tabIdToIndex: Record<string, number>
   tabLifecycle: Record<string, TabLifecycle>
   tabActivationOrder: string[]
@@ -200,6 +201,10 @@ export interface EditorState {
   listToc: TocItem[]
   toc: TocTreeNode[]
   activeTocSlug: string | null
+}
+
+export type UntitledRecoveryDraft = BufferedTabState & {
+  originalIndex: number
 }
 
 export type ClosedTabState = Pick<
@@ -256,6 +261,7 @@ export const useEditorStore = defineStore('editor', {
   state: (): EditorState => ({
     currentFile: null,
     tabs: [],
+    pendingUntitledRecoveries: [],
     tabIdToIndex: {},
     tabLifecycle: {},
     tabActivationOrder: [],
@@ -308,7 +314,15 @@ export const useEditorStore = defineStore('editor', {
     },
 
     CREATE_BUFFERED_STATE(): ReturnType<typeof createBufferedEditorState> {
-      return createBufferedEditorState(this.$state)
+      const tabs = this.tabs.map(createBufferedTabState)
+      const pending = [...this.pendingUntitledRecoveries].sort(
+        (left, right) => left.originalIndex - right.originalIndex
+      )
+      for (const recovery of pending) {
+        const { originalIndex, ...tab } = recovery
+        tabs.splice(Math.min(originalIndex, tabs.length), 0, tab)
+      }
+      return createBufferedEditorState({ ...this.$state, tabs })
     },
 
     RESTORE_BUFFERED_STATE(state: unknown): void {
@@ -320,8 +334,18 @@ export const useEditorStore = defineStore('editor', {
         return
       }
 
+      const pendingUntitledRecoveries: UntitledRecoveryDraft[] = []
+      const visibleBufferedTabs: BufferedTabState[] = []
+      bufferedEditorState.tabs.forEach((tab, originalIndex) => {
+        if (!tab.pathname && !tab.isSaved) {
+          pendingUntitledRecoveries.push({ ...tab, originalIndex })
+        } else {
+          visibleBufferedTabs.push(tab)
+        }
+      })
+
       const oldIdToNewId: Record<string, string> = {}
-      const tabs: IFileState[] = bufferedEditorState.tabs.map((tab) => {
+      const tabs: IFileState[] = visibleBufferedTabs.map((tab) => {
         const fileState = createDocumentState(tab as unknown as Record<string, unknown>)
         oldIdToNewId[tab.id] = fileState.id
         return fileState
@@ -339,6 +363,7 @@ export const useEditorStore = defineStore('editor', {
       layoutStore.RESTORE_BUFFERED_STATE(rawState?.layout)
       this.$patch((s) => {
         s.tabs = tabs
+        s.pendingUntitledRecoveries = pendingUntitledRecoveries
         s.currentFile = currentFile
         s.tabIdToIndex = {}
         s.tabLifecycle = {}
@@ -383,6 +408,38 @@ export const useEditorStore = defineStore('editor', {
           exclusiveType: warning.exclusiveType
         })
       }
+    },
+
+    async RESTORE_UNTITLED_RECOVERY(recoveryId: string): Promise<string | null> {
+      const recoveryIndex = this.pendingUntitledRecoveries.findIndex((item) => item.id === recoveryId)
+      if (recoveryIndex === -1) return null
+
+      const recovery = this.pendingUntitledRecoveries[recoveryIndex]
+      if (!recovery) return null
+      const filename = getBlankFileState(
+        this.tabs,
+        recovery.encoding.encoding,
+        String(recovery.lineEnding),
+        recovery.markdown
+      ).filename
+      const restored = createDocumentState({
+        ...recovery,
+        id: undefined,
+        filename,
+        pathname: '',
+        isSaved: false
+      })
+
+      this.pendingUntitledRecoveries.splice(recoveryIndex, 1)
+      this.UPDATE_CURRENT_FILE(restored)
+      bus.emit('file-loaded', {
+        id: restored.id,
+        markdown: restored.markdown,
+        cursor: restored.cursor,
+        contentAlreadyLoaded: true
+      })
+      await sendBufferedState()
+      return restored.id
     },
 
     /**
@@ -2419,9 +2476,11 @@ interface BufferedTabState {
   wordCount: IFileState['wordCount']
   muyaIndexCursor: unknown
   scrollTop: number
+  protectedAt: number
 }
 
 const createBufferedTabState = (tab: Partial<IFileState> & { id: string }): BufferedTabState => {
+  const protectedAt = (tab as Partial<BufferedTabState>).protectedAt
   return {
     id: tab.id,
     pathname: tab.pathname ?? defaultFileState.pathname,
@@ -2438,7 +2497,8 @@ const createBufferedTabState = (tab: Partial<IFileState> & { id: string }): Buff
     cursor: toSerializableValue(tab.cursor, defaultFileState.cursor),
     wordCount: toSerializableValue(tab.wordCount, defaultFileState.wordCount),
     muyaIndexCursor: toSerializableValue(tab.muyaIndexCursor, defaultFileState.muyaIndexCursor),
-    scrollTop: tab.scrollTop ?? defaultFileState.scrollTop
+    scrollTop: tab.scrollTop ?? defaultFileState.scrollTop,
+    protectedAt: typeof protectedAt === 'number' ? protectedAt : Date.now()
   }
 }
 
