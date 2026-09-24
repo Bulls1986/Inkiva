@@ -10,5 +10,6 @@ Use this index for correctness/readiness contracts and product-functional gates.
 - [US10 — Inline Markdown Syntax Visibility & Fidelity](US10-INLINE-SYNTAX-VISIBILITY.md) — Half-open inline marker visibility, render-only reveal/hide, and incomplete Markdown source fidelity.
 - [Settings functional gate](SETTINGS-FUNCTIONAL-GATE.md) — Settings UI → store → live effect → reopen/restart persistence contract.
 - [US06 — Settings Effect Closure](US06-SETTINGS-EFFECT-CLOSURE.md) — acknowledged preference writes, effect timing, retry/rollback, delayed-effect feedback, autosave bounds and Settings search targeting.
+- [v0.5 US01-US10 compliance closure](V0.5-US01-10-COMPLIANCE-CLOSURE.md) — Latest-`develop` re-audit, architecture debt closure, combined-state validation, and final acceptance record.
 
 Correctness stage records belong here; reusable testing discipline remains in `docs/agent/TESTING.md`.
