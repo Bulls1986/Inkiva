@@ -46,9 +46,11 @@ Known unrelated baseline evidence:
 
 ## Stage status
 
-Implementation and focused validation are complete on branch `feat/us04-local-history`, based on `origin/develop@cd00ada`.
+Implementation and focused validation completed on branch `feat/us04-local-history`, based on `origin/develop@cd00ada`.
 
-No merge has been performed.
+PR #188 was squash-merged into `develop` on 2026-09-24. The merge commit is `ceb5b65cab4b6286edd692df3fa277b2685ee66c`.
+
+Final CI evidence on PR #188: lint passed, unit tests passed, E2E passed (377 tests with the prior large-Source failure not reproduced), Windows/macOS build and package smoke passed, Updater artifact smoke passed, and the Desktop PR fast hard gate passed on an unchanged-threshold rerun after an initial runner-sensitive p95 outlier.
 
 ## Learning review
 
