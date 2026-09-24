@@ -98,13 +98,13 @@ const handleInput = (value: string) => {
     }
 
     if (props.emitTime === 0) {
-      void commit(value)
+      commit(value)
       return
     }
 
     inputTimer = setTimeout(() => {
       inputTimer = null
-      void commit(value)
+      commit(value)
     }, props.emitTime)
   }
 }

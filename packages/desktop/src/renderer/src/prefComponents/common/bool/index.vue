@@ -90,7 +90,7 @@ const handleMoreClick = () => {
 }
 
 const handleSwitchChange = (value: boolean | string | number) => {
-  void commit(Boolean(value))
+  commit(Boolean(value))
 }
 </script>
 

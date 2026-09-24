@@ -85,7 +85,7 @@ const handleMoreClick = () => {
 const select = (value: number | number[]) => {
   // el-slider may emit number[] in range mode; this control is single-value only.
   if (typeof value === 'number') {
-    void commit(value)
+    commit(value)
   }
 }
 </script>

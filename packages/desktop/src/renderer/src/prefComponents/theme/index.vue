@@ -154,7 +154,7 @@ const handleThemeKeydown = (event: KeyboardEvent, name: string): void => {
   if (event.target !== event.currentTarget) return
   if (event.key !== 'Enter' && event.key !== ' ') return
   event.preventDefault()
-  if (!followSystemTheme.value) void commitTheme(name)
+  if (!followSystemTheme.value) commitTheme(name)
 }
 </script>
 

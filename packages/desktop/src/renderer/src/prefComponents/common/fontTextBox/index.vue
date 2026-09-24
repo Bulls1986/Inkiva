@@ -99,7 +99,7 @@ const handleSelect = (selection: { value?: string } | string) => {
   const value = typeof selection === 'string' ? selection : (selection?.value ?? '')
   if (/^[^\s]+((-|\s)*[^\s])*$/.test(value)) {
     selectValue.value = value
-    void commit(value)
+    commit(value)
   }
 }
 

@@ -81,6 +81,15 @@ Final remote-`develop` synchronization at `60be6a6`:
 - Settings + writing-area Electron functional gate: **6/6 PASS** using one worker and the final current-worktree build output (37.3 s);
 - PR #200 targets `develop`; the branch is not configured for automatic merge.
 
+CI lint follow-up on PR #200:
+
+- the first PR lint run failed with **8 errors** in US06-touched Vue files; the remaining 271 findings were warnings and were not treated as new US06 blockers;
+- GitHub Check Run annotations identified the exact failures: seven forbidden `void` expressions around async preference commits plus one `async (` spacing violation;
+- the fix only removed the prohibited `void` operators and corrected spacing; preference mutation ordering/behavior was unchanged;
+- `git diff --check`: **PASS** after the lint fix;
+- current-worktree Electron build after the lint fix: **PASS**;
+- Settings + writing-area Electron functional gate after the lint fix: **6/6 PASS** using one worker and rebuilt current-worktree output.
+
 ## Architecture review
 
 - No new persistent preference store.

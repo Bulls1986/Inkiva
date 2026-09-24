@@ -91,7 +91,7 @@ const handleMoreClick = () => {
 }
 
 const select = (value: SelectValue) => {
-  void commit(value)
+  commit(value)
 }
 </script>
 

@@ -108,7 +108,7 @@ const createFilter = (queryString: string): ((restaurant: SearchEntry) => boolea
 
 const loadAll = (): SearchEntry[] => getTranslatedSearchContent()
 
-const focusSearchTarget = async(item: SearchEntry): Promise<void> => {
+const focusSearchTarget = async (item: SearchEntry): Promise<void> => {
   await nextTick()
   const labels = Array.from(document.querySelectorAll<HTMLElement>('.pref-setting .description'))
   const normalizedTarget = item.preference.replace(/[:：]\s*$/, '').trim()
