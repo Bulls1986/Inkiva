@@ -85,11 +85,20 @@ export class LocalHistoryService {
     const snapshot = await this.store.read(request.filePath, request.id)
     if (!snapshot) throw new LocalHistorySnapshotNotFoundError(request.filePath, request.id)
 
-    if (request.expectedCurrentContent !== undefined) {
-      const current = await this.files.readFile(request.filePath)
-      if (current !== request.expectedCurrentContent) {
-        throw new StaleLocalHistoryRestoreError(request.filePath)
-      }
+    const current = await this.files.readFile(request.filePath)
+    if (
+      request.expectedCurrentContent !== undefined &&
+      current !== request.expectedCurrentContent
+    ) {
+      throw new StaleLocalHistoryRestoreError(request.filePath)
+    }
+
+    if (current !== snapshot.content) {
+      await this.store.save({
+        filePath: request.filePath,
+        content: current,
+        reason: 'before-restore'
+      })
     }
 
     await this.files.writeFile(request.filePath, snapshot.content)

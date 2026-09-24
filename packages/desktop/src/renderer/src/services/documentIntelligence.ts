@@ -43,6 +43,7 @@ export interface DocumentIntelligenceApi {
   getBacklinks(targetPath: string): Promise<MarkdownBacklink[]>
   createSnapshot(request: LocalHistoryCreateRequest): Promise<LocalHistoryEntry>
   listSnapshots(filePath: string): Promise<LocalHistoryEntry[]>
+  getSnapshot(filePath: string, id: string): Promise<LocalHistorySnapshot | null>
   restoreSnapshot(request: LocalHistoryRestoreRequest): Promise<LocalHistorySnapshot>
 }
 
@@ -208,6 +209,27 @@ export class DocumentIntelligenceCoordinator {
     const version = this.selectionVersion
     this.patchState({ loading: true, error: null })
     await this.loadCurrent(version, this.state.currentPath)
+  }
+
+  async getSnapshot(id: string): Promise<LocalHistorySnapshot | null> {
+    const current = this.state.currentDocumentId
+      ? this.documents.get(this.state.currentDocumentId)
+      : undefined
+    if (!current?.pathname || this.disposed) return null
+    const version = this.selectionVersion
+    const pathname = current.pathname
+
+    try {
+      const snapshot = await this.runBackground(
+        'snapshot-preview:' + pathname,
+        BACKGROUND_PRIORITY.tabNavigation,
+        () => this.api.getSnapshot(pathname, id)
+      )
+      if (version !== this.selectionVersion || this.disposed) return null
+      return snapshot
+    } catch {
+      return null
+    }
   }
 
   async restoreSnapshot(id: string): Promise<LocalHistorySnapshot | null> {

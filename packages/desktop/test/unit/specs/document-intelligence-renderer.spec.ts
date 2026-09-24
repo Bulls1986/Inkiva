@@ -48,6 +48,7 @@ const createApi = (): DocumentIntelligenceApi => ({
     reason: request.reason ?? 'unknown'
   })),
   listSnapshots: vi.fn(async() => []),
+  getSnapshot: vi.fn(async(filePath) => snapshot(filePath)),
   restoreSnapshot: vi.fn(async(request) => snapshot(request.filePath))
 })
 
@@ -290,6 +291,22 @@ describe('renderer document intelligence coordinator', () => {
     expect(coordinator.getState().currentDocumentId).toBe(second.id)
     expect(coordinator.getState().history).toEqual([historyEntry(second.pathname)])
     expect(states.at(-1)?.loading).toBe(false)
+
+    coordinator.dispose()
+  })
+
+  it('loads a history snapshot for preview without restoring the file', async() => {
+    const api = createApi()
+    const coordinator = new DocumentIntelligenceCoordinator({ api })
+    coordinator.updateDocuments([document('current', { isSaved: true })], 'doc-1')
+    await vi.advanceTimersByTimeAsync(0)
+
+    const preview = coordinator.getSnapshot('snapshot-1')
+    await flushScheduler()
+
+    await expect(preview).resolves.toMatchObject({ content: 'old' })
+    expect(api.getSnapshot).toHaveBeenCalledWith('/docs/note.md', 'snapshot-1')
+    expect(api.restoreSnapshot).not.toHaveBeenCalled()
 
     coordinator.dispose()
   })

@@ -13,6 +13,7 @@ import {
 } from '@/services/documentIntelligence'
 import { rendererPerformance } from '@/services/performance/runtime'
 import { BackgroundTaskScheduler } from '@/util/backgroundScheduler'
+import bus from '@/bus'
 import { useEditorStore } from './editor'
 
 const toDocument = (
@@ -132,6 +133,17 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
     await coordinator?.refresh()
   }
 
+  async function GET_SNAPSHOT(id: string): Promise<LocalHistorySnapshot | null> {
+    return (await coordinator?.getSnapshot(id)) ?? null
+  }
+
+  async function OPEN_SNAPSHOT_COPY(id: string): Promise<boolean> {
+    const snapshot = await GET_SNAPSHOT(id)
+    if (!snapshot) return false
+    bus.emit('mt::new-untitled-tab', { selected: true, markdown: snapshot.content })
+    return true
+  }
+
   async function RESTORE_SNAPSHOT(id: string): Promise<boolean> {
     const current = editorStore.currentFile
     if (!current?.pathname || !current.isSaved || !coordinator) {
@@ -185,6 +197,8 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
     START,
     STOP,
     REFRESH,
+    GET_SNAPSHOT,
+    OPEN_SNAPSHOT_COPY,
     RESTORE_SNAPSHOT
   }
 })
