@@ -190,7 +190,7 @@ export interface IpcInvokeChannels {
   'mt::win::is-maximized': { args: []; ret: boolean }
   // Main derives the BrowserWindow via BrowserWindow.fromWebContents(e.sender);
   // no need to pass windowId. Payload is the editor+project+layout snapshot.
-  'update-buffer-state': { args: [payload: BufferedStateType]; ret: void }
+  'update-buffer-state': { args: [payload: BufferedStateType]; ret: boolean }
 }
 
 // =================================================================
@@ -356,7 +356,9 @@ export interface IpcMainEventChannels {
   'mt::execute-command-by-id': [commandId: string]
   'mt::export-success': [payload: { type: string; filePath: string }]
   'mt::file-saved': [tabId: string]
-  'mt::force-close-tabs-by-id': [tabIds: string[]]
+  'mt::force-close-tabs-by-id': [tabIds: string[], discard?: boolean]
+  'mt::retain-and-close-tabs-by-id': [tabIds: string[]]
+  'mt::retain-and-close-window': []
   'mt::invalidate-image-cache': []
   'mt::keybindings-response': [bindings: unknown]
   'mt::load-state': [state: BufferedStateType]
@@ -378,7 +380,9 @@ export interface IpcMainEventChannels {
   'mt::rg::progress': [payload: unknown]
   'mt::screenshot-captured': [filePath: string]
   'mt::set-line-ending': [lineEnding: LineEnding]
-  'mt::set-pathname': [payload: { id: string; pathname: string; filename: string }]
+  'mt::set-pathname': [
+    payload: { id: string; pathname: string; filename: string; revision?: number }
+  ]
   'mt::set-view-layout': [layout: unknown]
   'mt::show-command-palette': []
   'mt::show-export-dialog': [type: ExportType]
@@ -388,8 +392,8 @@ export interface IpcMainEventChannels {
   'mt::spelling-show-switch-language': []
   'mt::switch-tab-by-file_path': [filePath: string]
   'mt::switch-tab-by-index': [index: number]
-  'mt::tab-save-failure': [tabId: string, message: string]
-  'mt::tab-saved': [tabId: string]
+  'mt::tab-save-failure': [tabId: string, message: string, revision?: number]
+  'mt::tab-saved': [tabId: string, revision?: number]
   'mt::tabs-cycle-left': []
   'mt::tabs-cycle-right': []
   'mt::toggle-view-layout-entry': [entry: string]

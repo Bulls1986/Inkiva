@@ -8,6 +8,7 @@
       :word-count="wordCount"
       :platform="platform"
       :is-saved="isSaved"
+      :durability-status="durabilityStatus"
     />
 
     <div class="editor-workspace">
@@ -28,10 +29,7 @@
         >
           <tabs />
         </div>
-        <div
-          v-if="!init"
-          class="editor-placeholder"
-        />
+        <div v-if="!init" class="editor-placeholder" />
         <recent v-if="!hasCurrentFile && init" />
         <editor-with-tabs
           v-if="hasCurrentFile && init"
@@ -116,6 +114,14 @@ const { currentFile } = storeToRefs(editorStore)
 const pathname = computed(() => currentFile.value?.pathname)
 const filename = computed(() => currentFile.value?.filename)
 const isSaved = computed(() => currentFile.value?.isSaved)
+const durabilityStatus = computed(() => {
+  const id = currentFile.value?.id
+  if (!id) return undefined
+  return (
+    editorStore.durabilityByTabId[id]?.status ??
+    (currentFile.value?.isSaved ? 'saved' : 'unprotected')
+  )
+})
 const markdown = computed<string>(() => currentFile.value?.markdown ?? '')
 const cursor = computed(() => currentFile.value?.cursor)
 const wordCount = computed(() => currentFile.value?.wordCount)

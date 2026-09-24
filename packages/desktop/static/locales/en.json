@@ -146,6 +146,9 @@
   "titlebar": {
     "saved": "Saved",
     "unsaved": "Unsaved",
+    "savedFile": "Saved to file",
+    "protected": "Protected in Inkiva only",
+    "unprotected": "Not protected yet",
     "untitled": "Untitled document",
     "menu": "Application menu",
     "maximize": "Maximize window",
@@ -492,7 +495,8 @@
       "autoSave": {
         "title": "Auto Save",
         "description": "Auto save",
-        "delayDescription": "Auto save delay"
+        "delayDescription": "Auto save delay",
+        "protectionNote": "Auto Save writes to the Markdown file. When Auto Save is off, Inkiva still tries to protect temporary drafts. Only ‘Protected in Inkiva only’ confirms that revision is in recovery storage; a protected draft is not the same as a saved file."
       },
       "window": {
         "title": "Window",
@@ -946,6 +950,11 @@
     "changesWillBeLost": "Changes will be lost",
     "close": "Close",
     "dontSave": "Don't Save",
+    "keepForRecovery": "Keep for Recovery",
+    "discardChanges": "Discard Changes",
+    "confirmDiscardChanges": "Discard these changes?",
+    "discardCannotRecover": "This removes the retained Inkiva draft. These changes cannot be recovered afterward.",
+    "unsavedProtectionDetail": "Save writes to the Markdown file. Keep for Recovery closes only after Inkiva confirms a recovery draft. Discard permanently drops these changes.",
     "file": "File",
     "fileExists": "File exists {filename}",
     "files": "Files",
@@ -1004,6 +1013,7 @@
       "imageDeletionUrlTitle": "Image deletion URL",
       "imageDeletionUrlMessage": "Click to copy the deletion URL of the uploaded image to the clipboard {url}",
       "errorWhileSaving": "There was an error while saving: {msg}",
+      "errorWhileProtectingDraft": "Inkiva could not protect the latest draft for recovery: {msg}",
       "exportSuccessTitle": "Exported successfully",
       "exportSuccessMessage": "Exported \"{name}\" successfully!",
       "fileRemovedOnDisk": "\"{name}\" has been removed on disk.",
