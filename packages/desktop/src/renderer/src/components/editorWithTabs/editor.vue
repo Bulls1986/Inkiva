@@ -130,6 +130,7 @@ import { resolveTocHeadingElement } from '@/util/tocNavigation'
 import { createTocRefreshScheduler, createTocScrollSync } from '@/util/tocOutline'
 import { createEditorLayoutReconciler } from '@/util/editorLayout'
 import { createDocumentGeometryProjection } from '@/util/documentGeometry'
+import { createRestoreInteractionFence } from '@/util/restoreInteractionFence'
 import { addCommonStyle, setEditorWidth } from '@/util/theme'
 import { usePreferencesStore } from '@/store/preferences'
 import { useEditorStore } from '@/store/editor'
@@ -1557,6 +1558,11 @@ const handleUploadedImage = (url: unknown, deletionUrl?: unknown) => {
 const getScrollContainer = (): HTMLElement | null =>
   (editor.value?.domNode as HTMLElement | undefined) ?? null
 
+// A semantic restore can wait for progressive rendering. During that wait the
+// user may scroll/click/type elsewhere; those explicit actions must supersede
+// the queued restore instead of letting it pull the viewport back later.
+const restoreInteractionFence = createRestoreInteractionFence(window)
+
 type PendingScrollRestore = {
   container: HTMLElement
   target: number
@@ -2527,7 +2533,20 @@ const handleFileChange = (payload: unknown) => {
     // Resolve the heading against the freshly rendered TOC, then reveal that
     // semantic location. If the heading disappeared, fall back to the old
     // offset/caret without jumping to an unrelated same-level heading.
+    //
+    // Progressive rendering can keep this callback queued long enough for the
+    // user to make a newer navigation decision. Capture an interaction token
+    // at scheduling time and fail closed if any explicit user action happens
+    // before the callback runs (US07 / AC-34).
+    const restoreInteractionToken = restoreInteractionFence.capture()
     runWhenEditorRenderComplete(id, () => {
+      if (!restoreInteractionFence.isCurrent(restoreInteractionToken)) {
+        container.style.visibility = 'visible'
+        container.style.pointerEvents = 'auto'
+        markEditorCommandContextReady(id)
+        return
+      }
+
       refreshEditorToc(false)
       const anchorExists = editorStore.listToc.some((item) => item.slug === viewportAnchorSlug)
       if (anchorExists) {
@@ -3065,6 +3084,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   editorPerformanceGeneration += 1
   flushActiveEditor()
+  restoreInteractionFence.destroy()
   editorRuntime.dispose()
 })
 </script>
