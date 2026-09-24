@@ -34,6 +34,9 @@ export interface ICodeBlockState {
         // first word — derive via `firstWordOfInfo()`, never assume a single word.
         lang: string;
         fenceLength?: number;
+        // False only when the source fenced block has no closing fence yet.
+        // Undefined keeps legacy/existing states closed by default.
+        fenceClosed?: boolean;
     };
     text: string;
 }

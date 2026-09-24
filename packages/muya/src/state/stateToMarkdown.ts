@@ -362,7 +362,8 @@ export default class ExportMarkdown {
             textList.forEach((text) => {
                 result.push(`${indent}${text}\n`);
             });
-            result.push(`${indent}${fence}\n`);
+            if (meta.fenceClosed !== false)
+                result.push(`${indent}${fence}\n`);
         }
         else {
             textList.forEach((text) => {

@@ -6,7 +6,7 @@ import type { IRenderCursor } from '../../selection/types';
 import type InlineRenderer from '../index';
 import type { ISyntaxRenderOptions, Token } from '../types';
 import { CLASS_NAMES } from '../../config';
-import { conflict, methodMixins, snakeToCamel } from '../../utils';
+import { methodMixins, snakeToCamel } from '../../utils';
 import { h, toHTML } from '../../utils/snabbdom';
 import autoLink from './autoLink';
 import autoLinkExtension from './autoLinkExtension';
@@ -115,10 +115,12 @@ class Renderer {
             return false;
 
         const { start, end } = token.range;
+        const isCursorInsideToken = (offset: number) =>
+            offset >= start && offset < end;
 
         return (
-            conflict([start, end], [anchor.offset, anchor.offset])
-            || conflict([start, end], [focus.offset, focus.offset])
+            isCursorInsideToken(anchor.offset)
+            || isCursorInsideToken(focus.offset)
         );
     }
 
