@@ -908,6 +908,10 @@ export const openFileOrFolder = (win: BrowserWindow, pathname: string): void => 
   }
 }
 
+export const openRecoveryCenter = (win: Win): void => {
+  if (win?.webContents) win.webContents.send('mt::open-recovery-center')
+}
+
 export const newBlankTab = (win: Win): void => {
   if (win && win.webContents) {
     win.webContents.send('mt::new-untitled-tab')

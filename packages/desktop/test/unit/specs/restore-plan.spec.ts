@@ -65,6 +65,10 @@ describe('restore plan', () => {
     ])
     expect(plan.windows[0]?.activeTab).toBe('dirty')
     expect(plan.state?.tabs.map(({ markdown }) => markdown)).toEqual(['# Unsaved', '# Second'])
+    expect(plan.automaticState?.tabs.map(({ markdown }) => markdown)).toEqual(['# Second'])
+    expect(plan.pendingTabs.map(({ id, markdown }) => ({ id, markdown }))).toEqual([
+      { id: 'dirty', markdown: '# Unsaved' }
+    ])
     expect(plan.state?.project).toEqual({ rootDirectory: 'C:\\Docs' })
     expect(plan.sources.map(({ id }) => id)).toEqual(['a-dirty', 'b-clean'])
     expect(plan.skippedSources).toEqual([
