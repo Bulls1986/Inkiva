@@ -173,6 +173,7 @@ const requireApplyRequest = (value: unknown): ApplyRenameRepairRequest => {
 const HISTORY_REASONS = new Set([
   'manual',
   'before-save',
+  'before-restore',
   'before-external-change',
   'autosave',
   'close',

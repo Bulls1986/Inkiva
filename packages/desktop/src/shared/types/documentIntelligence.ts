@@ -99,6 +99,7 @@ export interface LocalHistoryPruneResult {
 export type LocalHistoryReason =
   | 'manual'
   | 'before-save'
+  | 'before-restore'
   | 'before-external-change'
   | 'autosave'
   | 'close'

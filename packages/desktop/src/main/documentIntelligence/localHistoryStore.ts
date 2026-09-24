@@ -19,6 +19,7 @@ export const DEFAULT_LOCAL_HISTORY_MAX_TOTAL_BYTES = 50 * 1024 * 1024
 const LOCAL_HISTORY_REASONS: readonly LocalHistoryReason[] = [
   'manual',
   'before-save',
+  'before-restore',
   'before-external-change',
   'autosave',
   'close',
