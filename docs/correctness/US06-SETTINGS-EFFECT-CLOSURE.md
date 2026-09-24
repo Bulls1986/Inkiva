@@ -97,6 +97,7 @@ CI visual-regression follow-up on PR #200:
 - the changed rows align with US06's intentional effect-status / retry / restart feedback additions, so this is an expected visual contract change rather than unrelated visual drift;
 - `preferences-linux.png` was updated from the exact CI Linux actual screenshot; SHA-256 of source artifact and committed baseline both equal `332B85210DA41F430DA0D3498DDB9F59B42CE29175CCA52C5356BFE4CD498489`;
 - all non-E2E PR gates before the baseline update were green, including lint, unit test, Desktop Fast Gate, Windows/macOS builds, all package smoke jobs and updater artifact smoke.
+- final PR #200 rerun after the Linux baseline update: **ALL GREEN** — E2E PASS (8m08s), lint PASS, test PASS, Desktop PR fast hard gate PASS, Windows/macOS x64/macOS ARM64 PR builds PASS, all three package smoke jobs PASS, updater artifact smoke PASS.
 
 ## Architecture review
 
