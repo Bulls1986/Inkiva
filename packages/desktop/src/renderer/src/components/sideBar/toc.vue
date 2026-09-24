@@ -105,7 +105,7 @@ const defaultProps = {
   label: 'label'
 }
 
-const { toc, activeTocSlug } = storeToRefs(editorStore)
+const { toc, activeTocSlug, currentFile } = storeToRefs(editorStore)
 const { wordWrapInToc } = storeToRefs(preferencesStore)
 
 const searchQuery = ref('')
@@ -129,15 +129,29 @@ const filteredToc = computed<KeyedTocNode[]>(() => filterTocTree(keyedToc.value,
 // expanded by default; a collapse is remembered here.
 const collapsedKeys = ref<Set<string>>(new Set())
 
+const persistCollapsedKeys = (keys: Set<string>): void => {
+  collapsedKeys.value = keys
+  editorStore.SET_TOC_COLLAPSED_KEYS([...keys])
+}
+
+watch(
+  () => currentFile.value?.id,
+  () => {
+    collapsedKeys.value = new Set(currentFile.value?.tocCollapsedKeys ?? [])
+  },
+  { immediate: true }
+)
+
 const onCollapse = (data: { key?: string }): void => {
-  if (data.key) collapsedKeys.value = new Set(collapsedKeys.value).add(data.key)
+  if (!data.key) return
+  persistCollapsedKeys(new Set(collapsedKeys.value).add(data.key))
 }
 
 const onExpand = (data: { key?: string }): void => {
   if (!data.key) return
   const next = new Set(collapsedKeys.value)
   next.delete(data.key)
-  collapsedKeys.value = next
+  persistCollapsedKeys(next)
 }
 
 // The set el-tree should have expanded: every node that is neither collapsed
@@ -183,13 +197,13 @@ watch(
 )
 
 const expandAll = (): void => {
-  collapsedKeys.value = new Set()
+  persistCollapsedKeys(new Set())
 }
 
 const collapseAll = (): void => {
   const topLevelKeys = new Set(keyedToc.value.map((node) => node.key))
-  collapsedKeys.value = new Set(
-    getExpandableTocKeys(keyedToc.value).filter((key) => !topLevelKeys.has(key))
+  persistCollapsedKeys(
+    new Set(getExpandableTocKeys(keyedToc.value).filter((key) => !topLevelKeys.has(key)))
   )
 }
 

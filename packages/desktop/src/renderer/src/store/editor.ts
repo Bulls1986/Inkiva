@@ -308,6 +308,12 @@ export const useEditorStore = defineStore('editor', {
     },
 
     CREATE_BUFFERED_STATE(): ReturnType<typeof createBufferedEditorState> {
+      // Source mode is a live window surface, but US05 persists it per document.
+      // Capture the active tab's current surface at the persistence boundary so
+      // exiting immediately after a mode toggle cannot write a stale tab value.
+      if (this.currentFile) {
+        this.currentFile.sourceCodeMode = usePreferencesStore().sourceCode
+      }
       return createBufferedEditorState(this.$state)
     },
 
@@ -353,13 +359,23 @@ export const useEditorStore = defineStore('editor', {
         s.closedTabs = []
         s.listToc = []
         s.toc = []
-        s.activeTocSlug = null
+        s.activeTocSlug = currentFile?.viewportAnchorSlug ?? null
       })
 
       this.updateTabIdToIndex()
       this.SYNC_TAB_LIFECYCLE()
       window.DIRNAME = currentFile?.pathname ? window.path.dirname(currentFile.pathname) : ''
       this.UPDATE_LINE_ENDING_MENU()
+      if (currentFile) {
+        const preferencesStore = usePreferencesStore()
+        const restoredSourceMode =
+          typeof currentFile.sourceCodeMode === 'boolean'
+            ? currentFile.sourceCodeMode
+            : preferencesStore.sourceCodeModeEnabled
+        currentFile.sourceCodeMode = restoredSourceMode
+        preferencesStore.SET_MODE({ type: 'sourceCode', checked: restoredSourceMode })
+        preferencesStore.DISPATCH_EDITOR_VIEW_STATE({ sourceCode: restoredSourceMode })
+      }
       const recentDocumentsStore = useRecentDocumentsStore()
       tabs.forEach((tab) => {
         if (tab.pathname) recentDocumentsStore.RECORD_FILE(tab.pathname)
@@ -1059,15 +1075,42 @@ export const useEditorStore = defineStore('editor', {
       const oldCurrentFile = this.currentFile
       let didUpdateCurrentFile = false
       if (oldCurrentFile == null || oldCurrentFile.id !== currentFile.id) {
-        const { id, markdown, cursor, history, pathname, scrollTop, blocks, muyaIndexCursor } =
-          currentFile
+        const preferencesStore = usePreferencesStore()
+        const {
+          id,
+          markdown,
+          cursor,
+          history,
+          pathname,
+          scrollTop,
+          blocks,
+          muyaIndexCursor,
+          viewportAnchorSlug
+        } = currentFile
         // Must run while `currentFile` still points at the outgoing tab, so its
         // flushed edit is attributed to that tab and not lost on switch (#2938).
         if (oldCurrentFile) {
           this.flushActiveEditorForTabSwitch()
+          oldCurrentFile.sourceCodeMode = preferencesStore.sourceCode
         }
+
+        const targetSourceMode =
+          typeof currentFile.sourceCodeMode === 'boolean'
+            ? currentFile.sourceCodeMode
+            : preferencesStore.sourceCodeModeEnabled
+        currentFile.sourceCodeMode = targetSourceMode
+        // Change the live editor surface before swapping `currentFile`. The
+        // source/WYSIWYG transition watchers then flush the outgoing document,
+        // never the incoming tab, while the persistent new-tab default remains
+        // untouched.
+        if (preferencesStore.sourceCode !== targetSourceMode) {
+          preferencesStore.SET_MODE({ type: 'sourceCode', checked: targetSourceMode })
+          preferencesStore.DISPATCH_EDITOR_VIEW_STATE({ sourceCode: targetSourceMode })
+        }
+
         window.DIRNAME = pathname ? window.path.dirname(pathname) : ''
         this.currentFile = currentFile
+        this.activeTocSlug = viewportAnchorSlug ?? null
         didUpdateCurrentFile = true
 
         if (!this.tabs.some((file) => file.id === currentFile.id)) {
@@ -1084,7 +1127,7 @@ export const useEditorStore = defineStore('editor', {
           renderCursor: true,
           history,
           scrollTop,
-          blocks
+          blocks,
         })
       }
 
@@ -1583,6 +1626,7 @@ export const useEditorStore = defineStore('editor', {
         endOfLine,
         markdownString ?? null
       )
+      fileState.sourceCodeMode = preferencesStore.sourceCodeModeEnabled
 
       if (selected) {
         const { id, markdown } = fileState
@@ -1654,6 +1698,9 @@ export const useEditorStore = defineStore('editor', {
           options as Record<string, unknown>
         )
       )
+      if (typeof docState.sourceCodeMode !== 'boolean') {
+        docState.sourceCodeMode = usePreferencesStore().sourceCodeModeEnabled
+      }
       const { id, cursor } = docState
 
       if (selected) {
@@ -1727,6 +1774,7 @@ export const useEditorStore = defineStore('editor', {
       const slugIndex = getTocSlugIndex(this, this.listToc)
       if (this.activeTocSlug && !slugIndex.has(this.activeTocSlug)) {
         this.activeTocSlug = null
+        if (this.currentFile) this.currentFile.viewportAnchorSlug = null
       }
       return true
     },
@@ -1734,11 +1782,21 @@ export const useEditorStore = defineStore('editor', {
     UPDATE_ACTIVE_TOC(slug: string | null): void {
       if (slug === null) {
         this.activeTocSlug = null
+        if (this.currentFile) this.currentFile.viewportAnchorSlug = null
+        debouncedSendBufferedState()
         return
       }
       if (getTocSlugIndex(this, this.listToc).has(slug)) {
         this.activeTocSlug = slug
+        if (this.currentFile) this.currentFile.viewportAnchorSlug = slug
+        debouncedSendBufferedState()
       }
+    },
+
+    SET_TOC_COLLAPSED_KEYS(keys: string[]): void {
+      if (!this.currentFile) return
+      this.currentFile.tocCollapsedKeys = [...new Set(keys.filter((key) => !!key))]
+      debouncedSendBufferedState()
     },
 
     // Content change from realtime preview editor and source code editor
@@ -2175,9 +2233,57 @@ export const useEditorStore = defineStore('editor', {
       })
     },
 
+    RECONCILE_RESTORED_TAB(payload: { pathname?: unknown; markdown?: unknown }): void {
+      if (typeof payload.pathname !== 'string' || typeof payload.markdown !== 'string') return
+      const tab = this.tabs.find((candidate) =>
+        window.fileUtils.isSamePathSync(candidate.pathname, payload.pathname as string)
+      )
+      // Never let a delayed disk read overwrite edits made after the session
+      // became interactive.
+      if (!tab || !tab.isSaved || tab.markdown === payload.markdown) return
+
+      tab.markdown = payload.markdown
+      if (this.currentFile?.id === tab.id) {
+        bus.emit('file-changed', {
+          id: tab.id,
+          markdown: tab.markdown,
+          cursor: tab.cursor,
+          muyaIndexCursor: tab.muyaIndexCursor,
+          history: tab.history,
+          scrollTop: tab.scrollTop,
+          isReload: true
+        })
+      }
+      debouncedSendBufferedState()
+    },
+
+    PUSH_RESTORE_WARNING(warning: RestoreWarning): void {
+      const tab = warning.tabId
+        ? this.tabs.find((candidate) => candidate.id === warning.tabId)
+        : this.tabs.find((candidate) =>
+          window.fileUtils.isSamePathSync(candidate.pathname, warning.pathname ?? '')
+        )
+      if (!tab) return
+      tab.isSaved = false
+      this.pushTabNotification({
+        tabId: tab.id,
+        msg: warning.msg,
+        showConfirm: warning.showConfirm,
+        style: warning.style,
+        exclusiveType: warning.exclusiveType
+      })
+      debouncedSendBufferedState()
+    },
+
     LISTEN_FOR_STATE_REPLACE(): void {
       window.electron.ipcRenderer.on('mt::load-state', (_, state) => {
         this.RESTORE_BUFFERED_STATE(state)
+      })
+      window.electron.ipcRenderer.on('mt::reconcile-restored-tab', (_, payload) => {
+        this.RECONCILE_RESTORED_TAB(payload as { pathname?: unknown; markdown?: unknown })
+      })
+      window.electron.ipcRenderer.on('mt::restore-tab-warning', (_, warning) => {
+        this.PUSH_RESTORE_WARNING(warning as RestoreWarning)
       })
     }
   }
@@ -2419,6 +2525,9 @@ interface BufferedTabState {
   wordCount: IFileState['wordCount']
   muyaIndexCursor: unknown
   scrollTop: number
+  sourceCodeMode?: boolean
+  viewportAnchorSlug: string | null
+  tocCollapsedKeys: string[]
 }
 
 const createBufferedTabState = (tab: Partial<IFileState> & { id: string }): BufferedTabState => {
@@ -2438,7 +2547,13 @@ const createBufferedTabState = (tab: Partial<IFileState> & { id: string }): Buff
     cursor: toSerializableValue(tab.cursor, defaultFileState.cursor),
     wordCount: toSerializableValue(tab.wordCount, defaultFileState.wordCount),
     muyaIndexCursor: toSerializableValue(tab.muyaIndexCursor, defaultFileState.muyaIndexCursor),
-    scrollTop: tab.scrollTop ?? defaultFileState.scrollTop
+    scrollTop: tab.scrollTop ?? defaultFileState.scrollTop,
+    sourceCodeMode: typeof tab.sourceCodeMode === 'boolean' ? tab.sourceCodeMode : undefined,
+    viewportAnchorSlug:
+      typeof tab.viewportAnchorSlug === 'string' ? tab.viewportAnchorSlug : null,
+    tocCollapsedKeys: Array.isArray(tab.tocCollapsedKeys)
+      ? tab.tocCollapsedKeys.filter((key): key is string => typeof key === 'string')
+      : []
   }
 }
 
