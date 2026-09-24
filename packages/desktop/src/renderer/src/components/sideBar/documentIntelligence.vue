@@ -265,7 +265,7 @@ const closeHistoryPreview = (): void => {
   confirmRestore.value = false
 }
 
-const openHistoryPreview = async(entry: LocalHistoryEntry): Promise<void> => {
+const openHistoryPreview = async (entry: LocalHistoryEntry): Promise<void> => {
   previewLoading.value = true
   confirmRestore.value = false
   try {
@@ -278,13 +278,13 @@ const openHistoryPreview = async(entry: LocalHistoryEntry): Promise<void> => {
   }
 }
 
-const openSnapshotCopy = async(): Promise<void> => {
+const openSnapshotCopy = async (): Promise<void> => {
   if (!selectedEntry.value) return
   const opened = await documentIntelligenceStore.OPEN_SNAPSHOT_COPY(selectedEntry.value.id)
   if (opened) closeHistoryPreview()
 }
 
-const restoreSelectedSnapshot = async(): Promise<void> => {
+const restoreSelectedSnapshot = async (): Promise<void> => {
   if (!selectedEntry.value) return
   const restored = await documentIntelligenceStore.RESTORE_SNAPSHOT(selectedEntry.value.id)
   if (restored) closeHistoryPreview()
