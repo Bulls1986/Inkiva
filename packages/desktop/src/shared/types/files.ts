@@ -93,6 +93,7 @@ export interface IFileState {
   // Muya block tree; only populated for the actively edited tab.
   blocks?: unknown
   isMixedLineEndings?: boolean
+  recoverySourcePath?: string
 }
 
 /**

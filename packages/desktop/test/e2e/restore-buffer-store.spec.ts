@@ -87,6 +87,70 @@ test('restores multiple recovery files into one deduplicated editor window', asy
   }
 })
 
+test('keeps disk V1 intact until the user decides what to do with dirty recovery V2', async() => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-us02-recovery-e2e-'))
+  const documentsDir = path.join(userDataDir, 'documents')
+  const editorStatesDir = path.join(userDataDir, 'editorStates')
+  fs.mkdirSync(documentsDir, { recursive: true })
+  fs.mkdirSync(editorStatesDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(userDataDir, 'preferences.json'),
+    JSON.stringify({ startUpAction: 'restoreAll' }),
+    'utf8'
+  )
+
+  const documentPath = path.join(documentsDir, 'recovery.md')
+  fs.writeFileSync(documentPath, '# V1\n', 'utf8')
+  fs.writeFileSync(
+    path.join(editorStatesDir, 'dirty_editor_buffer_store.json'),
+    JSON.stringify({
+      version: 1,
+      currentFileId: 'dirty',
+      tabs: [
+        {
+          id: 'dirty',
+          filename: 'recovery.md',
+          pathname: documentPath,
+          markdown: '# V2\n',
+          isSaved: false
+        }
+      ],
+      restoreWarnings: []
+    }),
+    'utf8'
+  )
+
+  const launched = await launchElectron([], {
+    userDataDir,
+    suppressErrorDialog: true
+  })
+
+  try {
+    await waitForEditor(launched.page)
+    await waitForMenuReady(launched.app)
+
+    await expect(launched.page.getByTestId('recovery-banner')).toBeVisible()
+    expect(fs.readFileSync(documentPath, 'utf8')).toBe('# V1\n')
+
+    await launched.page.getByRole('button', { name: '查看恢复内容' }).click()
+    await expect(launched.page.getByTestId('recovery-markdown-preview')).toContainText('# V2')
+
+    await launched.page.getByRole('button', { name: '当前文件', exact: true }).click()
+    await expect(launched.page.getByTestId('recovery-markdown-preview')).toContainText('# V1')
+
+    await launched.page.getByRole('button', { name: '恢复版本', exact: true }).click()
+    await launched.page.getByRole('button', { name: '作为新文档打开恢复稿' }).click()
+
+    await expect(launched.page.getByTestId('recovery-document-note')).toContainText(
+      '尚未另存为'
+    )
+    expect(fs.readFileSync(documentPath, 'utf8')).toBe('# V1\n')
+    await expectNoRendererErrors(launched.app)
+  } finally {
+    await closeElectron(launched.app)
+  }
+})
+
 test('skips a corrupt recovery file and still opens a usable blank editor', async() => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-corrupt-restore-e2e-'))
   const editorStatesDir = path.join(userDataDir, 'editorStates')

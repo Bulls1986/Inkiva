@@ -42,6 +42,21 @@ Added `createRestoreInteractionFence` as a small renderer utility and integrated
 
 This keeps the fix at the orchestration boundary where the race occurs instead of adding timers, debounce guesses, component-specific image/Mermaid patches, or another restore state store.
 
+## Stage 4 — Integrate latest develop / converge with US09
+
+Before PR closure, `develop` advanced with US02 and US09. The only merge conflict was in `editor.vue`.
+
+US09 had independently generalized the same freshness requirement behind `editorInteractionRevision` and `runWhenEditorRenderCompleteUnlessUserMoved`, and applied it consistently to delayed caret, Source handoff and semantic viewport restoration. Keeping the US07-specific `createRestoreInteractionFence` beside that mechanism would create two interaction-revision authorities and duplicate listeners.
+
+The conflict was therefore resolved by architectural convergence rather than choosing one side wholesale:
+
+- keep US09's single editor interaction revision and render-complete freshness boundary;
+- use that boundary for US07 semantic viewport restoration;
+- remove the redundant US07-only fence utility and its unit test;
+- retain US07's acceptance/engineering record and validate the combined contract against restore, durability, runtime, geometry and US09 selection/caret coverage.
+
+No US07 behavior was dropped: active user wheel/touch/mouse/pointer/keyboard intent still invalidates stale delayed restoration, but now through the shared editor-level contract.
+
 ## Acceptance mapping
 
 | AC | Evidence / result |
@@ -53,14 +68,15 @@ This keeps the fix at the orchestration boundary where the race occurs instead o
 
 ## Validation
 
-- Worktree-local dependency graph restored with `pnpm install --offline --frozen-lockfile`: PASS; project postinstall completed the Electron native-module rebuild.
-- Focused restore/durability Vitest (`restore-interaction-fence`, `workspace-restore-state`, `buffer-store-restore`, `buffer-store-durable`): **4 files / 19 tests PASS**.
-- Runtime/geometry regression Vitest (`document-editor-runtime`, `editor-layout`): **2 files / 18 tests PASS**.
-- Changed-files ESLint (`editor.vue`, `restoreInteractionFence.ts`, focused spec): PASS; only Node's package-module warning was emitted.
-- Isolated TypeScript check for `restoreInteractionFence.ts`: PASS.
-- Desktop `vue-tsc --noEmit` still reports Muya ambient/type-declaration errors (`__MUYA_BLOCK__`, `MUYA_VERSION`, file-icons, prism declarations). Running the identical command on clean `develop` reproduces the same error set, confirming baseline debt rather than a US07 regression; no reported error points at the US07 utility or changed editor lines.
-- `git -c core.whitespace=cr-at-eol diff --check`: PASS.
-- Independent final diff review remained limited to the US07 editor integration, focused fence utility/test and this stage record; no prototype-specific UI was added.
+Pre-integration evidence established the original US07 gap and implementation: restore/durability **19/19 PASS**, runtime/geometry **18/18 PASS**, changed-files ESLint PASS and CRLF-aware diff check PASS.
+
+Final closure validation after integrating latest `develop` is authoritative:
+
+- integrated unit regression: **7 files / 42 tests PASS**, covering US09 interaction freshness, workspace restore isolation, recovery buffer merge/durability, `DocumentEditorRuntime`, geometry reconciliation and Recovery Center;
+- current-worktree Electron build: PASS;
+- recovery Electron E2E: **4/4 PASS** after the current-worktree build, covering deduplicated recovery restore, dirty recovery decision flow, corrupt recovery tolerance and duplicate-open suppression;
+- the first E2E attempt before building this worktree failed only at `electron.launch`; per the documented E2E evidence ladder that was environment/build evidence, not a product failure;
+- Desktop `vue-tsc --noEmit` remains a known baseline failure: the identical Muya ambient/type-declaration errors reproduce on clean `develop`, so they are not attributable to US07.
 
 ## Learning review
 
@@ -68,3 +84,4 @@ This keeps the fix at the orchestration boundary where the race occurs instead o
 2. Interaction freshness belongs at the delayed orchestration boundary. Geometry propagation should continue to own layout deltas; it should not be overloaded with session-restore policy.
 3. Reuse existing document-owned state. US07 did not require another session store or any new visual surface.
 4. Local test infrastructure that fails before discovery must stay classified as environment evidence. Do not repair it by weakening tests or borrowing source/build artifacts across worktrees.
+5. Parallel stories may converge on the same contract. When a newer story introduces the more general boundary, remove the narrower duplicate rather than preserving both for story ownership; acceptance belongs to behavior, not to duplicate implementation.

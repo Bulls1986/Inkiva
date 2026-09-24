@@ -14,7 +14,7 @@ import { switchLanguage } from '../spellchecker'
 import type { BufferStoreState } from '../editorBufferStore/restore'
 import { mainPerformance, mainProcessPerformanceMonitor } from '../performance/runtime'
 import { canonicalPathKey } from '../session/pathCanonicalizer'
-import type { RestorePlan } from '../session/restorePlan'
+import { createBlankRestorePlan, type RestorePlan } from '../session/restorePlan'
 
 type RawMarkdownDocument = Awaited<ReturnType<typeof loadMarkdownFile>>
 
@@ -605,19 +605,36 @@ class EditorWindow extends BaseWindow {
   applyRestorePlan(plan: RestorePlan): Promise<void> {
     if (!this._contentDeferred) return Promise.resolve()
 
-    this._deferredRestorePlan = plan
-    if (plan.kind === 'restore' && plan.state && plan.primarySource) {
-      this.bufferStoreInfo = {
-        id: plan.primarySource.id,
-        filePath: plan.primarySource.filePath,
-        restoreBufferStores: plan.sources,
-        restoredState: plan.state
+    const hasPendingRecovery = plan.pendingTabs.length > 0
+    const stateToApply = hasPendingRecovery ? plan.automaticState : plan.state
+    this._deferredRestorePlan = stateToApply
+      ? { ...plan, state: stateToApply }
+      : createBlankRestorePlan()
+
+    if (plan.kind === 'restore' && stateToApply) {
+      if (hasPendingRecovery) {
+        // Pending recovery revisions must stay owned by the recovery center.
+        // Keep the fresh buffer identity created with this window so normal
+        // renderer persistence cannot overwrite the previous-session source.
+        this.bufferStoreInfo = {
+          ...this.bufferStoreInfo!,
+          filePath: null,
+          restoreBufferStores: undefined,
+          restoredState: stateToApply
+        }
+      } else if (plan.primarySource) {
+        this.bufferStoreInfo = {
+          id: plan.primarySource.id,
+          filePath: plan.primarySource.filePath,
+          restoreBufferStores: plan.sources,
+          restoredState: stateToApply
+        }
+        if (this.browserWindow) {
+          ;(this.browserWindow as unknown as { restoreBufferId: string }).restoreBufferId =
+            plan.primarySource.id
+        }
       }
-      this._reserveInitialRestoreState(plan.state)
-      if (this.browserWindow) {
-        ;(this.browserWindow as unknown as { restoreBufferId: string }).restoreBufferId =
-          plan.primarySource.id
-      }
+      this._reserveInitialRestoreState(stateToApply)
     }
 
     this._applyDeferredRestorePlan()
@@ -636,7 +653,7 @@ class EditorWindow extends BaseWindow {
 
     this._deferredRestorePlan = null
     this._contentDeferred = false
-    if (plan.kind === 'restore' && plan.state && plan.primarySource) {
+    if (plan.kind === 'restore' && plan.state) {
       void this._restoreAllState().then(
         () => this._resolveDeferredContent(),
         (error: unknown) => {

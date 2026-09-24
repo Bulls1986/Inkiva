@@ -12,6 +12,7 @@
       "openFile": "파일 열기...",
       "openFolder": "폴더 열기...",
       "openRecent": "최근 파일",
+      "recoveryContents": "복구 내용…",
       "clearRecentlyUsed": "최근 사용 목록 지우기",
       "save": "저장",
       "saveAs": "다른 이름으로 저장...",

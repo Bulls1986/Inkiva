@@ -31,6 +31,7 @@ import type {
   UnsavedFile
 } from './files'
 import type { BufferedState as BufferedStateType } from './bufferedState'
+import type { RecoveryCenterState, RecoveryOpenResult, RecoveryReplaceResult } from './recovery'
 import type { MenuTemplate, MenuPopupPosition } from './menu'
 import type { ShortcutStyle } from './preferences'
 import type { UpdateStatus } from '../../main/update/types'
@@ -98,6 +99,15 @@ export type PreferencePatch = Record<string, unknown>
 // =================================================================
 
 export interface IpcInvokeChannels {
+  'mt::recovery-center::get-state': { args: []; ret: RecoveryCenterState }
+  'mt::recovery-center::open-copy': { args: [itemId: string]; ret: RecoveryOpenResult | null }
+  'mt::recovery-center::replace-file': {
+    args: [itemId: string, expectedDiskRevision: string | null]
+    ret: RecoveryReplaceResult
+  }
+  'mt::recovery-center::discard': { args: [itemId: string]; ret: boolean }
+  'mt::recovery-center::discard-workspace': { args: []; ret: boolean }
+  'mt::recovery-center::retry': { args: [itemId: string]; ret: RecoveryCenterState }
   'mt::document-intelligence::index-document': {
     args: [pathname: string, markdown: string]
     ret: void
@@ -375,6 +385,7 @@ export interface IpcMainEventChannels {
   'mt::menu::closed': []
   'mt::new-untitled-tab': [selected?: boolean, markdown?: string]
   'mt::open-directory': [directoryPath: string]
+  'mt::open-recovery-center': []
   'mt::open-new-tab': [
     markdownDocument: MarkdownDocument | null,
     options?: TabOptions,
