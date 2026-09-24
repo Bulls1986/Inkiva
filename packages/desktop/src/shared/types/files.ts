@@ -83,6 +83,11 @@ export interface IFileState {
   searchMatches: FileSearchMatches
   scrollTop: number
   muyaIndexCursor: unknown
+  // US05: document-specific presentation state. `sourceCodeMode` is optional
+  // for legacy recovery payloads; missing means use the configured new-tab default.
+  sourceCodeMode?: boolean
+  viewportAnchorSlug?: string | null
+  tocCollapsedKeys?: string[]
   notifications: FileNotification[]
   lastSavedHistoryId?: number
   // Muya block tree; only populated for the actively edited tab.

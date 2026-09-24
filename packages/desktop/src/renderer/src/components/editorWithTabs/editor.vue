@@ -2321,6 +2321,7 @@ interface FileChangePayload {
   renderCursor?: boolean
   history?: unknown
   scrollTop?: number
+  viewportAnchorSlug?: string | null
   muyaIndexCursor?: unknown
   blocks?: unknown
   isReload?: boolean
@@ -2343,6 +2344,7 @@ const handleFileChange = (payload: unknown) => {
     muyaIndexCursor,
     history: payloadHistory,
     scrollTop,
+    viewportAnchorSlug,
     blocks,
     isReload
   } = (payload ?? {}) as FileChangePayload
@@ -2355,7 +2357,9 @@ const handleFileChange = (payload: unknown) => {
   // Hide the live editor before replacing a large rendered tree. Visibility
   // alone keeps the layout box intact, while preventing the browser from
   // laying out each detach/append operation on the switch's synchronous path.
-  const restoresScroll = typeof scrollTop === 'number' && scrollTop > 0
+  const restoresSemanticViewport =
+    typeof viewportAnchorSlug === 'string' && viewportAnchorSlug.length > 0
+  const restoresScroll = restoresSemanticViewport || (typeof scrollTop === 'number' && scrollTop > 0)
   if (restoresScroll) {
     container.style.visibility = 'hidden'
     container.style.pointerEvents = 'none'
@@ -2518,7 +2522,27 @@ const handleFileChange = (payload: unknown) => {
     applyCursor(editor.value, newCursor)
   }
 
-  if (typeof scrollTop === 'number') {
+  if (restoresSemanticViewport) {
+    // A persisted pixel offset becomes stale as images/diagrams/fonts settle.
+    // Resolve the heading against the freshly rendered TOC, then reveal that
+    // semantic location. If the heading disappeared, fall back to the old
+    // offset/caret without jumping to an unrelated same-level heading.
+    runWhenEditorRenderComplete(id, () => {
+      refreshEditorToc(false)
+      const anchorExists = editorStore.listToc.some((item) => item.slug === viewportAnchorSlug)
+      if (anchorExists) {
+        scrollToHeader(viewportAnchorSlug)
+        container.style.visibility = 'visible'
+        container.style.pointerEvents = 'auto'
+      } else if (typeof scrollTop === 'number') {
+        editorStore.UPDATE_ACTIVE_TOC(null)
+        scrollToCords(scrollTop)
+      } else {
+        editorStore.UPDATE_ACTIVE_TOC(null)
+        scrollToCursor(0)
+      }
+    })
+  } else if (typeof scrollTop === 'number') {
     scrollToCords(scrollTop)
   } else {
     scrollToCursor(0)
@@ -2774,6 +2798,19 @@ onMounted(() => {
   // The first document's content is set via constructor options, so no
   // `file-loaded` / `setMarkdownToEditor` runs for it — seed its TOC here.
   refreshEditorTocWhenReady(currentFile.value?.id)
+  if (currentFile.value?.viewportAnchorSlug) {
+    const documentId = currentFile.value.id
+    const anchorSlug = currentFile.value.viewportAnchorSlug
+    runWhenEditorRenderComplete(documentId, () => {
+      refreshEditorToc(false)
+      if (editorStore.listToc.some((item) => item.slug === anchorSlug)) {
+        scrollToHeader(anchorSlug)
+      } else {
+        editorStore.UPDATE_ACTIVE_TOC(null)
+        scrollToCords(currentFile.value?.scrollTop ?? 0)
+      }
+    })
+  }
 
   // Seed the save-tracking baseline from Muya's normalized serialization so
   // undo/redo compares against the engine's own representation. Keep the clean

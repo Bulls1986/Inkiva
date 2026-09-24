@@ -752,46 +752,72 @@ class EditorWindow extends BaseWindow {
       const { autoGuessEncoding, trimTrailingNewline, autoNormalizeLineEndings } =
         preferences.getAll()
 
-      const fileOpenRequests: Promise<void>[] = []
-      for (const tab of bufferState.tabs) {
-        if (!tab.pathname) continue
+      const activeTabId =
+        typeof bufferState.currentFileId === 'string' ? bufferState.currentFileId : null
+      const activeTab = activeTabId
+        ? bufferState.tabs.find((tab) => tab.id === activeTabId)
+        : undefined
+
+      const restoreTabFromDisk = async(tab: RestoredTab, publishIncrementally: boolean): Promise<void> => {
+        if (!tab.pathname) return
         const openingKey = this._getOpeningPathKey(tab.pathname)
 
-        fileOpenRequests.push(
-          loadMarkdownFile(
+        try {
+          const rawDocument = await loadMarkdownFile(
             tab.pathname,
             eol,
             autoGuessEncoding,
             trimTrailingNewline,
             autoNormalizeLineEndings
           )
-            .then((rawDocument) => {
-              if (rawDocument.markdown !== tab.markdown && tab.isSaved) {
-                tab.markdown = rawDocument.markdown
-              }
-
-              this._initialFilePaths.delete(openingKey)
-              if (!this.hasPath(tab.pathname)) {
-                this.addToOpenedFiles(tab.pathname)
-                appMenu.addRecentlyUsedDocument(tab.pathname)
-              }
-            })
-            .catch((err: Error) => {
-              this._initialFilePaths.delete(openingKey)
-              const { message, stack } = err
-              tab.isSaved = false
-              log.error(`[ERROR] Cannot open file: ${message}\n\n${stack}`)
-              browserWindow!.webContents.send('mt::show-notification', {
-                title: `Could not find file ${tab.filename} on disk, please save your work.`,
-                type: 'error',
-                message: err.message
+          const diskChanged = rawDocument.markdown !== tab.markdown && tab.isSaved
+          if (diskChanged) {
+            tab.markdown = rawDocument.markdown
+            if (publishIncrementally) {
+              browserWindow!.webContents.send('mt::reconcile-restored-tab', {
+                pathname: tab.pathname,
+                markdown: rawDocument.markdown
               })
-            })
-        )
+            }
+          }
+
+          this._initialFilePaths.delete(openingKey)
+          if (!this.hasPath(tab.pathname)) {
+            this.addToOpenedFiles(tab.pathname)
+            appMenu.addRecentlyUsedDocument(tab.pathname)
+          }
+        } catch (err) {
+          this._initialFilePaths.delete(openingKey)
+          const error = err instanceof Error ? err : new Error(String(err))
+          tab.isSaved = false
+          const warning = {
+            tabId: typeof tab.id === 'string' ? tab.id : null,
+            pathname: tab.pathname,
+            msg: `File unavailable: ${tab.pathname}. Your recovered draft is still open. Locate the file, save the draft to a new path, or close this tab.`,
+            showConfirm: false,
+            style: 'warn',
+            exclusiveType: 'restore_unavailable'
+          }
+          bufferState.restoreWarnings!.push(warning)
+          log.error(`[ERROR] Cannot open restored file: ${error.message}\n\n${error.stack ?? ''}`)
+          if (publishIncrementally) {
+            browserWindow!.webContents.send('mt::restore-tab-warning', warning)
+          }
+        }
       }
 
-      await Promise.all(fileOpenRequests)
+      // US05/AC-27: only the active document may gate first interaction. Inactive
+      // tabs keep their buffered Markdown initially and reconcile from disk after
+      // the renderer has received the session structure.
+      if (activeTab) {
+        await restoreTabFromDisk(activeTab, false)
+      }
       browserWindow!.webContents.send('mt::load-state', bufferState)
+
+      const inactiveTabs = bufferState.tabs.filter((tab) => tab !== activeTab && !!tab.pathname)
+      void Promise.all(inactiveTabs.map((tab) => restoreTabFromDisk(tab, true))).catch((err) => {
+        log.error('Failed to reconcile inactive restored tabs:', err)
+      })
       if (bufferState.tabs.length === 0) {
         // A corrupt or empty recovery file should leave the editor usable,
         // even though there is no recoverable tab to restore.

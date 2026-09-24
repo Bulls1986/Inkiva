@@ -362,6 +362,15 @@ export interface IpcMainEventChannels {
   'mt::invalidate-image-cache': []
   'mt::keybindings-response': [bindings: unknown]
   'mt::load-state': [state: BufferedStateType]
+  'mt::reconcile-restored-tab': [payload: { pathname: string; markdown: string }]
+  'mt::restore-tab-warning': [warning: {
+    tabId: string | null
+    pathname: string
+    msg: string
+    showConfirm: boolean
+    style: string
+    exclusiveType: string
+  }]
   'mt::menu::click': [menuId: string]
   'mt::menu::closed': []
   'mt::new-untitled-tab': [selected?: boolean, markdown?: string]
