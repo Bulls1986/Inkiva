@@ -52,6 +52,24 @@
     margin-block: var(--mu-paragraph-spacing, 0.75em);
 }
 
+/* US09 — expose the native text I-beam only on document surfaces where a
+   pointer click can place the caret. Keep this scoped below .mu-container
+   rather than setting cursor:text on the editor/container itself: nested
+   links, task checkboxes, table handles and other controls retain their own
+   actionable cursors. The block-level hit area also covers empty paragraphs
+   and the line-end whitespace inside an editable block. */
+.mu-container p.mu-paragraph,
+.mu-container blockquote,
+.mu-container li,
+.mu-container dt,
+.mu-container dd,
+.mu-container pre,
+.mu-container .mu-codeblock-content,
+.mu-table-inner tr th,
+.mu-table-inner tr td {
+    cursor: text;
+}
+
 .mu-virtual-segment {
     display: contents;
 }

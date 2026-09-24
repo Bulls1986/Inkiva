@@ -2,6 +2,14 @@
   background: transparent;
   height: auto;
 }
+
+/* US09 — keep the Source editing canvas (including line-end/empty-line
+   landing space) on the platform-native text cursor. Do not apply this to the
+   whole source container so gutters, scrollbars and future controls remain
+   free to expose their own pointer/resize semantics. */
+.source-code .CodeMirror-lines {
+  cursor: text;
+}
 .CodeMirror-line::selection,
 .CodeMirror-line > span::selection,
 .CodeMirror-line > span > span::selection {
