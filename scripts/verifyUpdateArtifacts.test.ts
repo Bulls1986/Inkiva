@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
 const repositoryRoot = fileURLToPath(new URL('../', import.meta.url))
-const version = '0.4.0'
+const version = '0.4.1'
 const windowsInstaller = `inkiva-win-x64-${version}-setup.exe`
 const macIntelZip = `inkiva-mac-x64-${version}.zip`
 const macArmZip = `inkiva-mac-arm64-${version}.zip`

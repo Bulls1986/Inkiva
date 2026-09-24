@@ -82,7 +82,7 @@ const appendCapture = (directory: string, level: GateLevel): void => {
     reports.unshift(JSON.parse(fs.readFileSync(rawPath, 'utf8')) as unknown)
   }
   const merged = mergePerformanceTraceReports(reports)
-  fs.writeFileSync(rawPath, JSON.stringify(merged, null, 2) + '\\n', 'utf8')
+  fs.writeFileSync(rawPath, JSON.stringify(merged, null, 2) + '\n', 'utf8')
 }
 
 const writeFixtureFile = (directory: string, name: string, markdown: string): string => {
@@ -95,6 +95,10 @@ const captureEnvironment = (directory: string): Record<string, string> => ({
   INKIVA_PERF_CAPTURE: 'true',
   INKIVA_PERF_REPORT_DIR: directory,
   INKIVA_PERF_SAMPLE_INTERVAL_MS: '250',
+  // P0 includes the canonical 219-cycle memory-leak profile. Keep capture
+  // lossless so late 200-cycle gate samples cannot be truncated by the
+  // default 10k renderer-event safety cap.
+  INKIVA_PERF_MAX_RENDERER_EVENTS: '100000',
   INKIVA_PERF_OFFLINE: 'true',
   INKIVA_PERF_RUNNER_LABEL: 'reference-low-end'
 })
@@ -119,6 +123,14 @@ const openCaptured = async(
     env: captureEnvironment(capture.directory)
   })
   return launched
+}
+
+const waitForPerformanceGateBridge = async(page: Page): Promise<void> => {
+  await page.waitForFunction(
+    () => Boolean(window.__inkivaPerformanceGate),
+    undefined,
+    { timeout: 10000 }
+  )
 }
 
 const recordSample = async(
@@ -309,10 +321,12 @@ const runColdRegularSample = async(
   let launched: { app: ElectronApplication; page: Page } | undefined
   try {
     launched = await openCaptured(filePath, capture, 'P0')
+    const windowMs = hostPerformance.now() - startedAt
     const { app, page } = launched
     await installGateProbe(page)
+    await waitForPerformanceGateBridge(page)
 
-    await recordSample(page, 'startup.cold.window', 'ms', hostPerformance.now() - startedAt, 'startup')
+    await recordSample(page, 'startup.cold.window', 'ms', windowMs, 'startup')
     await page.waitForSelector('.editor-container', { state: 'visible', timeout: 120000 })
     await recordSample(page, 'startup.cold.shell', 'ms', hostPerformance.now() - startedAt, 'startup')
 
@@ -432,8 +446,10 @@ const runHotStartupSample = async(
   let launched: { app: ElectronApplication; page: Page } | undefined
   try {
     launched = await openCaptured(filePath, capture, 'P0', profile)
+    const windowMs = hostPerformance.now() - startedAt
     const { app, page } = launched
-    await recordSample(page, 'startup.hot.window', 'ms', hostPerformance.now() - startedAt, 'startup')
+    await waitForPerformanceGateBridge(page)
+    await recordSample(page, 'startup.hot.window', 'ms', windowMs, 'startup')
     await waitForMenuReady(app)
     await recordSample(page, 'startup.hot.actionable', 'ms', hostPerformance.now() - startedAt, 'startup')
     await waitForEditor(page, 120000)
@@ -516,7 +532,7 @@ test.describe('@perf-gate P0 Milk Gate', () => {
           )
         )
       )
-      expect(metrics).toEqual(
+      expect([...metrics]).toEqual(
         expect
           .arrayContaining([
             'startup.cold.window',

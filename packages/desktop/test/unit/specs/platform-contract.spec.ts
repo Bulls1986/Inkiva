@@ -37,9 +37,8 @@ describe('official platform and release contract', () => {
       expect(scripts['build:win:arm64']).toBeUndefined()
       expect(scripts['build:linux']).toBeUndefined()
     }
-    expect(rootPackage.scripts['test:release']).toBe(
-      'node --import tsx --test scripts/verifyUpdateArtifacts.test.ts'
-    )
+    expect(rootPackage.scripts['test:release']).toContain('scripts/assembleReleaseArtifacts.test.ts')
+    expect(rootPackage.scripts['test:release']).toContain('scripts/verifyUpdateArtifacts.test.ts')
   })
 
   it('builds only Windows x64 and both macOS architectures', () => {
@@ -60,15 +59,29 @@ describe('official platform and release contract', () => {
     }
 
     const releaseWorkflow = readRepoFile('.github/workflows/release.yml')
+    const buildWorkflow = readRepoFile('.github/workflows/build.yml')
+    const assemblyScript = readRepoFile('scripts/assembleReleaseArtifacts.ts')
+
+    for (const workflow of [buildWorkflow, releaseWorkflow]) {
+      expect(workflow).toMatch(/name: Package smoke/)
+      expect(workflow).toMatch(/Download packaged artifact/)
+      expect(workflow).toMatch(/smokeWindowsPackage\.ps1 dist/)
+      expect(workflow).toMatch(/smokeMacPackage\.sh dist/)
+      expect(workflow).toMatch(/Build application/)
+      expect(workflow).toMatch(/package:(?:win|mac):\$\{\{ matrix\.arch \}\}/)
+    }
+
     expect(releaseWorkflow).toMatch(/path: artifact-downloads/)
-    expect(releaseWorkflow).toMatch(/find artifact-downloads -type f ! -name 'latest-mac\.yml'/)
+    expect(releaseWorkflow).toMatch(/assembleReleaseArtifacts\.ts artifact-downloads dist/)
+    expect(releaseWorkflow).toMatch(/needs: \[build, package-smoke\]/)
     expect(releaseWorkflow).toMatch(/dist\/\*\.blockmap/)
-    expect(releaseWorkflow).toMatch(/dist\/\*\.yml/)
-    expect(releaseWorkflow).toMatch(/latest-mac\.yml/)
-    expect(releaseWorkflow).toMatch(/Merge macOS updater metadata/)
-    expect(releaseWorkflow).toMatch(/Expected exactly two macOS updater metadata files/)
-    expect(releaseWorkflow).toMatch(/inkiva-mac-x64-\$\{version\}\.zip/)
-    expect(releaseWorkflow).toMatch(/inkiva-mac-arm64-\$\{version\}\.zip/)
+    expect(releaseWorkflow).toMatch(/dist\/latest\*\.yml/)
+    expect(releaseWorkflow).not.toMatch(/dist\/\*\.yml/)
+    expect(releaseWorkflow).toMatch(/Verify stable updater artifact contract/)
+    expect(assemblyScript).toMatch(/Expected exactly two macOS updater metadata files/)
+    expect(assemblyScript).toMatch(/inkiva-mac-x64-\$\{version\}\.zip/)
+    expect(assemblyScript).toMatch(/inkiva-mac-arm64-\$\{version\}\.zip/)
+    expect(assemblyScript).toMatch(/SHA256SUMS\.txt/)
   })
 
   it('retains the Ubuntu host for the desktop E2E workflow', () => {
