@@ -84,13 +84,20 @@ Compatibility fix:
 
 Local post-sync rerun could not enter Vitest because the worktree dependency graph lost the documented `tinyexec` payload; one canonical `pnpm install --frozen-lockfile` repair then failed in dependency linking on a missing ESLint payload. Both failures occurred before test discovery and are classified as environment evidence. Per the environment contract, no further local dependency experiments were performed; clean GitHub CI is the authoritative post-fix validation path.
 
+## 2026-09-24 — Stage 5: CI green and merge closure
+
+Fresh CI on `f085fd5` passed all seven gates: `build`, `circular`, `lint`, `spec`, `unit`, Chromium `e2e`, and `Desktop PR fast hard gate`. The previously failing diagram-fence and language-picker scenarios passed in the clean CI environment, confirming the disambiguation fix preserved legacy language-qualified fence behavior while satisfying US08 exact-fence conversion.
+
+PR #201 was squash-merged into `develop` as `d2c6a17ceaaade08a0536ef8bcad5bb846ee7a08` (`feat: complete US08 input continuity (#201)`). GitHub reported the PR state as `MERGED`, and `git ls-remote origin refs/heads/develop` independently confirmed the remote `develop` ref at the same commit. The remote `feat/v0.5-us08` branch was deleted by the merge command.
+
 ## Learning review
 
 - Structural conversion during an `input` handler must re-check composition state in the subclass; a base-class early return does not stop subclass code that follows `super.inputHandler()`.
 - Real editor E2E should distinguish immediate user-visible DOM correctness from asynchronously coalesced model-state convergence. This is already covered by the testing guide's rule to prefer observable state and bounded polling over fixed sleeps, so no duplicate generic agent rule is needed.
 - Reusing one `_convertBlock()` path avoided a second code-fence construction implementation and preserved Muya as the single document-semantic owner.
+- A Markdown prefix can be both a complete trigger and the prefix of a longer valid construct. In that case, synchronous structural conversion is incorrect even when the shorter trigger is valid; the editor needs an explicit disambiguation contract that preserves both paths.
 - The supplied prototype required no visual replacement. Existing Inkiva UI and interaction conventions remain unchanged.
 
 ## Current state / next action
 
-US08 is in PR #201 on `feat/v0.5-us08`. The branch has been synchronized with current `develop`; the CI-discovered language-fence compatibility regression has been corrected and requires a fresh clean CI pass before squash merge.
+US08 is fully merged into `develop` via PR #201 at `d2c6a17ceaaade08a0536ef8bcad5bb846ee7a08`. All required CI gates passed before merge. No product or architecture follow-up remains for US08; only local worktree/branch cleanup remains as repository hygiene.
