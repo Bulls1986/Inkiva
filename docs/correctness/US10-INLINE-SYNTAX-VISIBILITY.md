@@ -2,9 +2,11 @@
 
 [Back to Correctness index](README.md) · [Testing contract](../agent/TESTING.md)
 
-Status: implementation complete; local validation complete  
+Status: merged to `develop` via PR #197  
 Branch: `feat/v0.5-us10`  
-Base: `develop@e7e41b0`
+Base: `develop@e7e41b0`  
+Feature commit: `5711f880848b33378cb55be73ca1378e5110981f`  
+Squash merge: `0e1daf82018e9e0903ce2177b811e94d216f8a0b`
 
 ## Scope
 
@@ -65,3 +67,14 @@ Reusable conclusions:
 3. Visibility assertions should protect the user contract (inside reveals, outside hides, source/history unchanged) rather than introduce a new visual implementation.
 
 Existing `AGENTS.md`, `docs/agent/TESTING.md`, and `docs/agent/WORKFLOW.md` already cover red/green discipline, environment-vs-product evidence and stage recording. No new agent-level rule is needed for this task.
+
+## Stage 5 — PR / merge closeout
+
+- PR: **#197**
+- PR state: **MERGED**
+- Required CI: **all passed** — Desktop PR fast hard gate, build, circular, Chromium E2E, lint, spec, and unit.
+- Squash merge commit: `0e1daf82018e9e0903ce2177b811e94d216f8a0b`.
+- After merge, GitHub reported PR #197 as `MERGED`, and the remote `develop` ref resolved to the same commit at verification time.
+- A post-merge `git fetch origin develop` transport attempt timed out; merge verification therefore used the documented GitHub API fallback instead of retrying the same stalled transport path.
+
+Workflow closeout lesson: local commit is not task completion. For an authorized full closeout, the evidence chain is push → PR → required CI → squash merge → remote PR/ref verification → final stage record.
