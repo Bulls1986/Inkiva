@@ -99,6 +99,13 @@ export default function(
     })
   }
 
+  submenu.push({
+    label: t('menu.file.recoveryContents'),
+    click(_menuItem, browserWindow) {
+      actions.openRecoveryCenter(browserWindow as BrowserWindow | undefined)
+    }
+  })
+
   submenu.push(
     {
       type: 'separator'

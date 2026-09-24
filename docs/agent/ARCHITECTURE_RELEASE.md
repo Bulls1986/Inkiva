@@ -10,6 +10,14 @@
 - `packages/website/`: website.
 - `docs/`: architecture/performance/release/progress records.
 
+## Pre-mutation architecture gate
+
+For every task that can change production code, read this file before the first production mutation and identify which boundary/principle below is affected. This is a required execution gate, not optional background reading.
+
+If the change touches an ARCH-governed subsystem, open [docs/architecture](../architecture/README.md) and read the specific durable contract before implementation. At minimum this applies to editor runtime/lifecycle, IPC/preload, virtual surface, block geometry, renderer event bus, Muya public boundary, background scheduler/services, and legacy-boundary cleanup.
+
+At closeout, verify the diff against the identified architecture principles. If the required architecture material was not read before implementation, or the diff cannot be shown to preserve the relevant boundary, do not claim architecture-compliant closure; record the process gap and correct it before merge when possible.
+
 ## Architecture boundaries
 
 - Main: Node/Electron APIs, filesystem, native windows, updater.

@@ -35,6 +35,15 @@ span.mu-inline-rule.mu-link {
     color: var(--link-color, rgb(20 86 240));
 }
 
+/* Links remain actionable surfaces even though a plain click is intercepted by
+   linkMouseEvents.ts to place the caret; Cmd/Ctrl-click follows the link. This
+   explicit cursor also prevents the surrounding editable block's text cursor
+   from leaking into link affordances. */
+a.mu-inline-rule,
+span.mu-inline-rule.mu-link {
+    cursor: pointer;
+}
+
 /* Note: previously this rule also set `pointer-events: none` to suppress
    native navigation on `<a href>` clicks. That broke our hover-based
    linkTools popover detection because every mouse event hit-tested

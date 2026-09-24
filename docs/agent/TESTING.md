@@ -6,13 +6,16 @@ Testing is part of implementation.
 
 ## Red/green discipline
 
-1. Write or adjust the focused regression test first.
-2. Confirm the runner starts, discovers the intended test, and the assertion fails for the product behavior.
-3. Only then change production code.
-4. Make the focused test green.
-5. Run broader regression/E2E gates required by the affected subsystem.
+1. Write or adjust the focused regression test first, and identify the acceptance criterion or correctness contract it protects.
+2. Run that focused test before changing production code. The runner must start, discover the intended test, enter the test body, and fail because the target product behavior is missing or incorrect.
+3. Record executable Red evidence for resumable/high-risk work: exact command, intended test/spec, and the product-behavior assertion or failure that proves the Red state.
+4. Only after valid Red evidence exists may production code change.
+5. Make the focused test green with the smallest coherent implementation.
+6. Run broader regression/E2E gates required by the affected subsystem and record the Green evidence.
 
-Environment/bootstrap failure, missing dependencies, “0 tests”, or runner startup failure is not red product evidence. See [ENVIRONMENT.md](ENVIRONMENT.md).
+Environment/bootstrap failure, missing dependencies, “0 tests”, test discovery failure, runner startup failure, timeout before the intended assertion, or unrelated existing failures are not red product evidence. See [ENVIRONMENT.md](ENVIRONMENT.md).
+
+A test file merely existing before implementation, a static inspection suggesting it would fail, or a stage note claiming a “red signal” is not a substitute for an executed Red test. If closeout cannot show valid Red evidence, report the implementation as tested but **not strict TDD/test-first closure**; do not retroactively claim test-first compliance.
 
 Never weaken assertions, remove scenarios, lower thresholds, or alter workloads to make a change pass.
 

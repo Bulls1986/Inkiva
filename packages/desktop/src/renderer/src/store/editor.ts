@@ -1006,6 +1006,7 @@ export const useEditorStore = defineStore('editor', {
             this.ENSURE_DOCUMENT_DURABILITY(id),
             savedRevision
           )
+          delete tab.recoverySourcePath
           if (pathname) useRecentDocumentsStore().RECORD_FILE(pathname)
           debouncedSendBufferedState()
         }
@@ -1842,10 +1843,12 @@ export const useEditorStore = defineStore('editor', {
      */
     NEW_UNTITLED_TAB({
       markdown: markdownString,
-      selected
+      selected,
+      recoverySourcePath
     }: {
       markdown?: string
       selected?: boolean
+      recoverySourcePath?: string
     }): void {
       if (selected == null) {
         selected = true
@@ -1865,6 +1868,9 @@ export const useEditorStore = defineStore('editor', {
       // documents: a tab created while the user is in Source starts in Source.
       // From this point onward the mode belongs to the tab and may diverge.
       fileState.sourceCodeMode = preferencesStore.sourceCode
+      if (typeof recoverySourcePath === 'string') {
+        fileState.recoverySourcePath = recoverySourcePath
+      }
 
       if (selected) {
         const { id, markdown } = fileState

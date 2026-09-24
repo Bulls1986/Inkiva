@@ -27,7 +27,7 @@ import { generator, tokenizer } from '../../inlineRenderer/lexer';
 import Selection, { getCursorReference } from '../../selection';
 import { getTextContent } from '../../selection/dom';
 import { isListItemState } from '../../state/types';
-import { conflict, isHTMLElement, isMouseEvent } from '../../utils';
+import { isHTMLElement, isMouseEvent } from '../../utils';
 import { correctImageSrc, encodeImageSrc, getImageInfo } from '../../utils/image';
 import logger from '../../utils/logger';
 
@@ -324,17 +324,13 @@ class Format extends Content {
                 continue;
 
             const { start, end } = token.range;
-            const textLen = text.length;
+            const revealStart = Math.max(0, start - 1);
+            const isCursorInRevealRange = (offset: number) =>
+                offset >= revealStart && offset < end;
 
             if (
-                conflict(
-                    [Math.max(0, start - 1), Math.min(textLen, end + 1)],
-                    [anchorOffset, anchorOffset],
-                )
-                || conflict(
-                    [Math.max(0, start - 1), Math.min(textLen, end + 1)],
-                    [focusOffset, focusOffset],
-                )
+                isCursorInRevealRange(anchorOffset)
+                || isCursorInRevealRange(focusOffset)
             ) {
                 return true;
             }
