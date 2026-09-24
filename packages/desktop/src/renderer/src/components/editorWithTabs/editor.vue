@@ -2043,6 +2043,16 @@ const refreshEditorToc = (force = true): void => {
   editorStore.UPDATE_TOC(editor.value.getTOC(), force)
 }
 
+// US09 — delayed caret/viewport restoration is allowed to complete only while
+// the user has not expressed a newer interaction intent. Document identity alone
+// is insufficient: a slow progressive render can finish after the user already
+// clicked, typed or scrolled somewhere else in the same document.
+let editorInteractionRevision = 0
+const editorInteractionEvents = ['pointerdown', 'mousedown', 'touchstart', 'keydown', 'wheel'] as const
+const markExplicitEditorInteraction = (event: Event): void => {
+  if (event.isTrusted) editorInteractionRevision += 1
+}
+
 const runWhenEditorRenderComplete = (
   id: string | undefined,
   callback: (instance: MuyaInstance) => void
@@ -2052,6 +2062,17 @@ const runWhenEditorRenderComplete = (
 
   instance.whenRenderComplete().then(() => {
     if (editor.value !== instance || (id && currentFile.value?.id !== id)) return
+    callback(instance)
+  })
+}
+
+const runWhenEditorRenderCompleteUnlessUserMoved = (
+  id: string | undefined,
+  callback: (instance: MuyaInstance) => void
+): void => {
+  const interactionRevision = editorInteractionRevision
+  runWhenEditorRenderComplete(id, (instance) => {
+    if (editorInteractionRevision !== interactionRevision) return
     callback(instance)
   })
 }
@@ -2294,7 +2315,7 @@ const setMarkdownToEditor = (payload: unknown) => {
       editorRuntime.seedMarkdown(id, revision, newMarkdown ?? currentFile.value?.markdown ?? '')
     }
     if (newCursor) {
-      runWhenEditorRenderComplete(id, (instance) => {
+      runWhenEditorRenderCompleteUnlessUserMoved(id, (instance) => {
         applyCursor(instance, newCursor)
         // A folder-search jump carries an index cursor; a freshly opened file
         // starts scrolled to the top, so reveal the resolved caret.
@@ -2425,7 +2446,7 @@ const handleFileChange = (payload: unknown) => {
       // `replaceContent` can restart progressive/virtual rendering. Restore the
       // source-mode caret at the render-complete boundary so a later render pass
       // cannot overwrite the native DOM Selection on a slower CI machine.
-      runWhenEditorRenderComplete(id, (instance) => {
+      runWhenEditorRenderCompleteUnlessUserMoved(id, (instance) => {
         instance.setCursorByOffset(muyaIndexCursor)
       })
     } else if (isReload) {
@@ -2491,7 +2512,7 @@ const handleFileChange = (payload: unknown) => {
       // TOC (otherwise returning to an open tab keeps the other tab's TOC).
       refreshEditorTocWhenReady(id)
       if (newCursor || isIndexCursor(muyaIndexCursor)) {
-        runWhenEditorRenderComplete(id, (instance) => {
+        runWhenEditorRenderCompleteUnlessUserMoved(id, (instance) => {
           if (newCursor) {
             applyCursor(instance, newCursor)
           } else {
@@ -2527,7 +2548,7 @@ const handleFileChange = (payload: unknown) => {
     // Resolve the heading against the freshly rendered TOC, then reveal that
     // semantic location. If the heading disappeared, fall back to the old
     // offset/caret without jumping to an unrelated same-level heading.
-    runWhenEditorRenderComplete(id, () => {
+    runWhenEditorRenderCompleteUnlessUserMoved(id, () => {
       refreshEditorToc(false)
       const anchorExists = editorStore.listToc.some((item) => item.slug === viewportAnchorSlug)
       if (anchorExists) {
@@ -2801,7 +2822,7 @@ onMounted(() => {
   if (currentFile.value?.viewportAnchorSlug) {
     const documentId = currentFile.value.id
     const anchorSlug = currentFile.value.viewportAnchorSlug
-    runWhenEditorRenderComplete(documentId, () => {
+    runWhenEditorRenderCompleteUnlessUserMoved(documentId, () => {
       refreshEditorToc(false)
       if (editorStore.listToc.some((item) => item.slug === anchorSlug)) {
         scrollToHeader(anchorSlug)
@@ -2825,6 +2846,10 @@ onMounted(() => {
   }
 
   const container = getScrollContainer()!
+
+  for (const eventName of editorInteractionEvents) {
+    container.addEventListener(eventName, markExplicitEditorInteraction, true)
+  }
 
   const inputParseStartEvents = ['beforeinput', 'compositionend', 'paste'] as const
   for (const eventName of inputParseStartEvents) {
@@ -3063,6 +3088,12 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  const container = getScrollContainer()
+  if (container) {
+    for (const eventName of editorInteractionEvents) {
+      container.removeEventListener(eventName, markExplicitEditorInteraction, true)
+    }
+  }
   editorPerformanceGeneration += 1
   flushActiveEditor()
   editorRuntime.dispose()
