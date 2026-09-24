@@ -67,6 +67,23 @@ Acceptance mapping:
 - AC-39: focused unit coverage proves an exact fence stays inert during active composition; existing CJK browser E2E covers paragraph/list/table commit paths.
 - AC-40: existing option matrix plus the added generated-closer case cover option-controlled auto-pair, selection wrapping and typing over generated closers.
 
+## 2026-09-24 — Stage 4: develop sync and CI compatibility closure
+
+After PR #201 was opened, GitHub reported a merge conflict with newer `develop`. The branch was synced with `origin/develop`; the only textual conflict was `docs/correctness/README.md`, resolved by retaining both the US08 and US10 index entries. No US08 production/test file conflicted.
+
+The first post-sync CI run had six green gates (`build`, `circular`, `lint`, `spec`, `unit`, and `Desktop PR fast hard gate`) and one failing Chromium E2E gate. The E2E log provided valid product Red evidence: seven stable failures all exercised the existing ` ```lang` paragraph flow (five diagram fences plus two language-picker cases). Synchronous conversion on the third backtick had made ` ``` ` consume the prefix before `mermaid`, `python`, etc. could be typed. One unrelated search/replace case was flaky and passed its retry.
+
+Compatibility fix:
+
+- exact three-backtick input now enters a short 250 ms disambiguation window instead of converting synchronously in the same input handler;
+- if input remains exactly three backticks when the window expires, the existing shared `_convertBlock()` path creates the code block;
+- any subsequent input cancels the pending conversion, so ` ```lang` continues through the existing paragraph language-selector and diagram-fence semantics;
+- pending conversion is owned by `ParagraphContent` and deterministically cleared during disposal;
+- history undo/redo and active IME composition do not schedule the conversion;
+- focused unit coverage now locks both sides of the ambiguity: stopping at the exact fence converts, while continuing with a language token preserves the paragraph path.
+
+Local post-sync rerun could not enter Vitest because the worktree dependency graph lost the documented `tinyexec` payload; one canonical `pnpm install --frozen-lockfile` repair then failed in dependency linking on a missing ESLint payload. Both failures occurred before test discovery and are classified as environment evidence. Per the environment contract, no further local dependency experiments were performed; clean GitHub CI is the authoritative post-fix validation path.
+
 ## Learning review
 
 - Structural conversion during an `input` handler must re-check composition state in the subclass; a base-class early return does not stop subclass code that follows `super.inputHandler()`.
@@ -76,4 +93,4 @@ Acceptance mapping:
 
 ## Current state / next action
 
-US08 implementation, local validation, diff review, debug-residue check and `git diff --check` are complete on `feat/v0.5-us08`. A local task commit may be created during closeout; push/PR/merge remain authorization-gated remote actions.
+US08 is in PR #201 on `feat/v0.5-us08`. The branch has been synchronized with current `develop`; the CI-discovered language-fence compatibility regression has been corrected and requires a fresh clean CI pass before squash merge.

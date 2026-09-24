@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import type Content from '../../../base/content';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Muya } from '../../../../muya';
 
 const bootedHosts: HTMLElement[] = [];
@@ -18,6 +18,7 @@ afterEach(() => {
     while (bootedHosts.length)
         bootedHosts.pop()!.remove();
 
+    vi.useRealTimers();
     document.getSelection()?.removeAllRanges();
     if (hadVersion)
         window.MUYA_VERSION = originalVersion as string;
@@ -69,6 +70,7 @@ describe('us08 input continuity', () => {
     });
 
     it('ac-38 converts an exact triple-backtick trigger before Enter', async () => {
+        vi.useFakeTimers();
         const muya = bootMuya();
         const content = firstContent(muya);
 
@@ -81,12 +83,44 @@ describe('us08 input continuity', () => {
             bubbles: true,
         }));
 
-        await flush();
+        expect(muya.getState()[0].name).toBe('paragraph');
+        await vi.advanceTimersByTimeAsync(300);
 
         const state = muya.getState();
         expect(state).toHaveLength(1);
         expect(state[0].name).toBe('code-block');
         expect((state[0] as { text: string }).text).toBe('');
         expect(muya.editor.activeContentBlock?.blockName).toBe('codeblock.content');
+    });
+
+    it('ac-38 preserves language-qualified fence typing during the disambiguation window', async () => {
+        vi.useFakeTimers();
+        const muya = bootMuya();
+        const content = firstContent(muya);
+
+        content.text = '```';
+        content.update();
+        content.setCursor(3, 3, true);
+        content.inputHandler(new InputEvent('input', {
+            data: '`',
+            inputType: 'insertText',
+            bubbles: true,
+        }));
+
+        content.text = '```p';
+        content.update();
+        content.setCursor(4, 4, true);
+        content.inputHandler(new InputEvent('input', {
+            data: 'p',
+            inputType: 'insertText',
+            bubbles: true,
+        }));
+
+        await vi.advanceTimersByTimeAsync(300);
+
+        const state = muya.getState();
+        expect(state).toHaveLength(1);
+        expect(state[0].name).toBe('paragraph');
+        expect((state[0] as { text: string }).text).toBe('```p');
     });
 });
