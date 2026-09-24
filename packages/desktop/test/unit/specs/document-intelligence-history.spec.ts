@@ -129,9 +129,10 @@ describe('LocalHistoryService', () => {
     const writeFile = vi.fn(async(_filePath: string, content: string) => {
       current = content
     })
+    const ids = ['snapshot-restore', 'snapshot-before-restore']
     const service = new LocalHistoryService({
       rootPath: path.join(root, 'history'),
-      createId: () => 'snapshot-restore',
+      createId: () => ids.shift() ?? 'snapshot-extra',
       files: {
         readFile: async() => current,
         writeFile
@@ -148,6 +149,12 @@ describe('LocalHistoryService', () => {
     ).resolves.toMatchObject({ content: 'old' })
     expect(current).toBe('old')
     expect(writeFile).toHaveBeenCalledTimes(1)
+    const snapshotsAfterRestore = await service.listSnapshots(filePath)
+    const rollback = snapshotsAfterRestore.find((snapshot) => snapshot.id === 'snapshot-before-restore')
+    expect(rollback).toMatchObject({ reason: 'before-restore', size: 'current'.length })
+    await expect(service.getSnapshot(filePath, 'snapshot-before-restore')).resolves.toMatchObject({
+      content: 'current'
+    })
 
     current = 'newer'
     await expect(

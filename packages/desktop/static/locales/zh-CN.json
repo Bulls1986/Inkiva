@@ -241,12 +241,23 @@
       "saveBeforeRestore": "恢复历史前请先保存当前修改。",
       "restore": "恢复",
       "restoring": "正在恢复…",
+      "preview": "查看版本",
+      "previewTitle": "历史版本预览",
+      "readonlyPreview": "只读预览",
+      "previewUnchanged": "预览不会修改当前文件。",
+      "openCopy": "作为新文档打开",
+      "restoreCurrent": "恢复为当前版本…",
+      "confirmRestoreTitle": "恢复这个历史版本？",
+      "confirmRestoreBody": "恢复前会先为当前文件创建回退点。确认后才会替换磁盘内容。",
+      "cancel": "取消",
+      "closePreview": "关闭历史预览",
       "restoreEntry": "从 {date} 恢复快照",
       "bytes": "{count} B",
       "kilobytes": "{count} KB",
       "historyReasons": {
         "manual": "手动",
         "before-save": "保存前",
+        "before-restore": "恢复前回退点",
         "before-external-change": "外部变更",
         "autosave": "编辑中",
         "close": "关闭",
@@ -1000,6 +1011,20 @@
   "spellchecker": {
     "failedToRemoveWord": "从词典中删除单词失败",
     "unexpectedError": "意外的拼写检查器错误"
+  },
+  "recovery": {
+    "untitled": {
+      "title": "恢复未命名草稿",
+      "description": "Inkiva 找到了上次异常结束前已写入恢复稿的未命名文档。",
+      "documentName": "未命名文档 {index}",
+      "protectedAt": "已保护版本",
+      "stats": "{words} 字 · {size}",
+      "count": "共 {count} 份可恢复草稿",
+      "restoreToNewTab": "恢复到新 Tab",
+      "saveAsHint": "恢复后可继续编辑；需要命名时使用现有的“另存为…”即可。",
+      "later": "稍后处理",
+      "emptyPreview": "空白草稿"
+    }
   },
   "editor": {
     "insertTable": {

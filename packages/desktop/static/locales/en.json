@@ -242,12 +242,23 @@
       "saveBeforeRestore": "Save current changes before restoring history.",
       "restore": "Restore",
       "restoring": "Restoring…",
+      "preview": "View version",
+      "previewTitle": "History Version Preview",
+      "readonlyPreview": "Read-only preview",
+      "previewUnchanged": "Previewing does not change the current file.",
+      "openCopy": "Open as New Document",
+      "restoreCurrent": "Restore as Current Version…",
+      "confirmRestoreTitle": "Restore this history version?",
+      "confirmRestoreBody": "Inkiva creates a rollback point for the current file before replacing its disk contents.",
+      "cancel": "Cancel",
+      "closePreview": "Close history preview",
       "restoreEntry": "Restore snapshot from {date}",
       "bytes": "{count} B",
       "kilobytes": "{count} KB",
       "historyReasons": {
         "manual": "Manual",
         "before-save": "Saved",
+        "before-restore": "Before restore",
         "before-external-change": "External change",
         "autosave": "Editing",
         "close": "Closed",
@@ -1002,6 +1013,20 @@
   "spellchecker": {
     "failedToRemoveWord": "Failed to remove word from dictionary",
     "unexpectedError": "Unexpected spellchecker error"
+  },
+  "recovery": {
+    "untitled": {
+      "title": "Recover unsaved drafts",
+      "description": "Inkiva found untitled drafts preserved before the previous session ended unexpectedly.",
+      "documentName": "Untitled draft {index}",
+      "protectedAt": "Protected version",
+      "stats": "{words} words · {size}",
+      "count": "{count} recoverable draft(s)",
+      "restoreToNewTab": "Restore to New Tab",
+      "saveAsHint": "After recovery, use the existing Save As command when you are ready to name the document.",
+      "later": "Later",
+      "emptyPreview": "Empty draft"
+    }
   },
   "editor": {
     "export": {

@@ -136,3 +136,21 @@ Post-fix evidence:
 - desktop typecheck: PASS;
 - targeted set covering Source roundtrip, 8-tab Source isolation, table command suppression, virtualized code blocks and Mermaid recovery: all US05-relevant hidden-surface cases PASS;
 - the only local failure in that targeted run was the pre-existing/independent Source Find search-bar readiness case, which reproduces without the hidden-editor symptom and was intentionally not modified as part of US05.
+
+### 2026-09-24 — Stage 6: integrate latest develop without losing US03 recovery
+
+While PR #190 was being fixed, `develop` advanced with US03 and US04. Git reported one real conflict in `store/editor.ts`.
+
+The conflict was resolved by composition, not by choosing either side:
+
+- keep US05's active-tab Source/WYSIWYG capture, semantic viewport and Outline serialization;
+- keep US03's protected untitled recovery reinsertion and `protectedAt` metadata;
+- serialize both sets of fields through the same buffered-tab contract.
+
+Integration validation after resolving the conflict:
+
+- US03 + US05 unit set: 13/13 PASS;
+- desktop typecheck: PASS;
+- restore-buffer + editor-input + Mermaid Electron regression set: 13/13 PASS.
+
+Lesson: when parallel user stories extend the same recovery contract, resolve at the contract-field level. Never accept `ours`/`theirs` wholesale on session serialization, because both stories may own independent authoritative state.

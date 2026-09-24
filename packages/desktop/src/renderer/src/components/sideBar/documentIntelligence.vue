@@ -86,35 +86,27 @@
             :key="entry.id"
             class="document-intelligence__history-item"
           >
-            <div class="document-intelligence__history-copy">
+            <button
+              type="button"
+              class="document-intelligence__history-copy document-intelligence__item"
+              :aria-label="t('sideBar.documentIntelligence.preview')"
+              @click="openHistoryPreview(entry)"
+            >
               <span class="document-intelligence__item-title">{{
                 formatDate(entry.createdAt)
               }}</span>
               <span class="document-intelligence__item-detail">
                 {{ historyReason(entry.reason) }} · {{ formatSize(entry.size) }}
               </span>
-            </div>
+            </button>
             <button
               type="button"
               class="restore-button"
-              :disabled="!canRestore"
-              :aria-label="
-                t('sideBar.documentIntelligence.restoreEntry', {
-                  date: formatDate(entry.createdAt)
-                })
-              "
-              :title="
-                requiresSaveBeforeRestore
-                  ? t('sideBar.documentIntelligence.saveBeforeRestore')
-                  : t('sideBar.documentIntelligence.restore')
-              "
-              @click="documentIntelligenceStore.RESTORE_SNAPSHOT(entry.id)"
+              :disabled="previewLoading"
+              :aria-label="t('sideBar.documentIntelligence.preview')"
+              @click="openHistoryPreview(entry)"
             >
-              {{
-                restoringSnapshotId === entry.id
-                  ? t('sideBar.documentIntelligence.restoring')
-                  : t('sideBar.documentIntelligence.restore')
-              }}
+              {{ t('sideBar.documentIntelligence.preview') }}
             </button>
           </li>
         </ul>
@@ -127,14 +119,105 @@
       </section>
     </template>
   </section>
+
+  <div
+    v-if="selectedSnapshot && selectedEntry"
+    class="history-preview-overlay"
+    role="presentation"
+    @click.self="closeHistoryPreview"
+  >
+    <section
+      class="history-preview"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="t('sideBar.documentIntelligence.previewTitle')"
+    >
+      <header class="history-preview__header">
+        <div>
+          <span class="history-preview__eyebrow">
+            {{ t('sideBar.documentIntelligence.readonlyPreview') }}
+          </span>
+          <h2>{{ formatDate(selectedEntry.createdAt) }}</h2>
+          <p>
+            {{ historyReason(selectedEntry.reason) }} ·
+            {{ t('sideBar.documentIntelligence.previewUnchanged') }}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          :aria-label="t('sideBar.documentIntelligence.closePreview')"
+          @click="closeHistoryPreview"
+        >
+          ×
+        </button>
+      </header>
+
+      <div class="history-preview__content">
+        <pre>{{ selectedSnapshot.content }}</pre>
+      </div>
+
+      <div
+        v-if="confirmRestore"
+        class="history-preview__confirm"
+        role="alert"
+      >
+        <strong>{{ t('sideBar.documentIntelligence.confirmRestoreTitle') }}</strong>
+        <p>{{ t('sideBar.documentIntelligence.confirmRestoreBody') }}</p>
+      </div>
+
+      <footer class="history-preview__footer">
+        <button
+          type="button"
+          class="history-preview__button"
+          @click="openSnapshotCopy"
+        >
+          {{ t('sideBar.documentIntelligence.openCopy') }}
+        </button>
+        <span />
+        <button
+          v-if="confirmRestore"
+          type="button"
+          class="history-preview__button"
+          @click="confirmRestore = false"
+        >
+          {{ t('sideBar.documentIntelligence.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="history-preview__button history-preview__button--primary"
+          :disabled="!canRestore || restoringSnapshotId === selectedEntry.id"
+          :title="
+            requiresSaveBeforeRestore
+              ? t('sideBar.documentIntelligence.saveBeforeRestore')
+              : t('sideBar.documentIntelligence.restore')
+          "
+          @click="confirmRestore ? restoreSelectedSnapshot() : (confirmRestore = true)"
+        >
+          {{
+            restoringSnapshotId === selectedEntry.id
+              ? t('sideBar.documentIntelligence.restoring')
+              : confirmRestore
+                ? t('sideBar.documentIntelligence.restore')
+                : t('sideBar.documentIntelligence.restoreCurrent')
+          }}
+        </button>
+      </footer>
+    </section>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { RefreshRight } from '@element-plus/icons-vue'
-import type { LocalHistoryReason, MarkdownBacklink } from '@shared/types/documentIntelligence'
+import type {
+  LocalHistoryEntry,
+  LocalHistoryReason,
+  LocalHistorySnapshot,
+  MarkdownBacklink
+} from '@shared/types/documentIntelligence'
 import bus from '@/bus'
 import { useEditorStore } from '@/store/editor'
 import { useDocumentIntelligenceStore } from '@/store/documentIntelligence'
@@ -152,6 +235,10 @@ const {
   canRestore,
   requiresSaveBeforeRestore
 } = storeToRefs(documentIntelligenceStore)
+const previewLoading = ref(false)
+const selectedEntry = ref<LocalHistoryEntry | null>(null)
+const selectedSnapshot = ref<LocalHistorySnapshot | null>(null)
+const confirmRestore = ref(false)
 
 const errorMessage = computed(() => {
   if (!error.value) return ''
@@ -171,6 +258,37 @@ const formatSize = (size: number): string => {
 
 const historyReason = (reason: LocalHistoryReason): string =>
   t(`sideBar.documentIntelligence.historyReasons.${reason}`)
+
+const closeHistoryPreview = (): void => {
+  selectedEntry.value = null
+  selectedSnapshot.value = null
+  confirmRestore.value = false
+}
+
+const openHistoryPreview = async (entry: LocalHistoryEntry): Promise<void> => {
+  previewLoading.value = true
+  confirmRestore.value = false
+  try {
+    const snapshot = await documentIntelligenceStore.GET_SNAPSHOT(entry.id)
+    if (!snapshot) return
+    selectedEntry.value = entry
+    selectedSnapshot.value = snapshot
+  } finally {
+    previewLoading.value = false
+  }
+}
+
+const openSnapshotCopy = async (): Promise<void> => {
+  if (!selectedEntry.value) return
+  const opened = await documentIntelligenceStore.OPEN_SNAPSHOT_COPY(selectedEntry.value.id)
+  if (opened) closeHistoryPreview()
+}
+
+const restoreSelectedSnapshot = async (): Promise<void> => {
+  if (!selectedEntry.value) return
+  const restored = await documentIntelligenceStore.RESTORE_SNAPSHOT(selectedEntry.value.id)
+  if (restored) closeHistoryPreview()
+}
 
 const basename = (pathname: string): string => window.path.basename(pathname)
 
@@ -368,6 +486,121 @@ const openBacklink = (backlink: MarkdownBacklink): void => {
 .icon-button:disabled,
 .restore-button:disabled {
   color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.history-preview-overlay {
+  position: fixed;
+  z-index: var(--z-modal);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.history-preview {
+  display: flex;
+  flex-direction: column;
+  width: min(760px, calc(100vw - 48px));
+  max-height: min(720px, calc(100vh - 48px));
+  overflow: hidden;
+  color: var(--text-secondary);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-floating);
+}
+
+.history-preview__header {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.history-preview__header h2 {
+  margin: 4px 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-title);
+}
+
+.history-preview__header p,
+.history-preview__confirm p {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--font-ui-sm);
+}
+
+.history-preview__eyebrow {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-metadata);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.history-preview__content {
+  flex: 1;
+  min-height: 220px;
+  overflow: auto;
+  padding: var(--space-4);
+  background: var(--surface-chrome);
+}
+
+.history-preview__content pre {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: 'DejaVu Sans Mono', 'Source Code Pro', 'Droid Sans Mono', Consolas, monospace;
+  font-size: var(--font-ui-md);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.history-preview__confirm {
+  margin: 0 var(--space-4);
+  padding: var(--space-3);
+  color: var(--text-primary);
+  background: var(--surface-hover);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.history-preview__footer {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.history-preview__footer > span {
+  flex: 1;
+}
+
+.history-preview__button {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.history-preview__button--primary {
+  color: #fff;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.history-preview__button:disabled {
+  color: var(--text-disabled);
+  background: var(--surface-hover);
+  border-color: var(--border-subtle);
   cursor: not-allowed;
 }
 </style>
