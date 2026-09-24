@@ -291,12 +291,12 @@ const keepSelectionValid = (): void => {
   }
 }
 
-const refresh = async(): Promise<void> => {
+const refresh = async (): Promise<void> => {
   state.value = await window.electron.ipcRenderer.invoke('mt::recovery-center::get-state')
   keepSelectionValid()
 }
 
-const openDialog = async(): Promise<void> => {
+const openDialog = async (): Promise<void> => {
   await refresh()
   visible.value = true
 }
@@ -319,7 +319,7 @@ const requestDiscardWorkspace = (): void => {
   actionError.value = ''
 }
 
-const discardWorkspaceState = async(): Promise<void> => {
+const discardWorkspaceState = async (): Promise<void> => {
   await window.electron.ipcRenderer.invoke('mt::recovery-center::discard-workspace')
   confirmWorkspaceDiscard.value = false
   visible.value = false
@@ -330,7 +330,7 @@ const discardWorkspaceState = async(): Promise<void> => {
 const formatTime = (value: number | null): string =>
   value ? new Date(value).toLocaleString() : '时间未知'
 
-const openRecoveryCopy = async(): Promise<void> => {
+const openRecoveryCopy = async (): Promise<void> => {
   const item = selectedItem.value
   if (!item) return
   const result = await window.electron.ipcRenderer.invoke('mt::recovery-center::open-copy', item.id)
@@ -351,7 +351,7 @@ const requestReplace = (): void => {
   actionError.value = ''
 }
 
-const replaceSelected = async(): Promise<void> => {
+const replaceSelected = async (): Promise<void> => {
   const item = selectedItem.value
   if (!item) return
   const result = await window.electron.ipcRenderer.invoke(
@@ -378,7 +378,7 @@ const requestDiscard = (): void => {
   actionError.value = ''
 }
 
-const discardSelected = async(): Promise<void> => {
+const discardSelected = async (): Promise<void> => {
   const item = selectedItem.value
   if (!item) return
   await window.electron.ipcRenderer.invoke('mt::recovery-center::discard', item.id)
@@ -387,7 +387,7 @@ const discardSelected = async(): Promise<void> => {
   await refresh()
 }
 
-const retrySelected = async(): Promise<void> => {
+const retrySelected = async (): Promise<void> => {
   const item = selectedItem.value
   if (!item) return
   state.value = await window.electron.ipcRenderer.invoke('mt::recovery-center::retry', item.id)
@@ -401,11 +401,11 @@ const showSelectedLocation = (): void => {
 
 let stopOpenListener: (() => void) | undefined
 
-onMounted(() => {
-  stopOpenListener = window.electron.ipcRenderer.on('mt::open-recovery-center', () => {
-    void openDialog()
+onMounted(async () => {
+  stopOpenListener = window.electron.ipcRenderer.on('mt::open-recovery-center', async () => {
+    await openDialog()
   })
-  void refresh()
+  await refresh()
 })
 
 onBeforeUnmount(() => {

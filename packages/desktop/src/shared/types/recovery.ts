@@ -25,9 +25,9 @@ export interface RecoveryOpenResult {
 export type RecoveryReplaceResult =
   | { ok: true }
   | {
-      ok: false
-      reason: 'external-change' | 'unavailable'
-      diskMarkdown?: string | null
-      diskRevision?: string | null
-      message?: string
-    }
+    ok: false
+    reason: 'external-change' | 'unavailable'
+    diskMarkdown?: string | null
+    diskRevision?: string | null
+    message?: string
+  }
