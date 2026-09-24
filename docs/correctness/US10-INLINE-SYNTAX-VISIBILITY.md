@@ -67,6 +67,7 @@ Reusable conclusions:
 3. Visibility assertions should protect the user contract (inside reveals, outside hides, source/history unchanged) rather than introduce a new visual implementation.
 
 Existing `AGENTS.md`, `docs/agent/TESTING.md`, and `docs/agent/WORKFLOW.md` already cover red/green discipline, environment-vs-product evidence and stage recording. No new agent-level rule is needed for this task.
+
 ## Stage 5 — PR / merge closeout
 
 - PR: **#197**
