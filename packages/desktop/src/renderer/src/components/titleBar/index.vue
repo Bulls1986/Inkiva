@@ -97,15 +97,15 @@
       >
         <span
           class="save-status"
-          :class="{ dirty: isSaved === false }"
+          :class="effectiveDurabilityStatus"
           role="status"
-          :aria-label="isSaved === false ? t('titlebar.unsaved') : t('titlebar.saved')"
+          :aria-label="saveStatusLabel"
         >
           <span
             class="save-status-dot"
             aria-hidden="true"
           />
-          {{ isSaved === false ? t('titlebar.unsaved') : t('titlebar.saved') }}
+          {{ saveStatusLabel }}
         </span>
         <el-tooltip
           v-if="wordCount"
@@ -231,6 +231,7 @@ import { useEditorStore } from '@/store/editor'
 import { useI18n } from 'vue-i18n'
 import { ArrowRight, Search } from '@element-plus/icons-vue'
 import type { FileWordCount } from '@shared/types/files'
+import type { DocumentDurabilityStatus } from '@/store/documentDurability'
 import bus from '../../bus'
 import inkivaLogo from '../../assets/images/logo.png'
 
@@ -247,6 +248,7 @@ const props = defineProps<{
   wordCount?: FileWordCount | null
   platform?: string
   isSaved?: boolean
+  durabilityStatus?: DocumentDurabilityStatus
 }>()
 
 const preferencesStore = usePreferencesStore()
@@ -281,6 +283,20 @@ const windowIconClose = closePath
 const isFullScreen = ref(false)
 const isMaximized = ref(false)
 const show = ref<'word' | 'paragraph' | 'character' | 'all'>('word')
+
+const effectiveDurabilityStatus = computed<DocumentDurabilityStatus>(
+  () => props.durabilityStatus ?? (props.isSaved === false ? 'unprotected' : 'saved')
+)
+const saveStatusLabel = computed(() => {
+  switch (effectiveDurabilityStatus.value) {
+    case 'protected':
+      return t('titlebar.protected')
+    case 'unprotected':
+      return t('titlebar.unprotected')
+    default:
+      return t('titlebar.savedFile')
+  }
+})
 
 const activeMenuId = ref<string | null>(null)
 
@@ -604,8 +620,12 @@ div.title > span {
   background: var(--color-success);
 }
 
-.save-status.dirty .save-status-dot {
-  background: var(--color-accent);
+.save-status.protected .save-status-dot {
+  background: var(--color-warning);
+}
+
+.save-status.unprotected .save-status-dot {
+  background: var(--color-danger);
 }
 
 .custom-word-count-tooltip {
@@ -639,7 +659,9 @@ div.title > span {
   padding: 5px 8px;
   min-height: var(--hit-target-sm);
   white-space: nowrap;
-  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
+  transition:
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
 }
 
 .menu-bar-item:hover,
@@ -674,7 +696,10 @@ div.title > span {
   font: inherit;
   font-size: var(--font-size-secondary);
   text-align: left;
-  transition: color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast);
+  transition:
+    color var(--motion-fast),
+    background-color var(--motion-fast),
+    border-color var(--motion-fast);
 }
 
 .command-launcher:hover {
@@ -753,7 +778,9 @@ div.title > span {
   line-height: 24px;
   padding: 0 5px;
   box-sizing: border-box;
-  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
+  transition:
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
   & > .text-center-vertical {
     padding: 2px 5px;
     border-radius: 3px;

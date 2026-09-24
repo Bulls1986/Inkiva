@@ -44,7 +44,24 @@ export const createBufferedState = (): Record<string, unknown> | null => {
 export const sendBufferedState = (): Promise<unknown> => {
   const snapshot = createBufferedState()
   if (snapshot) {
-    return window.electron.ipcRenderer.invoke('update-buffer-state', snapshot)
+    const revisions = stores.editorStore?.GET_DOCUMENT_REVISIONS() ?? {}
+    return window.electron.ipcRenderer.invoke('update-buffer-state', snapshot).then(
+      (result) => {
+        if (result === true) {
+          stores.editorStore?.MARK_RECOVERY_PERSISTED(revisions)
+        } else {
+          stores.editorStore?.MARK_RECOVERY_FAILED(
+            revisions,
+            new Error('Recovery storage did not confirm the draft write.')
+          )
+        }
+        return result
+      },
+      (error) => {
+        stores.editorStore?.MARK_RECOVERY_FAILED(revisions, error)
+        throw error
+      }
+    )
   }
 
   return Promise.resolve(false)

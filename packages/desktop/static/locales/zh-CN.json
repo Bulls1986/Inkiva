@@ -145,6 +145,9 @@
   "titlebar": {
     "saved": "已保存",
     "unsaved": "未保存",
+    "savedFile": "已保存到文件",
+    "protected": "仅在 Inkiva 中已保护",
+    "unprotected": "尚未保护",
     "untitled": "未命名文档",
     "menu": "应用菜单",
     "maximize": "最大化窗口",
@@ -491,7 +494,8 @@
       "autoSave": {
         "title": "自动保存",
         "description": "自动保存",
-        "delayDescription": "自动保存延迟"
+        "delayDescription": "自动保存延迟",
+        "protectionNote": "自动保存写入 Markdown 文件；关闭自动保存后，Inkiva 仍尝试保护临时稿。只有状态显示“仅在 Inkiva 中已保护”才表示该修订已写入恢复稿；临时稿不等于文件已保存。"
       },
       "window": {
         "title": "窗口",
@@ -944,6 +948,11 @@
     "changesWillBeLost": "更改将丢失",
     "close": "关闭",
     "dontSave": "放弃保存",
+    "keepForRecovery": "保留以供恢复",
+    "discardChanges": "丢弃更改",
+    "confirmDiscardChanges": "确认丢弃这些更改？",
+    "discardCannotRecover": "这会删除 Inkiva 中保留的恢复稿，之后无法再恢复这些更改。",
+    "unsavedProtectionDetail": "“保存”会写入 Markdown 文件；“保留以供恢复”仅在 Inkiva 确认恢复稿已落盘后关闭；“丢弃更改”会永久放弃这些内容。",
     "file": "文件",
     "fileExists": "文件已存在",
     "files": "文件",
@@ -1002,6 +1011,7 @@
       "imageDeletionUrlTitle": "图片删除链接",
       "imageDeletionUrlMessage": "点击将已上传图片的删除链接复制到剪贴板 ({url})。",
       "errorWhileSaving": "保存时发生错误：{msg}",
+      "errorWhileProtectingDraft": "Inkiva 无法保护最新恢复稿：{msg}",
       "exportSuccessTitle": "导出成功",
       "exportSuccessMessage": "已成功导出“{name}”！",
       "fileRemovedOnDisk": "“{name}” 已在磁盘上被删除。",

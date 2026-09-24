@@ -241,17 +241,23 @@ const handleResponseForSave = async(
         ipcMain.emit('window-file-saved', win.id, filePath, markdown)
 
         const newFilename = path.basename(filePath!)
-        win.webContents.send('mt::set-pathname', { id, pathname: filePath, filename: newFilename })
+        win.webContents.send('mt::set-pathname', {
+          id,
+          pathname: filePath,
+          filename: newFilename,
+          revision
+        })
       } else {
         ipcMain.emit('window-file-saved', win.id, filePath, markdown)
-        win.webContents.send('mt::tab-saved', id)
+        win.webContents.send('mt::tab-saved', id, revision)
       }
       return id
     })
     .catch((err: unknown) => {
       log.error('Error while saving:', err)
       const msg = err instanceof Error ? err.message : String(err)
-      win.webContents.send('mt::tab-save-failure', id, msg)
+      win.webContents.send('mt::tab-save-failure', id, msg, revision)
+      throw err
     })
 }
 
@@ -300,16 +306,17 @@ export const saveUnsavedFilesForUpdate = async(
         win.webContents.send('mt::set-pathname', {
           id: file.id,
           pathname: filePath,
-          filename: path.basename(filePath)
+          filename: path.basename(filePath),
+          revision: file.revision
         })
       } else {
         ipcMain.emit('window-file-saved', win.id, filePath, file.markdown)
-        win.webContents.send('mt::tab-saved', file.id)
+        win.webContents.send('mt::tab-saved', file.id, file.revision)
       }
     } catch (error) {
       log.error('Error while saving before update install:', error)
       const message = error instanceof Error ? error.message : String(error)
-      win.webContents.send('mt::tab-save-failure', file.id, message)
+      win.webContents.send('mt::tab-save-failure', file.id, message, file.revision)
       return false
     }
   }
@@ -320,18 +327,23 @@ export const saveUnsavedFilesForUpdate = async(
 const showUnsavedFilesMessage = async(
   win: BrowserWindow,
   files: UnsavedFile[]
-): Promise<{ needSave: boolean } | null> => {
+): Promise<{ action: 'save' | 'retain' | 'discard' } | null> => {
   const { response } = await dialog.showMessageBox(win, {
     type: 'warning',
-    buttons: [t('dialog.save'), t('dialog.dontSave'), t('dialog.cancel')],
+    buttons: [
+      t('dialog.save'),
+      t('dialog.keepForRecovery'),
+      t('dialog.discardChanges'),
+      t('dialog.cancel')
+    ],
     defaultId: 0,
     message: t('dialog.saveChanges', {
       count: files.length,
       type: files.length === 1 ? t('dialog.file') : t('dialog.files'),
       files: files.map((f) => f.filename).join('\n')
     }),
-    detail: t('dialog.changesWillBeLost'),
-    cancelId: 2,
+    detail: t('dialog.unsavedProtectionDetail'),
+    cancelId: 3,
     noLink: true
   })
 
@@ -339,11 +351,23 @@ const showUnsavedFilesMessage = async(
     case 0:
       return new Promise((resolve) => {
         setTimeout(() => {
-          resolve({ needSave: true })
+          resolve({ action: 'save' })
         })
       })
     case 1:
-      return { needSave: false }
+      return { action: 'retain' }
+    case 2: {
+      const confirmation = await dialog.showMessageBox(win, {
+        type: 'warning',
+        buttons: [t('dialog.discardChanges'), t('dialog.cancel')],
+        defaultId: 1,
+        cancelId: 1,
+        message: t('dialog.confirmDiscardChanges'),
+        detail: t('dialog.discardCannotRecover'),
+        noLink: true
+      })
+      return confirmation.response === 0 ? { action: 'discard' } : null
+    }
     default:
       return null
   }
@@ -402,8 +426,8 @@ ipcMain.on('mt::save-and-close-tabs', async(e, unsavedFiles: UnsavedFile[]) => {
     return
   }
 
-  const { needSave } = userResult
-  if (needSave) {
+  const { action } = userResult
+  if (action === 'save') {
     Promise.all(
       unsavedFiles.map((file) =>
         handleResponseForSave(
@@ -425,9 +449,15 @@ ipcMain.on('mt::save-and-close-tabs', async(e, unsavedFiles: UnsavedFile[]) => {
       .catch((err: unknown) => {
         log.error('Error while save all:', err)
       })
+  } else if (action === 'retain') {
+    win.webContents.send(
+      'mt::retain-and-close-tabs-by-id',
+      unsavedFiles.map((file) => file.id)
+    )
   } else {
     const tabIds = unsavedFiles.map((f) => f.id)
-    win.webContents.send('mt::force-close-tabs-by-id', tabIds)
+    // Explicit discard: do not retain this draft in the renderer's reopen stack.
+    win.webContents.send('mt::force-close-tabs-by-id', tabIds, true)
   }
 })
 
@@ -480,7 +510,8 @@ ipcMain.on(
             win.webContents.send('mt::set-pathname', {
               id,
               pathname: filePath,
-              filename: newFilename
+              filename: newFilename,
+              revision
             })
           } else if (pathname !== filePath) {
             // Update window file list and watcher.
@@ -491,17 +522,18 @@ ipcMain.on(
             win.webContents.send('mt::set-pathname', {
               id,
               pathname: filePath,
-              filename: newFilename
+              filename: newFilename,
+              revision
             })
           } else {
             ipcMain.emit('window-file-saved', win.id, filePath, markdown)
-            win.webContents.send('mt::tab-saved', id)
+            win.webContents.send('mt::tab-saved', id, revision)
           }
         })
         .catch((err: unknown) => {
           log.error('Error while save as:', err)
           const msg = err instanceof Error ? err.message : String(err)
-          win.webContents.send('mt::tab-save-failure', id, msg)
+          win.webContents.send('mt::tab-save-failure', id, msg, revision)
         })
     }
   }
@@ -517,8 +549,8 @@ ipcMain.on('mt::close-window-confirm', async(e, unsavedFiles: UnsavedFile[]) => 
     return
   }
 
-  const { needSave } = userResult
-  if (needSave) {
+  const { action } = userResult
+  if (action === 'save') {
     Promise.all(
       unsavedFiles.map((file) =>
         handleResponseForSave(
@@ -533,27 +565,29 @@ ipcMain.on('mt::close-window-confirm', async(e, unsavedFiles: UnsavedFile[]) => 
         )
       )
     )
-      .then(() => {
-        ipcMain.emit('window-close-by-id', win.id)
+      .then((results) => {
+        // A canceled Save As returns no id. Keep the window open rather than
+        // silently discarding an unsaved latest revision.
+        if (results.every((id) => id != null)) {
+          ipcMain.emit('window-close-by-id', win.id)
+        }
       })
       .catch((err: unknown) => {
         log.error('Error while saving before quit:', err)
-
         const msg = err instanceof Error ? err.message : String(err)
-        // Notify user about the problem.
-        dialog
-          .showMessageBox(win, {
-            type: 'error',
-            buttons: [t('dialog.close'), t('dialog.keepOpen')],
-            message: t('dialog.saveFailure'),
-            detail: msg
-          })
-          .then(({ response }) => {
-            if (win.id && response === 0) {
-              ipcMain.emit('window-close-by-id', win.id)
-            }
-          })
+        // A failed latest-revision write is never a license to close the
+        // window. Keep every failed document open and explain why.
+        void dialog.showMessageBox(win, {
+          type: 'error',
+          buttons: [t('dialog.keepOpen')],
+          defaultId: 0,
+          cancelId: 0,
+          message: t('dialog.saveFailure'),
+          detail: msg
+        })
       })
+  } else if (action === 'retain') {
+    win.webContents.send('mt::retain-and-close-window')
   } else {
     ipcMain.emit('window-close-by-id', win.id)
   }

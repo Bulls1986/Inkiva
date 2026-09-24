@@ -22,6 +22,9 @@
           :step="100"
           :on-change="(value) => onSelectChange('autoSaveDelay', value)"
         />
+        <p class="autosave-protection-note">
+          {{ t('preferences.general.autoSave.protectionNote') }}
+        </p>
       </template>
     </compound>
 
@@ -268,5 +271,11 @@ const selectDefaultDirectoryToOpen = (): void => {
 
 .pref-general .startup-action-ctrl label {
   margin: 5px 0;
+}
+.autosave-protection-note {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-secondary);
+  line-height: 1.5;
 }
 </style>

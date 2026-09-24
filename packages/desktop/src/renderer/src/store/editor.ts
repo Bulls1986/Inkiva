@@ -24,6 +24,15 @@ import { t } from '../i18n'
 import { documentRevisionSnapshots } from '../services/documentRevisionSnapshot'
 import { debouncedSendBufferedState, sendBufferedState } from './bufferedState'
 import { AutosaveQueue, type AutosaveRequest } from './autosaveQueue'
+import {
+  createDocumentDurability,
+  markDocumentDirty,
+  markFileSaveFailed,
+  markFileSaved,
+  markRecoveryFailed,
+  markRecoveryProtected,
+  type DocumentDurabilityState
+} from './documentDurability'
 import { getTabIdsToCloseRight, pushClosedTab } from './tabsWorkflow'
 import { buildTabLifecycle, type TabLifecycle } from './tabLifecycle'
 import type {
@@ -194,10 +203,12 @@ export interface EditorState {
   tabs: IFileState[]
   pendingUntitledRecoveries: UntitledRecoveryDraft[]
   tabIdToIndex: Record<string, number>
+  durabilityByTabId: Record<string, DocumentDurabilityState>
   tabLifecycle: Record<string, TabLifecycle>
   tabActivationOrder: string[]
   pinnedTabIds: string[]
   closedTabs: ClosedTabState[]
+  retainedRecoveryTabs: ClosedTabState[]
   listToc: TocItem[]
   toc: TocTreeNode[]
   activeTocSlug: string | null
@@ -252,7 +263,8 @@ const autosaveQueue = new AutosaveQueue({
       request.pathname,
       request.markdown,
       deepClone(request.options),
-      request.defaultPath ?? ''
+      request.defaultPath ?? '',
+      request.revision
     )
   }
 })
@@ -263,10 +275,12 @@ export const useEditorStore = defineStore('editor', {
     tabs: [],
     pendingUntitledRecoveries: [],
     tabIdToIndex: {},
+    durabilityByTabId: {},
     tabLifecycle: {},
     tabActivationOrder: [],
     pinnedTabIds: [],
     closedTabs: [],
+    retainedRecoveryTabs: [],
     listToc: [], // Used for equal check and for searching for the correct github-slug to jump to
     toc: [],
     activeTocSlug: null
@@ -313,6 +327,27 @@ export const useEditorStore = defineStore('editor', {
       this.closedTabs = pushClosedTab(this.closedTabs, closedTab, MAX_CLOSED_TABS)
     },
 
+    _retainRecoveryTab(file: IFileState): void {
+      const retained: ClosedTabState = {
+        id: file.id,
+        filename: file.filename,
+        pathname: file.pathname,
+        markdown: snapshotMarkdownForFile(file),
+        isSaved: false,
+        encoding: cloneEditorValue(file.encoding),
+        lineEnding: file.lineEnding,
+        adjustLineEndingOnSave: file.adjustLineEndingOnSave,
+        trimTrailingNewline: file.trimTrailingNewline,
+        cursor: cloneEditorValue(file.cursor),
+        scrollTop: file.scrollTop,
+        pinned: this.pinnedTabIds.includes(file.id)
+      }
+      this.retainedRecoveryTabs = [
+        retained,
+        ...this.retainedRecoveryTabs.filter((tab) => tab.id !== retained.id)
+      ].slice(0, MAX_CLOSED_TABS)
+    },
+
     CREATE_BUFFERED_STATE(): ReturnType<typeof createBufferedEditorState> {
       const tabs = this.tabs.map(createBufferedTabState)
       const pending = [...this.pendingUntitledRecoveries].sort(
@@ -325,6 +360,49 @@ export const useEditorStore = defineStore('editor', {
       return createBufferedEditorState({ ...this.$state, tabs })
     },
 
+    GET_DOCUMENT_REVISIONS(): Record<string, number> {
+      return this.tabs.reduce<Record<string, number>>((revisions, tab) => {
+        revisions[tab.id] = getDocumentRevision(tab.id)
+        return revisions
+      }, {})
+    },
+
+    ENSURE_DOCUMENT_DURABILITY(id: string): DocumentDurabilityState {
+      const existing = this.durabilityByTabId[id]
+      if (existing) return existing
+      const tab = this.tabs.find((candidate) => candidate.id === id)
+      const created = createDocumentDurability(getDocumentRevision(id), tab?.isSaved === true)
+      this.durabilityByTabId[id] = created
+      return created
+    },
+
+    MARK_RECOVERY_PERSISTED(revisions: Record<string, number>): void {
+      for (const [id, revision] of Object.entries(revisions)) {
+        if (!(id in this.tabIdToIndex)) continue
+        this.durabilityByTabId[id] = markRecoveryProtected(
+          this.ENSURE_DOCUMENT_DURABILITY(id),
+          revision
+        )
+      }
+    },
+
+    MARK_RECOVERY_FAILED(revisions: Record<string, number>, error: unknown): void {
+      for (const [id, revision] of Object.entries(revisions)) {
+        if (!(id in this.tabIdToIndex)) continue
+        const previous = this.ENSURE_DOCUMENT_DURABILITY(id)
+        const next = markRecoveryFailed(previous, revision, error)
+        this.durabilityByTabId[id] = next
+        if (next.recoveryError && next.recoveryError !== previous.recoveryError) {
+          this.pushTabNotification({
+            tabId: id,
+            msg: t('store.editor.errorWhileProtectingDraft', { msg: next.recoveryError }),
+            style: 'crit',
+            exclusiveType: 'recovery_write_failure'
+          })
+        }
+      }
+    },
+
     RESTORE_BUFFERED_STATE(state: unknown): void {
       const rawState = state as { editor?: unknown; project?: unknown; layout?: unknown } | null
       const editorInput = rawState?.editor ?? state
@@ -334,9 +412,18 @@ export const useEditorStore = defineStore('editor', {
         return
       }
 
+      // US-02 owns how recovery candidates are surfaced. Feed US-01 retained
+      // drafts into the same classification path instead of restoring them
+      // through a parallel tab path. A snapshot taken just before retain-close
+      // may contain the same document in both collections, so de-duplicate by id.
+      const restoredById = new Map(bufferedEditorState.tabs.map((tab) => [tab.id, tab]))
+      for (const retained of bufferedEditorState.retainedRecoveryTabs) {
+        if (!restoredById.has(retained.id)) restoredById.set(retained.id, retained)
+      }
+
       const pendingUntitledRecoveries: UntitledRecoveryDraft[] = []
       const visibleBufferedTabs: BufferedTabState[] = []
-      bufferedEditorState.tabs.forEach((tab, originalIndex) => {
+      ;[...restoredById.values()].forEach((tab, originalIndex) => {
         if (!tab.pathname && !tab.isSaved) {
           pendingUntitledRecoveries.push({ ...tab, originalIndex })
         } else {
@@ -366,6 +453,14 @@ export const useEditorStore = defineStore('editor', {
         s.pendingUntitledRecoveries = pendingUntitledRecoveries
         s.currentFile = currentFile
         s.tabIdToIndex = {}
+        s.durabilityByTabId = tabs.reduce<Record<string, DocumentDurabilityState>>(
+          (states, tab) => {
+            const initial = createDocumentDurability(0, tab.isSaved)
+            states[tab.id] = tab.isSaved ? initial : markRecoveryProtected(initial, 0)
+            return states
+          },
+          {}
+        )
         s.tabLifecycle = {}
         s.tabActivationOrder = []
         s.pinnedTabIds = bufferedEditorState.pinnedPathnames.reduce<string[]>((ids, pathname) => {
@@ -376,6 +471,7 @@ export const useEditorStore = defineStore('editor', {
           return ids
         }, [])
         s.closedTabs = []
+        s.retainedRecoveryTabs = []
         s.listToc = []
         s.toc = []
         s.activeTocSlug = null
@@ -760,7 +856,8 @@ export const useEditorStore = defineStore('editor', {
             pathname,
             markdown: snapshotMarkdownForFile(file),
             options: deepClone(getOptionsFromState(file)),
-            defaultPath
+            defaultPath,
+            revision: getDocumentRevision(id)
           }
         })
     },
@@ -781,16 +878,32 @@ export const useEditorStore = defineStore('editor', {
         // An older write that is already in flight is still acknowledged normally;
         // the per-document write queue keeps this revision ordered after it.
         autosaveQueue.cancel(id)
-        window.electron.ipcRenderer.send(
-          'mt::response-file-save',
-          id,
-          filename,
-          pathname,
-          markdown,
-          deepClone(options),
-          defaultPath,
-          revision
-        )
+        if (pathname) {
+          autosaveQueue.schedule(
+            {
+              id,
+              revision,
+              filename,
+              pathname,
+              markdown,
+              options: deepClone(options),
+              defaultPath
+            },
+            0
+          )
+          autosaveQueue.flush(id)
+        } else {
+          window.electron.ipcRenderer.send(
+            'mt::response-file-save',
+            id,
+            filename,
+            pathname,
+            markdown,
+            deepClone(options),
+            defaultPath,
+            revision
+          )
+        }
       }
     },
 
@@ -845,7 +958,7 @@ export const useEditorStore = defineStore('editor', {
     LISTEN_FOR_SET_PATHNAME(): void {
       window.electron.ipcRenderer.on('mt::set-pathname', (_, fileInfo) => {
         const { tabs } = this
-        const { pathname, id } = fileInfo
+        const { pathname, id, revision } = fileInfo
         const tab = tabs.find((f) => f.id === id)
         if (!tab) {
           console.error('[ERROR] Cannot change file path from unknown tab.')
@@ -868,14 +981,25 @@ export const useEditorStore = defineStore('editor', {
         }
         if (tab) {
           Object.assign(tab, { filename, pathname, isSaved: true })
+          const savedRevision = revision ?? getDocumentRevision(id)
+          this.durabilityByTabId[id] = markFileSaved(
+            this.ENSURE_DOCUMENT_DURABILITY(id),
+            savedRevision
+          )
           if (pathname) useRecentDocumentsStore().RECORD_FILE(pathname)
           debouncedSendBufferedState()
         }
       })
 
-      window.electron.ipcRenderer.on('mt::tab-saved', (_, tabId) => {
-        const autosaveAck = autosaveQueue.acknowledge(tabId)
+      window.electron.ipcRenderer.on('mt::tab-saved', (_, tabId, revision) => {
+        const autosaveAck = autosaveQueue.acknowledge(tabId, revision)
         const tab = this.tabs.find((f) => f.id === tabId)
+        const savedRevision =
+          revision ?? autosaveAck?.request.revision ?? getDocumentRevision(tabId)
+        this.durabilityByTabId[tabId] = markFileSaved(
+          this.ENSURE_DOCUMENT_DURABILITY(tabId),
+          savedRevision
+        )
         if (autosaveAck && !autosaveAck.isLatest) {
           // The write that just completed belongs to an older dirty revision.
           // Leave the tab dirty; the queue will drain the newest pending
@@ -884,7 +1008,7 @@ export const useEditorStore = defineStore('editor', {
           debouncedSendBufferedState()
           return
         }
-        if (tab) {
+        if (tab && savedRevision >= getDocumentRevision(tabId)) {
           const lastEditIndex = tab.history.lastEditIndex
           if (
             typeof lastEditIndex === 'number' &&
@@ -901,9 +1025,15 @@ export const useEditorStore = defineStore('editor', {
         }
       })
 
-      window.electron.ipcRenderer.on('mt::tab-save-failure', (_, tabId, msg) => {
-        autosaveQueue.acknowledge(tabId, undefined, msg)
+      window.electron.ipcRenderer.on('mt::tab-save-failure', (_, tabId, msg, revision) => {
+        autosaveQueue.acknowledge(tabId, revision, msg)
         const tab = this.tabs.find((t) => t.id === tabId)
+        const failedRevision = revision ?? getDocumentRevision(tabId)
+        this.durabilityByTabId[tabId] = markFileSaveFailed(
+          this.ENSURE_DOCUMENT_DURABILITY(tabId),
+          failedRevision,
+          msg
+        )
         if (!tab) {
           notice.notify({
             title: t('dialog.saveFailure'),
@@ -973,9 +1103,48 @@ export const useEditorStore = defineStore('editor', {
     },
 
     LISTEN_FOR_SAVE_CLOSE(): void {
-      window.electron.ipcRenderer.on('mt::force-close-tabs-by-id', (_, tabIdList) => {
+      window.electron.ipcRenderer.on('mt::force-close-tabs-by-id', (_, tabIdList, discard) => {
         if (Array.isArray(tabIdList) && tabIdList.length) {
-          this.CLOSE_TABS(tabIdList)
+          if (discard === true) {
+            const discardedIds = new Set(tabIdList)
+            this.retainedRecoveryTabs = this.retainedRecoveryTabs.filter(
+              (tab) => !discardedIds.has(tab.id)
+            )
+          }
+          this.CLOSE_TABS(tabIdList, discard !== true)
+        }
+      })
+      window.electron.ipcRenderer.on('mt::retain-and-close-tabs-by-id', async(_, tabIdList) => {
+        if (!Array.isArray(tabIdList) || tabIdList.length === 0) return
+        this.flushActiveEditorForSave()
+        const retainedIds = new Set(tabIdList)
+        this.tabs
+          .filter((tab) => retainedIds.has(tab.id))
+          .forEach((tab) => this._retainRecoveryTab(tab))
+
+        try {
+          const persisted = await sendBufferedState()
+          if (persisted === true) {
+            this.CLOSE_TABS(tabIdList)
+            return
+          }
+        } catch (error) {
+          console.error('Failed to retain tabs for recovery', error)
+        }
+
+        this.retainedRecoveryTabs = this.retainedRecoveryTabs.filter(
+          (tab) => !retainedIds.has(tab.id)
+        )
+      })
+      window.electron.ipcRenderer.on('mt::retain-and-close-window', async() => {
+        this.flushActiveEditorForSave()
+        try {
+          const persisted = await sendBufferedState()
+          if (persisted === true) {
+            window.electron.ipcRenderer.send('mt::close-window')
+          }
+        } catch (error) {
+          console.error('Failed to retain window drafts for recovery', error)
         }
       })
     },
@@ -994,7 +1163,8 @@ export const useEditorStore = defineStore('editor', {
             pathname,
             markdown: snapshotMarkdownForFile(file),
             options,
-            defaultPath: getRootFolderFromState(projectStore)
+            defaultPath: getRootFolderFromState(projectStore),
+            revision: getDocumentRevision(id)
           }
         })
 
@@ -1285,7 +1455,7 @@ export const useEditorStore = defineStore('editor', {
       })
     },
 
-    FORCE_CLOSE_TAB(file: IFileState): void {
+    FORCE_CLOSE_TAB(file: IFileState, rememberClosed = true): void {
       const { tabs, currentFile } = this
       // A text-only mutation may still have its expensive snapshot debounced
       // in editor.vue. Flush it while the outgoing tab is still current;
@@ -1296,7 +1466,7 @@ export const useEditorStore = defineStore('editor', {
       const index = tabs.findIndex((t) => t.id === file.id)
       if (index > -1) {
         const closedTab = tabs[index]
-        if (closedTab) this._recordClosedTab(closedTab)
+        if (closedTab && rememberClosed) this._recordClosedTab(closedTab)
         tabs.splice(index, 1)
         this.pinnedTabIds = this.pinnedTabIds.filter((id) => id !== file.id)
         this.updateTabIdToIndex()
@@ -1305,6 +1475,7 @@ export const useEditorStore = defineStore('editor', {
       if (file.id) {
         autosaveQueue.cancel(file.id)
         documentRevisionSnapshots.release(file.id)
+        delete this.durabilityByTabId[file.id]
       }
 
       this.updateTabIdToIndex() // Update before sending it out to prevent stale mappings.
@@ -1355,7 +1526,8 @@ export const useEditorStore = defineStore('editor', {
           pathname,
           filename,
           markdown: snapshotMarkdownForFile(file),
-          options: deepClone(options)
+          options: deepClone(options),
+          revision: getDocumentRevision(id)
         }
       ])
     },
@@ -1447,7 +1619,7 @@ export const useEditorStore = defineStore('editor', {
       })
     },
 
-    CLOSE_TABS(tabIdList: string[]): void {
+    CLOSE_TABS(tabIdList: string[], rememberClosed = true): void {
       if (!tabIdList || tabIdList.length === 0) return
 
       // CLOSE_TABS changes currentFile directly below instead of going through
@@ -1465,7 +1637,7 @@ export const useEditorStore = defineStore('editor', {
         const closed = this.tabs[index]
         const { pathname } = closed ?? { pathname: '' }
 
-        if (closed) this._recordClosedTab(closed)
+        if (closed && rememberClosed) this._recordClosedTab(closed)
 
         if (pathname) {
           window.electron.ipcRenderer.send('mt::window-tab-closed', pathname)
@@ -1473,6 +1645,7 @@ export const useEditorStore = defineStore('editor', {
 
         autosaveQueue.cancel(id)
         this.tabs.splice(index, 1)
+        delete this.durabilityByTabId[id]
         this.pinnedTabIds = this.pinnedTabIds.filter((tabId) => tabId !== id)
         if (this.currentFile?.id === id) {
           this.currentFile = null
@@ -1877,6 +2050,10 @@ export const useEditorStore = defineStore('editor', {
       const isDirty = history === undefined ? markdown !== oldMarkdown : historyMarksDirty
       if (isDirty) {
         tab.isSaved = false
+        this.durabilityByTabId[id] = markDocumentDirty(
+          this.ENSURE_DOCUMENT_DURABILITY(id),
+          revision
+        )
       } else if (history !== undefined && tab.lastSavedHistoryId !== -1) {
         // Check here is to prevent it from overriding a restored .isSaved state
         tab.isSaved = true // An undo can trigger this
@@ -1962,7 +2139,13 @@ export const useEditorStore = defineStore('editor', {
       const revision = nextDocumentRevision(id)
       const index = this.tabIdToIndex[id]
       const tab = index == null ? undefined : this.tabs[index]
-      if (tab) tab.isSaved = false
+      if (tab) {
+        tab.isSaved = false
+        this.durabilityByTabId[id] = markDocumentDirty(
+          this.ENSURE_DOCUMENT_DURABILITY(id),
+          revision
+        )
+      }
       return revision
     },
 
@@ -2533,6 +2716,7 @@ const createBufferedRestoreWarning = (
 interface BufferedEditorState {
   currentFileId: string | null
   tabs: BufferedTabState[]
+  retainedRecoveryTabs: BufferedTabState[]
   pinnedPathnames: string[]
   restoreWarnings: BufferedRestoreWarning[]
 }
@@ -2545,6 +2729,7 @@ const createBufferedEditorState = (state: unknown): BufferedEditorState | null =
       currentFile?: { id?: string } | null
       pinnedPathnames?: unknown
       pinnedTabIds?: unknown
+      retainedRecoveryTabs?: unknown
       restoreWarnings?: unknown
     }
     | null
@@ -2567,6 +2752,11 @@ const createBufferedEditorState = (state: unknown): BufferedEditorState | null =
   return {
     currentFileId: s.currentFileId || s.currentFile?.id || null,
     tabs: (s.tabs as Array<Partial<IFileState> & { id: string }>).map(createBufferedTabState),
+    retainedRecoveryTabs: Array.isArray(s.retainedRecoveryTabs)
+      ? (s.retainedRecoveryTabs as Array<Partial<IFileState> & { id: string }>).map(
+        createBufferedTabState
+      )
+      : [],
     pinnedPathnames,
     restoreWarnings: Array.isArray(s.restoreWarnings)
       ? (s.restoreWarnings as RestoreWarning[])
