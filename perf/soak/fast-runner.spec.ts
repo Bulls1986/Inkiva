@@ -192,7 +192,7 @@ test('fast runner CLI writes a report and rejects alternate thresholds', () => {
     assert.equal(JSON.parse(readFileSync(outputPath, 'utf8')).passed, true)
     const diskReport = JSON.parse(readFileSync(reportOutputPath, 'utf8'))
     assert.equal(diskReport.level, 'P0')
-    assert.equal(diskReport.productVersion, '0.4.0')
+    assert.equal(diskReport.productVersion, '0.4.1')
     assert.equal(typeof diskReport.provenance?.commit, 'string')
     assert.equal(diskReport.provenance?.runMode, 'pr-smoke')
     assert.equal(diskReport.provenance?.graphicsBackend, 'default')

@@ -530,12 +530,10 @@ Evidence:
 - `packages/website/package.json` is also kept at the product release version;
 - `scripts/verifyUpdateArtifacts.test.ts` currently has a version-specific `0.4.0`
   fixture constant;
-- the previous v0.4.0 release commit `5257570` changed exactly these four files together:
-  root package, desktop package, website package, and the release-artifact test fixture.
+- the previous v0.4.0 release commit `5257570` changed the four authoritative version sources together: root package, desktop package, website package, and the updater-artifact test fixture;
+- the v0.4.1 preparation CI additionally exposed three tests that deliberately assert the current release version: `inkiva-release-identifiers.spec.ts`, `fast-runner.spec.ts`, and `assembleReleaseArtifacts.test.ts`.
 
-For v0.4.1, these four version-bearing sources must move together unless a dedicated
-single-source synchronization mechanism is introduced first. This audit will not invent such
-a mechanism immediately before release.
+For v0.4.1, the four authoritative version-bearing sources and these three version-bound test fixtures must move together. Historical benchmark fixtures and Markdown content that merely contain the text `0.4.0` are not product-version sources and must not be mechanically rewritten.
 
 ### Final closure handoff
 

@@ -23,7 +23,7 @@ const macMetadata = (version: string, filename: string, content: Buffer): string
   '',
 ].join('\n')
 
-const makeArtifacts = async(version = '0.4.0'): Promise<{ source: string; output: string }> => {
+const makeArtifacts = async(version = '0.4.1'): Promise<{ source: string; output: string }> => {
   const root = await mkdtemp(path.join(tmpdir(), 'inkiva-release-assembly-'))
   const source = path.join(root, 'artifacts')
   const output = path.join(root, 'dist')
@@ -40,7 +40,7 @@ const makeArtifacts = async(version = '0.4.0'): Promise<{ source: string; output
     [`inkiva-mac-x64-${version}.zip`, Buffer.from('mac-x64-zip')],
     [`inkiva-mac-arm64-${version}.dmg`, Buffer.from('mac-arm64-dmg')],
     [`inkiva-mac-arm64-${version}.zip`, Buffer.from('mac-arm64-zip')],
-    ['latest.yml', Buffer.from('version: 0.4.0\n')],
+    ['latest.yml', Buffer.from('version: 0.4.1\n')],
   ])
 
   for (const [filename, fileContent] of files) {
@@ -81,11 +81,11 @@ test('assembles uploaded platform artifacts without rebuilding them', async() =>
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
 
     const merged = await readFile(path.join(output, 'latest-mac.yml'), 'utf8')
-    assert.match(merged, /inkiva-mac-x64-0\.4\.0\.zip/)
-    assert.match(merged, /inkiva-mac-arm64-0\.4\.0\.zip/)
+    assert.match(merged, /inkiva-mac-x64-0\.4\.1\.zip/)
+    assert.match(merged, /inkiva-mac-arm64-0\.4\.1\.zip/)
 
     const checksums = await readFile(path.join(output, 'SHA256SUMS.txt'), 'utf8')
-    assert.match(checksums, /inkiva-win-x64-0\.4\.0-setup\.exe/)
+    assert.match(checksums, /inkiva-win-x64-0\.4\.1-setup\.exe/)
     assert.match(checksums, /latest-mac\.yml/)
   } finally {
     await rm(root, { recursive: true, force: true })
@@ -100,7 +100,7 @@ test('rejects conflicting updater metadata instead of publishing ambiguous artif
     const original = await readFile(macArmMetadata, 'utf8')
     await writeFile(
       macArmMetadata,
-      `${original}\n  - url: inkiva-mac-x64-0.4.0.zip\n    sha512: conflicting\n`
+      `${original}\n  - url: inkiva-mac-x64-0.4.1.zip\n    sha512: conflicting\n`
     )
     const result = runAssembler(source, output)
     assert.notEqual(result.status, 0)
