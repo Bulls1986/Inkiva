@@ -173,3 +173,27 @@ Validation after the fix:
 - desktop typecheck: PASS.
 
 Lesson: moving state ownership from window-level to document-level must preserve the old creation semantics at the ownership handoff boundary. Per-document persistence starts **after** creation; it must not silently redefine which mode a new document initially inherits.
+
+### 2026-09-24 — Stage 8: final PR gate and merge closure
+
+PR #190 final head `5d406db` completed the full required gate successfully:
+
+- Linux full E2E: PASS (8m23s);
+- lint: PASS;
+- unit test workflow: PASS;
+- Desktop PR fast hard gate: PASS;
+- Windows x64 / macOS x64 / macOS ARM64 PR builds: PASS;
+- Windows x64 / macOS x64 / macOS ARM64 package smoke: PASS;
+- Updater artifact smoke: PASS.
+
+PR #190 was then squash-merged into `develop` as `123f7ab6dd37b2083095ffbb0bd36c9acbde437d`.
+
+US05 is therefore closed with:
+
+- implementation complete;
+- regression fixes complete;
+- parallel US03/US04 integration complete;
+- full CI/release gates green;
+- squash merge complete.
+
+No additional functional change is included in this closeout stage.
