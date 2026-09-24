@@ -53,11 +53,13 @@ This keeps the fix at the orchestration boundary where the race occurs instead o
 
 ## Validation
 
-- Isolated TypeScript check for `restoreInteractionFence.ts`: PASS on the final source (`typescript@6.0.3`, `--noEmit --target ES2022 --lib ES2022,DOM --skipLibCheck`).
-- Focused Vitest: not runnable locally due dependency/bootstrap failures before discovery (`tinyexec` missing in donor graph); not classified as a product failure.
-- Focused ESLint launcher is likewise unavailable in this slot (`pnpm exec eslint` cannot resolve the CLI), so no lint result is claimed.
-- Desktop `vue-tsc` via donor dependencies reached compilation but is not a valid green gate: it resolves Muya from the main checkout and reports the known cross-worktree ambient/type failures (`__MUYA_BLOCK__`, `MUYA_VERSION`, file-icons, prism declarations). No reported error points at the US07 utility or changed editor lines.
-- `git diff --check` reports the repository's documented Windows CRLF normalization signature on new `editor.vue` lines; a direct byte/text audit of all reported added lines found no literal trailing spaces or tabs. No line-ending rewrite was performed.
+- Worktree-local dependency graph restored with `pnpm install --offline --frozen-lockfile`: PASS; project postinstall completed the Electron native-module rebuild.
+- Focused restore/durability Vitest (`restore-interaction-fence`, `workspace-restore-state`, `buffer-store-restore`, `buffer-store-durable`): **4 files / 19 tests PASS**.
+- Runtime/geometry regression Vitest (`document-editor-runtime`, `editor-layout`): **2 files / 18 tests PASS**.
+- Changed-files ESLint (`editor.vue`, `restoreInteractionFence.ts`, focused spec): PASS; only Node's package-module warning was emitted.
+- Isolated TypeScript check for `restoreInteractionFence.ts`: PASS.
+- Desktop `vue-tsc --noEmit` still reports Muya ambient/type-declaration errors (`__MUYA_BLOCK__`, `MUYA_VERSION`, file-icons, prism declarations). Running the identical command on clean `develop` reproduces the same error set, confirming baseline debt rather than a US07 regression; no reported error points at the US07 utility or changed editor lines.
+- `git -c core.whitespace=cr-at-eol diff --check`: PASS.
 - Independent final diff review remained limited to the US07 editor integration, focused fence utility/test and this stage record; no prototype-specific UI was added.
 
 ## Learning review
