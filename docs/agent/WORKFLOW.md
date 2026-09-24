@@ -4,11 +4,13 @@
 
 ## Standard lifecycle
 
-> inspect → plan → define tests → implement → validate → review diff → commit → push → create/update PR → follow CI → record stage result → consolidate lessons
+> inspect → load mandatory contracts → establish Red + architecture gates → implement → validate → architecture/diff review → commit → push → create/update PR → follow CI → record stage result → consolidate lessons
 
 - Base is normally `develop`.
 - One logical objective per task branch/worktree and PR.
 - Keep implementation, regression tests, and required guards in one coherent change chain.
+- Before the first production-code mutation, the task must have loaded `TESTING.md` and `ARCHITECTURE_RELEASE.md`, established valid Red evidence, and identified the affected architecture boundary. ARCH-governed subsystems additionally require the specific durable contract. Treat this as a hard pre-mutation gate, including when resuming an existing or parallel worktree: audit the evidence before continuing implementation.
+- A closeout may be functionally green yet still be process-incomplete. Missing executable Red evidence means no strict TDD/test-first claim; missing required architecture-contract evidence means no architecture-compliant claim until reviewed and corrected.
 - Do not mix unrelated cleanup into the task.
 - Do not auto-merge unless explicitly requested.
 - Inkiva currently allows **squash merge only**. When an authorized PR is ready to merge, use `gh pr merge <PR> --squash`; do not first try `--merge` or `--rebase`. A rejected merge strategy is repository-policy evidence, not a PR/CI failure. After a successful squash merge, verify both the PR state and the target branch ref before recording the task as merged.
