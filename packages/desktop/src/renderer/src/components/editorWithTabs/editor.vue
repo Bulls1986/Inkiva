@@ -2344,11 +2344,10 @@ const handleFileChange = (payload: unknown) => {
     muyaIndexCursor,
     history: payloadHistory,
     scrollTop,
-    viewportAnchorSlug: payloadViewportAnchorSlug,
+    viewportAnchorSlug,
     blocks,
     isReload
   } = (payload ?? {}) as FileChangePayload
-  const viewportAnchorSlug = payloadViewportAnchorSlug ?? currentFile.value?.viewportAnchorSlug
   if (!editor.value) return
   if (isStaleEditorEvent(id, currentFile.value?.id)) return
   const container = getScrollContainer()

@@ -112,3 +112,27 @@ Validation:
 - `show_changes` itself returned a WebCodex `git status unavailable` transport/tool error twice, so review fell back to direct Git status/stat plus targeted file inspection rather than treating the tool failure as product evidence.
 - `git diff --check` initially reported every newly added line in `editor.vue` as trailing whitespace. `git ls-files --eol` proved the file is intentionally tracked and checked out as CRLF (`i/crlf w/crlf`). Re-running the check with `core.whitespace=cr-at-eol` passed; no line-ending rewrite was performed.
 - Final real-Electron restore E2E remained 3/3 green and focused/unit recovery coverage remained 10/10 green.
+
+### 2026-09-24 — Stage 5: PR CI diagnosis and semantic-restore scoping fix
+
+PR #190 exposed 10 Linux full-suite E2E failures where WYSIWYG/diagram content existed in the DOM but remained hidden. This was diagnosed as a US05 integration bug rather than retried as flakiness.
+
+Root cause:
+
+- `handleFileChange` used `currentFile.viewportAnchorSlug` as a fallback whenever the event itself did not carry a semantic anchor.
+- That accidentally applied session/tab semantic-viewport restoration to unrelated `file-changed` paths such as Source → WYSIWYG handoff and disk reload.
+- Those paths could therefore hide the WYSIWYG surface while waiting for a semantic restore callback they never intended to schedule, creating a timing-sensitive hidden-editor state that was amplified by Linux full-suite CI.
+
+Fix:
+
+- `viewportAnchorSlug` is now an explicit optional field in the typed `file-changed` bus contract.
+- Only actual tab activation sends the semantic anchor.
+- Source handoff, external reload and other ordinary `file-changed` producers keep their prior behavior and cannot inherit the current tab's anchor implicitly.
+- Initial session restore still restores the active document's semantic anchor directly from the restored tab state.
+
+Post-fix evidence:
+
+- focused restore/buffer unit suite: 10/10 PASS;
+- desktop typecheck: PASS;
+- targeted set covering Source roundtrip, 8-tab Source isolation, table command suppression, virtualized code blocks and Mermaid recovery: all US05-relevant hidden-surface cases PASS;
+- the only local failure in that targeted run was the pre-existing/independent Source Find search-bar readiness case, which reproduces without the hidden-editor symptom and was intentionally not modified as part of US05.

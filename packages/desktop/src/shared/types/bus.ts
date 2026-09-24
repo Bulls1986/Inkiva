@@ -72,6 +72,8 @@ export interface FileChangePayload {
   renderCursor?: boolean
   history?: unknown
   scrollTop?: number
+  /** Semantic viewport restore marker. Only tab/session activation should set this. */
+  viewportAnchorSlug?: string | null
   blocks?: unknown
   contentAlreadyLoaded?: boolean
   externalReload?: boolean

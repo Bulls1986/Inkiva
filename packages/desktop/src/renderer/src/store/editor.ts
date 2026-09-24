@@ -1128,6 +1128,7 @@ export const useEditorStore = defineStore('editor', {
           history,
           scrollTop,
           blocks,
+          viewportAnchorSlug
         })
       }
 
