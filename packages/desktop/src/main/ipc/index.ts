@@ -10,6 +10,7 @@ import { registerCmdHandlers } from './cmd'
 import { registerI18nHandlers } from './i18n'
 import { registerPerformanceHandlers } from './performance'
 import { registerDocumentIntelligenceHandlers } from './documentIntelligence'
+import { registerRecoveryHandlers } from './recovery'
 
 export const registerSandboxIpcHandlers = (): void => {
   registerBootInfo()
@@ -24,4 +25,5 @@ export const registerSandboxIpcHandlers = (): void => {
   registerI18nHandlers()
   registerPerformanceHandlers()
   registerDocumentIntelligenceHandlers()
+  registerRecoveryHandlers()
 }

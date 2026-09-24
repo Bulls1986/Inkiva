@@ -38,6 +38,7 @@ import { routeStartupOpenRequest } from '../session/startupOpenTarget'
 import { canonicalPathKey } from '../session/pathCanonicalizer'
 import { createBlankRestorePlan, type RestorePlan } from '../session/restorePlan'
 import { SafeRestoreGuard } from '../session/safeRestoreGuard'
+import { recoveryCenterSession } from '../session/recoveryCenter'
 import { createSafeRestoreStore } from '../session/safeRestoreStore'
 import {
   evaluateSafeRestoreStartup,
@@ -456,9 +457,15 @@ class App {
       ])
     }
 
+    recoveryCenterSession.configure({
+      safeMode: useSafeRestore,
+      bufferStore: editorBufferStore,
+      userDataPath: this._accessor.paths.userDataPath
+    })
+
     const createWindow = async(): Promise<void> => {
       try {
-        if (isRestorePathway && !useSafeRestore) {
+        if (isRestorePathway) {
           // Create an empty, visible shell before touching recovery files. The
           // shell has no content yet, so the completed plan remains the only
           // source allowed to create restore tabs.
@@ -484,6 +491,11 @@ class App {
                 restorePlan.state
               )
             }
+            recoveryCenterSession.setRestorePlan(restorePlan, {
+              safeMode: useSafeRestore,
+              bufferStore: editorBufferStore,
+              userDataPath: this._accessor.paths.userDataPath
+            })
           } catch (error) {
             // Recovery is a best-effort feature. A scan, migration or merge
             // error must leave the already-visible shell usable.
@@ -494,7 +506,7 @@ class App {
           // Keep argv/open-file requests queued until this plan has finished
           // loading its files into the shell. This prevents a queued request
           // from being overwritten by the eventual `load-state` message.
-          await restoreEditor.applyRestorePlan(restorePlan)
+          await restoreEditor.applyRestorePlan(useSafeRestore ? createBlankRestorePlan() : restorePlan)
         } else if (this._openRequestCoordinator.hasPendingPaths()) {
           // Explicit startup/open-file request takes precedence over recovery.
           // Create the shell before clearing stale recovery files so cleanup

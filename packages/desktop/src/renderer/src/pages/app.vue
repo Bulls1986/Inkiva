@@ -15,6 +15,7 @@
       <side-bar v-if="init" />
 
       <div class="editor-middle">
+        <recovery-center />
         <!--
           The sidebar navigation and document tabs share this workspace header
           band. Keeping the tab strip inside the editor column preserves the
@@ -94,6 +95,7 @@ const ExportSettingDialog = defineAsyncComponent(
 )
 const Rename = defineAsyncComponent(() => import('@/components/rename/index.vue'))
 const ImportModal = defineAsyncComponent(() => import('@/components/import/index.vue'))
+const RecoveryCenter = defineAsyncComponent(() => import('@/components/recoveryCenter/index.vue'))
 
 const mainStore = useMainStore()
 const editorStore = useEditorStore()

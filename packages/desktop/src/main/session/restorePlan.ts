@@ -33,6 +33,8 @@ export interface RestorePlan {
   kind: 'blank' | 'restore'
   windows: RestoreWindowPlan[]
   state: BufferStoreState | null
+  automaticState: BufferStoreState | null
+  pendingTabs: BufferStoreTab[]
   primarySource: RecoverySource | null
   sources: RecoverySource[]
   skippedSources: SkippedRecoverySource[]
@@ -136,6 +138,8 @@ export const createBlankRestorePlan = (
   kind: 'blank',
   windows: [],
   state: null,
+  automaticState: null,
+  pendingTabs: [],
   primarySource: null,
   sources: [],
   skippedSources
@@ -194,6 +198,26 @@ export const buildRestorePlan = async(
     validStates.map(({ state: validState }) => validState),
     { platform }
   )
+  const pendingTabs = state.tabs.filter((tab) => tab.isSaved === false)
+  const automaticTabs = state.tabs.filter((tab) => tab.isSaved !== false)
+  const automaticIds = new Set(
+    automaticTabs.flatMap((tab) => (typeof tab.id === 'string' && tab.id ? [tab.id] : []))
+  )
+  const requestedCurrentFileId =
+    typeof state.currentFileId === 'string' ? state.currentFileId : null
+  const automaticCurrentFileId =
+    requestedCurrentFileId && automaticIds.has(requestedCurrentFileId)
+      ? requestedCurrentFileId
+      : (automaticTabs.find((tab) => typeof tab.id === 'string' && tab.id)?.id ?? null)
+  const automaticState: BufferStoreState = {
+    ...state,
+    tabs: automaticTabs,
+    currentFileId: automaticCurrentFileId
+  }
+  if ('currentFile' in automaticState) {
+    automaticState.currentFile = automaticCurrentFileId ? { id: automaticCurrentFileId } : null
+  }
+
   const primarySource = firstValidState.source
   const window: RestoreWindowPlan = {
     windowId: primarySource.id,
@@ -212,6 +236,8 @@ export const buildRestorePlan = async(
     kind: 'restore',
     windows: [window],
     state,
+    automaticState,
+    pendingTabs,
     primarySource,
     sources: validStates.map(({ source }) => source),
     skippedSources
