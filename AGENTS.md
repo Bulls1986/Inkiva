@@ -7,7 +7,7 @@ Inkiva is a document-first Markdown desktop editor. User documents must remain s
 ## Mandatory rules
 
 1. Start non-trivial work from the latest intended base, normally `develop`, in one isolated task branch/worktree.
-2. Reproduce the problem with a focused failing test before changing production code.
+2. Before the first production-code mutation, complete the pre-mutation gate: read `docs/agent/TESTING.md` and `docs/agent/ARCHITECTURE_RELEASE.md`, identify the affected architecture boundaries, and obtain executable Red evidence for the target behavior. If the task touches an ARCH-governed boundary, also read the corresponding contract from `docs/architecture/README.md`.
 3. Never weaken assertions, thresholds, workloads, sample counts, or scenarios to make tests/CI pass.
 4. Never treat environment/bootstrap failure as product-code evidence.
 5. For long-running work, allow **one active Job per logical operation**. Silence/timeout is not proof of failure; observe the existing Job first.
@@ -39,12 +39,13 @@ For comments, follow [.github/COMMENTING-GUIDELINES.md](.github/COMMENTING-GUIDE
 
 ## Startup checklist
 
-1. Identify task, base, branch, affected subsystem.
+1. Identify task, base, branch, affected subsystem, and likely architecture boundary.
 2. Inspect existing worktrees and active Jobs before creating/running anything.
-3. Read only the relevant quick guide(s) above. Do not preload troubleshooting/history documents unless a matching symptom or task requires them.
-4. Confirm the selected worktree is clean of unrelated work and environment-ready.
-5. Reproduce the issue with a focused failing test.
-6. Create/update the stage record when the task is multi-stage or high-risk.
+3. For any task that may change production code, always read [Testing](docs/agent/TESTING.md) and [Architecture & release](docs/agent/ARCHITECTURE_RELEASE.md) before the first production mutation. Read other quick guides only when relevant; do not preload troubleshooting/history documents without a matching need.
+4. If the change touches an ARCH-governed boundary (editor runtime, IPC, virtual surface, geometry, event bus, Muya public boundary, background scheduler/services, or legacy-boundary closure), open [Architecture index](docs/architecture/README.md) and read the specific contract before implementation.
+5. Confirm the selected worktree is clean of unrelated work and environment-ready.
+6. Reproduce the target behavior with an executed focused failing test and retain valid Red evidence; a missing/invalid Red gate blocks production-code mutation.
+7. Create/update the stage record when the task is multi-stage or high-risk.
 
 If a canonical environment path already exists, follow it directly. Do not repeat earlier experiments unless new evidence proves the documented path invalid.
 
