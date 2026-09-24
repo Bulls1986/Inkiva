@@ -1001,6 +1001,20 @@
     "failedToRemoveWord": "从词典中删除单词失败",
     "unexpectedError": "意外的拼写检查器错误"
   },
+  "recovery": {
+    "untitled": {
+      "title": "恢复未命名草稿",
+      "description": "Inkiva 找到了上次异常结束前已写入恢复稿的未命名文档。",
+      "documentName": "未命名文档 {index}",
+      "protectedAt": "已保护版本",
+      "stats": "{words} 字 · {size}",
+      "count": "共 {count} 份可恢复草稿",
+      "restoreToNewTab": "恢复到新 Tab",
+      "saveAsHint": "恢复后可继续编辑；需要命名时使用现有的“另存为…”即可。",
+      "later": "稍后处理",
+      "emptyPreview": "空白草稿"
+    }
+  },
   "editor": {
     "insertTable": {
       "title": "插入表格",

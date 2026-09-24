@@ -1003,6 +1003,20 @@
     "failedToRemoveWord": "Failed to remove word from dictionary",
     "unexpectedError": "Unexpected spellchecker error"
   },
+  "recovery": {
+    "untitled": {
+      "title": "Recover unsaved drafts",
+      "description": "Inkiva found untitled drafts preserved before the previous session ended unexpectedly.",
+      "documentName": "Untitled draft {index}",
+      "protectedAt": "Protected version",
+      "stats": "{words} words · {size}",
+      "count": "{count} recoverable draft(s)",
+      "restoreToNewTab": "Restore to New Tab",
+      "saveAsHint": "After recovery, use the existing Save As command when you are ready to name the document.",
+      "later": "Later",
+      "emptyPreview": "Empty draft"
+    }
+  },
   "editor": {
     "export": {
       "error": "Export error",
