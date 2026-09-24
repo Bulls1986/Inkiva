@@ -154,3 +154,22 @@ Integration validation after resolving the conflict:
 - restore-buffer + editor-input + Mermaid Electron regression set: 13/13 PASS.
 
 Lesson: when parallel user stories extend the same recovery contract, resolve at the contract-field level. Never accept `ours`/`theirs` wholesale on session serialization, because both stories may own independent authoritative state.
+
+### 2026-09-24 — Stage 7: preserve current mode when creating new documents
+
+The post-merge Linux full E2E reduced from 10 failures to one failure: the CORRECTNESS-02 eight-Source-tab isolation case. Diagnosis showed that US05 had incorrectly assigned newly created/opened tabs from `sourceCodeModeEnabled`, while Inkiva's established interaction contract is that a document created while the current editor surface is Source starts in Source.
+
+The corrected ownership model is:
+
+- creation time: inherit the current live editor surface (`preferencesStore.sourceCode`);
+- after creation: persist mode on that document/tab independently;
+- session restore: restore the explicit per-tab persisted mode;
+- `sourceCodeModeEnabled` is not mutated by tab switching and is not used as the runtime inheritance source for a newly created document.
+
+Validation after the fix:
+
+- focused US03/US05 restore/buffer unit suite: 11/11 PASS;
+- exact eight-Source-tab CORRECTNESS-02 regression: 1/1 PASS;
+- desktop typecheck: PASS.
+
+Lesson: moving state ownership from window-level to document-level must preserve the old creation semantics at the ownership handoff boundary. Per-document persistence starts **after** creation; it must not silently redefine which mode a new document initially inherits.

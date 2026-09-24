@@ -143,6 +143,18 @@ describe('US05 workspace restore state', () => {
     expect(tab.notifications[0]?.msg).toContain(tab.pathname)
   })
 
+  it('new tabs inherit the current editor surface before their mode becomes document-owned', () => {
+    const editor = useEditorStore()
+    const preferences = usePreferencesStore()
+    preferences.sourceCode = true
+    preferences.sourceCodeModeEnabled = false
+
+    editor.NEW_UNTITLED_TAB({ markdown: '# source child\n', selected: false })
+
+    expect(editor.tabs.at(-1)?.sourceCodeMode).toBe(true)
+    expect(preferences.sourceCodeModeEnabled).toBe(false)
+  })
+
   it('switches the window surface to the target tab mode without changing the new-tab default', () => {
     const editor = useEditorStore()
     const preferences = usePreferencesStore()

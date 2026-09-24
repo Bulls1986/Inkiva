@@ -1688,7 +1688,10 @@ export const useEditorStore = defineStore('editor', {
         endOfLine,
         markdownString ?? null
       )
-      fileState.sourceCodeMode = preferencesStore.sourceCodeModeEnabled
+      // Preserve Inkiva's existing window-surface behavior for newly created
+      // documents: a tab created while the user is in Source starts in Source.
+      // From this point onward the mode belongs to the tab and may diverge.
+      fileState.sourceCodeMode = preferencesStore.sourceCode
 
       if (selected) {
         const { id, markdown } = fileState
@@ -1761,7 +1764,7 @@ export const useEditorStore = defineStore('editor', {
         )
       )
       if (typeof docState.sourceCodeMode !== 'boolean') {
-        docState.sourceCodeMode = usePreferencesStore().sourceCodeModeEnabled
+        docState.sourceCodeMode = usePreferencesStore().sourceCode
       }
       const { id, cursor } = docState
 
