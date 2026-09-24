@@ -51,6 +51,11 @@ The product-design prototype is reference material only. Existing Inkiva UI, int
 - PR CI on `#193` completed green: Lint, Test, E2E, Windows/macOS x64/macOS arm64 PR Build, all three Package Smoke jobs, Updater artifact smoke, and the Desktop PR fast hard gate.
 - The first post-lint-fix Fast Hard Gate run failed only `save.50k` p95: 18/20 samples were about 23–40 ms while two isolated samples at 137.4/171.8 ms lifted p95 to 139.12 ms. The immediately preceding US02 commit on the same branch had passed the same gate at p95 42.975 ms. With that evidence, the failed gate was rerun once without changing thresholds, workload, or product code; the rerun passed.
 
+## v0.5 architecture follow-up
+
+- The closeout audit identified one non-blocking architecture debt that predates the later rebase/conflict resolutions: `RecoveryCenterSession` directly constructs `DocumentIntelligenceService` to create the pre-replacement Local History snapshot.
+- Product correctness is intact, but the concrete dependency is tighter than the ARCH-06/07 boundary direction. It is now tracked as `ARCH-TODO-0.5-01` in `docs/architecture/V0.5-ARCHITECTURE-TODO.md` and must be closed within v0.5 without changing recovery correctness semantics.
+
 ## Final closeout
 
 - Product implementation and AC-07 through AC-12 validation are complete.

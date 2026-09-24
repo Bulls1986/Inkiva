@@ -22,6 +22,7 @@ Open this index only for architecture/governance work. The root agent guide inte
 
 ## Focused follow-up
 
+- [v0.5 architecture TODO](V0.5-ARCHITECTURE-TODO.md) — bounded architecture debt that must be closed inside the v0.5 release line.
 - [Async geometry invalidation fix](ASYNC_GEOMETRY_INVALIDATION_FIX.md)
 
 Read only the document relevant to the subsystem being changed. Historical planning is not automatically authoritative over later completed contracts/closure reports.
