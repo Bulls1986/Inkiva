@@ -48,9 +48,13 @@ The product-design prototype is reference material only. Existing Inkiva UI, int
 - Final real Electron `restore-buffer-store.spec.ts`: **4/4** passed, including the V1/V2 protected-recovery decision flow. One earlier run overlapped a duplicate build Job and transiently failed to find `out/renderer/index.html`; after the build completed, the same E2E suite passed without product changes.
 - Locale JSON parse check passed for all locale files; `git diff --check` passed.
 - Full desktop typecheck is not a valid green gate in the current baseline because of pre-existing Muya declaration/type debt. A changed-path diagnostic filter produced no US02-file diagnostics; this limitation must not be reported as a repository-wide typecheck pass.
+- PR CI on `#193` completed green: Lint, Test, E2E, Windows/macOS x64/macOS arm64 PR Build, all three Package Smoke jobs, Updater artifact smoke, and the Desktop PR fast hard gate.
+- The first post-lint-fix Fast Hard Gate run failed only `save.50k` p95: 18/20 samples were about 23–40 ms while two isolated samples at 137.4/171.8 ms lifted p95 to 139.12 ms. The immediately preceding US02 commit on the same branch had passed the same gate at p95 42.975 ms. With that evidence, the failed gate was rerun once without changing thresholds, workload, or product code; the rerun passed.
 
 ## Final closeout
 
-- Product implementation and AC-07 through AC-12 validation are complete locally.
+- Product implementation and AC-07 through AC-12 validation are complete.
 - Stage record and separate engineering-lessons document are complete.
-- Remaining repository actions: commit the reviewed file set, publish the task branch, open the PR, then follow required CI/merge policy.
+- Branch: `feat/us02-crash-recovery`; implementation commit `40849cb`, lint follow-up `3d6a57d`.
+- PR: `#193` (`feat: add US02 crash recovery decision flow`) is open, mergeable, and has completed its required validation green.
+- Per repository workflow, the task is not auto-merged without explicit authorization. The remaining repository action is squash merge when authorized.
