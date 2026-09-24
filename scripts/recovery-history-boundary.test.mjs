@@ -26,5 +26,7 @@ test('recovery center persists rollback history through a narrow external bounda
   assert.match(boundary, /interface RecoveryHistoryPersistence/)
   assert.match(boundary, /DocumentIntelligenceService/)
   assert.match(boundary, /historyRootPath:\s*path\.join\(userDataPath, 'local-history'\)/)
-  assert.match(boundary, /createSnapshot/)
+  assert.match(boundary, /const snapshot = await service\.createSnapshot\(input\)/)
+  assert.match(boundary, /await service\.getSnapshot\(input\.filePath, snapshot\.id\)/)
+  assert.match(boundary, /RecoveryHistorySnapshotUnavailableError/)
 })

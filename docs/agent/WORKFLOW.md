@@ -56,3 +56,4 @@ The goal is a curated knowledge base that becomes smaller and clearer over time,
 - one green CI job != all gates passed.
 - test/monitoring infrastructure != product/performance improvement.
 - local microbenchmark gain != full Electron UX gain.
+- a clean worktree or local `origin/develop` comparison != latest remote integration; fetch or query the authoritative remote ref before claiming a feature is present in current `develop`.

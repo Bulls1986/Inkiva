@@ -77,6 +77,31 @@ describe('recovery center', () => {
     await expect(readFile(filePath, 'utf8')).resolves.toBe('# V2')
   })
 
+  it('does not replace the disk file when the history boundary cannot retain its rollback snapshot', async() => {
+    const dir = await createTempDir()
+    const filePath = path.join(dir, 'note.md')
+    const recoverySource = path.join(dir, 'buffer.json')
+    await writeFile(filePath, '# V1', 'utf8')
+    await writeFile(recoverySource, '{}', 'utf8')
+
+    const createSnapshot = vi.fn(async() => {
+      throw new Error('rollback snapshot was pruned')
+    })
+    const session = new RecoveryCenterSession(() => ({ createSnapshot }))
+    session.setRestorePlan(createPlan(filePath, recoverySource), {
+      safeMode: false,
+      bufferStore: { writeBufferStoreFile: vi.fn(async() => undefined) } as never,
+      userDataPath: dir
+    })
+
+    const item = (await session.getState()).items[0]!
+    await expect(session.replaceFile(item.id, item.diskRevision)).rejects.toThrow(
+      'rollback snapshot was pruned'
+    )
+    await expect(readFile(filePath, 'utf8')).resolves.toBe('# V1')
+    expect((await session.getState()).items.map(({ id }) => id)).toContain(item.id)
+  })
+
   it('opens the protected revision as a new document without overwriting or consuming disk V1', async() => {
     const dir = await createTempDir()
     const filePath = path.join(dir, 'note.md')

@@ -14,6 +14,13 @@ export type RecoveryHistoryPersistenceFactory = (
   userDataPath: string
 ) => RecoveryHistoryPersistence
 
+export class RecoveryHistorySnapshotUnavailableError extends Error {
+  constructor(filePath: string) {
+    super(`Recovery replacement refused because no retained history snapshot is available: ${filePath}`)
+    this.name = 'RecoveryHistorySnapshotUnavailableError'
+  }
+}
+
 export const createRecoveryHistoryPersistence: RecoveryHistoryPersistenceFactory = (
   userDataPath
 ) => {
@@ -23,7 +30,11 @@ export const createRecoveryHistoryPersistence: RecoveryHistoryPersistenceFactory
 
   return {
     async createSnapshot(input): Promise<void> {
-      await service.createSnapshot(input)
+      const snapshot = await service.createSnapshot(input)
+      const retainedSnapshot = await service.getSnapshot(input.filePath, snapshot.id)
+      if (!retainedSnapshot) {
+        throw new RecoveryHistorySnapshotUnavailableError(input.filePath)
+      }
     }
   }
 }
