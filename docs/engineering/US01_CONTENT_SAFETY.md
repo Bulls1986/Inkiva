@@ -80,6 +80,16 @@ The resolution composes both contracts instead of choosing one side:
 
 This keeps “Keep for Recovery” as a durability operation while leaving recovery presentation and selection to the recovery UX.
 
+## Final merge closure
+
+- PR: `#189` / `feat: complete US01 content safety`.
+- Final PR head before squash: `9220f910f8f88920545ef97372998ef1eae958b3`.
+- Squash merge on `develop`: `38355f8891f320707c11d52be411e930143c5fc2`.
+- GitHub reports PR `#189` as `MERGED` at `2026-09-24T06:19:10Z`.
+- Final required CI on the merged head was fully green: lint, test, E2E, Desktop PR fast hard gate, Windows/macOS PR Build, package smoke for Windows/macOS x64/macOS arm64, and updater artifact smoke.
+- A later local re-run attempt in the reused worktree did not start because its package-local `vitest` CLI was no longer resolvable; this is environment evidence only. The canonical PR CI had already executed the full required gates successfully and is the authoritative final validation evidence.
+- US-01 is therefore closed on `develop`; no remaining implementation or CI blocker is carried forward from this user story.
+
 ## Lessons
 
 1. “Saved” is a revision acknowledgement, not a boolean side effect of requesting a write.
