@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { usePreferencesStore } from '@/store/preferences'
 
@@ -37,5 +37,21 @@ describe('preferences hydration contract', () => {
     preferences.SET_USER_PREFERENCE({ [key]: value })
 
     expect(preferences[key]).toBe(value)
+  })
+
+  it('rolls back an optimistic value when acknowledged persistence fails', async() => {
+    const invoke = vi.fn().mockResolvedValue({ ok: false, error: 'disk is read-only' })
+    Object.defineProperty(window, 'electron', {
+      configurable: true,
+      value: { ipcRenderer: { invoke } }
+    })
+    const preferences = usePreferencesStore()
+    preferences.SET_USER_PREFERENCE({ autoSaveDelay: 5000 })
+
+    const result = await preferences.SET_SINGLE_PREFERENCE({ type: 'autoSaveDelay', value: 6200 })
+
+    expect(invoke).toHaveBeenCalledWith('mt::preferences::set', { autoSaveDelay: 6200 })
+    expect(result).toEqual({ ok: false, error: 'disk is read-only' })
+    expect(preferences.autoSaveDelay).toBe(5000)
   })
 })

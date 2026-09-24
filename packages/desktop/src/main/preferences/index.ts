@@ -9,6 +9,7 @@ import { normalizeApplicationTheme, normalizeApplicationThemeSettings } from '..
 import { onInternalChannel } from '../utils/internalIpc'
 import { TypedEmitter } from '@shared/types/typedEmitter'
 import type { IUserPreferences } from '@shared/types/preferences'
+import type { PreferenceMutationResult, PreferencePatch } from '@shared/types/ipc'
 import schema from './schema.json'
 import bundledDefaultPreferences from '../../../static/preference.json'
 
@@ -128,14 +129,37 @@ class Preference extends TypedEmitter<PreferenceEvents> {
   }
 
   setItems(settings: Record<string, unknown> | null | undefined): void {
-    if (!settings) {
-      log.error('Cannot change settings without entires: object is undefined or null.')
-      return
+    const result = this.setItemsAcknowledged(settings)
+    if (!result.ok) {
+      log.error(`Cannot change settings: ${result.error}`)
+    }
+  }
+
+  setItemsAcknowledged(
+    settings: Record<string, unknown> | null | undefined
+  ): PreferenceMutationResult {
+    if (!settings || Array.isArray(settings) || typeof settings !== 'object') {
+      return { ok: false, error: 'Invalid preference payload' }
     }
 
     const normalizedSettings = normalizeApplicationThemeSettings(settings)
-    this.store.set(normalizedSettings)
-    ipcMain.emit('broadcast-preferences-changed', normalizedSettings)
+    const autoSaveDelay = normalizedSettings.autoSaveDelay
+    if (
+      autoSaveDelay !== undefined &&
+      (typeof autoSaveDelay !== 'number' || !Number.isFinite(autoSaveDelay) || autoSaveDelay < 1000 || autoSaveDelay > 10000)
+    ) {
+      return { ok: false, error: 'Auto save delay must be between 1000 and 10000 ms' }
+    }
+
+    try {
+      this.store.set(normalizedSettings)
+      ipcMain.emit('broadcast-preferences-changed', normalizedSettings)
+      return { ok: true, applied: normalizedSettings as PreferencePatch }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Preference could not be saved'
+      log.error('Failed to persist preferences', error)
+      return { ok: false, error: message }
+    }
   }
 
   getPreferredEol(): 'lf' | 'crlf' {
@@ -163,6 +187,9 @@ class Preference extends TypedEmitter<PreferenceEvents> {
     })
     ipcMain.on('mt::set-user-preference', (_e, settings: Record<string, unknown>) => {
       this.setItems(settings)
+    })
+    ipcMain.handle('mt::preferences::set', (_e, settings: PreferencePatch) => {
+      return this.setItemsAcknowledged(settings)
     })
     ipcMain.on('mt::cmd-toggle-autosave', () => {
       this.setItem('autoSave', !this.getItem('autoSave'))

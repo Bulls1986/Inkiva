@@ -38,9 +38,9 @@
         <cur-select
           v-if="!isOsx"
           :description="t('preferences.general.window.titleBarStyle.title')"
-          :notes="t('preferences.general.window.requiresRestart')"
           :value="titleBarStyle"
           :options="getTitleBarStyleOptions()"
+          effect-timing="app-restart"
           :on-change="(value) => onSelectChange('titleBarStyle', value)"
         />
         <bool
@@ -116,6 +116,7 @@
       </template>
       <template #children>
         <h6>{{ t('preferences.general.startup.layoutOptions') }}</h6>
+        <preference-status timing="app-restart" />
         <section>
           <el-radio-group
             v-model="restoreLayoutState"
@@ -130,6 +131,7 @@
           </el-radio-group>
         </section>
         <h6>{{ t('preferences.general.startup.startupFilesFolders') }}</h6>
+        <preference-status timing="app-restart" />
         <section>
           <el-radio-group
             v-model="startUpAction"
@@ -196,6 +198,7 @@ import Range from '../common/range/index.vue'
 import CurSelect from '../common/select/index.vue'
 import Bool from '../common/bool/index.vue'
 import textBox from '../common/textBox/index.vue'
+import PreferenceStatus from '../common/preferenceStatus.vue'
 import { isOsx } from '@/util'
 
 import {
@@ -242,9 +245,8 @@ const restoreLayoutState = computed<boolean>({
   }
 })
 
-const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
+const onSelectChange = (type: keyof PreferencesState, value: unknown) =>
   preferenceStore.SET_SINGLE_PREFERENCE({ type, value })
-}
 
 const selectDefaultDirectoryToOpen = (): void => {
   preferenceStore.SELECT_DEFAULT_DIRECTORY_TO_OPEN()

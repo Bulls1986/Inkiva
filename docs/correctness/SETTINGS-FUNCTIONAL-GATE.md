@@ -15,6 +15,20 @@ The Settings window is a product contract, not a collection of best-effort contr
 
 The PR gate must fail closed when one of these assertions fails.
 
+## v0.5 US06 contract
+
+US06 makes the apply semantics part of the visible Settings contract:
+
+- enabled controls expose one timing class: `immediate`, `window-reopen`, or `app-restart`;
+- delayed-effect settings must not be presented as live settings;
+- a user-facing Settings mutation is not successful until the main process has acknowledged that electron-store accepted the value;
+- if persistence or authoritative validation fails, renderer state returns to the last valid value and the control exposes a retry affordance;
+- the existing `broadcast-preferences-changed -> mt::user-preference` path remains the only cross-window fan-out path; do not add a second preference bus;
+- `autoSaveDelay` is authoritative only in the inclusive `1000..10000 ms` range, and a new edit for the same document must replace its previous pending autosave timer without affecting another document's queue entry;
+- Settings search selection navigates to the owning category, then focuses/highlights the matching control; the search query is never written into a preference control.
+
+For restart-only controls such as `titleBarStyle`, the Settings UI must keep the existing visual structure and use concise secondary text instead of replacing the control with a prototype-specific layout. After an acknowledged change, the control may expose the existing protected quit path as the apply action; it must not call an unsafe direct relaunch path that could bypass unsaved-document handling.
+
 ## Regression that triggered this gate
 
 The editor-font picker exposed a split-brain preference path:
@@ -61,6 +75,11 @@ The gate contains a real Settings-window flow for this path and verifies UI stat
 - closing/reopening Settings preserves the value;
 - restarting Inkiva preserves and reapplies the font;
 - representative settings from General, Editor, Markdown, Images, Themes and Spellchecker survive an application restart.
+- the acknowledged preference mutation contract rejects invalid autosave delay values without changing the previous valid setting;
+- restart-scoped title-bar changes are saved in the Settings renderer without being falsely broadcast as live editor state, and expose the protected quit action only after a successful mutation;
+- locally invalid editor-width text restores the last valid value on blur rather than leaving an unapplied value visible;
+- autosave queue tests prove a later schedule for the same document replaces the old delay while a different document remains isolated;
+- Settings search navigation focuses/highlights the result target rather than populating that control.
 
 This spec lives under `packages/desktop/test/e2e`, so the existing required `E2E Test` workflow executes it on every pull request.
 
@@ -73,3 +92,7 @@ For controls whose setting has a directly observable effect, prefer this asserti
 `Settings UI -> renderer store -> actual editor/application effect -> Settings reopen -> application restart`.
 
 Store-only assertions are acceptable only for settings whose effect is exercised by a separate dedicated integration/E2E suite.
+
+## Failure-path rule
+
+Do not implement Settings failure handling as a toast-only path. The contract is control-local: the persisted preference remains authoritative, the optimistic renderer value is reverted, the attempted value is retained only for explicit retry, and the user can see that the previous attempt was not saved. Main-process validation/persistence errors must be returned as data rather than converted to a successful fire-and-forget IPC send.

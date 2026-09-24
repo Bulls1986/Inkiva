@@ -165,9 +165,8 @@ const {
   plantumlServer
 } = storeToRefs(preferenceStore)
 
-const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
+const onSelectChange = (type: keyof PreferencesState, value: unknown) =>
   preferenceStore.SET_SINGLE_PREFERENCE({ type, value })
-}
 </script>
 
 <script lang="ts">

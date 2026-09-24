@@ -44,7 +44,7 @@
 </template>
 <script setup lang="ts">
 import { getCategory, getTranslatedSearchContent } from './config'
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
@@ -108,11 +108,35 @@ const createFilter = (queryString: string): ((restaurant: SearchEntry) => boolea
 
 const loadAll = (): SearchEntry[] => getTranslatedSearchContent()
 
+const focusSearchTarget = async(item: SearchEntry): Promise<void> => {
+  await nextTick()
+  const labels = Array.from(document.querySelectorAll<HTMLElement>('.pref-setting .description'))
+  const normalizedTarget = item.preference.replace(/[:：]\s*$/, '').trim()
+  const description = labels.find((element) =>
+    (element.textContent ?? '').replace(/[:：]\s*$/, '').trim().includes(normalizedTarget)
+  )
+  const target = description?.closest<HTMLElement>('section') ?? description
+  if (!target) return
+
+  target.classList.add('pref-search-target')
+  target.setAttribute('tabindex', '-1')
+  target.focus({ preventScroll: true })
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  window.setTimeout(() => {
+    target.classList.remove('pref-search-target')
+    target.removeAttribute('tabindex')
+  }, 1800)
+}
+
 const handleSelect = (item: SearchEntry | null | undefined): void => {
-  // Use a safe routeCategory to avoid a blank screen caused by invalid categories
   const target =
     item && item.routeCategory ? item.routeCategory : (item?.category || 'general').toLowerCase()
-  router.push({ path: `/preference/${target}` }).catch(() => {})
+  if (!item) return
+
+  state.value = ''
+  router.push({ path: `/preference/${target}` })
+    .then(() => focusSearchTarget(item))
+    .catch(() => {})
 }
 
 const handleCategoryItemClick = (item: CategoryItem): void => {

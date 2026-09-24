@@ -77,7 +77,7 @@ test.describe('writing-area personalization', () => {
 
         await maxWidthInput.fill('700px')
         await maxWidthInput.press('Tab')
-        await expect(settingsPage.locator('.pref-text-box-item .el-input.error')).toBeVisible()
+        await expect(maxWidthInput).toHaveValue('70%')
         await expect.poll(() => page.locator('#editor-width').textContent()).toContain('70%')
       } finally {
         await settingsPage.close()

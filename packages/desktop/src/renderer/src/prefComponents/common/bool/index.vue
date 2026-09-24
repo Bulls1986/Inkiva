@@ -32,6 +32,13 @@
       >
         {{ notes }}
       </span>
+      <preference-status
+        v-if="!disable"
+        :timing="effectTiming"
+        :error="mutationError"
+        :pending="mutationSaved"
+        :on-retry="retry"
+      />
     </div>
     <el-switch
       v-model="status"
@@ -44,12 +51,14 @@
 import { ref, watch } from 'vue'
 import { InfoFilled } from '@element-plus/icons-vue'
 import LinkIcon from '@/components/icons/LinkIcon.vue'
-import type { PrefControlBaseProps } from '../types'
+import PreferenceStatus from '../preferenceStatus.vue'
+import { usePreferenceMutation } from '../usePreferenceMutation'
+import type { PrefControlBaseProps, PreferenceChangeHandler } from '../types'
 
 interface BoolProps extends PrefControlBaseProps {
   notes?: string
   bool: boolean
-  onChange: (value: boolean) => void
+  onChange: PreferenceChangeHandler<boolean>
   detailedDescription?: string
 }
 
@@ -58,10 +67,12 @@ const props = withDefaults(defineProps<BoolProps>(), {
   notes: '',
   more: '',
   detailedDescription: '',
-  disable: false
+  disable: false,
+  effectTiming: 'immediate'
 })
 
 const status = ref(props.bool)
+const { error: mutationError, saved: mutationSaved, commit, retry } = usePreferenceMutation<boolean>(() => props.onChange)
 
 watch(
   () => props.bool,
@@ -79,7 +90,7 @@ const handleMoreClick = () => {
 }
 
 const handleSwitchChange = (value: boolean | string | number) => {
-  props.onChange(Boolean(value))
+  void commit(Boolean(value))
 }
 </script>
 

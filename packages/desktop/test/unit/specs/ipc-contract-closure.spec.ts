@@ -42,6 +42,20 @@ describe('IPC contract closure', () => {
     expect(invalid).toBeDefined()
   })
 
+  it('exposes an acknowledged preference mutation contract for Settings', () => {
+    type Contract = IpcInvokeChannels['mt::preferences::set']
+    type Args = Contract['args']
+    type Result = Contract['ret']
+
+    const valid: Args = [{ autoSaveDelay: 6200 }]
+    const success: Result = { ok: true, applied: { autoSaveDelay: 6200 } }
+    const failure: Result = { ok: false, error: 'Preference could not be saved' }
+
+    expect(valid[0]).toEqual({ autoSaveDelay: 6200 })
+    expect(success.ok).toBe(true)
+    expect(failure.ok).toBe(false)
+  })
+
   it('keeps open-file options object-shaped', () => {
     type Args = IpcSendChannels['mt::open-file-by-window-id']
 

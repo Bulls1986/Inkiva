@@ -8,6 +8,17 @@
  */
 
 /** Common props shared by every leaf preference control. */
+export type PreferenceEffectTiming = 'immediate' | 'window-reopen' | 'app-restart'
+
+export type PreferenceChangeResult =
+  | void
+  | { ok: true; applied: Record<string, unknown> }
+  | { ok: false; error: string }
+
+export type PreferenceChangeHandler<T> = (
+  value: T
+) => PreferenceChangeResult | Promise<PreferenceChangeResult>
+
 export interface PrefControlBaseProps {
   /** Label displayed before the input. */
   description?: string
@@ -15,12 +26,14 @@ export interface PrefControlBaseProps {
   more?: string
   /** When true, the control renders disabled / under-development. */
   disable?: boolean
+  /** When a persisted choice becomes effective. Defaults to immediate. */
+  effectTiming?: PreferenceEffectTiming
 }
 
 /** Generic value-carrying control props. */
 export interface PrefControlProps<T> extends PrefControlBaseProps {
   value: T
-  onChange: (value: T) => void
+  onChange: PreferenceChangeHandler<T>
 }
 
 /** A `{label, value}` option for `<cur-select>` / similar dropdowns. */

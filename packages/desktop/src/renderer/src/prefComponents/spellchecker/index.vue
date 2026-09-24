@@ -153,9 +153,8 @@ const handleSpellcheckerEnabled = (isEnabled: boolean): void => {
   onSelectChange('spellcheckerEnabled', isEnabled)
 }
 
-const onSelectChange = (type: keyof PreferencesState, value: unknown): void => {
+const onSelectChange = (type: keyof PreferencesState, value: unknown) =>
   preferenceStore.SET_SINGLE_PREFERENCE({ type, value })
-}
 
 // No-op handler for the disabled "auto-detect language" toggle. The control
 // is permanently disabled, so the callback is never invoked, but the typed

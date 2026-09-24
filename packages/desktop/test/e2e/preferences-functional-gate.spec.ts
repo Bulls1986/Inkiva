@@ -116,6 +116,49 @@ test.describe('settings functional gate', () => {
     }
   })
 
+  test('rejects invalid acknowledged values and labels restart-scoped settings', async() => {
+    const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-settings-effect-'))
+    let app: ElectronApplication | null = null
+
+    try {
+      const launched = await launchWithMarkdown('# Settings effect gate\n', { userDataDir })
+      app = launched.app
+      const previousDelay = await readPreference(launched.page, 'autoSaveDelay')
+      const previousTitleBarStyle = await readPreference(launched.page, 'titleBarStyle')
+
+      const result = await launched.page.evaluate(() =>
+        window.electron.ipcRenderer.invoke('mt::preferences::set', { autoSaveDelay: 999 })
+      )
+
+      expect(result).toMatchObject({ ok: false })
+      await expect.poll(() => readPreference(launched.page, 'autoSaveDelay')).toBe(previousDelay)
+
+      const settingsPage = await openSettingsCategory(launched.app, launched.page, /通用|General/)
+      await expect(
+        settingsPage.getByText(/重启 Inkiva 后生效|Applies after restart/).first()
+      ).toBeVisible()
+
+      const titleBarSelect = settingsPage
+        .locator('.pref-general .pref-select-item')
+        .first()
+        .locator('.el-select__wrapper')
+      const nextTitleBarStyle = previousTitleBarStyle === 'custom' ? 'native' : 'custom'
+      await titleBarSelect.click()
+      const nextTitleBarOption = settingsPage.getByRole('option', {
+        name: nextTitleBarStyle === 'native' ? /原生|Native/ : /自定义|Custom/
+      })
+      await expect(nextTitleBarOption).toBeVisible()
+      await nextTitleBarOption.click()
+      await expect.poll(() => readPreference(settingsPage, 'titleBarStyle')).toBe(nextTitleBarStyle)
+      await expect(
+        settingsPage.getByRole('button', { name: /退出 Inkiva|Quit Inkiva/ }).first()
+      ).toBeVisible()
+    } finally {
+      if (app) await app.close()
+      fs.rmSync(userDataDir, { recursive: true, force: true })
+    }
+  })
+
   test('representative settings from every preference domain survive a real electron-store restart', async() => {
     const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-settings-roundtrip-'))
     const expected: Record<string, unknown> = {

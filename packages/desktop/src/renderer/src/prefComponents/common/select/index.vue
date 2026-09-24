@@ -34,13 +34,26 @@
     >
       {{ notes }}
     </div>
+    <preference-status
+      v-if="!disable"
+      :timing="effectTiming"
+      :error="mutationError"
+      :pending="mutationSaved"
+      :on-retry="retry"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import LinkIcon from '@/components/icons/LinkIcon.vue'
-import type { PrefControlBaseProps, PrefSelectOption } from '../types'
+import PreferenceStatus from '../preferenceStatus.vue'
+import { usePreferenceMutation } from '../usePreferenceMutation'
+import type {
+  PrefControlBaseProps,
+  PrefSelectOption,
+  PreferenceChangeHandler
+} from '../types'
 
 type SelectValue = string | number | boolean
 
@@ -48,17 +61,19 @@ interface SelectProps extends PrefControlBaseProps {
   notes?: string
   value: SelectValue
   options: ReadonlyArray<PrefSelectOption<SelectValue>>
-  onChange: (value: SelectValue) => void
+  onChange: PreferenceChangeHandler<SelectValue>
 }
 
 const props = withDefaults(defineProps<SelectProps>(), {
   description: '',
   notes: '',
   more: '',
-  disable: false
+  disable: false,
+  effectTiming: 'immediate'
 })
 
 const selectValue = ref<SelectValue>(props.value)
+const { error: mutationError, saved: mutationSaved, commit, retry } = usePreferenceMutation<SelectValue>(() => props.onChange)
 
 watch(
   () => props.value,
@@ -76,7 +91,7 @@ const handleMoreClick = () => {
 }
 
 const select = (value: SelectValue) => {
-  props.onChange(value)
+  void commit(value)
 }
 </script>
 
