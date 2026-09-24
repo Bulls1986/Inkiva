@@ -66,6 +66,20 @@ Type validation:
 Environment note:
 - Store tests that import the full renderer graph can hit Vite `Denied ID ...other-worktree...` because this reused worktree currently resolves dependencies through another checkout. Per `docs/agent/ENVIRONMENT_RECIPES.md`, that topology is invalid evidence and must not be “fixed” by widening Vite allowlists.
 
+## Develop integration closure
+
+Before merge, `develop` advanced with the untitled crash-recovery/recovery-center implementation. The only semantic conflict was the buffered-state restore path.
+
+The resolution composes both contracts instead of choosing one side:
+
+- recovery snapshots are first de-duplicated across active `tabs` and US-01 `retainedRecoveryTabs`;
+- the resulting candidates then enter the newer recovery classification path;
+- unsaved untitled retained drafts remain pending recovery candidates instead of bypassing the recovery center and opening immediately;
+- path-backed drafts continue through the normal visible restore path;
+- `untitled-recovery.spec.ts` locks the de-duplication and recovery-center routing contract.
+
+This keeps “Keep for Recovery” as a durability operation while leaving recovery presentation and selection to the recovery UX.
+
 ## Lessons
 
 1. “Saved” is a revision acknowledgement, not a boolean side effect of requesting a write.

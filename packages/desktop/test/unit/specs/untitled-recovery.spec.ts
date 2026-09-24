@@ -60,6 +60,24 @@ describe('US03 untitled crash recovery', () => {
     expect(store.pendingUntitledRecoveries.map((item) => item.originalIndex)).toEqual([0, 2])
   })
 
+  it('routes retained untitled drafts through the recovery center and de-duplicates pre-close snapshots', () => {
+    const store = useEditorStore()
+    store.RESTORE_BUFFERED_STATE({
+      tabs: [tab('draft-a', '# Alpha'), tab('saved', '# Saved', '/docs/saved.md')],
+      retainedRecoveryTabs: [tab('draft-a', '# Alpha'), tab('draft-b', '# Beta')],
+      currentFileId: 'saved',
+      pinnedPathnames: [],
+      restoreWarnings: []
+    })
+
+    expect(store.tabs.map((item) => item.pathname)).toEqual(['/docs/saved.md'])
+    expect(store.pendingUntitledRecoveries.map((item) => item.markdown)).toEqual([
+      '# Alpha',
+      '# Beta'
+    ])
+    expect(store.pendingUntitledRecoveries.map((item) => item.originalIndex)).toEqual([0, 2])
+  })
+
   it('moves one recovery candidate into a new unsaved tab and removes it from future pending recovery snapshots', async() => {
     const store = useEditorStore()
     store.RESTORE_BUFFERED_STATE({
