@@ -26,8 +26,7 @@ test.describe('paragraphs and headings', () => {
         await page.keyboard.press('Backspace');
         await page.keyboard.type('l');
 
-        const state = await getState(page) as Array<{ name: string; text?: string }>;
-        expect(state).toEqual([
+        await expect.poll(async () => getState(page)).toEqual([
             { name: 'paragraph', text: 'abc中文123' },
             { name: 'paragraph', text: 'tail' },
         ]);
@@ -74,7 +73,7 @@ test.describe('paragraphs and headings', () => {
             await expect(heading).toHaveJSProperty('tagName', `H${level}`);
             await expect(page.locator(editor.paragraph)).toHaveCount(0);
             // Markdown round-trips with the right number of leading hashes.
-            expect(await getMarkdown(page)).toContain(`${hashes} Title`);
+            await expect.poll(async () => getMarkdown(page)).toContain(`${hashes} Title`);
         });
     }
 
@@ -88,7 +87,7 @@ test.describe('paragraphs and headings', () => {
 
         await expect(page.locator(editor.paragraph).first()).toBeVisible();
         await expect(page.locator(editor.atxHeading)).toHaveCount(0);
-        expect(await getMarkdown(page)).toContain('####### x');
+        await expect.poll(async () => getMarkdown(page)).toContain('####### x');
     });
 
     // Shift+Enter inserts a soft line break inside a single paragraph: the text
