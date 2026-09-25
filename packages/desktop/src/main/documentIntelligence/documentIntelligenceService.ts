@@ -20,6 +20,7 @@ import {
   type RenameRepairFileAdapter
 } from './renameRepair'
 import {
+  LocalHistoryRollbackUnavailableError,
   LocalHistoryService,
   LocalHistorySnapshotNotFoundError,
   StaleLocalHistoryRestoreError,

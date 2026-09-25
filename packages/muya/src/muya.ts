@@ -202,21 +202,42 @@ export class Muya {
     }
 
     /**
-     * Construct at most one registered UI plugin and report whether more work
-     * remains. This gives renderer schedulers an explicit yield boundary while
-     * keeping `init()` behavior unchanged for normal Muya consumers.
+     * Initialize one registered UI plugin by name without disturbing the
+     * sequential cursor used by deferred initialization. Already-created or
+     * unknown plugins are a no-op.
+     */
+    initUiPlugin(pluginName: string): boolean {
+        if (this._destroyed || this._uiPlugins[pluginName])
+            return false;
+
+        const plugin = Muya.plugins.find(item => item.pluginName === pluginName);
+        if (!plugin)
+            return false;
+
+        this._uiPlugins[plugin.pluginName] = plugin.create(this);
+        return true;
+    }
+
+    /**
+     * Construct at most one not-yet-created registered UI plugin and report
+     * whether more cursor work remains. Named pre-initialization is therefore
+     * compatible with the normal deferred sequence without duplicate owners.
      */
     initNextUiPlugin(): boolean {
         if (this._destroyed)
             return false;
 
-        const plugin = Muya.plugins[this._uiPluginCursor];
-        if (!plugin)
-            return false;
+        while (this._uiPluginCursor < Muya.plugins.length) {
+            const plugin = Muya.plugins[this._uiPluginCursor];
+            this._uiPluginCursor += 1;
+            if (this._uiPlugins[plugin.pluginName])
+                continue;
 
-        this._uiPluginCursor += 1;
-        this._uiPlugins[plugin.pluginName] = plugin.create(this);
-        return this._uiPluginCursor < Muya.plugins.length;
+            this._uiPlugins[plugin.pluginName] = plugin.create(this);
+            return this._uiPluginCursor < Muya.plugins.length;
+        }
+
+        return false;
     }
 
     locale(object: ILocale) {

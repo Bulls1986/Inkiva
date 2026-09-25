@@ -6,6 +6,7 @@ import {
   parseStandardRelativeMarkdownLinks
 } from 'main_renderer/documentIntelligence/markdownLinks'
 import {
+  canonicalDocumentPath,
   createStandardMarkdownLink,
   MarkdownLinkIndex,
   relativeMarkdownLinkPath,
@@ -74,16 +75,16 @@ describe('standard Markdown link parser', () => {
 describe('MarkdownLinkIndex', () => {
   it('resolves links relative to each source and returns sorted backlinks', () => {
     const root = '/virtual/inkiva-docs'
-    const target = path.join(root, 'design.md')
-    const readme = path.join(root, 'README.md')
-    const notes = path.join(root, 'notes', 'index.md')
+    const target = canonicalDocumentPath(path.join(root, 'design.md'))
+    const readme = canonicalDocumentPath(path.join(root, 'README.md'))
+    const notes = canonicalDocumentPath(path.join(root, 'notes', 'index.md'))
     const index = new MarkdownLinkIndex()
 
     index.updateDocument(readme, '[Design](./design.md)')
     index.updateDocument(notes, '[Design](../design.md#overview)')
 
     expect(resolveMarkdownLinkTarget(notes, '../design.md')).toBe(target)
-    expect(index.getBacklinks(target)).toEqual([
+    const expectedBacklinks = [
       {
         sourcePath: readme,
         label: 'Design',
@@ -102,24 +103,29 @@ describe('MarkdownLinkIndex', () => {
         start: 0,
         end: '[Design](../design.md#overview)'.length
       }
-    ])
+    ].sort((left, right) =>
+      left.sourcePath === right.sourcePath ? 0 : left.sourcePath < right.sourcePath ? -1 : 1
+    )
+    expect(index.getBacklinks(target)).toEqual(expectedBacklinks)
   })
 
   it('offers only Markdown candidates with stable relative paths', () => {
-    const source = '/virtual/inkiva-docs/notes/current.md'
-    const target = '/virtual/inkiva-docs/notes/target.md'
+    const source = canonicalDocumentPath('/virtual/inkiva-docs/notes/current.md')
+    const target = canonicalDocumentPath('/virtual/inkiva-docs/notes/target.md')
+    const readmeInput = path.resolve('/virtual/inkiva-docs/README.md')
+    const readme = canonicalDocumentPath(readmeInput)
 
     expect(relativeMarkdownLinkPath(source, target)).toBe('./target.md')
     expect(
       new MarkdownLinkIndex().getLinkCandidates(source, [
         target,
         target,
-        '/virtual/inkiva-docs/README.md',
+        readmeInput,
         '/virtual/inkiva-docs/image.png'
       ])
     ).toEqual([
       {
-        pathname: '/virtual/inkiva-docs/README.md',
+        pathname: readme,
         relativePath: '../README.md'
       },
       {
@@ -136,10 +142,10 @@ describe('MarkdownLinkIndex', () => {
 describe('rename/move link repair planning', () => {
   it('plans only standard relative document-link changes and preserves titles/fragments', () => {
     const root = '/virtual/inkiva-docs'
-    const fromPath = path.join(root, 'notes', 'old.md')
-    const toPath = path.join(root, 'archive', 'old.md')
-    const readmePath = path.join(root, 'README.md')
-    const designPath = path.join(root, 'notes', 'design.md')
+    const fromPath = canonicalDocumentPath(path.join(root, 'notes', 'old.md'))
+    const toPath = canonicalDocumentPath(path.join(root, 'archive', 'old.md'))
+    const readmePath = canonicalDocumentPath(path.join(root, 'README.md'))
+    const designPath = canonicalDocumentPath(path.join(root, 'notes', 'design.md'))
     const readme = '[Old](notes/old.md#top "Keep this title")\n![Image](notes/old.md)'
     const oldDocument = '[Design](./design.md)\n[Web](https://example.com/old.md)'
 

@@ -2,6 +2,7 @@ import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
 import { DocumentIntelligenceService } from 'main_renderer/documentIntelligence/documentIntelligenceService'
+import { canonicalDocumentPath } from 'main_renderer/documentIntelligence/markdownLinkIndex'
 import {
   applyRenameRepairPlan,
   createRenameRepairPlan,
@@ -11,9 +12,9 @@ import {
 describe('rename/move repair confirmation', () => {
   const createPlan = () => {
     const root = '/virtual/repair'
-    const oldPath = path.join(root, 'old.md')
-    const newPath = path.join(root, 'new.md')
-    const sourcePath = path.join(root, 'source.md')
+    const oldPath = canonicalDocumentPath(path.join(root, 'old.md'))
+    const newPath = canonicalDocumentPath(path.join(root, 'new.md'))
+    const sourcePath = canonicalDocumentPath(path.join(root, 'source.md'))
     const before = '[Old](./old.md#section)'
     return {
       plan: createRenameRepairPlan({
@@ -84,8 +85,8 @@ describe('rename/move repair confirmation', () => {
 
   it('exposes the same index and repair contract through the document service', () => {
     const service = new DocumentIntelligenceService({ historyRootPath: '/virtual/history' })
-    const sourcePath = '/virtual/docs/source.md'
-    const targetPath = '/virtual/docs/target.md'
+    const sourcePath = canonicalDocumentPath('/virtual/docs/source.md')
+    const targetPath = canonicalDocumentPath('/virtual/docs/target.md')
 
     service.indexDocument(sourcePath, '[Target](./target.md)')
 
@@ -95,7 +96,7 @@ describe('rename/move repair confirmation', () => {
     expect(
       service.prepareRenameRepair({
         fromPath: targetPath,
-        toPath: '/virtual/docs/renamed.md',
+        toPath: canonicalDocumentPath('/virtual/docs/renamed.md'),
         documents: [{ pathname: sourcePath, markdown: '[Target](./target.md)' }]
       })
     ).toMatchObject({ linkCount: 1 })

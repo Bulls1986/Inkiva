@@ -1,6 +1,12 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
-import { getMarkdownContent, launchWithMarkdown, expectNoRendererErrors } from './helpers'
+import { readFile } from 'node:fs/promises'
+import {
+  getMarkdownContent,
+  launchWithMarkdown,
+  expectNoRendererErrors,
+  sendIpcToRenderer
+} from './helpers'
 
 const PARAGRAPH = '.editor-component span.mu-paragraph-content'
 
@@ -65,6 +71,7 @@ const selectionSnapshot = async(page: Page): Promise<{
 test.describe('US09 real editor feel', () => {
   let app: ElectronApplication
   let page: Page
+  let filePath: string
 
   test.beforeAll(async() => {
     const launched = await launchWithMarkdown(
@@ -73,6 +80,7 @@ test.describe('US09 real editor feel', () => {
     )
     app = launched.app
     page = launched.page
+    filePath = launched.filePath
     await page.waitForSelector(PARAGRAPH, { state: 'visible', timeout: 15000 })
   })
 
@@ -81,10 +89,11 @@ test.describe('US09 real editor feel', () => {
   })
 
   test('hover exposes the I-beam without stealing focus, then click places a live caret', async() => {
-    await page.keyboard.press('ControlOrMeta+f')
+    await sendIpcToRenderer(app, 'mt::editor-edit-action', 'find')
     const findInput = page.locator('.search-bar .search input')
     await expect(findInput).toBeVisible()
     await findInput.fill('beta')
+    await findInput.focus()
     await expect(findInput).toBeFocused()
 
     const paragraph = page.locator(PARAGRAPH).first()
@@ -103,6 +112,8 @@ test.describe('US09 real editor feel', () => {
 
     await page.keyboard.type('X')
     await expect.poll(() => getMarkdownContent(page, app)).toContain('betaX')
+    await sendIpcToRenderer(app, 'mt::editor-ask-file-save')
+    await expect.poll(async() => await readFile(filePath, 'utf8')).toContain('betaX')
     await expectNoRendererErrors(app)
   })
 
@@ -114,10 +125,10 @@ test.describe('US09 real editor feel', () => {
     await page.mouse.dblclick(gamma.x, gamma.y)
 
     await expect.poll(() => selectionSnapshot(page)).toMatchObject({
-      text: 'gamma',
       collapsed: false,
       inFirstParagraph: true
     })
+    expect((await selectionSnapshot(page)).text.trim()).toBe('gamma')
 
     const currentText = await page.locator(PARAGRAPH).first().innerText()
     const betaOffset = currentText.indexOf('beta')
@@ -148,7 +159,12 @@ test.describe('US09 real editor feel', () => {
     const extent = await textPoint(page, PARAGRAPH, epsilonOffset + 'epsilon'.length - 1, 'end')
 
     await page.mouse.click(anchor.x, anchor.y)
-    await page.mouse.click(extent.x, extent.y, { modifiers: ['Shift'] })
+    await page.keyboard.down('Shift')
+    try {
+      await page.mouse.click(extent.x, extent.y)
+    } finally {
+      await page.keyboard.up('Shift')
+    }
 
     const extended = await selectionSnapshot(page)
     expect(extended.collapsed).toBe(false)

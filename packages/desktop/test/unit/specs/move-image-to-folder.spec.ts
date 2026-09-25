@@ -27,8 +27,8 @@ beforeEach(() => {
 })
 
 describe('moveImageToFolder relative-directory persistence', () => {
-  const docPath = '/tmp/notes/a.md'
-  const assetsDir = '/tmp/notes/assets'
+  const docPath = path.resolve('tmp', 'notes', 'a.md')
+  const assetsDir = path.join(path.dirname(docPath), 'assets')
 
   it('returns a relative path for a binary File when isRelative is set', async() => {
     const file = new File([new Uint8Array([1, 2, 3])], 'pic.png', { type: 'image/png' })
@@ -38,7 +38,7 @@ describe('moveImageToFolder relative-directory persistence', () => {
   })
 
   it('returns a relative path for a local path string when isRelative is set', async() => {
-    const source = '/Users/someone/pictures/pic.png'
+    const source = path.resolve('tmp', 'pictures', 'pic.png')
     const result = await moveImageToFolder(docPath, source, assetsDir, true, docPath)
     // The image must be copied into the assets dir...
     expect(copy).toHaveBeenCalledTimes(1)
@@ -49,7 +49,7 @@ describe('moveImageToFolder relative-directory persistence', () => {
   })
 
   it('returns the absolute hashed path for a local path string when isRelative is false', async() => {
-    const source = '/Users/someone/pictures/pic.png'
+    const source = path.resolve('tmp', 'pictures', 'pic.png')
     const result = await moveImageToFolder(docPath, source, assetsDir, false, docPath)
     // copy still lands inside the assets dir...
     expect(copy).toHaveBeenCalledTimes(1)

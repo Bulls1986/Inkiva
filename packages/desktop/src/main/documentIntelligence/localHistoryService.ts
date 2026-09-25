@@ -12,7 +12,7 @@ import { LocalHistoryStore, type LocalHistoryStoreOptions } from './localHistory
 
 export interface LocalHistoryFileAdapter {
   readFile(filePath: string): Promise<string>
-  writeFile(filePath: string, content: string | Uint8Array): Promise<void>
+  writeFile(filePath: string, content: string | Buffer): Promise<void>
 }
 
 export interface LocalHistoryServiceOptions extends LocalHistoryStoreOptions {
@@ -51,7 +51,7 @@ const normalizeLineEndings = (
   return content
 }
 
-const encodeSnapshotForRestore = (snapshot: LocalHistorySnapshot): Uint8Array => {
+const encodeSnapshotForRestore = (snapshot: LocalHistorySnapshot): Buffer => {
   const normalized = normalizeLineEndings(snapshot.content, snapshot.lineEnding)
   const body = Buffer.from(normalized, 'utf8')
   if (snapshot.encoding === 'utf8' && snapshot.isBom) {

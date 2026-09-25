@@ -13,6 +13,13 @@ import { LocalHistoryStore } from 'main_renderer/documentIntelligence/localHisto
 
 const temporaryDirectories: string[] = []
 
+const canonicalTestPath = (filePath: string): string => {
+  const resolved = path.resolve(filePath)
+  return process.platform === 'win32' || process.platform === 'darwin'
+    ? resolved.toLowerCase()
+    : resolved
+}
+
 const createTemporaryDirectory = (): string => {
   const directory = mkdtempSync(path.join(tmpdir(), 'inkiva-document-history-'))
   temporaryDirectories.push(directory)
@@ -49,7 +56,7 @@ describe('LocalHistoryStore', () => {
 
     expect(first).toMatchObject({
       id: 'snapshot-one',
-      filePath: path.resolve(filePath),
+      filePath: canonicalTestPath(filePath),
       reason: 'before-save',
       size: Buffer.byteLength('---\ntitle: Draft\n---\n\nBody\n', 'utf8'),
       encoding: 'utf-8',
@@ -189,7 +196,7 @@ describe('LocalHistoryService', () => {
     const root = createTemporaryDirectory()
     const filePath = path.join(root, 'draft.md')
     let current = 'current'
-    let written: string | Uint8Array | null = null
+    let written: string | Buffer | null = null
     const service = new LocalHistoryService({
       rootPath: path.join(root, 'history'),
       createId: vi.fn().mockReturnValueOnce('snapshot-restore').mockReturnValueOnce('rollback'),
@@ -215,17 +222,17 @@ describe('LocalHistoryService', () => {
       expectedCurrentContent: 'current'
     })
 
-    expect(Buffer.from(written as Uint8Array)).toEqual(
-      Buffer.from([0xef, 0xbb, 0xbf, ...Buffer.from('first\r\nsecond\r\n', 'utf8')])
-    )
+    expect(Buffer.isBuffer(written)).toBe(true)
+    if (!Buffer.isBuffer(written)) throw new Error('restore did not write bytes')
+    expect(written).toEqual(Buffer.from([0xef, 0xbb, 0xbf, ...Buffer.from('first\r\nsecond\r\n', 'utf8')]))
   })
 
   it('restores through an injected file adapter and rejects stale previews', async() => {
     const root = createTemporaryDirectory()
     const filePath = path.join(root, 'draft.md')
     let current = 'current'
-    const writeFile = vi.fn(async(_filePath: string, content: string) => {
-      current = content
+    const writeFile = vi.fn(async(_filePath: string, content: string | Buffer) => {
+      current = typeof content === 'string' ? content : content.toString('utf8')
     })
     const ids = ['snapshot-restore', 'snapshot-before-restore']
     const service = new LocalHistoryService({

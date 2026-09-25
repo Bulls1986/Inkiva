@@ -3,6 +3,26 @@ import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import type { IFileState } from '@shared/types/files'
 import type { LocalHistoryEntry, MarkdownBacklink } from '@shared/types/documentIntelligence'
+import { useEditorStore } from '@/store/editor'
+import { useDocumentIntelligenceStore } from '@/store/documentIntelligence'
+
+vi.mock('@/store/editor', async() => {
+  const { defineStore } = await import('pinia')
+  return {
+    useEditorStore: defineStore('editor', {
+      state: (): { tabs: IFileState[], currentFile: IFileState | null } => ({
+        tabs: [],
+        currentFile: null
+      })
+    })
+  }
+})
+
+vi.mock('@/services/performance/runtime', () => ({
+  rendererPerformance: {
+    recordSample: vi.fn()
+  }
+}))
 
 interface Deferred<T> {
   promise: Promise<T>
@@ -75,10 +95,6 @@ describe('document intelligence store', () => {
       value: api
     })
 
-    const [{ useEditorStore }, { useDocumentIntelligenceStore }] = await Promise.all([
-      import('@/store/editor'),
-      import('@/store/documentIntelligence')
-    ])
     const editorStore = useEditorStore()
     const intelligenceStore = useDocumentIntelligenceStore()
     intelligenceStore.START()

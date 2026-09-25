@@ -111,8 +111,9 @@ export class MarkdownLinkIndex {
 
     for (const pathname of pathnames) {
       if (!isMarkdownPath(pathname)) continue
-      const target = canonicalDocumentPath(pathname)
-      const relativePath = relativeMarkdownLinkPath(source, target)
+      const resolvedTarget = path.resolve(pathname)
+      const target = canonicalDocumentPath(resolvedTarget)
+      const relativePath = relativeMarkdownLinkPath(source, resolvedTarget)
       candidates.set(target, { pathname: target, relativePath })
     }
 

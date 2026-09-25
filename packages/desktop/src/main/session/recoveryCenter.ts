@@ -54,7 +54,7 @@ export class RecoveryCenterSession {
 
   constructor(
     private readonly _createHistoryPersistence: RecoveryHistoryPersistenceFactory =
-      createRecoveryHistoryPersistence
+    createRecoveryHistoryPersistence
   ) {}
 
   configure(options: {

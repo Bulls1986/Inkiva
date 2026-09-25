@@ -73,6 +73,7 @@ For TOC/navigation assertions, test the contract at the correct layer. The TOC m
 ## E2E efficiency and ownership
 
 - Put a contract at the lowest-cost layer that can still observe the real failure mode. Keep Electron E2E for lifecycle/native-window/IPC/filesystem and real editor interaction contracts such as keyboard/focus/selection/IME/source-mode integration; do not use Electron merely to verify pure state or transformation logic.
+- Keep unit-test dependency graphs narrow. If a test needs only a small store/service state surface, use a focused test double instead of importing a heavyweight application graph; avoid `vi.resetModules()` when dependencies are read at call time because repeated graph reloads can create parallel-suite timeout noise without improving isolation.
 - Before adding a regression E2E, name the contract it protects and check whether an existing unit/integration/E2E already protects the same failure mode. A new historical bug does not automatically require a new full Electron flow.
 - Treat fixed sleeps as debt, not as a default readiness mechanism. Prefer observable application state, DOM conditions, IPC/events, or bounded polling. Do not delete a sleep until the replacement condition proves the same contract, especially for debounce/history/negative-condition timing windows.
 - Reuse Electron lifetime only where isolation is explicit. File-level `beforeAll` reuse is acceptable when each case restores deterministic state; do not introduce cross-file process reuse merely to reduce launch count.

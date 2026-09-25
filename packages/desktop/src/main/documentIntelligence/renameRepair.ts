@@ -14,7 +14,7 @@ import {
 
 export interface RenameRepairFileAdapter {
   readFile(pathname: string): Promise<string>
-  writeFile(pathname: string, content: string): Promise<void>
+  writeFile(pathname: string, content: string | Buffer): Promise<void>
 }
 
 export class StaleRenameRepairPlanError extends Error {

@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { getCssForOptions, getHtmlToc } from '@/util/pdf'
 
 // `@/util/pdf` reads `window.path.join` and (for disk themes)
 // `window.inkiva.paths` / `window.fileUtils` at call time, all normally
-// injected by the preload bridge. Stub the surface before the hoisted imports
-// run so the module graph can load. Per-test overrides below swap the
-// `window.fileUtils` behavior via `vi.resetModules()` + dynamic import.
+// injected by the preload bridge. Stub the surface before imports run.
+// Per-test overrides can replace the call-time bridge directly; reloading the
+// full pdf -> @muyajs/core graph is unnecessary and makes the suite timing-sensitive.
 vi.hoisted(() => {
   const w = globalThis as unknown as {
     window?: {
@@ -27,13 +28,10 @@ vi.hoisted(() => {
 // rather than asserting a theme-specific selector token, which is unavailable
 // here.
 
-const loadPdf = async() => {
-  return import('@/util/pdf')
-}
+const loadPdf = async() => ({ getCssForOptions, getHtmlToc })
 
 describe('getCssForOptions', () => {
   beforeEach(() => {
-    vi.resetModules()
     const w = globalThis as unknown as {
       window: {
         inkiva: { paths: { userDataPath: string } }
