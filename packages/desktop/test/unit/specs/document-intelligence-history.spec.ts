@@ -5,12 +5,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   LocalHistoryService,
+  LocalHistoryRollbackUnavailableError,
   LocalHistorySnapshotNotFoundError,
   StaleLocalHistoryRestoreError
 } from 'main_renderer/documentIntelligence/localHistoryService'
 import { LocalHistoryStore } from 'main_renderer/documentIntelligence/localHistoryStore'
 
 const temporaryDirectories: string[] = []
+
+const canonicalTestPath = (filePath: string): string => {
+  const resolved = path.resolve(filePath)
+  return process.platform === 'win32' || process.platform === 'darwin'
+    ? resolved.toLowerCase()
+    : resolved
+}
 
 const createTemporaryDirectory = (): string => {
   const directory = mkdtempSync(path.join(tmpdir(), 'inkiva-document-history-'))
@@ -48,7 +56,7 @@ describe('LocalHistoryStore', () => {
 
     expect(first).toMatchObject({
       id: 'snapshot-one',
-      filePath: path.resolve(filePath),
+      filePath: canonicalTestPath(filePath),
       reason: 'before-save',
       size: Buffer.byteLength('---\ntitle: Draft\n---\n\nBody\n', 'utf8'),
       encoding: 'utf-8',
@@ -122,12 +130,109 @@ describe('LocalHistoryStore', () => {
 })
 
 describe('LocalHistoryService', () => {
+  it('rejects restore when total-byte retention prunes the before-restore rollback snapshot', async() => {
+    const root = createTemporaryDirectory()
+    const filePath = path.join(root, 'draft.md')
+    let current = 'current'
+    const writeFile = vi.fn(async(_filePath: string, content: string | Uint8Array) => {
+      current = typeof content === 'string' ? content : Buffer.from(content).toString('utf8')
+    })
+    const ids = ['snapshot-restore', 'snapshot-before-restore']
+    const service = new LocalHistoryService({
+      rootPath: path.join(root, 'history'),
+      maxTotalBytes: 3,
+      createId: () => ids.shift() ?? 'snapshot-extra',
+      files: {
+        readFile: async() => current,
+        writeFile
+      }
+    })
+    const entry = await service.createSnapshot({ filePath, content: 'old' })
+
+    await expect(
+      service.restoreSnapshot({
+        filePath,
+        id: entry.id,
+        expectedCurrentContent: 'current'
+      })
+    ).rejects.toBeInstanceOf(LocalHistoryRollbackUnavailableError)
+    expect(current).toBe('current')
+    expect(writeFile).not.toHaveBeenCalled()
+  })
+
+  it('rejects restore when age retention prunes the before-restore rollback snapshot', async() => {
+    const root = createTemporaryDirectory()
+    const filePath = path.join(root, 'draft.md')
+    let current = 'current'
+    let now = 1_000
+    const writeFile = vi.fn(async(_filePath: string, content: string | Uint8Array) => {
+      current = typeof content === 'string' ? content : Buffer.from(content).toString('utf8')
+    })
+    const ids = ['snapshot-restore', 'snapshot-before-restore']
+    const service = new LocalHistoryService({
+      rootPath: path.join(root, 'history'),
+      maxAgeMs: 0,
+      now: () => now++,
+      createId: () => ids.shift() ?? 'snapshot-extra',
+      files: {
+        readFile: async() => current,
+        writeFile
+      }
+    })
+    const entry = await service.createSnapshot({ filePath, content: 'old', createdAt: 1_000 })
+
+    await expect(
+      service.restoreSnapshot({
+        filePath,
+        id: entry.id,
+        expectedCurrentContent: 'current'
+      })
+    ).rejects.toBeInstanceOf(LocalHistoryRollbackUnavailableError)
+    expect(current).toBe('current')
+    expect(writeFile).not.toHaveBeenCalled()
+  })
+
+  it('restores UTF-8 BOM and CRLF snapshot bytes instead of normalizing them away', async() => {
+    const root = createTemporaryDirectory()
+    const filePath = path.join(root, 'draft.md')
+    let current = 'current'
+    let written: string | Buffer | null = null
+    const service = new LocalHistoryService({
+      rootPath: path.join(root, 'history'),
+      createId: vi.fn().mockReturnValueOnce('snapshot-restore').mockReturnValueOnce('rollback'),
+      files: {
+        readFile: async() => current,
+        writeFile: async(_filePath, content) => {
+          written = content
+          current = typeof content === 'string' ? content : Buffer.from(content).toString('utf8')
+        }
+      }
+    })
+    const entry = await service.createSnapshot({
+      filePath,
+      content: 'first\nsecond\n',
+      encoding: 'utf8',
+      isBom: true,
+      lineEnding: 'crlf'
+    })
+
+    await service.restoreSnapshot({
+      filePath,
+      id: entry.id,
+      expectedCurrentContent: 'current'
+    })
+
+    expect(Buffer.isBuffer(written)).toBe(true)
+    if (!Buffer.isBuffer(written)) throw new Error('restore did not write bytes')
+    expect(written).toEqual(Buffer.from([0xef, 0xbb, 0xbf, ...Buffer.from('first\r\nsecond\r\n', 'utf8')]))
+  })
+
   it('restores through an injected file adapter and rejects stale previews', async() => {
     const root = createTemporaryDirectory()
     const filePath = path.join(root, 'draft.md')
     let current = 'current'
-    const writeFile = vi.fn(async(_filePath: string, content: string) => {
-      current = content
+    const writeFile = vi.fn(async(_filePath: string, content: string | Buffer) => {
+      current = typeof content === 'string' ? content : content.toString('utf8')
     })
     const ids = ['snapshot-restore', 'snapshot-before-restore']
     const service = new LocalHistoryService({

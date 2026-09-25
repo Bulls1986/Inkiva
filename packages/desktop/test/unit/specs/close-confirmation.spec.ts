@@ -94,4 +94,32 @@ describe('editor store — unsaved close confirmation', () => {
 
     resolveBufferedState?.()
   })
+
+  it('requires explicit close confirmation for dirty documents even when startup restores all', () => {
+    const editorStore = useEditorStore()
+    const preferencesStore = usePreferencesStore()
+    preferencesStore.startUpAction = 'restoreAll'
+    const first = makeDirtyTab()
+    const second = {
+      ...makeDirtyTab(),
+      id: 'tab-2',
+      filename: 'second.md',
+      pathname: '/tmp/second.md',
+      markdown: '# Second'
+    }
+    editorStore.tabs = [first, second] as typeof editorStore.tabs
+
+    editorStore.LISTEN_FOR_CLOSE()
+    const closeListener = mocks.on.mock.calls.find(
+      ([channel]) => channel === 'mt::ask-for-close'
+    )?.[1] as (() => void) | undefined
+
+    closeListener?.()
+
+    const confirmationCall = mocks.send.mock.calls.find(
+      ([channel]) => channel === 'mt::close-window-confirm'
+    )
+    expect(confirmationCall?.[1]).toHaveLength(2)
+    expect(mocks.send).not.toHaveBeenCalledWith('mt::close-window')
+  })
 })

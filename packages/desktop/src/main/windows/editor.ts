@@ -104,17 +104,6 @@ class EditorWindow extends BaseWindow {
       fileList.length === 0 &&
       markdownList.length === 0
 
-    const mainWindowState = windowStateKeeper({ defaultWidth: 1200, defaultHeight: 800 })
-    const { x, y, width, height } = ensureWindowPosition(mainWindowState)
-    const winOptions: BrowserWindowConstructorOptions = Object.assign(
-      { x, y, width, height },
-      editorWinOptions,
-      options
-    )
-    if (isLinux) {
-      winOptions.icon = path.join(process.cwd(), 'static', 'logo-96px.png')
-    }
-
     const {
       titleBarStyle,
       theme,
@@ -125,7 +114,23 @@ class EditorWindow extends BaseWindow {
       spellcheckerEnabled,
       spellcheckerLanguage
     } = preferences.getAll()
-    const resolvedSideBarVisibility = restoreLayoutState ? !!sideBarVisibility : false
+    const mainWindowState = windowStateKeeper({ defaultWidth: 1200, defaultHeight: 800 })
+    const restoredWindowState = restoreLayoutState
+      ? ensureWindowPosition(mainWindowState)
+      : { width: 1200, height: 800 }
+    const winOptions: BrowserWindowConstructorOptions = Object.assign(
+      restoredWindowState,
+      editorWinOptions,
+      options
+    )
+    if (isLinux) {
+      winOptions.icon = path.join(process.cwd(), 'static', 'logo-96px.png')
+    }
+    const resolvedSideBarVisibility = restoreLayoutState ? !!sideBarVisibility : true
+    const resolvedTabBarVisibility = restoreLayoutState ? !!tabBarVisibility : true
+    // Source-mode preference is a new-document/editor preference, not window
+    // layout state. Blank-layout startup must not silently rewrite it.
+    const resolvedSourceCodeModeEnabled = !!sourceCodeModeEnabled
 
     if (!isOsx) {
       winOptions.titleBarStyle = 'default'
@@ -202,9 +207,10 @@ class EditorWindow extends BaseWindow {
         addBlankTab,
         markdownList: this.bufferStoreInfo!.filePath ? [] : this._markdownToOpen,
         lineEnding,
+        restoreLayoutState,
         sideBarVisibility: resolvedSideBarVisibility,
-        tabBarVisibility,
-        sourceCodeModeEnabled
+        tabBarVisibility: resolvedTabBarVisibility,
+        sourceCodeModeEnabled: resolvedSourceCodeModeEnabled
       })
 
       if (this._contentDeferred) {
@@ -530,15 +536,18 @@ class EditorWindow extends BaseWindow {
       const { preferences } = this._accessor
       const { sideBarVisibility, restoreLayoutState, tabBarVisibility, sourceCodeModeEnabled } =
         preferences.getAll()
-      const resolvedSideBarVisibility = restoreLayoutState ? !!sideBarVisibility : false
+      const resolvedSideBarVisibility = restoreLayoutState ? !!sideBarVisibility : true
+      const resolvedTabBarVisibility = restoreLayoutState ? !!tabBarVisibility : true
+      const resolvedSourceCodeModeEnabled = !!sourceCodeModeEnabled
       const lineEnding = preferences.getPreferredEol()
       browserWindow!.webContents.send('mt::bootstrap-editor', {
         addBlankTab: true,
         markdownList: [],
         lineEnding,
+        restoreLayoutState,
         sideBarVisibility: resolvedSideBarVisibility,
-        tabBarVisibility,
-        sourceCodeModeEnabled
+        tabBarVisibility: resolvedTabBarVisibility,
+        sourceCodeModeEnabled: resolvedSourceCodeModeEnabled
       })
     })
     this.lifecycle = WindowLifecycle.LOADING

@@ -2181,6 +2181,22 @@ const createMountedBlockPrewarmer = (generation: number): (() => void) => {
   }
 }
 
+const focusEditorAfterFirstScreen = (): void => {
+  const ed = editor.value
+  if (!ed) return
+
+  const activeElement = document.activeElement
+  const focusIsUnclaimed =
+    !activeElement || activeElement === document.body || activeElement === document.documentElement
+  const editorOwnsFocus = !!activeElement && ed.domNode.contains(activeElement)
+
+  // First-screen autofocus is only a startup default. Once the user has moved
+  // focus to another interactive control (Find, Settings, command palette,
+  // etc.), the delayed milestone must not steal it back into the editor.
+  if (!focusIsUnclaimed && !editorOwnsFocus) return
+  ed.focus()
+}
+
 const scheduleEditorMilestones = (
   documentId?: string,
   notifyMainProcess = false,
@@ -2807,6 +2823,17 @@ onMounted(() => {
   measureEditorActivationPhase('muya-init', () =>
     measureEditorActivationPhase('muya-editor-core-init', () => muya.initEditorCore(false))
   )
+  // "Editable" must include transient interaction receivers whose triggering
+  // event cannot be reconstructed later. Quick Insert listens for the opening
+  // `/`, ImageEditTool listens for the one-shot image-selector event, and
+  // LinkTools listens for the one-shot link-tools event. Keep these receivers
+  // ready before user input/commands are accepted; all remaining UI plugins stay
+  // deferred behind the editable milestone.
+  measureEditorActivationPhase('muya-critical-ui-init', () => {
+    muya.initUiPlugin(ParagraphQuickInsertMenu.pluginName)
+    muya.initUiPlugin(ImageEditTool.pluginName)
+    muya.initUiPlugin(LinkTools.pluginName)
+  })
   rendererPerformance.measure('muya_init_end', 'muya_init_start', {
     phase: 'document-open',
     operationId: performanceOperationId,
@@ -3082,7 +3109,7 @@ onMounted(() => {
   scheduleEditorMilestones(
     performanceDocumentId,
     true,
-    () => editor.value?.focus(),
+    focusEditorAfterFirstScreen,
     activatePostPaintGeometry
   )
 })

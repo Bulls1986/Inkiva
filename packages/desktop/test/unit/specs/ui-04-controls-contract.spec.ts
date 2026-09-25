@@ -7,7 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const renderer = resolve(here, '../../../src/renderer/src')
 
 const read = (relativePath: string): string =>
-  readFileSync(resolve(renderer, relativePath), 'utf8')
+  readFileSync(resolve(renderer, relativePath), 'utf8').replace(/\r\n/g, '\n')
 
 describe('Inkiva UI-04 controls and floating surfaces contract', () => {
   it('removes elevation from regular controls and uses semantic states', () => {

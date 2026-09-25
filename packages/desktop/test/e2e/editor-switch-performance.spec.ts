@@ -83,6 +83,18 @@ const typeAtCommittedCaret = async(page: Page, text: string): Promise<void> => {
 const readEditorText = (page: Page): Promise<string> =>
   page.evaluate(() => document.querySelector('.editor-component')?.textContent ?? '')
 
+const currentTabHasReusableBlocksForText = (page: Page, expectedText: string): Promise<boolean> =>
+  page.evaluate((text) => {
+    const root = document.querySelector('#app') as
+      | (Element & { __vue_app__?: { config?: { globalProperties?: Record<string, unknown> } } })
+      | null
+    const pinia = root?.__vue_app__?.config?.globalProperties?.$pinia as
+      | { _s?: Map<string, { currentFile?: { blocks?: unknown } }> }
+      | undefined
+    const blocks = pinia?._s?.get('editor')?.currentFile?.blocks
+    return Array.isArray(blocks) && blocks.length > 0 && JSON.stringify(blocks).includes(text)
+  }, expectedText)
+
 const percentile = (values: number[], ratio: number): number => {
   const sorted = [...values].sort((a, b) => a - b)
   const position = ratio * (sorted.length - 1)
@@ -183,6 +195,15 @@ test.describe('editor switch rebuild performance', () => {
       await placeCaretInEditor(page)
       await typeAtCommittedCaret(page, ' edited')
       await expect.poll(() => readEditorText(page), { timeout: 10000 }).toContain('edited')
+
+      // This contract is specifically about reusing the CURRENT edited warm
+      // blocks snapshot. A tab can still hold the previous revision's blocks
+      // while the 80ms/500ms snapshot scheduler is pending, so merely observing
+      // a non-empty blocks array can race and accept stale pre-edit state. Wait
+      // until the persisted block tree itself contains this edit.
+      await expect
+        .poll(() => currentTabHasReusableBlocksForText(page, 'edited'), { timeout: 5000 })
+        .toBe(true)
 
       await sendIpcToRenderer(app, 'mt::switch-tab-by-index', 0)
       await expect.poll(() => readEditorText(page), { timeout: 10000 }).toContain('Base')

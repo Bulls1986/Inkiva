@@ -8,7 +8,7 @@ import type { PreferenceMutationResult } from '@shared/types/ipc'
 // narrow casts on consumers that read raw values from disk.
 export type EndOfLine = 'default' | 'lf' | 'crlf'
 export type TitleBarStyle = 'custom' | 'native'
-export type StartUpAction = 'restoreAll' | 'lastSession' | 'blank'
+export type StartUpAction = 'restoreAll' | 'openLastFolder' | 'folder' | 'blank'
 export type TextDirection = 'ltr' | 'rtl'
 export type BulletListMarker = '*' | '+' | '-'
 export type OrderListDelimiter = '.' | ')'

@@ -20,6 +20,7 @@ import {
   type RenameRepairFileAdapter
 } from './renameRepair'
 import {
+  LocalHistoryRollbackUnavailableError,
   LocalHistoryService,
   LocalHistorySnapshotNotFoundError,
   StaleLocalHistoryRestoreError,
@@ -43,7 +44,11 @@ const defaultFiles: DocumentIntelligenceFileAdapter = {
   }
 }
 
-export { LocalHistorySnapshotNotFoundError, StaleLocalHistoryRestoreError }
+export {
+  LocalHistoryRollbackUnavailableError,
+  LocalHistorySnapshotNotFoundError,
+  StaleLocalHistoryRestoreError
+}
 
 /**
  * Main-process boundary for document intelligence. It keeps pure link/index

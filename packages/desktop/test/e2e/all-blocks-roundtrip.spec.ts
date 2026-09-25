@@ -50,6 +50,11 @@ const save = async(app: ElectronApplication): Promise<void> => {
 
 const readDisk = (): string => fs.readFileSync(FIXTURE_ABS, 'utf-8')
 
+const normalizeLf = (value: string): string => value.replace(/\r\n/g, '\n')
+
+const encodeWithOriginalLineEnding = (value: string, original: string): string =>
+  original.includes('\r\n') ? normalizeLf(value).replace(/\n/g, '\r\n') : normalizeLf(value)
+
 const isDirty = (page: Page): Promise<boolean> =>
   page.evaluate((sel) => !!document.querySelector(sel), UNSAVED_DOT)
 
@@ -119,7 +124,7 @@ test.describe('All blocks round-trip + save byte-stability (item 39)', () => {
     // bytes — i.e. the fixture is already in canonical form, so loading it does
     // not silently reformat anything.
     const serialized = await getMarkdownContent(page, app)
-    expect(serialized).toBe(original)
+    expect(serialized).toBe(normalizeLf(original))
   })
 
   test('repeated source <-> WYSIWYG toggles do not mutate or reformat the content', async() => {
@@ -133,13 +138,13 @@ test.describe('All blocks round-trip + save byte-stability (item 39)', () => {
           | null
         return cm && cm.CodeMirror ? cm.CodeMirror.getValue() : null
       })
-      expect(inSource).toBe(original)
+      expect(inSource).toBe(normalizeLf(original))
       await exitSourceMode(page, app)
       await page.waitForTimeout(200)
     }
 
     const afterToggles = await getMarkdownContent(page, app)
-    expect(afterToggles).toBe(original)
+    expect(afterToggles).toBe(normalizeLf(original))
   })
 
   test('saving clears the unsaved indicator and writes the original bytes back to disk', async() => {
@@ -156,7 +161,7 @@ test.describe('All blocks round-trip + save byte-stability (item 39)', () => {
     await expect.poll(() => readDisk(), { timeout: 5000 }).toBe(original)
 
     // And the in-editor serialization still matches.
-    expect(await getMarkdownContent(page, app)).toBe(original)
+    expect(await getMarkdownContent(page, app)).toBe(normalizeLf(original))
   })
 
   test('a dirty edit saves through the full IPC path and persists the exact editor serialization', async() => {
@@ -175,6 +180,8 @@ test.describe('All blocks round-trip + save byte-stability (item 39)', () => {
 
     await save(app)
     await expect.poll(() => isDirty(page), { timeout: 5000 }).toBe(false)
-    await expect.poll(() => readDisk(), { timeout: 5000 }).toBe(editorContent)
+    await expect.poll(() => readDisk(), { timeout: 5000 }).toBe(
+      encodeWithOriginalLineEnding(editorContent, original)
+    )
   })
 })

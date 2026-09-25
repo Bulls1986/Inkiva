@@ -58,7 +58,16 @@ const commitEditorSelection = async(page: Page, collapse: boolean): Promise<void
 }
 
 const selectEditorText = async(page: Page): Promise<void> => {
-  await commitEditorSelection(page, false)
+  // Use a real keyboard selection instead of synthesizing only the DOM Range.
+  // Muya owns a cached editor selection used by menu-driven copy; a synthetic
+  // selectionchange can leave that cache stale even when window.getSelection()
+  // visually looks selected.
+  await placeEditorCaret(page)
+  await page.keyboard.press('ControlOrMeta+a')
+  await expect.poll(
+    () => page.evaluate(() => window.getSelection()?.toString() ?? ''),
+    { timeout: 5000 }
+  ).toContain('bold')
 }
 
 const placeEditorCaret = async(page: Page): Promise<void> => {
@@ -70,9 +79,11 @@ const copyFromMenu = async(
   page: Page,
   id: string
 ): Promise<ClipboardPayload> => {
-  // Capture the data on the real Electron copy event instead of reading the
-  // process-global OS clipboard. This keeps the contract deterministic when
-  // other Electron E2E files run in the second worker.
+  // Observe the exact clipboard flavors written by Muya's real copy handler.
+  // A ClipboardEvent's DataTransfer is write-oriented while the copy event is
+  // being dispatched; Chromium does not guarantee that a later listener can
+  // read earlier setData() writes back through getData(). Intercept setData()
+  // on this event instead, while still letting the browser receive the writes.
   await page.evaluate(() => {
     const state = window as typeof window & {
       __inkivaCopyCapture?: Promise<ClipboardPayload>
@@ -80,14 +91,22 @@ const copyFromMenu = async(
     state.__inkivaCopyCapture = new Promise<ClipboardPayload>((resolve, reject) => {
       const onCopy = (event: ClipboardEvent) => {
         const data = event.clipboardData
-        resolve({
-          text: data?.getData('text/plain') || '',
-          html: data?.getData('text/html') || ''
-        })
+        if (!data) {
+          resolve({ text: '', html: '' })
+          return
+        }
+        const payload: ClipboardPayload = { text: '', html: '' }
+        const originalSetData = data.setData.bind(data)
+        data.setData = (format: string, value: string): void => {
+          if (format === 'text/plain') payload.text = value
+          if (format === 'text/html') payload.html = value
+          originalSetData(format, value)
+        }
+        queueMicrotask(() => resolve(payload))
       }
-      document.addEventListener('copy', onCopy, { once: true })
+      document.addEventListener('copy', onCopy, { capture: true, once: true })
       window.setTimeout(() => {
-        document.removeEventListener('copy', onCopy)
+        document.removeEventListener('copy', onCopy, true)
         reject(new Error('copy event was not dispatched'))
       }, 8000)
     })

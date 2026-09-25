@@ -201,6 +201,9 @@ const requireSnapshotRequest = (value: unknown): LocalHistoryCreateRequest => {
   if (value.encoding !== undefined && typeof value.encoding !== 'string') {
     throw new TypeError('encoding must be a string')
   }
+  if (value.isBom !== undefined && typeof value.isBom !== 'boolean') {
+    throw new TypeError('isBom must be a boolean')
+  }
   return {
     filePath: requireString(value.filePath, 'filePath'),
     content: requireMarkdown(value.content, 'content'),
@@ -209,6 +212,7 @@ const requireSnapshotRequest = (value: unknown): LocalHistoryCreateRequest => {
       ? { reason: value.reason as LocalHistoryCreateRequest['reason'] }
       : {}),
     ...(value.encoding !== undefined ? { encoding: value.encoding as string } : {}),
+    ...(value.isBom !== undefined ? { isBom: value.isBom as boolean } : {}),
     ...(value.lineEnding !== undefined ? { lineEnding: value.lineEnding as 'lf' | 'crlf' } : {})
   }
 }

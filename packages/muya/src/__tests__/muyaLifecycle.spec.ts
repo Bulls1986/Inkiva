@@ -66,6 +66,58 @@ describe('muya resource lifecycle', () => {
         expect(dispose).toHaveBeenCalledTimes(1);
     });
 
+    it('pre-initializes a named UI plugin without duplicating it in deferred initialization', () => {
+        const originalPlugins = [...Muya.plugins];
+        const criticalCreate = vi.fn();
+        const backgroundCreate = vi.fn();
+
+        class CriticalPlugin {
+            static pluginName = 'critical';
+
+            constructor(_muya: Muya) {
+                criticalCreate();
+            }
+        }
+
+        class BackgroundPlugin {
+            static pluginName = 'background';
+
+            constructor(_muya: Muya) {
+                backgroundCreate();
+            }
+        }
+
+        Muya.plugins = [];
+        Muya.use(BackgroundPlugin);
+        Muya.use(CriticalPlugin);
+
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, { markdown: '' });
+        bootedHosts.push(muya.domNode);
+        bootedMuya.push(muya);
+
+        try {
+            muya.initEditorCore(false);
+
+            expect(muya.initUiPlugin('critical')).toBe(true);
+            expect(criticalCreate).toHaveBeenCalledTimes(1);
+            expect(backgroundCreate).not.toHaveBeenCalled();
+
+            while (muya.initNextUiPlugin()) {
+                // Drain the normal deferred initialization path.
+            }
+
+            expect(criticalCreate).toHaveBeenCalledTimes(1);
+            expect(backgroundCreate).toHaveBeenCalledTimes(1);
+            expect(muya.initUiPlugin('critical')).toBe(false);
+            expect(muya.initUiPlugin('missing')).toBe(false);
+        }
+        finally {
+            Muya.plugins = originalPlugins;
+        }
+    });
+
     it('cancels pending JSON state work and the editor event stream on destroy', () => {
         let nextFrame = 100;
         const requestAnimationFrameMock = vi.fn(() => nextFrame++);

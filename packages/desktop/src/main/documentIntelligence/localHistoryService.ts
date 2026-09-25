@@ -12,7 +12,7 @@ import { LocalHistoryStore, type LocalHistoryStoreOptions } from './localHistory
 
 export interface LocalHistoryFileAdapter {
   readFile(filePath: string): Promise<string>
-  writeFile(filePath: string, content: string): Promise<void>
+  writeFile(filePath: string, content: string | Buffer): Promise<void>
 }
 
 export interface LocalHistoryServiceOptions extends LocalHistoryStoreOptions {
@@ -33,6 +33,31 @@ export class StaleLocalHistoryRestoreError extends Error {
     )
     this.name = 'StaleLocalHistoryRestoreError'
   }
+}
+
+export class LocalHistoryRollbackUnavailableError extends Error {
+  constructor(filePath: string) {
+    super(`Local History restore refused because no retained rollback snapshot is available: ${filePath}`)
+    this.name = 'LocalHistoryRollbackUnavailableError'
+  }
+}
+
+const normalizeLineEndings = (
+  content: string,
+  lineEnding: LocalHistorySnapshot['lineEnding']
+): string => {
+  if (lineEnding === 'crlf') return content.replace(/\r?\n/g, '\r\n')
+  if (lineEnding === 'lf') return content.replace(/\r\n/g, '\n')
+  return content
+}
+
+const encodeSnapshotForRestore = (snapshot: LocalHistorySnapshot): Buffer => {
+  const normalized = normalizeLineEndings(snapshot.content, snapshot.lineEnding)
+  const body = Buffer.from(normalized, 'utf8')
+  if (snapshot.encoding === 'utf8' && snapshot.isBom) {
+    return Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), body])
+  }
+  return body
 }
 
 const defaultFiles: LocalHistoryFileAdapter = {
@@ -94,14 +119,18 @@ export class LocalHistoryService {
     }
 
     if (current !== snapshot.content) {
-      await this.store.save({
+      const rollback = await this.store.save({
         filePath: request.filePath,
         content: current,
         reason: 'before-restore'
       })
+      const retainedRollback = await this.store.read(request.filePath, rollback.id)
+      if (!retainedRollback) {
+        throw new LocalHistoryRollbackUnavailableError(request.filePath)
+      }
     }
 
-    await this.files.writeFile(request.filePath, snapshot.content)
+    await this.files.writeFile(request.filePath, encodeSnapshotForRestore(snapshot))
     return snapshot
   }
 }

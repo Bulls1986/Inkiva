@@ -129,6 +129,7 @@ export class LocalHistoryStore {
         size: Buffer.byteLength(request.content, 'utf8'),
         content: request.content,
         ...(request.encoding ? { encoding: request.encoding } : {}),
+        ...(typeof request.isBom === 'boolean' ? { isBom: request.isBom } : {}),
         ...(request.lineEnding ? { lineEnding: request.lineEnding } : {})
       }
       const snapshotPath = this.getSnapshotPath(filePath, id)
@@ -264,6 +265,7 @@ export class LocalHistoryStore {
         size,
         content,
         ...(typeof parsed.encoding === 'string' ? { encoding: parsed.encoding } : {}),
+        ...(typeof parsed.isBom === 'boolean' ? { isBom: parsed.isBom } : {}),
         ...(parsed.lineEnding === 'lf' || parsed.lineEnding === 'crlf'
           ? { lineEnding: parsed.lineEnding }
           : {})

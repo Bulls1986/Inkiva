@@ -3,6 +3,7 @@ import { _electron, type ElectronApplication, type Page } from 'playwright'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import { spawnSync } from 'node:child_process'
 import type { IpcSendChannels } from '../../src/shared/types/ipc'
 
 const projectRoot = path.resolve(__dirname, '../..')
@@ -139,7 +140,16 @@ export const closeElectron = async(
   // exits still use the graceful path above.
   const child = app.process()
   try {
-    if (child.pid && process.platform !== 'win32') {
+    if (child.pid && process.platform === 'win32') {
+      // child.kill() terminates only the Electron browser process on Windows;
+      // renderer/GPU/utility descendants can survive as orphans and accumulate
+      // across the suite. taskkill /T is the Windows process-tree equivalent
+      // of the POSIX process-group kill used below.
+      spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
+        windowsHide: true,
+        stdio: 'ignore'
+      })
+    } else if (child.pid) {
       process.kill(-child.pid, 'SIGKILL')
     } else if (!child.killed) {
       child.kill()

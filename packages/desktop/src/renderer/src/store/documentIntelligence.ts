@@ -24,6 +24,7 @@ const toDocument = (
   markdown: tab.markdown,
   isSaved: tab.isSaved,
   ...(tab.encoding?.encoding ? { encoding: tab.encoding.encoding } : {}),
+  ...(typeof tab.encoding?.isBom === 'boolean' ? { isBom: tab.encoding.isBom } : {}),
   ...(tab.lineEnding === 'lf' || tab.lineEnding === 'crlf' ? { lineEnding: tab.lineEnding } : {})
 })
 

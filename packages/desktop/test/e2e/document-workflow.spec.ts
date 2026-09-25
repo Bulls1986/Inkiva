@@ -99,7 +99,14 @@ test.describe('Document workflow', () => {
         list.locator('[data-testid="recent-document-item"][data-kind="folder"]')
       ).toHaveCount(1)
 
-      const fileItem = list.locator(`[data-path="${filePath}"]`)
+      // Do not interpolate a Windows path into a CSS attribute selector:
+      // backslashes are CSS escapes (`C:\\Users...`) and make the locator miss
+      // the item. Scope to the already-verified item rows, then use the unique
+      // fixture basename rendered by the row.
+      const fileItem = list
+        .locator('[data-testid="recent-document-item"]')
+        .filter({ hasText: path.basename(filePath) })
+      await expect(fileItem).toHaveCount(1)
       await fileItem.locator('[data-testid="recent-pin"]').click()
       await expect(fileItem).toHaveAttribute('data-pinned', 'true')
       await fileItem.locator('[data-testid="recent-remove"]').click()

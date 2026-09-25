@@ -49,13 +49,24 @@ test.describe('Crash: updateParagraph null block', () => {
       // engine used `@`). Type it into the empty paragraph to open the menu.
       await typeIntoEditor(page, '/')
 
-      // The quick-insert float (`.mu-quick-insert`) is always present in the
-      // DOM but parked off-screen (top:-9999, opacity:0) until shown. Wait for
-      // it to be positioned on-screen — `state: 'visible'` honours the
-      // opacity/position so we click the real, shown menu rather than the
-      // parked one.
+      // BaseFloat parks hidden floats at -9999px and positions them
+      // asynchronously through floating-ui. Playwright's generic "visible"
+      // state does not reject an off-screen element, so wait for the actual
+      // float wrapper to enter the viewport before exercising a real click.
       const overlay = page.locator('.mu-quick-insert')
-      await overlay.waitFor({ state: 'visible', timeout: 5000 })
+      await expect.poll(
+        () => overlay.evaluate((element) => {
+          const wrapper = element.closest('.mu-float-wrapper') as HTMLElement | null
+          if (!wrapper) return false
+          const rect = wrapper.getBoundingClientRect()
+          return Number.parseFloat(getComputedStyle(wrapper).opacity) > 0 &&
+            rect.right > 0 &&
+            rect.bottom > 0 &&
+            rect.left < window.innerWidth &&
+            rect.top < window.innerHeight
+        }),
+        { timeout: 5000 }
+      ).toBe(true)
 
       // Quick-insert items expose data-label matching the config in
       // packages/muya/src/ui/paragraphQuickInsertMenu/config.ts —

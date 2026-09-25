@@ -15,7 +15,10 @@ import {
   type RestorePlan,
   type SkippedRecoverySource
 } from './restorePlan'
-import { DocumentIntelligenceService } from '../documentIntelligence/documentIntelligenceService'
+import {
+  createRecoveryHistoryPersistence,
+  type RecoveryHistoryPersistenceFactory
+} from '../documentIntelligence/recoveryHistoryPersistence'
 import type {
   RecoveryCenterItem,
   RecoveryCenterState,
@@ -48,6 +51,11 @@ export class RecoveryCenterSession {
   private _bufferStore: EditorBufferStore | null = null
   private _userDataPath = ''
   private _planLoaded = false
+
+  constructor(
+    private readonly _createHistoryPersistence: RecoveryHistoryPersistenceFactory =
+    createRecoveryHistoryPersistence
+  ) {}
 
   configure(options: {
     safeMode: boolean
@@ -191,9 +199,7 @@ export class RecoveryCenterSession {
       }
     }
 
-    const history = new DocumentIntelligenceService({
-      historyRootPath: path.join(this._userDataPath, 'local-history')
-    })
+    const history = this._createHistoryPersistence(this._userDataPath)
     await history.createSnapshot({
       filePath: item.pathname,
       content: currentDisk,
