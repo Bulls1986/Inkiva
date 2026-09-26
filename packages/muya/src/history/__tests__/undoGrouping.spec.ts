@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { classifyInputKind, shouldBreakUndoGroup } from '../index';
 
-// Undo grouping is otherwise time-based only (History.delay = 1s), so a fast
-// typed sentence coalesces into a single undo entry (#3825). These helpers
-// drive the boundary decision the input pipeline feeds to History.cutoff().
+// US13 keeps continuous character input together; input-kind switches still
+// close the group while standalone operations are handled by History itself.
 
 describe('classifyInputKind', () => {
     it('classifies insertion input types as "insert"', () => {
@@ -31,9 +30,9 @@ describe('shouldBreakUndoGroup', () => {
         expect(shouldBreakUndoGroup(null, 'insert', 'h')).toBe(false);
     });
 
-    it('breaks on a typed whitespace (word boundary)', () => {
-        expect(shouldBreakUndoGroup('insert', 'insert', ' ')).toBe(true);
-        expect(shouldBreakUndoGroup('insert', 'insert', '\t')).toBe(true);
+    it('keeps whitespace inside continuous insertion', () => {
+        expect(shouldBreakUndoGroup('insert', 'insert', ' ')).toBe(false);
+        expect(shouldBreakUndoGroup('insert', 'insert', '\t')).toBe(false);
     });
 
     it('breaks when switching between inserting and deleting', () => {

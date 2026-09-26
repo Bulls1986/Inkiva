@@ -84,23 +84,41 @@ async function insertImageSrc(
 ): Promise<void> {
     const { imageAction } = clipboard.muya.options;
 
+    const history = clipboard.muya.editor?.history;
+
     // No async insert preference: write the final image directly, no
     // placeholder (there is nothing to wait for).
     if (!imageAction) {
-        insertImageText(anchorBlock, src);
+        if (history)
+            history.runUserOperation(() => insertImageText(anchorBlock, src));
+        else
+            insertImageText(anchorBlock, src);
 
         return;
     }
-
     const id = `loading-${getUniqueId()}`;
-    const placeholderText = insertImageText(anchorBlock, src, id);
+    const placeholderText = history
+        ? history.runUserOperation(() => insertImageText(anchorBlock, src, id))
+        : insertImageText(anchorBlock, src, id);
+    const continuation = history && placeholderText
+        ? history.captureUserOperationContinuation()
+        : null;
 
     let finalSrc = src;
     const resolved = await imageAction({ src, alt: '', title: '' });
     if (resolved)
         finalSrc = resolved;
 
-    replacePlaceholderImage(anchorBlock, placeholderText, finalSrc);
+    if (placeholderText) {
+        if (history) {
+            history.runUserOperationContinuation(continuation, () => {
+                replacePlaceholderImage(anchorBlock, placeholderText, finalSrc);
+            });
+        }
+        else {
+            replacePlaceholderImage(anchorBlock, placeholderText, finalSrc);
+        }
+    }
 }
 
 // Resolve a pasted image to an `src`: a clipboard FILE path (via the
@@ -282,23 +300,44 @@ async function replaceImageAt(
 ): Promise<void> {
     const { imageAction } = clipboard.muya.options;
 
+    const history = clipboard.muya.editor?.history;
+
     if (!imageAction) {
-        spliceImageText(block, range, src);
-        reselectImageAt(clipboard, block, range.start);
+        const mutate = () => {
+            spliceImageText(block, range, src);
+            reselectImageAt(clipboard, block, range.start);
+        };
+        if (history)
+            history.runUserOperation(mutate);
+        else
+            mutate();
 
         return;
     }
-
     const id = `loading-${getUniqueId()}`;
-    const placeholderText = spliceImageText(block, range, src, id);
+    const placeholderText = history
+        ? history.runUserOperation(() => spliceImageText(block, range, src, id))
+        : spliceImageText(block, range, src, id);
+    const continuation = history && placeholderText
+        ? history.captureUserOperationContinuation()
+        : null;
 
     let finalSrc = src;
     const resolved = await imageAction({ src, alt: '', title: '' });
     if (resolved)
         finalSrc = resolved;
 
-    replacePlaceholderImage(block, placeholderText, finalSrc);
-    reselectImageAt(clipboard, block, range.start);
+    if (placeholderText) {
+        if (history) {
+            history.runUserOperationContinuation(continuation, () => {
+                replacePlaceholderImage(block, placeholderText, finalSrc);
+            });
+        }
+        else {
+            replacePlaceholderImage(block, placeholderText, finalSrc);
+        }
+        reselectImageAt(clipboard, block, range.start);
+    }
 }
 
 /**

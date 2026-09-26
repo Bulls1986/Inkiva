@@ -339,6 +339,7 @@ export class Editor {
 
             switch (event.type) {
                 case 'click': {
+                    this.history.closeCurrentOperation();
                     anchorBlock.clickHandler(event);
                     break;
                 }
@@ -354,9 +355,18 @@ export class Editor {
                     anchorBlock.keyupHandler(event);
                     break;
                 }
-                case 'compositionend':
                 case 'compositionstart': {
+                    this.history.beginUserOperation();
                     anchorBlock.composeHandler(event);
+                    break;
+                }
+                case 'compositionend': {
+                    try {
+                        anchorBlock.composeHandler(event);
+                    }
+                    finally {
+                        this.history.endUserOperation();
+                    }
                     break;
                 }
             }

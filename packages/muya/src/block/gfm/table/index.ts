@@ -137,12 +137,7 @@ class Table extends Parent {
      * JSON operation immediately so one user action becomes one history item.
      */
     private _runAtomicMutation<T>(mutation: () => T): T {
-        this.jsonState.flush();
-        this.muya.editor.history.cutoff();
-        const result = mutation();
-        this.jsonState.flush();
-        this.muya.editor.history.cutoff();
-        return result;
+        return this.muya.editor.history.runUserOperation(mutation);
     }
 
     insertRow(offset: number) {

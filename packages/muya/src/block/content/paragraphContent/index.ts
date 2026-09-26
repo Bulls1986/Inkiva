@@ -296,8 +296,11 @@ class ParagraphContent extends Format {
                     return;
 
                 const match = matchBlockConversion(this.text);
-                if (match?.kind === 'code')
-                    this._convertBlock(match);
+                if (match?.kind === 'code') {
+                    this.muya.editor.history.runUserOperation(() => {
+                        this._convertBlock(match);
+                    });
+                }
             }, FENCE_DISAMBIGUATION_MS);
         }
 
