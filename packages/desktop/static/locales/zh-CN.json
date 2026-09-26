@@ -1043,6 +1043,14 @@
       "rows": "行",
       "columns": "列"
     },
+    "tablePaste": {
+      "overwriteTitle": "覆盖已有表格内容？",
+      "overwriteMessage": "粘贴数据将覆盖范围 {range}。",
+      "nonEmptyCount": "其中有 {count} 个非空单元格已有内容。",
+      "replace": "覆盖",
+      "unrecognizedTitle": "已按文本粘贴",
+      "unrecognizedMessage": "未识别为规则表格数据，内容仅插入当前单元格。"
+    },
     "notifications": {
       "notificationNotFound": "未找到通知"
     },

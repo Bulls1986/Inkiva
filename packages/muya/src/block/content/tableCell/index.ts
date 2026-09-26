@@ -68,7 +68,7 @@ class TableCellContent extends Format {
         const { start, end } = this.getCursor()!;
         const { text } = this;
 
-        const br = '<br/>';
+        const br = '<br>';
 
         this.text
             = text.substring(0, start.offset) + br + text.substring(end.offset);
@@ -87,37 +87,7 @@ class TableCellContent extends Format {
     }
 
     private _normalEnter(event: Event) {
-        event.preventDefault();
-
-        const nextRow = this._findNextRow();
-        const { _row: row } = this;
-        let cursorBlock = null;
-        if (nextRow) {
-            cursorBlock = nextRow.firstContentInDescendant();
-        }
-        else {
-            const lastCellContent = row.lastContentInDescendant();
-            const nextContent = lastCellContent?.nextContentInContext();
-
-            if (nextContent) {
-                cursorBlock = nextContent;
-            }
-            else {
-                const state = {
-                    name: 'paragraph',
-                    text: '',
-                };
-
-                const newParagraphBlock = ScrollPage.loadBlock('paragraph').create(
-                    this.muya,
-                    state,
-                );
-                this.scrollPage?.append(newParagraphBlock, 'user');
-                cursorBlock = newParagraphBlock.firstContentInDescendant();
-            }
-        }
-
-        cursorBlock.setCursor(0, 0, true);
+        return this._shiftEnter(event);
     }
 
     override enterHandler(event: Event) {

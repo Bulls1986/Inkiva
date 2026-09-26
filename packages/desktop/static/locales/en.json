@@ -1050,6 +1050,14 @@
       "rows": "Rows",
       "columns": "Columns"
     },
+    "tablePaste": {
+      "overwriteTitle": "Replace existing table cells?",
+      "overwriteMessage": "Pasted data will replace cells in {range}.",
+      "nonEmptyCount": "{count} non-empty cells already contain content.",
+      "replace": "Replace",
+      "unrecognizedTitle": "Pasted as text",
+      "unrecognizedMessage": "The clipboard data was not a regular table rectangle, so it was inserted only into the current cell."
+    },
     "notifications": {
       "notificationNotFound": "Notification not found"
     },

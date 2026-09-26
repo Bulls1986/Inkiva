@@ -683,11 +683,15 @@ li.mu-task-list-item > span.mu-task-list-checkbox:focus-visible {
 
 /* table */
 .mu-table {
+    max-width: 100%;
     margin: 0.75em 0 0;
     padding: 0.5em 0;
+
+    overflow: auto hidden;
 }
 
 .mu-table-inner {
+    min-width: max-content;
     padding: 0;
 
     word-break: initial;
@@ -720,6 +724,10 @@ li.mu-task-list-item > span.mu-task-list-checkbox:focus-visible {
     padding: 6px 13px;
 
     text-align: left;
+}
+
+.mu-table-inner tr td:focus-within {
+    box-shadow: inset 0 0 0 2px var(--theme-color);
 }
 
 .mu-table-inner tr:first-child td {

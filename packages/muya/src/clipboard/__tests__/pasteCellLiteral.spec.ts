@@ -7,7 +7,7 @@ import { Muya as MuyaClass } from '../../muya';
 import { SelectionCaretType, SelectionDirection } from '../../selection/types';
 
 // muyajs trims pasted table-cell text and normalizes CRLF to LF before folding
-// newlines into `<br/>`. A table cell takes the paste literally, so a stray
+// newlines into the US12 canonical `<br>`. A table cell takes the paste literally, so a stray
 // `\r` would otherwise survive verbatim — the ideal place to pin both fixes.
 
 vi.mock('../../utils/prism/index', () => ({
@@ -99,7 +99,7 @@ describe('paste — table cell takes text literally (muyajs parity)', () => {
         const muya = bootMuya('| a1 | b1 |\n| --- | --- |\n| a2 | b2 |\n');
         const cell = firstCellContent(muya);
         await pasteInto(muya, cell, 0, cell.text.length, 'x\r\ny');
-        // newlines fold to <br/>; the carriage return must be gone, not kept.
-        expect(cell.text).toBe('x<br/>y');
+        // Newlines fold to <br>; the carriage return must be gone, not kept.
+        expect(cell.text).toBe('x<br>y');
     });
 });

@@ -131,56 +131,74 @@ class Table extends Parent {
         });
     }
 
+    /**
+     * Structural table edits must not share an undo group with adjacent typing.
+     * Flush pending text first, isolate this mutation, then flush its composed
+     * JSON operation immediately so one user action becomes one history item.
+     */
+    private _runAtomicMutation<T>(mutation: () => T): T {
+        this.jsonState.flush();
+        this.muya.editor.history.cutoff();
+        const result = mutation();
+        this.jsonState.flush();
+        this.muya.editor.history.cutoff();
+        return result;
+    }
+
     insertRow(offset: number) {
-        const { columnCount } = this;
-        const firstRowState = this.getState().children[0];
-        const currentRow
-            = offset > 0
-                ? (this.firstChild as TableInner).find(offset - 1)
-                : (this.firstChild as TableInner).find(offset);
-        const state = {
-            name: 'table.row',
-            // eslint-disable-next-line unicorn/no-new-array
-            children: [...new Array(columnCount)].map((_, i) => {
-                return {
-                    name: 'table.cell',
-                    meta: {
-                        align: firstRowState.children[i].meta.align,
-                    },
-                    text: '',
-                };
-            }),
-        };
+        return this._runAtomicMutation(() => {
+            const { columnCount } = this;
+            const firstRowState = this.getState().children[0];
+            const currentRow
+                = offset > 0
+                    ? (this.firstChild as TableInner).find(offset - 1)
+                    : (this.firstChild as TableInner).find(offset);
+            const state = {
+                name: 'table.row',
+                // eslint-disable-next-line unicorn/no-new-array
+                children: [...new Array(columnCount)].map((_, i) => {
+                    return {
+                        name: 'table.cell',
+                        meta: {
+                            align: firstRowState.children[i].meta.align,
+                        },
+                        text: '',
+                    };
+                }),
+            };
 
-        const rowBlock = ScrollPage.loadBlock('table.row').create(this.muya, state);
+            const rowBlock = ScrollPage.loadBlock('table.row').create(this.muya, state);
 
-        if (offset > 0)
-            (this.firstChild as TableInner).insertAfter(rowBlock, currentRow as TableRow);
-        else
-            (this.firstChild as TableInner).insertBefore(rowBlock, currentRow as TableRow);
+            if (offset > 0)
+                (this.firstChild as TableInner).insertAfter(rowBlock, currentRow as TableRow);
+            else
+                (this.firstChild as TableInner).insertBefore(rowBlock, currentRow as TableRow);
 
-        return rowBlock.firstContentInDescendant();
+            return rowBlock.firstContentInDescendant();
+        });
     }
 
     insertColumn(offset: number, align = 'none') {
-        const tableInner = this.firstChild as TableInner;
-        let firstCellInNewColumn: Nullable<TableBodyCell> = null;
+        return this._runAtomicMutation(() => {
+            const tableInner = this.firstChild as TableInner;
+            let firstCellInNewColumn: Nullable<TableBodyCell> = null;
 
-        tableInner.forEach((row) => {
-            const state = {
-                name: 'table.cell',
-                meta: { align },
-                text: '',
-            };
-            const cell = ScrollPage.loadBlock('table.cell').create(this.muya, state);
-            const ref = (row as TableRow).find(offset);
+            tableInner.forEach((row) => {
+                const state = {
+                    name: 'table.cell',
+                    meta: { align },
+                    text: '',
+                };
+                const cell = ScrollPage.loadBlock('table.cell').create(this.muya, state);
+                const ref = (row as TableRow).find(offset);
 
-            (row as TableRow).insertBefore(cell, ref as TableBodyCell);
-            if (!firstCellInNewColumn)
-                firstCellInNewColumn = cell;
+                (row as TableRow).insertBefore(cell, ref as TableBodyCell);
+                if (!firstCellInNewColumn)
+                    firstCellInNewColumn = cell;
+            });
+
+            return firstCellInNewColumn!.firstChild as TableCellContent;
         });
-
-        return firstCellInNewColumn!.firstChild as TableCellContent;
     }
 
     removeRow(offset: number): Nullable<Content> {
@@ -202,14 +220,16 @@ class Table extends Parent {
         const outsideContent
             = this.nextContentInContext() ?? this.previousContentInContext();
 
-        row.remove();
+        return this._runAtomicMutation(() => {
+            row.remove();
 
-        if (survivor == null) {
-            this.remove();
-            return outsideContent ?? null;
-        }
+            if (survivor == null) {
+                this.remove();
+                return outsideContent ?? null;
+            }
 
-        return (survivor.firstChild as TableBodyCell).firstChild as TableCellContent;
+            return (survivor.firstChild as TableBodyCell).firstChild as TableCellContent;
+        });
     }
 
     removeColumn(offset: number): Nullable<Content> {
@@ -226,8 +246,10 @@ class Table extends Parent {
             // subtree.
             const outsideContent
                 = this.nextContentInContext() ?? this.previousContentInContext();
-            this.remove();
-            return outsideContent ?? null;
+            return this._runAtomicMutation(() => {
+                this.remove();
+                return outsideContent ?? null;
+            });
         }
 
         // Capture the first row's surviving neighbour cell before mutation so
@@ -240,13 +262,15 @@ class Table extends Parent {
             = (targetCellInFirstRow?.next as TableBodyCell | null)
                 ?? (targetCellInFirstRow?.prev as TableBodyCell | null);
 
-        table.forEach((row) => {
-            const cell = (row as TableRow).find(offset);
-            if (cell)
-                cell.remove();
-        });
+        return this._runAtomicMutation(() => {
+            table.forEach((row) => {
+                const cell = (row as TableRow).find(offset);
+                if (cell)
+                    cell.remove();
+            });
 
-        return (neighbourCell?.firstChild as TableCellContent | undefined) ?? null;
+            return (neighbourCell?.firstChild as TableCellContent | undefined) ?? null;
+        });
     }
 
     alignColumn(offset: number, value: string) {
@@ -256,20 +280,109 @@ class Table extends Parent {
             return;
         }
 
-        const table = this.firstChild as TableInner;
-        table.forEach((row) => {
-            const cell = (row as TableRow).find(offset) as TableBodyCell;
-            if (cell) {
-                const { align: oldValue } = cell;
-                cell.align = oldValue === value ? 'none' : value;
-                // dispatch change to modify json state
-                const diffs = diff(oldValue, cell.align);
-                const { path } = cell;
-                path.push('meta', 'align');
+        this._runAtomicMutation(() => {
+            const table = this.firstChild as TableInner;
+            table.forEach((row) => {
+                const cell = (row as TableRow).find(offset) as TableBodyCell;
+                if (cell) {
+                    const { align: oldValue } = cell;
+                    cell.align = oldValue === value ? 'none' : value;
+                    // dispatch change to modify json state
+                    const diffs = diff(oldValue, cell.align);
+                    const { path } = cell;
+                    path.push('meta', 'align');
 
-                this.jsonState.editOperation(path, diffToTextOp(diffs));
-            }
+                    this.jsonState.editOperation(path, diffToTextOp(diffs));
+                }
+            });
         });
+    }
+
+    private _replaceState(state: ITableState): Table {
+        return this._runAtomicMutation(() => {
+            const newTable = Table.create(this.muya, state);
+            this.replaceWith(newTable);
+            return newTable;
+        });
+    }
+
+    moveRow(from: number, to: number, focusColumn = 0): TableCellContent {
+        const maxRow = this.rowCount - 1;
+        const source = Math.max(0, Math.min(from, maxRow));
+        const target = Math.max(0, Math.min(to, maxRow));
+        if (source === target) {
+            const current = this.cellAt(source, Math.max(0, Math.min(focusColumn, this.columnCount - 1)));
+            return current!.firstChild as TableCellContent;
+        }
+
+        const state = this.getState();
+        const [row] = state.children.splice(source, 1);
+        state.children.splice(target, 0, row);
+        const newTable = this._replaceState(state);
+        return newTable.cellAt(target, Math.max(0, Math.min(focusColumn, newTable.columnCount - 1)))!
+            .firstChild as TableCellContent;
+    }
+
+    moveColumn(from: number, to: number, focusRow = 0): TableCellContent {
+        const maxColumn = this.columnCount - 1;
+        const source = Math.max(0, Math.min(from, maxColumn));
+        const target = Math.max(0, Math.min(to, maxColumn));
+        if (source === target) {
+            const current = this.cellAt(Math.max(0, Math.min(focusRow, this.rowCount - 1)), source);
+            return current!.firstChild as TableCellContent;
+        }
+
+        const state = this.getState();
+        for (const row of state.children) {
+            const [cell] = row.children.splice(source, 1);
+            row.children.splice(target, 0, cell);
+        }
+        const newTable = this._replaceState(state);
+        return newTable.cellAt(Math.max(0, Math.min(focusRow, newTable.rowCount - 1)), target)!
+            .firstChild as TableCellContent;
+    }
+
+    applyCellMatrix(
+        startRow: number,
+        startColumn: number,
+        matrix: string[][],
+    ): TableCellContent {
+        const state = this.getState();
+        const requiredRows = startRow + matrix.length;
+        const requiredColumns = startColumn + (matrix[0]?.length ?? 0);
+
+        for (const row of state.children) {
+            while (row.children.length < requiredColumns) {
+                row.children.push({
+                    name: 'table.cell',
+                    meta: { align: 'none' },
+                    text: '',
+                });
+            }
+        }
+
+        const alignments = state.children[0].children.map(cell => cell.meta.align);
+        while (state.children.length < requiredRows) {
+            state.children.push({
+                name: 'table.row',
+                children: alignments.map(align => ({
+                    name: 'table.cell',
+                    meta: { align },
+                    text: '',
+                })),
+            });
+        }
+
+        matrix.forEach((row, rowOffset) => {
+            row.forEach((text, columnOffset) => {
+                state.children[startRow + rowOffset].children[startColumn + columnOffset].text = text;
+            });
+        });
+
+        const newTable = this._replaceState(state);
+        const focusRow = startRow + matrix.length - 1;
+        const focusColumn = startColumn + matrix[0].length - 1;
+        return newTable.cellAt(focusRow, focusColumn)!.firstChild as TableCellContent;
     }
 
     /**

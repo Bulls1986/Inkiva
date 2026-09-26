@@ -1,5 +1,13 @@
 import type { TState } from './state/types';
 
+export interface ITableOverwriteRequest {
+    startRow: number;
+    startColumn: number;
+    endRow: number;
+    endColumn: number;
+    nonEmptyCount: number;
+}
+
 export interface IMuyaOptions {
     fontSize: number;
     lineHeight: number;
@@ -67,6 +75,19 @@ export interface IMuyaOptions {
      * When omitted, muya falls back to `navigator.clipboard.readText()`.
      */
     clipboardText?: () => Promise<string>;
+    /**
+     * Ask the embedder before a rectangular TSV paste overwrites existing
+     * non-empty table cells. Returning false cancels with no document/history
+     * mutation.
+     */
+    confirmTableOverwrite?: (
+        request: ITableOverwriteRequest,
+    ) => boolean | Promise<boolean>;
+    /**
+     * Inform the embedder that tabular-looking clipboard text was not a regular
+     * TSV rectangle and therefore fell back to literal insertion in one cell.
+     */
+    notifyTablePasteFallback?: (reason: 'non-rectangular-tsv') => void;
     /**
      * Persist an image per the embedder's insert preference (copy into the
      * document's assets folder, upload to an image host, or keep the path) and

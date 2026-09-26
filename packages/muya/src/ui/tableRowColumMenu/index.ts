@@ -3,7 +3,7 @@ import type TableBodyCell from '../../block/gfm/table/cell';
 import type TableInner from '../../block/gfm/table/table';
 
 import type { Muya } from '../../index';
-import type { MenuItem } from './config';
+import type { IMenuItem } from './config';
 import { h, patch } from '../../utils/snabbdom';
 import BaseFloat from '../baseFloat';
 import { toolList } from './config';
@@ -63,7 +63,7 @@ export class TableRowColumMenu extends BaseFloat {
     render() {
         const { _tableInfo: tableInfo, _oldVNode: oldVNode, _tableBarContainer: tableBarContainer } = this;
         const { i18n } = this.muya;
-        const renderArray: MenuItem[] = toolList[tableInfo!.barType];
+        const renderArray: IMenuItem[] = toolList[tableInfo!.barType];
         const children = renderArray.map((item) => {
             const { label } = item;
 
@@ -95,7 +95,7 @@ export class TableRowColumMenu extends BaseFloat {
         this._oldVNode = vnode;
     }
 
-    selectItem(event: Event, item: MenuItem) {
+    selectItem(event: Event, item: IMenuItem) {
         event.preventDefault();
         event.stopPropagation();
 
@@ -119,17 +119,35 @@ export class TableRowColumMenu extends BaseFloat {
             if (cursorBlock)
                 cursorBlock.setCursor(0, 0);
         }
-        else {
+        else if (action === 'remove') {
             // After a row/column delete, the caret used to live inside a
-            // now-detached cell. The table
-            // mutators now return a surviving neighbour cell's content so we
-            // can re-anchor the caret on a still-attached cell.
+            // now-detached cell. The table mutators return a surviving
+            // neighbour so focus stays on a valid editing target.
             const cursorBlock = target === 'row'
                 ? table.removeRow(rowCount)
                 : table.removeColumn(columnCount);
 
             if (cursorBlock)
                 cursorBlock.setCursor(0, 0);
+        }
+        else if (action === 'move') {
+            let cursorBlock = null;
+            if (target === 'row') {
+                const to = location === 'previous' ? rowCount - 1 : rowCount + 1;
+                if (to >= 0 && to < table.rowCount)
+                    cursorBlock = table.moveRow(rowCount, to, columnCount);
+            }
+            else {
+                const to = location === 'left' ? columnCount - 1 : columnCount + 1;
+                if (to >= 0 && to < table.columnCount)
+                    cursorBlock = table.moveColumn(columnCount, to, rowCount);
+            }
+
+            if (cursorBlock)
+                cursorBlock.setCursor(0, 0, true);
+        }
+        else if (action === 'align' && target === 'column' && item.value) {
+            table.alignColumn(columnCount, item.value);
         }
 
         this.hide();

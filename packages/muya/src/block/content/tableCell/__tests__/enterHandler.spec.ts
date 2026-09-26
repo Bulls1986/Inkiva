@@ -7,11 +7,10 @@ import { Muya } from '../../../../muya';
 
 // `TableCellContent.enterHandler` dispatches to one of three branches based on
 // the keyboard modifiers it reads off the event:
-//   - Shift+Enter  → `shiftEnter`   : inserts a literal `<br/>` at the caret.
+//   - Shift+Enter  → `shiftEnter`   : inserts a literal `<br>` at the caret.
 //   - Cmd/Ctrl+Enter → `commandEnter`: inserts a new row after the current one.
-//   - plain Enter  → `normalEnter`  : moves the caret to the next row's first
-//                     cell, or appends a trailing paragraph when at the table's
-//                     last row with nothing following.
+//   - plain Enter  → `normalEnter`  : US12 keeps editing in-cell and inserts
+//                     the same GFM-safe `<br>`.
 // `isOsx` is resolved at import time from the userAgent. Under happy-dom the
 // userAgent is "...X11; Darwin arm64..." which does NOT match /Mac/, so
 // `isOsx === false` here and the command branch is reached via `ctrlKey`, not
@@ -101,7 +100,7 @@ describe('tableCellContent.enterHandler', () => {
         expect(isOsx).toBe(false);
     });
 
-    it('shift+Enter inserts a literal <br/> at the caret and advances it by 5', async () => {
+    it('shift+Enter inserts a literal <br> at the caret and advances it by 4', async () => {
         const muya = bootMuya('| ab | cd |\n| --- | --- |\n| ef | gh |\n');
         const cells = tableCells(muya);
         expect(cells.length).toBe(4);
@@ -111,59 +110,46 @@ describe('tableCellContent.enterHandler', () => {
         enterAt(muya, cell, 1, { shiftKey: true });
 
         await flush();
-        expect(cell.text).toContain('<br/>');
-        expect(cell.text).toBe('a<br/>b');
+        expect(cell.text).toContain('<br>');
+        expect(cell.text).toBe('a<br>b');
 
         const cursor = cell.getCursor();
         expect(cursor).not.toBeNull();
-        // Caret advances by `<br/>`.length (5) from the original offset 1.
-        expect(cursor!.start.offset).toBe(1 + '<br/>'.length);
-        expect(cursor!.start.offset).toBe(6);
+        // Caret advances by `<br>`.length (4) from the original offset 1.
+        expect(cursor!.start.offset).toBe(1 + '<br>'.length);
+        expect(cursor!.start.offset).toBe(5);
     });
 
-    it('plain Enter in a header cell moves the caret to the next row, same column', async () => {
+    it('plain Enter in a header cell inserts <br> without leaving the cell', async () => {
         const muya = bootMuya('| ab | cd |\n| --- | --- |\n| ef | gh |\n');
         const cells = tableCells(muya);
-        // cells: [0]=ab (header c0), [1]=cd (header c1), [2]=ef (body c0), [3]=gh (body c1)
 
-        enterAt(muya, cells[0], 0);
+        enterAt(muya, cells[0], 1);
 
         await flush();
-        // Table is intact.
         const state = muya.getState();
         expect(state.length).toBe(1);
         expect(state[0].name).toBe('table');
-
-        // Caret moved to the FIRST cell of the next row (the body row's c0 = `ef`).
-        const target = cells[2];
-        const cursor = target.getCursor();
+        expect(cells[0].text).toBe('a<br>b');
+        expect(cells[2].text).toBe('ef');
+        const cursor = cells[0].getCursor();
         expect(cursor).not.toBeNull();
-        expect(cursor!.start.offset).toBe(0);
-        expect(target.text).toBe('ef');
+        expect(cursor!.start.offset).toBe(5);
     });
 
-    it('plain Enter in a last-row cell with nothing after appends a trailing paragraph and moves the caret there', async () => {
+    it('plain Enter in a last-row cell keeps the table as the only document block', async () => {
         const muya = bootMuya('| ab | cd |\n| --- | --- |\n| ef | gh |\n');
         const cells = tableCells(muya);
-        // Last-row first cell is `ef` (cells[2]); the row's last content is `gh`.
-        // Nothing follows the table in the document, so a trailing paragraph is
-        // appended.
-        enterAt(muya, cells[2], 0);
+        enterAt(muya, cells[2], 1);
 
         await flush();
         const state = muya.getState();
-        expect(state.length).toBe(2);
+        expect(state.length).toBe(1);
         expect(state[0].name).toBe('table');
-        expect(state[1].name).toBe('paragraph');
-        expect((state[1] as { text: string }).text).toBe('');
-
-        // Caret is in the newly appended trailing paragraph.
-        const newCells = tableCells(muya);
-        const trailing = muya.editor.scrollPage!.lastContentInDescendant()!;
-        expect(newCells.includes(trailing as unknown as Content)).toBe(false);
-        const cursor = (trailing as unknown as Content).getCursor();
+        expect(cells[2].text).toBe('e<br>f');
+        const cursor = cells[2].getCursor();
         expect(cursor).not.toBeNull();
-        expect(cursor!.start.offset).toBe(0);
+        expect(cursor!.start.offset).toBe(5);
     });
 
     it('ctrl+Enter (command branch when !isOsx) inserts a new row, rowCount + 1', async () => {
@@ -186,23 +172,23 @@ describe('tableCellContent.enterHandler', () => {
         expect((state[0] as { children: unknown[] }).children.length).toBe(3);
     });
 
-    it('metaKey+Enter does NOT take the command branch under happy-dom (isOsx false) and behaves as plain Enter', async () => {
+    it('metaKey+Enter does NOT take the command branch under happy-dom and inserts <br>', async () => {
         const muya = bootMuya('| ab | cd |\n| --- | --- |\n| ef | gh |\n');
         const cells = tableCells(muya);
         const table = (cells[0] as unknown as { table: { rowCount: number } }).table;
         const beforeRowCount = table.rowCount;
 
         // metaKey alone, ctrlKey false: because isOsx === false, this falls
-        // through to normalEnter rather than commandEnter, so no row is added.
-        enterAt(muya, cells[0], 0, { metaKey: true });
+        // through to normalEnter rather than commandEnter, so no row is added
+        // and the edit stays inside the cell.
+        enterAt(muya, cells[0], 1, { metaKey: true });
 
         await flush();
         expect(table.rowCount).toBe(beforeRowCount);
 
-        // Caret moved to the next row's first cell (normalEnter behavior).
-        const target = cells[2];
-        const cursor = target.getCursor();
+        expect(cells[0].text).toBe('a<br>b');
+        const cursor = cells[0].getCursor();
         expect(cursor).not.toBeNull();
-        expect(cursor!.start.offset).toBe(0);
+        expect(cursor!.start.offset).toBe(5);
     });
 });
