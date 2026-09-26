@@ -15,6 +15,7 @@ interface IOptions {
 }
 
 interface IOperation {
+    id: number;
     operation: JSONOpList;
     selection: Nullable<IHistorySelection>;
     // A `rebuild` entry is applied on undo/redo by dispatching its op to the
@@ -74,17 +75,20 @@ enum HistoryAction {
 }
 
 const DEFAULT_OPTIONS = {
-    delay: 1000,
+    delay: 750,
     maxStack: 100,
-    userOnly: false,
+    userOnly: true,
 };
 
 export type TInputKind = 'insert' | 'delete';
 
-// Undo grouping is otherwise purely time-based (`delay`), so a fast typed
-// sentence coalesces into a single entry. These helpers let the input pipeline
-// hint a boundary: a switch between inserting and deleting, or typing a
-// whitespace (word boundary), starts a fresh undo entry.
+export interface IUserOperationContinuation {
+    entryId: number;
+}
+
+// Ordinary typing groups by adjacent input timing (`delay`) while the input
+// pipeline can close a group when the editing direction switches. Whitespace is
+// ordinary character input under US13 and therefore does not create a boundary.
 export function classifyInputKind(inputType: string): Nullable<TInputKind> {
     if (inputType.startsWith('insert'))
         return 'insert';
@@ -96,13 +100,15 @@ export function classifyInputKind(inputType: string): Nullable<TInputKind> {
 export function shouldBreakUndoGroup(
     prevKind: Nullable<TInputKind>,
     kind: Nullable<TInputKind>,
-    data: Nullable<string>,
+    _data: Nullable<string>,
 ): boolean {
     if (kind == null)
         return false;
-    const isWordBoundary = kind === 'insert' && data != null && /\s/.test(data);
-    const switchedKind = prevKind != null && prevKind !== kind;
-    return isWordBoundary || switchedKind;
+    return prevKind != null && prevKind !== kind;
+}
+
+function isStandaloneInput(inputType: string): boolean {
+    return /^(?:insertFromPaste|insertFromDrop|insertParagraph|insertLineBreak|insertReplacementText|insertCompositionCommit)$/.test(inputType);
 }
 
 function containsContextualRemoval(operation: JSONOpList): boolean {
@@ -125,6 +131,12 @@ function containsContextualRemoval(operation: JSONOpList): boolean {
 class History {
     private _lastRecorded: number = 0;
     private _lastInputKind: Nullable<TInputKind> = null;
+    private _lastInputAt: number = 0;
+    private _closeGroupAfterRecord: boolean = false;
+    private _userOperationDepth: number = 0;
+    private _userOperationUndoDepth: number = 0;
+    private _continuationEntryId: Nullable<number> = null;
+    private _nextOperationId: number = 1;
     private _ignoreChange: boolean = false;
     private _selectionStack: (Nullable<IHistorySelection>)[] = [];
     private _stack: IStack = {
@@ -189,19 +201,20 @@ class History {
         if (this._stack[source].length === 0)
             return;
 
-        const { operation, selection, rebuild } = this._stack[source].pop()!;
+        const { id, operation, selection, rebuild } = this._stack[source].pop()!;
         const inverseOperation = json1.type.invertWithDoc(
             operation,
             asDoc(this._muya.editor.jsonState.getState()),
         );
 
         this._stack[dest].push({
+            id,
             operation: inverseOperation as JSONOpList,
             selection: this._selection.getSelection(),
             rebuild,
         });
 
-        this._lastRecorded = 0;
+        this.cutoff();
         this._ignoreChange = true;
         try {
             if (rebuild)
@@ -219,7 +232,10 @@ class History {
     clear() {
         this._stack = { undo: [], redo: [] };
         this._selectionStack = [];
-        this._lastRecorded = 0;
+        this._userOperationDepth = 0;
+        this._userOperationUndoDepth = 0;
+        this._continuationEntryId = null;
+        this.cutoff();
         this._ignoreChange = false;
     }
 
@@ -241,7 +257,12 @@ class History {
             undo: history.stack.undo.map(op => this._fromSerializableOperation(op)),
             redo: history.stack.redo.map(op => this._fromSerializableOperation(op)),
         };
-        this._lastRecorded = history.lastRecorded ?? 0;
+        // Restoring a tab/history snapshot is an operation boundary. The stored
+        // timestamp remains serializable for compatibility, but it must never
+        // let the first edit after reactivation merge into the outgoing session.
+        this._userOperationDepth = 0;
+        this._userOperationUndoDepth = this._stack.undo.length;
+        this.cutoff();
         this._selectionStack = (history.selectionStack ?? []).map(sel =>
             this._fromSerializableSelection(sel),
         );
@@ -257,6 +278,7 @@ class History {
 
     private _fromSerializableOperation(op: ISerializableOperation): IOperation {
         return {
+            id: this._nextOperationId++,
             operation: deepClone(op.operation),
             selection: this._fromSerializableSelection(op.selection),
             ...(op.rebuild ? { rebuild: true } : {}),
@@ -306,15 +328,132 @@ class History {
 
     cutoff() {
         this._lastRecorded = 0;
+        this._lastInputKind = null;
+        this._lastInputAt = 0;
+        this._closeGroupAfterRecord = false;
+    }
+
+    /**
+     * Start one explicit user operation. The outermost operation owns the
+     * boundaries; nested helpers participate in the same undo item. This is also
+     * used by IME composition, whose lifetime spans several DOM events.
+     */
+    beginUserOperation(): void {
+        if (this._userOperationDepth === 0) {
+            this._muya.editor.jsonState.flush();
+            this.cutoff();
+            this._userOperationUndoDepth = this._stack.undo.length;
+        }
+        this._userOperationDepth += 1;
+    }
+
+    /** Finish the current explicit user operation and close it on both sides. */
+    endUserOperation(): void {
+        if (this._userOperationDepth === 0)
+            return;
+
+        if (this._userOperationDepth === 1) {
+            // Keep depth non-zero while flushing so _record() can force every
+            // fragment emitted by this user action into the same history item.
+            this._muya.editor.jsonState.flush();
+            this._userOperationDepth = 0;
+            this._userOperationUndoDepth = this._stack.undo.length;
+            this.cutoff();
+            return;
+        }
+
+        this._userOperationDepth -= 1;
+    }
+
+    runUserOperation<T>(operation: () => T): T {
+        this.beginUserOperation();
+        try {
+            return operation();
+        }
+        finally {
+            this.endUserOperation();
+        }
+    }
+
+    /**
+     * Capture the latest logical user operation so an async continuation can
+     * later amend that exact Undo entry without holding a transaction open
+     * across `await`.
+     */
+    captureUserOperationContinuation(): Nullable<IUserOperationContinuation> {
+        this._muya.editor.jsonState.flush();
+        const entry = this._stack.undo.at(-1);
+        return entry ? { entryId: entry.id } : null;
+    }
+
+    /**
+     * Run a synchronous continuation of an earlier user operation. If the
+     * original entry still exists, `_record` folds the new mutation back into
+     * that entry and OT-adjusts any newer Undo/Redo entries around it. If the
+     * entry disappeared (undo/history restore), fall back to a safe standalone
+     * operation instead of mutating an unrelated history item.
+     */
+    runUserOperationContinuation<T>(
+        continuation: Nullable<IUserOperationContinuation>,
+        operation: () => T,
+    ): T {
+        this._muya.editor.jsonState.flush();
+        const entryExists = continuation != null
+            && this._stack.undo.some(entry => entry.id === continuation.entryId);
+        if (!entryExists)
+            return this.runUserOperation(operation);
+
+        this.cutoff();
+        this._continuationEntryId = continuation.entryId;
+        try {
+            return operation();
+        }
+        finally {
+            this._muya.editor.jsonState.flush();
+            this._continuationEntryId = null;
+            this.cutoff();
+        }
+    }
+
+    /** Close a typing group after a user-only caret/selection movement. */
+    closeCurrentOperation(): void {
+        if (this._userOperationDepth > 0)
+            return;
+        this._muya.editor.jsonState.flush();
+        this.cutoff();
     }
 
     markInputBoundary(inputType: string, data: Nullable<string>): void {
+        if (this._userOperationDepth > 0)
+            return;
+        // A previous standalone input may still be queued in JSONState. Flush it
+        // before accepting another operation so two user actions cannot collapse
+        // into one json-change frame.
+        if (this._closeGroupAfterRecord)
+            this._muya.editor.jsonState.flush();
+
+        if (isStandaloneInput(inputType)) {
+            this._muya.editor.jsonState.flush();
+            this.cutoff();
+            this._closeGroupAfterRecord = true;
+            return;
+        }
+
         const kind = classifyInputKind(inputType);
         if (kind == null)
             return;
-        if (shouldBreakUndoGroup(this._lastInputKind, kind, data))
+
+        const timestamp = Date.now();
+        if (
+            shouldBreakUndoGroup(this._lastInputKind, kind, data)
+            || (this._lastInputAt > 0 && timestamp - this._lastInputAt > this._options.delay)
+        ) {
+            this._muya.editor.jsonState.flush();
             this.cutoff();
+        }
+
         this._lastInputKind = kind;
+        this._lastInputAt = timestamp;
     }
 
     private _getLastSelection() {
@@ -335,8 +474,7 @@ class History {
         if (op.length === 0)
             return;
 
-        let selection = this._getLastSelection();
-        this._stack.redo = [];
+        let selection: Nullable<IHistorySelection> = null;
         let undoOperation: JSONOpList;
         if (inverseOp !== undefined) {
             // JSONState computed this directly against its authoritative
@@ -362,27 +500,117 @@ class History {
             undoOperation = json1.type.invertWithDoc(op, asDoc(doc ?? [])) as JSONOpList;
         }
 
-        const timestamp = Date.now();
         if (
-            this._lastRecorded + this._options.delay > timestamp
-            && this._stack.undo.length > 0
+            this._continuationEntryId != null
+            && this._mergeContinuation(this._continuationEntryId, op, undoOperation)
+        ) {
+            this.cutoff();
+            return;
+        }
+
+        selection = this._getLastSelection();
+
+        this._stack.redo = [];
+        const timestamp = Date.now();
+        const mergesIntoExplicitOperation
+            = this._userOperationDepth > 0
+                && this._stack.undo.length > this._userOperationUndoDepth;
+        if (
+            this._stack.undo.length > 0
+            && (
+                mergesIntoExplicitOperation
+                || (
+                    this._lastRecorded > 0
+                    && timestamp - this._lastRecorded <= this._options.delay
+                )
+            )
         ) {
             const { operation: lastOperation, selection: lastSelection }
                 = this._stack.undo.pop()!;
             selection = lastSelection;
             undoOperation = json1.type.compose(undoOperation, lastOperation) as JSONOpList;
         }
-        else {
-            this._lastRecorded = timestamp;
-        }
 
         if (!undoOperation || undoOperation.length === 0)
             return;
 
-        this._stack.undo.push({ operation: undoOperation, selection });
+        this._stack.undo.push({
+            id: this._nextOperationId++,
+            operation: undoOperation,
+            selection,
+        });
+        this._lastRecorded = this._closeGroupAfterRecord ? 0 : timestamp;
+        this._closeGroupAfterRecord = false;
 
         if (this._stack.undo.length > this._options.maxStack)
             this._stack.undo.shift();
+    }
+
+    /**
+     * Merge an async continuation back into an earlier logical user operation.
+     * Newer Undo entries are first transformed against the continuation's
+     * forward op. The forward op is then carried backwards through those
+     * entries; its inverse at the target revision composes in front of the
+     * target's existing inverse, yielding one lossless user Undo item.
+     */
+    private _mergeContinuation(
+        entryId: number,
+        forwardOperation: JSONOpList,
+        immediateUndoOperation: JSONOpList,
+    ): boolean {
+        const targetIndex = this._stack.undo.findIndex(entry => entry.id === entryId);
+        if (targetIndex < 0)
+            return false;
+
+        if (targetIndex === this._stack.undo.length - 1) {
+            const target = this._stack.undo[targetIndex];
+            target.operation = json1.type.compose(
+                immediateUndoOperation,
+                target.operation,
+            ) as JSONOpList;
+            transformStack(this._stack.redo, forwardOperation);
+            return true;
+        }
+
+        let remoteOperation = forwardOperation;
+        const updates: Array<{ index: number; operation: JSONOpList }> = [];
+        for (let i = this._stack.undo.length - 1; i > targetIndex; i -= 1) {
+            const oldOperation = this._stack.undo[i].operation;
+            const transformedUndo = json1.type.transform(
+                oldOperation,
+                remoteOperation,
+                'left',
+            ) as JSONOpList;
+            updates.push({ index: i, operation: transformedUndo });
+            remoteOperation = json1.type.transform(
+                remoteOperation,
+                oldOperation,
+                'right',
+            ) as JSONOpList;
+        }
+
+        let continuationUndo: JSONOpList;
+        try {
+            continuationUndo = json1.type.invert(remoteOperation) as JSONOpList;
+        }
+        catch {
+            return false;
+        }
+
+        for (const update of updates) {
+            if (update.operation.length === 0)
+                this._stack.undo.splice(update.index, 1);
+            else
+                this._stack.undo[update.index].operation = update.operation;
+        }
+
+        const target = this._stack.undo[targetIndex];
+        target.operation = json1.type.compose(
+            continuationUndo,
+            target.operation,
+        ) as JSONOpList;
+        transformStack(this._stack.redo, forwardOperation);
+        return true;
     }
 
     /**
@@ -406,10 +634,15 @@ class History {
             return;
 
         this._stack.redo = [];
-        this._stack.undo.push({ operation: undoOperation, selection, rebuild: true });
+        this._stack.undo.push({
+            id: this._nextOperationId++,
+            operation: undoOperation,
+            selection,
+            rebuild: true,
+        });
         // Force the next ordinary edit into its own undo entry — the bulk
         // replacement must not absorb a later keystroke (or vice versa).
-        this._lastRecorded = 0;
+        this.cutoff();
 
         if (this._stack.undo.length > this._options.maxStack)
             this._stack.undo.shift();

@@ -52,20 +52,32 @@ test.describe('undo / redo', () => {
         expect(await getMarkdown(page)).toContain('hello world');
     });
 
-    test('typed words split into separate undo steps (#3825)', async ({ page }) => {
+    test('continuous words stay in one undo step under US13', async ({ page }) => {
         await page.evaluate(() => window.muya!.setContent(''));
         const para = page.locator(editor.paragraph).first();
         await para.click();
         await slowType(page, 'hello world');
         await expect(para).toContainText('hello world');
 
-        // First undo drops the second word only.
+        // Whitespace is ordinary character input under US13, so a continuous
+        // run remains one logical typing operation.
         await page.evaluate(() => window.muya!.undo());
-        await expect(para).not.toContainText('world');
-        await expect(para).toContainText('hello');
+        await expect(para).toHaveText('');
+    });
 
-        // Second undo drops the first word.
+    test('a gap greater than 750 ms starts a new undo step', async ({ page }) => {
+        await page.evaluate(() => window.muya!.setContent(''));
+        const para = page.locator(editor.paragraph).first();
+        await para.click();
+        await slowType(page, 'hello');
+        await page.waitForTimeout(850);
+        await slowType(page, ' world');
+        await expect(para).toContainText('hello world');
+
         await page.evaluate(() => window.muya!.undo());
-        await expect(para).not.toContainText('hello');
+        await expect(para).toHaveText('hello');
+
+        await page.evaluate(() => window.muya!.undo());
+        await expect(para).toHaveText('');
     });
 });

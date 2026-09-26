@@ -9,6 +9,7 @@ Use this index for correctness/readiness contracts and product-functional gates.
 - [US08 — Input / IME Continuity](US08-INPUT-IME-CONTINUITY.md) — Continuous typing, Markdown trigger conversion, auto-pair, and CJK IME correctness for v0.5.0.
 - [US10 — Inline Markdown Syntax Visibility & Fidelity](US10-INLINE-SYNTAX-VISIBILITY.md) — Half-open inline marker visibility, render-only reveal/hide, and incomplete Markdown source fidelity.
 - [US12 — Table Editing Fidelity](US12-TABLE-EDITING-FIDELITY.md) — GFM-safe cell editing, atomic row/column operations, TSV paste/confirmation, and table round-trip fidelity.
+- [US13 — Operation-based Undo Grouping](US13-OPERATION-UNDO-GROUPING.md) — 750 ms adjacent-input grouping, standalone editing actions, tab isolation, and derived-work exclusion.
 - [Settings functional gate](SETTINGS-FUNCTIONAL-GATE.md) — Settings UI → store → live effect → reopen/restart persistence contract.
 - [US06 — Settings Effect Closure](US06-SETTINGS-EFFECT-CLOSURE.md) — acknowledged preference writes, effect timing, retry/rollback, delayed-effect feedback, autosave bounds and Settings search targeting.
 - [v0.5 US01-US10 compliance closure](V0.5-US01-10-COMPLIANCE-CLOSURE.md) — Latest-`develop` re-audit, architecture debt closure, combined-state validation, and final acceptance record.

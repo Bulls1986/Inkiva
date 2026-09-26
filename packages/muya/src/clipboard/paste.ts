@@ -31,6 +31,11 @@ interface IPasteContext {
     content: string;
 }
 
+function runPasteMutation<T>(clipboard: Clipboard, mutation: () => T): T {
+    const history = clipboard.muya.editor?.history;
+    return history ? history.runUserOperation(mutation) : mutation();
+}
+
 /**
  * Whether the frozen table-cell selection covers exactly one cell. Mirrors
  * the single-cell shape check used by the copy path: one row containing one
@@ -544,10 +549,12 @@ async function applyLiteralPaste(
         if (!isSingleCellSelected(clipboard))
             return;
 
-        anchorBlock.text = markdown.trim().replace(/\n/g, '<br>');
-        const offset = anchorBlock.text.length;
-        anchorBlock.setCursor(offset, offset, true);
-        clipboard.selection.table.clear();
+        runPasteMutation(clipboard, () => {
+            anchorBlock.text = markdown.trim().replace(/\n/g, '<br>');
+            const offset = anchorBlock.text.length;
+            anchorBlock.setCursor(offset, offset, true);
+            clipboard.selection.table.clear();
+        });
 
         return;
     }
@@ -561,16 +568,18 @@ async function applyLiteralPaste(
                 + firstLine
                 + content.substring(end.offset);
         const offset = start.offset + firstLine.length;
-        let nextBlock = anchorBlock;
-        if (anchorBlock instanceof LangInputContent)
-            nextBlock = anchorBlock.updateLanguage(newLang);
-        else
-            anchorBlock.text = newLang;
-        // A supported diagram language replaces the whole code block. The old
-        // language input is detached in that case, so never put the selection
-        // back into it; updateLanguage already focuses the replacement source.
-        if (nextBlock === anchorBlock)
-            nextBlock.setCursor(offset, offset, true);
+        runPasteMutation(clipboard, () => {
+            let nextBlock = anchorBlock;
+            if (anchorBlock instanceof LangInputContent)
+                nextBlock = anchorBlock.updateLanguage(newLang);
+            else
+                anchorBlock.text = newLang;
+            // A supported diagram language replaces the whole code block. The old
+            // language input is detached in that case, so never put the selection
+            // back into it; updateLanguage already focuses the replacement source.
+            if (nextBlock === anchorBlock)
+                nextBlock.setCursor(offset, offset, true);
+        });
 
         return;
     }
@@ -586,29 +595,31 @@ async function applyLiteralPaste(
         markdown = markdown.trim().replace(/\n/g, '<br>');
     }
 
-    anchorBlock.text
-        = content.substring(0, start.offset)
-            + markdown
-            + content.substring(end.offset);
-    const offset = start.offset + markdown.length;
-    anchorBlock.setCursor(offset, offset, true);
-    // Update html preview if the out container is `html-block`
-    if (
-        anchorBlock instanceof CodeBlockContent
-        && anchorBlock.outContainer
-        && /html-block|math-block|diagram/.test(
-            anchorBlock.outContainer.blockName,
-        )
-    ) {
-        // The attachments list of html-block / math-block / diagram blocks
-        // always opens with the render preview node, which exposes an
-        // `update(text)` method. The LinkedList itself is typed loosely;
-        // narrow via a structural shape check before calling.
-        const head = anchorBlock.outContainer.attachments.head;
-        const updater = head as TreeNode & { update?: (text: string) => void };
-        if (typeof updater.update === 'function')
-            updater.update(anchorBlock.text);
-    }
+    runPasteMutation(clipboard, () => {
+        anchorBlock.text
+            = content.substring(0, start.offset)
+                + markdown
+                + content.substring(end.offset);
+        const offset = start.offset + markdown.length;
+        anchorBlock.setCursor(offset, offset, true);
+        // Update html preview if the out container is `html-block`
+        if (
+            anchorBlock instanceof CodeBlockContent
+            && anchorBlock.outContainer
+            && /html-block|math-block|diagram/.test(
+                anchorBlock.outContainer.blockName,
+            )
+        ) {
+            // The attachments list of html-block / math-block / diagram blocks
+            // always opens with the render preview node, which exposes an
+            // `update(text)` method. The LinkedList itself is typed loosely;
+            // narrow via a structural shape check before calling.
+            const head = anchorBlock.outContainer.attachments.head;
+            const updater = head as TreeNode & { update?: (text: string) => void };
+            if (typeof updater.update === 'function')
+                updater.update(anchorBlock.text);
+        }
+    });
 }
 
 // A8: under Paste as Plain Text, block-level HTML follows muyajs's
@@ -772,15 +783,15 @@ async function applyPaste(clipboard: Clipboard, data: IPasteData): Promise<void>
         if (isLiteralAnchor || isPlainInlineSpaces)
             await applyLiteralPaste(clipboard, ctx, isPlainInlineSpaces ? text : markdown);
         else
-            applyParsedPaste(clipboard, ctx, markdown);
+            runPasteMutation(clipboard, () => applyParsedPaste(clipboard, ctx, markdown));
     }
     else if (pasteType === PasteType.PASTE_AS_PLAIN_TEXT) {
         // Paste as Plain Text inserts block-level HTML as literal text, not a
         // live html-block (muyajs `pasteAsPlainText` copyAsHtml branch).
-        applyPlainTextBlockHtml(clipboard, ctx, text);
+        runPasteMutation(clipboard, () => applyPlainTextBlockHtml(clipboard, ctx, text));
     }
     else {
-        applyHtmlBlockPaste(clipboard, ctx, text);
+        runPasteMutation(clipboard, () => applyHtmlBlockPaste(clipboard, ctx, text));
     }
 }
 

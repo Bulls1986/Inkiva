@@ -805,6 +805,7 @@ class Content extends TreeNode {
                 : this.scrollPage?.lastContentInDescendant();
 
             if (target) {
+                this.muya.editor.history.closeCurrentOperation();
                 event.preventDefault();
                 event.stopPropagation();
                 const offset = event.key === 'Home' ? 0 : target.text.length;
@@ -827,8 +828,11 @@ class Content extends TreeNode {
                 break;
 
             case EVENT_KEYS.Enter:
-                if (!this.isComposed)
-                    this.enterHandler(event);
+                if (!this.isComposed) {
+                    this.muya.editor.history.runUserOperation(() => {
+                        this.enterHandler(event);
+                    });
+                }
 
                 break;
 
@@ -839,14 +843,19 @@ class Content extends TreeNode {
             case EVENT_KEYS.ArrowLeft: // fallthrough
 
             case EVENT_KEYS.ArrowRight: // fallthrough
-                if (!this.isComposed)
+                if (!this.isComposed) {
+                    this.muya.editor.history.closeCurrentOperation();
                     this.arrowHandler(event);
+                }
 
                 break;
 
             case EVENT_KEYS.Tab:
-                if (!this.isComposed)
-                    this.tabHandler(event);
+                if (!this.isComposed) {
+                    this.muya.editor.history.runUserOperation(() => {
+                        this.tabHandler(event);
+                    });
+                }
 
                 break;
             default:

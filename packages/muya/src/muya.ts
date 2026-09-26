@@ -484,7 +484,9 @@ export class Muya {
         // at the LEAF level, not the outmost block: two paragraphs nested in the
         // same blockquote share an outmost block but are distinct leaves (#3462).
         if (!this._selectionInSameLeaf()) {
-            this._formatAcrossBlocks(type);
+            this.editor.history.runUserOperation(() => {
+                this._formatAcrossBlocks(type);
+            });
             return;
         }
 
@@ -516,7 +518,9 @@ export class Muya {
             { offset: hi, block: anchorBlock, path: focus.path },
         );
 
-        anchorBlock.format(type);
+        this.editor.history.runUserOperation(() => {
+            anchorBlock.format(type);
+        });
     }
 
     private _formatAcrossBlocks(type: string) {
@@ -641,7 +645,9 @@ export class Muya {
         if (!block)
             return false;
 
-        return block.replaceCurrentWordInlineUnsafe(word, replacement);
+        return this.editor.history.runUserOperation(() =>
+            block.replaceCurrentWordInlineUnsafe(word, replacement),
+        );
     }
 
     /**
@@ -960,10 +966,12 @@ export class Muya {
         if (!block)
             return;
 
-        const state = deepClone(block.getState());
-        const dupBlock = ScrollPage.loadBlock(state.name).create(this, state);
-        block.parent!.insertAfter(dupBlock, block);
-        dupBlock.lastContentInDescendant()?.setCursor(0, 0, true);
+        this.editor.history.runUserOperation(() => {
+            const state = deepClone(block.getState());
+            const dupBlock = ScrollPage.loadBlock(state.name).create(this, state);
+            block.parent!.insertAfter(dupBlock, block);
+            dupBlock.lastContentInDescendant()?.setCursor(0, 0, true);
+        });
     }
 
     /**
@@ -983,15 +991,17 @@ export class Muya {
         if (!block)
             return;
 
-        const state = deepClone(emptyStates.paragraph);
-        state.text = text;
-        const newBlock = ScrollPage.loadBlock('paragraph').create(this, state);
-        if (location === 'before')
-            block.parent!.insertBefore(newBlock, block);
-        else
-            block.parent!.insertAfter(newBlock, block);
+        this.editor.history.runUserOperation(() => {
+            const state = deepClone(emptyStates.paragraph);
+            state.text = text;
+            const newBlock = ScrollPage.loadBlock('paragraph').create(this, state);
+            if (location === 'before')
+                block.parent!.insertBefore(newBlock, block);
+            else
+                block.parent!.insertAfter(newBlock, block);
 
-        newBlock.lastContentInDescendant()?.setCursor(0, 0, true);
+            newBlock.lastContentInDescendant()?.setCursor(0, 0, true);
+        });
     }
 
     /**
@@ -1003,24 +1013,26 @@ export class Muya {
         if (!block)
             return;
 
-        let cursorBlock: Content | null = null;
-        if (block.prev) {
-            cursorBlock = block.prev.lastContentInDescendant();
-        }
-        else if (block.next) {
-            cursorBlock = block.next.firstContentInDescendant();
-        }
-        else {
-            const newBlock = ScrollPage.loadBlock('paragraph').create(
-                this,
-                deepClone(emptyStates.paragraph),
-            );
-            block.parent!.insertAfter(newBlock, block);
-            cursorBlock = newBlock.lastContentInDescendant();
-        }
+        this.editor.history.runUserOperation(() => {
+            let cursorBlock: Content | null = null;
+            if (block.prev) {
+                cursorBlock = block.prev.lastContentInDescendant();
+            }
+            else if (block.next) {
+                cursorBlock = block.next.firstContentInDescendant();
+            }
+            else {
+                const newBlock = ScrollPage.loadBlock('paragraph').create(
+                    this,
+                    deepClone(emptyStates.paragraph),
+                );
+                block.parent!.insertAfter(newBlock, block);
+                cursorBlock = newBlock.lastContentInDescendant();
+            }
 
-        block.remove();
-        cursorBlock?.setCursor(0, 0, true);
+            block.remove();
+            cursorBlock?.setCursor(0, 0, true);
+        });
     }
 
     createTable({ rows, columns }: { rows: number; columns: number }, { replace = false }: { replace?: boolean } = {}) {
@@ -1045,17 +1057,19 @@ export class Muya {
             children: Array.from({ length: safeRows }, makeRow),
         };
 
-        const newTable = ScrollPage.loadBlock('table').create(this, state);
+        this.editor.history.runUserOperation(() => {
+            const newTable = ScrollPage.loadBlock('table').create(this, state);
 
-        // An empty block is disposable, so replace it in place; a block with
-        // real content is kept and the table goes directly below it. The picker
-        // passes `replace` to always consume its trigger block.
-        if (replace || this._blockLeadingText(block).trim() === '')
-            block.replaceWith(newTable);
-        else
-            block.parent!.insertAfter(newTable, block);
+            // An empty block is disposable, so replace it in place; a block with
+            // real content is kept and the table goes directly below it. The picker
+            // passes `replace` to always consume its trigger block.
+            if (replace || this._blockLeadingText(block).trim() === '')
+                block.replaceWith(newTable);
+            else
+                block.parent!.insertAfter(newTable, block);
 
-        newTable.firstContentInDescendant()?.setCursor(0, 0, true);
+            newTable.firstContentInDescendant()?.setCursor(0, 0, true);
+        });
     }
 
     /**
@@ -1100,10 +1114,12 @@ export class Muya {
         const imageAlt = start.offset !== end.offset ? text.substring(start.offset, end.offset) : alt;
         const imageText = `![${imageAlt}](${imgUrl})`;
 
-        // The `text` setter diffs against the old value and dispatches a JSON op.
-        block.text = text.substring(0, start.offset) + imageText + text.substring(end.offset);
-        // Re-render and place the caret on the alt text (offset of `![`).
-        block.setCursor(start.offset + 2, start.offset + 2 + imageAlt.length, true);
+        this.editor.history.runUserOperation(() => {
+            // The `text` setter diffs against the old value and dispatches a JSON op.
+            block.text = text.substring(0, start.offset) + imageText + text.substring(end.offset);
+            // Re-render and place the caret on the alt text (offset of `![`).
+            block.setCursor(start.offset + 2, start.offset + 2 + imageAlt.length, true);
+        });
     }
 
     /**
@@ -1274,69 +1290,75 @@ export class Muya {
         if (!block)
             return;
 
-        if (this._handleCrossBlockParagraph(type))
-            return;
+        this.editor.history.beginUserOperation();
+        try {
+            if (this._handleCrossBlockParagraph(type))
+                return;
 
-        if (type === 'upgrade heading' || type === 'degrade heading') {
-            this._withPreservedOffset(() => this._changeHeadingLevel(block, type));
-            return;
-        }
-
-        if (type === 'loose-list-item') {
-            this._toggleLooseList(block);
-            return;
-        }
-
-        // `reset-to-paragraph` returns the current block to plain paragraph
-        // form; structured containers (lists/blockquote) unwrap to preserve
-        // every child, tables are left untouched.
-        if (type === 'reset-to-paragraph') {
-            this.resetToParagraph(block);
-            return;
-        }
-
-        const label = PARAGRAPH_LABEL_MAP[type];
-        if (!label)
-            return;
-
-        // Front matter is only valid as the very first block of a document, so
-        // it is never an in-place replacement of the cursor block: idempotent
-        // no-op if the document already starts with front matter, otherwise
-        // prepend one at the top.
-        if (label === 'frontmatter') {
-            insertFrontMatterAtStart(this);
-            return;
-        }
-
-        // The plain `paragraph` menu item only converts the *leaf* block that
-        // directly wraps the cursor (heading, hr, …) back to a paragraph; it
-        // never touches the enclosing container. Operating on the leaf (not the
-        // outermost container) means a heading inside a list item still converts
-        // while the list stays intact, and avoids the data loss where routing
-        // `paragraph` to the *whole* list/blockquote collapsed every item/line
-        // into a single paragraph built from the first content's text.
-        // `reset-to-paragraph` remains the explicit "unwrap the container"
-        // command (handled above).
-        if (label === 'paragraph')
-            return this._convertLeafToParagraph();
-
-        // Clicking an already-active type (its block is an ancestor of the
-        // cursor, i.e. the menu item is checked) toggles it off: unwrap every
-        // ancestor of that kind, or convert the matching leaf back to a paragraph.
-        if (this._toggleIfActive(label))
-            return;
-
-        // A list kind clicked while inside a list of a DIFFERENT kind converts
-        // the cursor's (innermost) list to that kind.
-        if (label.endsWith('-list')) {
-            const list = this._closestListAtCursor();
-            if (list) {
-                this._withPreservedOffset(() => this._convertListType(list, label));
+            if (type === 'upgrade heading' || type === 'degrade heading') {
+                this._withPreservedOffset(() => this._changeHeadingLevel(block, type));
                 return;
             }
-        }
 
-        this._convertOrInsertBelow(label);
+            if (type === 'loose-list-item') {
+                this._toggleLooseList(block);
+                return;
+            }
+
+            // `reset-to-paragraph` returns the current block to plain paragraph
+            // form; structured containers (lists/blockquote) unwrap to preserve
+            // every child, tables are left untouched.
+            if (type === 'reset-to-paragraph') {
+                this.resetToParagraph(block);
+                return;
+            }
+
+            const label = PARAGRAPH_LABEL_MAP[type];
+            if (!label)
+                return;
+
+            // Front matter is only valid as the very first block of a document, so
+            // it is never an in-place replacement of the cursor block: idempotent
+            // no-op if the document already starts with front matter, otherwise
+            // prepend one at the top.
+            if (label === 'frontmatter') {
+                insertFrontMatterAtStart(this);
+                return;
+            }
+
+            // The plain `paragraph` menu item only converts the *leaf* block that
+            // directly wraps the cursor (heading, hr, …) back to a paragraph; it
+            // never touches the enclosing container. Operating on the leaf (not the
+            // outermost container) means a heading inside a list item still converts
+            // while the list stays intact, and avoids the data loss where routing
+            // `paragraph` to the *whole* list/blockquote collapsed every item/line
+            // into a single paragraph built from the first content's text.
+            // `reset-to-paragraph` remains the explicit "unwrap the container"
+            // command (handled above).
+            if (label === 'paragraph')
+                return this._convertLeafToParagraph();
+
+            // Clicking an already-active type (its block is an ancestor of the
+            // cursor, i.e. the menu item is checked) toggles it off: unwrap every
+            // ancestor of that kind, or convert the matching leaf back to a paragraph.
+            if (this._toggleIfActive(label))
+                return;
+
+            // A list kind clicked while inside a list of a DIFFERENT kind converts
+            // the cursor's (innermost) list to that kind.
+            if (label.endsWith('-list')) {
+                const list = this._closestListAtCursor();
+                if (list) {
+                    this._withPreservedOffset(() => this._convertListType(list, label));
+                    return;
+                }
+            }
+
+            this._convertOrInsertBelow(label);
+        }
+        finally {
+            this.editor.history.endUserOperation();
+        }
     }
 
     /**
