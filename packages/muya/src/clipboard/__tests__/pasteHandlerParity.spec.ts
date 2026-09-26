@@ -273,7 +273,7 @@ describe('pasteHandler — single-line paste keeps literal insert for code-like 
         expect(anchor.text).toBe('# Title');
     });
 
-    it('table.cell.content anchor inserts literally with \\n → <br/>', async () => {
+    it('table.cell.content anchor inserts literally with \\n → <br>', async () => {
         const created: IRecordedBlock[] = [];
         installLoadBlockSpy(created);
         const wrapper = makeWrapper('table');
@@ -338,7 +338,7 @@ describe('pasteHandler — table-cell paste guards (sub-item 4)', () => {
         return makeClipboard(anchorBlock, {}, tableStub);
     }
 
-    it('single-cell selection replaces the cell text (\\n → <br/>)', async () => {
+    it('single-cell selection replaces the cell text (\\n → <br>)', async () => {
         installLoadBlockSpy([]);
         const wrapper = makeWrapper('table');
         const anchor = makeAnchorBlock('table.cell.content', 'old', wrapper, 3);
@@ -348,7 +348,7 @@ describe('pasteHandler — table-cell paste guards (sub-item 4)', () => {
             makePasteEvent({ 'text/plain': 'line1\nline2' }),
         );
 
-        expect(anchor.text).toBe('line1<br/>line2');
+        expect(anchor.text).toBe('line1<br>line2');
     });
 
     it('multi-cell selection is a no-op — the cell text is left unchanged', async () => {

@@ -60,4 +60,22 @@ describe('#4849: escaped pipe in a table cell', () => {
         const md = roundTrip('| a | b |\n| --- | --- |\n| x \\| y | z |\n');
         expect(md).toContain('x \\| y');
     });
+
+    it('us12 preserves escaped pipes, alignment, <br>, and CJK text across source round-trips', () => {
+        const source = [
+            '| 名称 | 说明 |',
+            '| :--- | ---: |',
+            '| 北京 \\| 上海<br>第二行 | 中文内容 |',
+            '',
+        ].join('\n');
+
+        const first = roundTrip(source);
+        const reopened = roundTrip(first);
+
+        expect(first).toContain('北京 \\| 上海<br>第二行');
+        expect(first).toContain('中文内容');
+        expect(first).toMatch(/:-{3,}/);
+        expect(first).toMatch(/-{3,}:/);
+        expect(reopened).toBe(first);
+    });
 });

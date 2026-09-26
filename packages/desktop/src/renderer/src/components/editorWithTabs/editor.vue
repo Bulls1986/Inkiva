@@ -72,6 +72,38 @@
         </div>
       </template>
     </el-dialog>
+    <el-dialog
+      v-model="tablePasteOverwriteVisible"
+      :modal="true"
+      :close-on-click-modal="false"
+      class="ag-table-paste-overwrite-dialog"
+      width="454px"
+      center
+      @closed="handleTablePasteOverwriteClosed"
+    >
+      <template #title>
+        <div class="dialog-title">
+          {{ t('editor.tablePaste.overwriteTitle') }}
+        </div>
+      </template>
+      <div class="table-paste-overwrite-message">
+        <p>{{ t('editor.tablePaste.overwriteMessage', { range: tablePasteOverwrite.range }) }}</p>
+        <p>{{ t('editor.tablePaste.nonEmptyCount', { count: tablePasteOverwrite.nonEmptyCount }) }}</p>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="finishTablePasteOverwrite(false)">
+            {{ t('common.cancel') }}
+          </el-button>
+          <el-button
+            type="primary"
+            @click="finishTablePasteOverwrite(true)"
+          >
+            {{ t('editor.tablePaste.replace') }}
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -109,7 +141,8 @@ import {
   tr,
   zhCN,
   zhTW,
-  type ILocale
+  type ILocale,
+  type ITableOverwriteRequest
 } from '@muyajs/core'
 import { exportStyledHTML, type HeaderFooterPart } from '@/util/exportHtml'
 import { applyCursor, isIndexCursor } from '@/util/cursor'
@@ -291,6 +324,50 @@ const tableChecker = reactive({
   rows: 4,
   columns: 3
 })
+
+const tablePasteOverwriteVisible = ref(false)
+const tablePasteOverwrite = reactive({
+  range: '',
+  nonEmptyCount: 0
+})
+let tablePasteOverwriteResolve: ((confirmed: boolean) => void) | null = null
+
+const requestTablePasteOverwrite = (request: ITableOverwriteRequest): Promise<boolean> => {
+  // Defensive cancellation if a second paste somehow reaches the same editor
+  // while the first confirmation is still open.
+  tablePasteOverwriteResolve?.(false)
+  tablePasteOverwrite.range =
+    `R${request.startRow + 1}C${request.startColumn + 1}–R${request.endRow + 1}C${request.endColumn + 1}`
+  tablePasteOverwrite.nonEmptyCount = request.nonEmptyCount
+  tablePasteOverwriteVisible.value = true
+
+  return new Promise<boolean>((resolve) => {
+    tablePasteOverwriteResolve = resolve
+  })
+}
+
+const finishTablePasteOverwrite = (confirmed: boolean): void => {
+  const resolve = tablePasteOverwriteResolve
+  tablePasteOverwriteResolve = null
+  tablePasteOverwriteVisible.value = false
+  resolve?.(confirmed)
+}
+
+const handleTablePasteOverwriteClosed = (): void => {
+  // Closing via Escape/title-bar X is semantically identical to Cancel.
+  if (tablePasteOverwriteResolve) {
+    finishTablePasteOverwrite(false)
+  }
+}
+
+const notifyTablePasteFallback = (): void => {
+  notice.notify({
+    title: t('editor.tablePaste.unrecognizedTitle'),
+    type: 'warning',
+    time: 6000,
+    message: t('editor.tablePaste.unrecognizedMessage')
+  })
+}
 
 // Template refs
 const editorRef = ref<HTMLDivElement | null>(null)
@@ -2788,6 +2865,8 @@ onMounted(() => {
     clipboardFilePath: guessClipboardFilePath,
     // Read the OS clipboard's plain text for "Paste as Plain Text" (execCommand('paste') no longer fires).
     clipboardText: () => window.electron.clipboard.readText(),
+    confirmTableOverwrite: requestTablePasteOverwrite,
+    notifyTablePasteFallback,
     // Image-persist callbacks read by the engine's clipboard + drag-drop handlers
     // from `muya.options.*` (distinct from the ImageEditTool plugin option above).
     // Without these, local-file drag-drop, screenshot/binary clipboard paste, and

@@ -3,7 +3,6 @@ import type TableBodyCell from '../../block/gfm/table/cell';
 import type TableInner from '../../block/gfm/table/table';
 import type { Muya } from '../../index';
 
-import { ScrollPage } from '../../block/scrollPage';
 import { BLOCK_DOM_PROPERTY } from '../../config';
 import { isMouseEvent, throttle } from '../../utils';
 import BaseFloat from '../baseFloat';
@@ -440,8 +439,6 @@ export class TableDragBar extends BaseFloat {
         if (index === curIndex)
             return;
 
-        const tableState = table.getState();
-
         let cursorRowOffset = null;
         let cursorColumnOffset = null;
         let startOffset = 0;
@@ -494,29 +491,17 @@ export class TableDragBar extends BaseFloat {
             }
         }
 
-        if (barType === 'bottom') {
-            tableState.children.forEach((row) => {
-                const cellState = row.children.splice(index, 1)[0];
-                row.children.splice(curIndex, 0, cellState);
-            });
-        }
-        else {
-            const rowState = tableState.children.splice(index, 1)[0];
-            tableState.children.splice(curIndex, 0, rowState);
-        }
-
-        const newTable = ScrollPage.loadBlock('table').create(
-            this.muya,
-            tableState,
-        );
-        table.replaceWith(newTable);
+        const movedCell = barType === 'bottom'
+            ? table.moveColumn(index, curIndex)
+            : table.moveRow(index, curIndex);
+        const newTable = movedCell.closestBlock('table') as Table;
 
         if (cursorRowOffset !== null && cursorColumnOffset !== null) {
-            const cursorBlock = newTable.firstChild
-                .find(cursorRowOffset)
-                .find(cursorColumnOffset)
-                .firstContentInDescendant();
-            cursorBlock.setCursor(startOffset, endOffset, true);
+            const cursorBlock = newTable.cellAt(
+                cursorRowOffset,
+                cursorColumnOffset,
+            )!.firstContentInDescendant();
+            cursorBlock?.setCursor(startOffset, endOffset, true);
         }
     };
 

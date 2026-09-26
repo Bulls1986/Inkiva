@@ -1,6 +1,7 @@
 import type Content from '../block/base/content';
 import type Parent from '../block/base/parent';
 import type TreeNode from '../block/base/treeNode';
+import type TableBodyCell from '../block/gfm/table/cell';
 import type { Muya } from '../muya';
 import type { TState } from '../state/types';
 import type { Nullable } from '../types';
@@ -42,6 +43,72 @@ function isSingleCellSelected(clipboard: Clipboard): boolean {
         return false;
 
     return state.children.length === 1 && state.children[0].children.length === 1;
+}
+
+type TsvParseResult
+    = | { kind: 'not-tsv' }
+        | { kind: 'malformed' }
+        | { kind: 'rectangular'; rows: string[][] };
+
+function parseRectangularTsv(text: string): TsvParseResult {
+    if (!text.includes('\t'))
+        return { kind: 'not-tsv' };
+
+    const lines = text.split('\n');
+    if (lines.length > 1 && lines[lines.length - 1] === '')
+        lines.pop();
+
+    const rows = lines.map(line => line.split('\t'));
+    const width = rows[0]?.length ?? 0;
+    if (width < 2 || rows.some(row => row.length !== width))
+        return { kind: 'malformed' };
+
+    return { kind: 'rectangular', rows };
+}
+
+async function applyRectangularTablePaste(
+    clipboard: Clipboard,
+    anchorBlock: Content,
+    rows: string[][],
+): Promise<void> {
+    const cell = anchorBlock.closestBlock('table.cell') as TableBodyCell;
+    const { table, rowOffset: startRow, columnOffset: startColumn } = cell;
+    const endRow = startRow + rows.length - 1;
+    const endColumn = startColumn + rows[0].length - 1;
+    let nonEmptyCount = 0;
+
+    for (let row = startRow; row <= Math.min(endRow, table.rowCount - 1); row++) {
+        for (
+            let column = startColumn;
+            column <= Math.min(endColumn, table.columnCount - 1);
+            column++
+        ) {
+            const existing = table.cellAt(row, column)?.firstContentInDescendant();
+            if (existing && existing.text.length > 0)
+                nonEmptyCount++;
+        }
+    }
+
+    if (nonEmptyCount > 0) {
+        const confirmOverwrite = clipboard.muya.options.confirmTableOverwrite;
+        if (!confirmOverwrite)
+            return;
+
+        const accepted = await confirmOverwrite({
+            startRow,
+            startColumn,
+            endRow,
+            endColumn,
+            nonEmptyCount,
+        });
+        if (!accepted)
+            return;
+    }
+
+    const focus = table.applyCellMatrix(startRow, startColumn, rows);
+    clipboard.selection.table.clear();
+    const offset = focus.text.length;
+    focus.setCursor(offset, offset, true);
 }
 
 // The deepest last text-bearing leaf of a parsed state (a paragraph inside a
@@ -447,16 +514,28 @@ function applyParsedPaste(
 
 // `language-input`, `table.cell.content` and `codeblock.content` never parse a
 // paste into blocks — they take the text literally.
-function applyLiteralPaste(
+async function applyLiteralPaste(
     clipboard: Clipboard,
     ctx: IPasteContext,
     initialMarkdown: string,
-): void {
+): Promise<void> {
     const { anchorBlock, start, end, content } = ctx;
     let markdown = initialMarkdown;
 
+    if (anchorBlock.blockName === 'table.cell.content') {
+        const tsv = parseRectangularTsv(initialMarkdown);
+        if (tsv.kind === 'rectangular') {
+            await applyRectangularTablePaste(clipboard, anchorBlock, tsv.rows);
+            return;
+        }
+        if (tsv.kind === 'malformed') {
+            clipboard.muya.options.notifyTablePasteFallback?.('non-rectangular-tsv');
+            markdown = initialMarkdown.replace(/\n/g, '<br>');
+        }
+    }
+
     // A frozen table-cell selection scopes the paste: a single cell gets its
-    // text replaced (with `\n` → `<br/>`); a multi-cell rectangle cancels the
+    // text replaced (with `\n` → `<br>`); a multi-cell rectangle cancels the
     // paste.
     if (
         anchorBlock.blockName === 'table.cell.content'
@@ -465,7 +544,7 @@ function applyLiteralPaste(
         if (!isSingleCellSelected(clipboard))
             return;
 
-        anchorBlock.text = markdown.trim().replace(/\n/g, '<br/>');
+        anchorBlock.text = markdown.trim().replace(/\n/g, '<br>');
         const offset = anchorBlock.text.length;
         anchorBlock.setCursor(offset, offset, true);
         clipboard.selection.table.clear();
@@ -497,9 +576,15 @@ function applyLiteralPaste(
     }
 
     // A table cell holds a single visual line: trim and fold newlines to
-    // `<br/>` (muyajs trims pasted cell text on both the framed and normal path).
-    if (anchorBlock.blockName === 'table.cell.content')
-        markdown = markdown.trim().replace(/\n/g, '<br/>');
+    // `<br>` (muyajs trims ordinary pasted cell text on both the framed and
+    // normal path). Malformed TSV is kept literal apart from GFM-safe line
+    // breaks, including tabs and surrounding whitespace.
+    if (
+        anchorBlock.blockName === 'table.cell.content'
+        && parseRectangularTsv(initialMarkdown).kind !== 'malformed'
+    ) {
+        markdown = markdown.trim().replace(/\n/g, '<br>');
+    }
 
     anchorBlock.text
         = content.substring(0, start.offset)
@@ -685,7 +770,7 @@ async function applyPaste(clipboard: Clipboard, data: IPasteData): Promise<void>
         const isPlainInlineSpaces = /^ +$/.test(text);
 
         if (isLiteralAnchor || isPlainInlineSpaces)
-            applyLiteralPaste(clipboard, ctx, isPlainInlineSpaces ? text : markdown);
+            await applyLiteralPaste(clipboard, ctx, isPlainInlineSpaces ? text : markdown);
         else
             applyParsedPaste(clipboard, ctx, markdown);
     }
