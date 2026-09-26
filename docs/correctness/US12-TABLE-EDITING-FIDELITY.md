@@ -300,12 +300,43 @@ temporary output. The ignored test-results directory was removed and the
 unchanged full lint command then passed with zero errors. This is retained as
 test-harness hygiene evidence, not product evidence.
 
+## Stage 6 — PR #205 CI diagnosis
+
+Status: **CI compatibility fixes validated locally; rerun pending**
+
+The first PR #205 run reached **9/11 workflows Green**. PR Build, repository
+Test/Lint/E2E, Muya Build/Lint/Spec/Circular and Performance Fast Gate all
+passed. Two Muya-specific workflows failed on deterministic stale-test
+contracts rather than on a new runtime behavior failure:
+
+1. **Muya Test**: `removeRowColumn.spec.ts` invokes
+   `Table.prototype.removeColumn.call(fakeTable, ...)` with a structurally
+   typed fake. US12 moved structural mutations behind the private
+   `_runAtomicMutation` boundary, but the legacy fake did not model that
+   boundary, so the test failed with
+   `TypeError: this._runAtomicMutation is not a function` before reaching its
+   cursor-placement assertions. The fake now supplies an identity transaction
+   wrapper; history semantics remain covered by the real-Table
+   `us12AtomicStructure.spec.ts` suite.
+2. **Muya E2E**: the existing right-bar menu test asserted exactly three row
+   actions. US12 intentionally adds `Move Row Up` and `Move Row Down` to that
+   same surface, so the rendered count is now five. The E2E now asserts all five
+   approved row actions and still verifies that no column action leaks into the
+   row menu.
+
+No production source was changed for these two CI failures.
+
+Local validation after the compatibility fixes:
+
+- `removeRowColumn.spec.ts`: **11/11 Green**;
+- `table-row-column-menu.spec.ts` on Chromium: **4/4 Green**;
+- full Muya unit suite: **243 files / 1645 tests Green**.
+
 ## Remaining delivery
 
-1. refresh `origin/develop` and rebase only if it advanced;
-2. commit the reviewed file set, push the feature branch, open the PR and follow
-   canonical CI;
-3. merge only after required CI gates are Green, then verify the authoritative
+1. commit/push the two CI compatibility test updates plus this stage record and
+   follow PR #205's new workflow run;
+2. merge only after required CI gates are Green, then verify the authoritative
    remote `develop` contains the squash result and update this record to
    closed.
 

@@ -114,6 +114,12 @@ function makeFakeTable(rowCount: number, cellCount: number) {
         firstChild: inner,
         columnCount: cellCount,
         remove: vi.fn(),
+        // These focused cursor-placement tests invoke the production methods
+        // with a structurally typed fake instead of a real Table instance.
+        // US12 made structural edits pass through the table's atomic-history
+        // boundary, so model that boundary as an identity wrapper here; the
+        // history contract itself is covered by us12AtomicStructure.spec.ts.
+        _runAtomicMutation: <T>(mutation: () => T): T => mutation(),
         // The whole-table-removed branch (marktext 6293d408 cover-the-edge
         // case) calls `nextContentInContext()` / `previousContentInContext()`
         // on `this` before `this.remove()`. Stub both to return null in the

@@ -141,11 +141,14 @@ test.describe('TableRowColumMenu (row/column bar popup)', () => {
         const menu = menuContainer(page);
         await expectShown(page, floats.tableRowColumMenu);
 
-        // The 'right' toolList renders exactly three row operations.
+        // US12 extends the existing row menu with move-up/down while keeping
+        // the original insert/remove actions on the same surface.
         const items = menu.locator('li.item');
-        await expect(items).toHaveCount(3);
+        await expect(items).toHaveCount(5);
         await expect(menu).toContainText('Insert Row Above');
         await expect(menu).toContainText('Insert Row Below');
+        await expect(menu).toContainText('Move Row Up');
+        await expect(menu).toContainText('Move Row Down');
         await expect(menu).toContainText('Remove Row');
         // It is the ROW menu, not the column menu.
         await expect(menu).not.toContainText('Column');
