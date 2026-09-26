@@ -2,9 +2,10 @@
 
 [Back to Correctness index](README.md) · [Testing contract](../agent/TESTING.md)
 
-Status: implementation and local validation complete; delivery pending  
-Branch: `feat/v0.5-us12`  
+Status: **closed / merged**
+Feature branch: `feat/v0.5-us12`
 Base: `origin/develop@43efce6be6dcd3da3a94c7b66dc3305c7466f642`
+Merged: PR #205 → `develop@cda33631082c9784cc1cf606251d81af2df102a4`
 
 ## Scope
 
@@ -302,7 +303,7 @@ test-harness hygiene evidence, not product evidence.
 
 ## Stage 6 — PR #205 CI diagnosis
 
-Status: **CI compatibility fixes validated locally; rerun pending**
+Status: **complete**
 
 The first PR #205 run reached **9/11 workflows Green**. PR Build, repository
 Test/Lint/E2E, Muya Build/Lint/Spec/Circular and Performance Fast Gate all
@@ -332,11 +333,43 @@ Local validation after the compatibility fixes:
 - `table-row-column-menu.spec.ts` on Chromium: **4/4 Green**;
 - full Muya unit suite: **243 files / 1645 tests Green**.
 
+The compatibility-only follow-up was committed as
+`52355f0abcdcb8a88a9f8bf02c582835b0b150f8`. The second PR #205 run then
+completed **11/11 workflows Green** on that exact head:
+
+- PR Build;
+- Test;
+- Lint;
+- E2E Test;
+- Performance Fast Gate;
+- Muya Build;
+- Muya Test;
+- Muya Lint;
+- Muya E2E;
+- Muya Spec (CommonMark + GFM);
+- Muya Circular Dep Check.
+
+No review submissions or unresolved review threads remained at merge time.
+
+## Stage 7 — merge / authoritative closeout
+
+Status: **complete**
+
+- Immediately before merge, `git fetch origin develop` followed by
+  `git rev-list --left-right --count origin/develop...HEAD` returned
+  `0 2`: the feature branch contained two commits and was not behind
+  `develop`.
+- PR #205 was squash-merged with expected-head fence
+  `52355f0abcdcb8a88a9f8bf02c582835b0b150f8`.
+- GitHub returned squash commit
+  `cda33631082c9784cc1cf606251d81af2df102a4`.
+- A fresh `git fetch origin develop` advanced the authoritative remote from
+  `43efce6b` to `cda33631`; `origin/develop` resolves exactly to the
+  returned squash commit.
+- This post-merge update is documentation-only and follows the repository's
+  existing closeout pattern used by earlier v0.5 stories.
+
 ## Remaining delivery
 
-1. commit/push the two CI compatibility test updates plus this stage record and
-   follow PR #205's new workflow run;
-2. merge only after required CI gates are Green, then verify the authoritative
-   remote `develop` contains the squash result and update this record to
-   closed.
+None. US12 / AC-51 through AC-54 are closed on authoritative `develop`.
 
