@@ -1,11 +1,17 @@
+import path from 'node:path'
+
 import type {
   ApplyRenameRepairResult,
   MarkdownDocumentInput,
   RenameRepairDecision,
   RenameRepairFileChange,
+  RenameRepairPathKind,
   RenameRepairPlan
 } from '@shared/types/documentIntelligence'
-import { isMarkdownPath, parseStandardRelativeMarkdownLinks } from './markdownLinks'
+import {
+  parseStandardRelativeMarkdownLinks,
+  parseStandardRelativeMarkdownResources
+} from './markdownLinks'
 import {
   canonicalDocumentPath,
   relativeMarkdownLinkPath,
@@ -38,6 +44,28 @@ export const applyMarkdownEdits = (
 
 const samePath = (left: string, right: string): boolean =>
   canonicalDocumentPath(left) === canonicalDocumentPath(right)
+
+const remapMovedPath = (
+  candidatePath: string,
+  fromPath: string,
+  toPath: string,
+  pathKind: RenameRepairPathKind
+): string => {
+  const candidate = canonicalDocumentPath(candidatePath)
+  if (samePath(candidate, fromPath)) return toPath
+  if (pathKind !== 'directory') return candidate
+
+  const relative = path.relative(fromPath, candidate)
+  if (
+    !relative ||
+    relative === '..' ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    return candidate
+  }
+  return canonicalDocumentPath(path.join(toPath, relative))
+}
 
 const repairedRelativePath = (
   sourcePath: string,
@@ -78,23 +106,28 @@ const uniqueDocuments = (documents: readonly MarkdownDocumentInput[]): MarkdownD
 export const createRenameRepairPlan = (request: {
   fromPath: string
   toPath: string
+  pathKind?: RenameRepairPathKind
+  includeResources?: boolean
   documents: readonly MarkdownDocumentInput[]
 }): RenameRepairPlan => {
   const fromPath = canonicalDocumentPath(request.fromPath)
   const toPath = canonicalDocumentPath(request.toPath)
+  const pathKind = request.pathKind ?? 'file'
+  const parseRelativeDestinations = request.includeResources
+    ? parseStandardRelativeMarkdownResources
+    : parseStandardRelativeMarkdownLinks
   const changes: RenameRepairFileChange[] = []
 
   for (const document of uniqueDocuments(request.documents)) {
-    const sourcePathAfter = samePath(document.pathname, fromPath) ? toPath : document.pathname
+    const sourcePathAfter = remapMovedPath(document.pathname, fromPath, toPath, pathKind)
     const edits: RenameRepairFileChange['edits'] = []
 
-    for (const link of parseStandardRelativeMarkdownLinks(document.markdown)) {
+    for (const link of parseRelativeDestinations(document.markdown)) {
       const currentTarget = resolveMarkdownLinkTarget(document.pathname, link.path)
-      const targetPathAfter = samePath(currentTarget, fromPath) ? toPath : currentTarget
+      const targetPathAfter = remapMovedPath(currentTarget, fromPath, toPath, pathKind)
       const sourceMoved = sourcePathAfter !== document.pathname
       const targetMoved = targetPathAfter !== currentTarget
       if (!sourceMoved && !targetMoved) continue
-      if (!isMarkdownPath(targetPathAfter)) continue
 
       const nextDestination = `${repairedRelativePath(sourcePathAfter, targetPathAfter, link.path)}${link.fragment}`
       if (nextDestination === link.destination) continue

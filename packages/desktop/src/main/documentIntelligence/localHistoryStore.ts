@@ -8,7 +8,8 @@ import type {
   LocalHistoryEntry,
   LocalHistoryPruneResult,
   LocalHistoryReason,
-  LocalHistorySnapshot
+  LocalHistorySnapshot,
+  RenameRepairPathKind
 } from '@shared/types/documentIntelligence'
 
 export const LOCAL_HISTORY_SCHEMA_VERSION = 1
@@ -40,6 +41,7 @@ export interface LocalHistoryStoreOptions {
   maxTotalBytes?: number
   now?: () => number
   createId?: () => string
+  removeMovedSnapshot?: (snapshotPath: string) => Promise<void>
 }
 
 const canonicalFilePath = (filePath: string): string => {
@@ -47,6 +49,28 @@ const canonicalFilePath = (filePath: string): string => {
   return process.platform === 'win32' || process.platform === 'darwin'
     ? resolved.toLowerCase()
     : resolved
+}
+
+const remapMovedFilePath = (
+  filePath: string,
+  fromPath: string,
+  toPath: string,
+  pathKind: RenameRepairPathKind
+): string => {
+  const candidate = canonicalFilePath(filePath)
+  if (candidate === fromPath) return toPath
+  if (pathKind !== 'directory') return candidate
+
+  const relative = path.relative(fromPath, candidate)
+  if (
+    !relative ||
+    relative === '..' ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    return candidate
+  }
+  return canonicalFilePath(path.join(toPath, relative))
 }
 
 const pathKey = (filePath: string): string => {
@@ -89,6 +113,7 @@ export class LocalHistoryStore {
   private readonly maxTotalBytes: number
   private readonly now: () => number
   private readonly createId: () => string
+  private readonly removeMovedSnapshot: (snapshotPath: string) => Promise<void>
   private mutationTail: Promise<void> = Promise.resolve()
 
   constructor(options: LocalHistoryStoreOptions) {
@@ -101,6 +126,7 @@ export class LocalHistoryStore {
     this.maxTotalBytes = options.maxTotalBytes ?? DEFAULT_LOCAL_HISTORY_MAX_TOTAL_BYTES
     this.now = options.now ?? Date.now
     this.createId = options.createId ?? randomUUID
+    this.removeMovedSnapshot = options.removeMovedSnapshot ?? unlink
 
     if (!isPositiveInteger(this.maxSnapshotsPerFile)) {
       throw new Error('maxSnapshotsPerFile must be a positive integer')
@@ -190,6 +216,87 @@ export class LocalHistoryStore {
         if (isNotFound(error)) return false
         throw error
       }
+    })
+  }
+
+  async movePath(
+    fromPath: string,
+    toPath: string,
+    pathKind: RenameRepairPathKind = 'file'
+  ): Promise<number> {
+    return this.withMutation(async() => {
+      const normalizedFrom = this.normalizeFilePath(fromPath)
+      const normalizedTo = this.normalizeFilePath(toPath)
+      if (normalizedFrom === normalizedTo) return 0
+
+      const candidates = (await this.listAllSnapshots()).flatMap((item) => {
+        const movedFilePath = remapMovedFilePath(
+          item.snapshot.filePath,
+          normalizedFrom,
+          normalizedTo,
+          pathKind
+        )
+        if (movedFilePath === item.snapshot.filePath) return []
+
+        const movedSnapshot: StoredLocalHistorySnapshot = {
+          ...item.snapshot,
+          filePath: movedFilePath
+        }
+        return [{
+          sourcePath: item.path,
+          targetPath: this.getSnapshotPath(movedFilePath, movedSnapshot.id),
+          snapshot: movedSnapshot
+        }]
+      })
+
+      if (!candidates.length) return 0
+
+      for (const candidate of candidates) {
+        try {
+          await readFile(candidate.targetPath, 'utf8')
+          throw new Error(
+            `Local History move refused because target snapshot already exists: ${candidate.targetPath}`
+          )
+        } catch (error) {
+          if (!isNotFound(error)) throw error
+        }
+      }
+
+      const writtenTargets: string[] = []
+      try {
+        for (const candidate of candidates) {
+          await mkdir(path.dirname(candidate.targetPath), { recursive: true })
+          await writeFileAtomic(candidate.targetPath, JSON.stringify(candidate.snapshot), {
+            encoding: 'utf8'
+          })
+          writtenTargets.push(candidate.targetPath)
+        }
+      } catch (error) {
+        await Promise.all(
+          writtenTargets.map(async(targetPath) => {
+            try {
+              await this.removeMovedSnapshot(targetPath)
+            } catch {
+              // Source snapshots are still authoritative because cleanup has
+              // not started. Preserve the original write failure.
+            }
+          })
+        )
+        throw error
+      }
+
+      // Once every target snapshot is durable, the new identity is complete.
+      // Old-path cleanup is best-effort: never delete the new copies merely
+      // because an old duplicate is temporarily locked or permission denied.
+      for (const candidate of candidates) {
+        try {
+          await this.removeMovedSnapshot(candidate.sourcePath)
+        } catch {
+          // A stale old-path copy is safer than losing the only durable copy.
+        }
+      }
+
+      return candidates.length
     })
   }
 

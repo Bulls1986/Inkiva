@@ -8,6 +8,7 @@ import type {
   LocalHistoryEntry,
   LocalHistoryPruneResult,
   LocalHistorySnapshot,
+  MoveHistoryPathRequest,
   PrepareRenameRepairRequest,
   MarkdownBacklink,
   MarkdownLinkCandidate,
@@ -108,6 +109,10 @@ export class DocumentIntelligenceService {
 
   deleteSnapshot(filePath: string, id: string): Promise<boolean> {
     return this.localHistory.deleteSnapshot(filePath, id)
+  }
+
+  moveHistoryPath(request: MoveHistoryPathRequest): Promise<number> {
+    return this.localHistory.movePath(request)
   }
 
   pruneHistory(): Promise<LocalHistoryPruneResult> {

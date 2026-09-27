@@ -462,16 +462,29 @@ test.describe('@virtualization-core async geometry invalidation closure', () => 
     await expect(page.locator('.editor-wrapper')).toHaveClass(/(^|\s)typewriter(\s|$)/)
 
     // A real wheel gesture is the explicit newer user navigation intent.
-    // Keep the caret untouched: after scrolling, its block should visibly move
-    // away from the 40% reference line while Typewriter is suspended.
+    // Keep it deliberately small: this assertion needs the already-mounted
+    // async-growth target to remain in the adjacent virtual segment until its
+    // ResizeObserver mutation is triggered below.
     let beforeGrowth = await caretBlockOffset(page)
+    let growthTargetMounted = true
     for (let attempt = 0; attempt < 4; attempt++) {
-      await page.mouse.wheel(0, 120)
+      await page.mouse.wheel(0, 32)
       await page.waitForTimeout(120)
       await assertViewportMaterialized(page)
       beforeGrowth = await caretBlockOffset(page)
+      growthTargetMounted = await page.evaluate((targetSection) =>
+        Array.from(
+          document.querySelectorAll<HTMLElement>(
+            '.mu-container > .mu-virtual-segment > :not(.mu-virtual-render-placeholder), ' +
+            '.mu-container > :not(.mu-virtual-segment):not(.mu-virtual-render-placeholder)'
+          )
+        ).some((node) =>
+          (node.textContent ?? '').includes(`ASYNC-GROWTH-TARGET-${targetSection}`)
+        ),
+      section)
       if (
         beforeGrowth &&
+        growthTargetMounted &&
         Math.abs(beforeGrowth.relativeTop - beforeGrowth.containerHeight * 0.4) > 20
       ) {
         break
@@ -480,6 +493,7 @@ test.describe('@virtualization-core async geometry invalidation closure', () => 
 
     expect(beforeGrowth).not.toBeNull()
     if (!beforeGrowth) throw new Error('US15 caret offset unavailable before growth')
+    expect(growthTargetMounted).toBe(true)
     const referenceBefore = beforeGrowth.containerHeight * 0.4
     const distanceBeforeGrowth = Math.abs(beforeGrowth.relativeTop - referenceBefore)
     expect(distanceBeforeGrowth).toBeGreaterThan(20)

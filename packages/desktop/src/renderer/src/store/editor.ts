@@ -44,6 +44,7 @@ import type {
   TabOptions,
   UnsavedFile
 } from '@shared/types/files'
+import type { RenameRepairPathKind } from '@shared/types/documentIntelligence'
 
 // ----------------------------------------------------------------------------
 // Local helper types
@@ -987,7 +988,7 @@ export const useEditorStore = defineStore('editor', {
     LISTEN_FOR_SET_PATHNAME(): void {
       window.electron.ipcRenderer.on('mt::set-pathname', (_, fileInfo) => {
         const { tabs } = this
-        const { pathname, id, revision } = fileInfo
+        const { pathname, id, revision, identityMove } = fileInfo
         const tab = tabs.find((f) => f.id === id)
         if (!tab) {
           console.error('[ERROR] Cannot change file path from unknown tab.')
@@ -1009,14 +1010,43 @@ export const useEditorStore = defineStore('editor', {
           window.DIRNAME = window.path.dirname(pathname)
         }
         if (tab) {
-          Object.assign(tab, { filename, pathname, isSaved: true })
-          const savedRevision = revision ?? getDocumentRevision(id)
-          this.durabilityByTabId[id] = markFileSaved(
-            this.ENSURE_DOCUMENT_DURABILITY(id),
-            savedRevision
-          )
-          delete tab.recoverySourcePath
-          if (pathname) useRecentDocumentsStore().RECORD_FILE(pathname)
+          Object.assign(tab, { filename, pathname })
+          if (identityMove) {
+            useRecentDocumentsStore().MOVE_PATH({
+              src: identityMove.fromPath,
+              dest: pathname,
+              pathKind: identityMove.pathKind
+            })
+            void window.documentIntelligence
+              .moveHistoryPath({
+                fromPath: identityMove.fromPath,
+                toPath: pathname,
+                pathKind: identityMove.pathKind
+              })
+              .catch((error) => {
+                notice.notify({
+                  title: 'File moved with history warning',
+                  type: 'warning',
+                  message:
+                    'The file move succeeded, but Local History could not be reassociated. ' +
+                    `The existing history remains protected at the old path. ${error instanceof Error ? error.message : String(error)}`
+                })
+              })
+            void this.REPAIR_MOVED_REFERENCES({
+              src: identityMove.fromPath,
+              dest: pathname,
+              pathKind: identityMove.pathKind
+            })
+          } else {
+            tab.isSaved = true
+            const savedRevision = revision ?? getDocumentRevision(id)
+            this.durabilityByTabId[id] = markFileSaved(
+              this.ENSURE_DOCUMENT_DURABILITY(id),
+              savedRevision
+            )
+            delete tab.recoverySourcePath
+            if (pathname) useRecentDocumentsStore().RECORD_FILE(pathname)
+          }
           debouncedSendBufferedState()
         }
       })
@@ -1292,22 +1322,171 @@ export const useEditorStore = defineStore('editor', {
       }
     },
 
-    /**
-     * Update the pathname/filename of any tab whose pathname matches `src`.
-     * Invoked from the sidebar rename flow (project.ts:RENAME_IN_SIDEBAR).
-     */
-    RENAME_IF_NEEDED({ src, dest }: { src: string; dest: string }): void {
-      this.tabs.forEach((tab) => {
-        if (tab.pathname === src) {
-          tab.pathname = dest
-          tab.filename = window.path.basename(dest)
+    async REPAIR_MOVED_REFERENCES({
+      src,
+      dest,
+      pathKind = 'file'
+    }: {
+      src: string
+      dest: string
+      pathKind?: RenameRepairPathKind
+    }): Promise<number> {
+      const movedTabs = this.tabs.flatMap((tab) => {
+        let sourcePath = ''
+        if (window.fileUtils.isSamePathSync(tab.pathname, dest)) {
+          sourcePath = src
+        } else if (
+          pathKind === 'directory' &&
+          window.fileUtils.isChildOfDirectory(dest, tab.pathname)
+        ) {
+          sourcePath = window.path.join(src, window.path.relative(dest, tab.pathname))
         }
+        return sourcePath
+          ? [{ id: tab.id, sourcePath, targetPath: tab.pathname, markdown: tab.markdown }]
+          : []
       })
-      // Keep DIRNAME in sync when the active tab is the one being renamed,
-      // so link resolution / dirname-based lookups don't keep using the old
-      // folder until the user switches tabs.
-      if (this.currentFile != null && this.currentFile.pathname === dest) {
-        window.DIRNAME = window.path.dirname(dest)
+      if (!movedTabs.length) return 0
+
+      try {
+        const knownBacklinks = (
+          await Promise.all(
+            movedTabs.map(({ sourcePath }) =>
+              window.documentIntelligence.getBacklinks(sourcePath)
+            )
+          )
+        ).flat()
+        const inboundFromUnmovedDocuments = knownBacklinks.filter(
+          (backlink) =>
+            !movedTabs.some((moved) =>
+              window.fileUtils.isSamePathSync(moved.sourcePath, backlink.sourcePath)
+            )
+        )
+        if (inboundFromUnmovedDocuments.length > 0) {
+          notice.notify({
+            title: 'Review inbound links',
+            type: 'warning',
+            message:
+              `${inboundFromUnmovedDocuments.length} known link(s) from other documents still point to the old location. ` +
+              'Inkiva did not rewrite those documents; review them manually.'
+          })
+        }
+      } catch {
+        // Backlink indexing is advisory for this operation. A lookup failure
+        // must not turn a completed filesystem move into a false failure.
+      }
+
+      let plan
+      try {
+        plan = await window.documentIntelligence.prepareRenameRepair({
+          fromPath: src,
+          toPath: dest,
+          pathKind,
+          includeResources: true,
+          documents: movedTabs.map(({ sourcePath, markdown }) => ({
+            pathname: sourcePath,
+            markdown
+          }))
+        })
+      } catch (error) {
+        notice.notify({
+          title: 'File moved with reference warning',
+          type: 'warning',
+          message:
+            'The file move succeeded, but relative references could not be recalculated. ' +
+            `Review links and images manually. ${error instanceof Error ? error.message : String(error)}`
+        })
+        return 0
+      }
+
+      let repaired = 0
+      let stale = 0
+      for (const change of plan.changes) {
+        const movedTab = movedTabs.find(
+          (candidate) =>
+            window.fileUtils.isSamePathSync(candidate.sourcePath, change.sourcePath) &&
+            window.fileUtils.isSamePathSync(candidate.targetPath, change.sourcePathAfter)
+        )
+        if (!movedTab) continue
+
+        const tab = this.tabs.find((candidate) => candidate.id === movedTab.id)
+        if (
+          !tab ||
+          !window.fileUtils.isSamePathSync(tab.pathname, movedTab.targetPath) ||
+          tab.markdown !== change.before
+        ) {
+          stale += 1
+          continue
+        }
+        if (change.after === change.before) continue
+
+        this.LISTEN_FOR_CONTENT_CHANGE({
+          id: tab.id,
+          markdown: change.after,
+          preserveTrailingNewlines: true
+        })
+        repaired += change.edits.length
+
+        const updated = this.tabs.find((candidate) => candidate.id === tab.id)
+        if (updated && this.currentFile?.id === updated.id) {
+          bus.emit('file-changed', {
+            id: updated.id,
+            markdown: updated.markdown,
+            cursor: updated.cursor,
+            muyaIndexCursor: updated.muyaIndexCursor,
+            history: updated.history,
+            scrollTop: updated.scrollTop,
+            viewportAnchorSlug: updated.viewportAnchorSlug
+          })
+        }
+      }
+
+      if (stale > 0) {
+        notice.notify({
+          title: 'Review moved document references',
+          type: 'warning',
+          message:
+            'The document changed while relative references were being recalculated. ' +
+            'No newer edits were overwritten; review links and images manually.'
+        })
+      }
+      return repaired
+    },
+
+    /**
+     * Move file identity in place without replacing the tab object. Directory
+     * moves remap descendant tabs by prefix so dirty draft, cursor, history,
+     * scroll position and durability remain attached to the same tab id.
+     */
+    RENAME_IF_NEEDED({
+      src,
+      dest,
+      pathKind = 'file'
+    }: {
+      src: string
+      dest: string
+      pathKind?: RenameRepairPathKind
+    }): void {
+      let moved = false
+      this.tabs.forEach((tab) => {
+        let nextPath = tab.pathname
+        if (window.fileUtils.isSamePathSync(tab.pathname, src)) {
+          nextPath = dest
+        } else if (
+          pathKind === 'directory' &&
+          window.fileUtils.isChildOfDirectory(src, tab.pathname)
+        ) {
+          nextPath = window.path.join(dest, window.path.relative(src, tab.pathname))
+        }
+
+        if (nextPath === tab.pathname) return
+        tab.pathname = nextPath
+        tab.filename = window.path.basename(nextPath)
+        moved = true
+      })
+
+      if (!moved) return
+      if (this.currentFile?.pathname) {
+        window.DIRNAME = window.path.dirname(this.currentFile.pathname)
       }
       debouncedSendBufferedState()
     },

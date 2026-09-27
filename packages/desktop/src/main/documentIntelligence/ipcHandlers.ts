@@ -6,9 +6,12 @@ import type {
   LocalHistoryPruneResult,
   LocalHistoryRestoreRequest,
   LocalHistorySnapshot,
+  MoveHistoryPathRequest,
   MarkdownBacklink,
   MarkdownLinkCandidate,
   MarkdownDocumentInput,
+  PrepareRenameRepairRequest,
+  RenameRepairPathKind,
   RenameRepairPlan
 } from '@shared/types/documentIntelligence'
 
@@ -17,17 +20,14 @@ export interface DocumentIntelligenceHandlerService {
   removeDocument(pathname: string): void
   getBacklinks(targetPath: string): MarkdownBacklink[]
   getLinkCandidates(sourcePath: string, pathnames: readonly string[]): MarkdownLinkCandidate[]
-  prepareRenameRepair(request: {
-    fromPath: string
-    toPath: string
-    documents: readonly MarkdownDocumentInput[]
-  }): RenameRepairPlan
+  prepareRenameRepair(request: PrepareRenameRepairRequest): RenameRepairPlan
   applyRenameRepair(request: ApplyRenameRepairRequest): Promise<ApplyRenameRepairResult>
   createSnapshot(request: LocalHistoryCreateRequest): Promise<LocalHistoryEntry>
   listSnapshots(filePath: string): Promise<LocalHistoryEntry[]>
   getSnapshot(filePath: string, id: string): Promise<LocalHistorySnapshot | null>
   deleteSnapshot(filePath: string, id: string): Promise<boolean>
   restoreSnapshot(request: LocalHistoryRestoreRequest): Promise<LocalHistorySnapshot>
+  moveHistoryPath(request: MoveHistoryPathRequest): Promise<number>
   pruneHistory(): Promise<LocalHistoryPruneResult>
 }
 
@@ -43,6 +43,7 @@ export interface DocumentIntelligenceHandlers {
   getSnapshot(filePath: unknown, id: unknown): Promise<LocalHistorySnapshot | null>
   deleteSnapshot(filePath: unknown, id: unknown): Promise<boolean>
   restoreSnapshot(request: unknown): Promise<LocalHistorySnapshot>
+  moveHistoryPath(request: unknown): Promise<number>
   pruneHistory(): Promise<LocalHistoryPruneResult>
 }
 
@@ -71,6 +72,17 @@ const requireDecision = (value: unknown): ApplyRenameRepairRequest['decision'] =
   return value
 }
 
+const requirePathKind = (
+  value: unknown,
+  name: string
+): RenameRepairPathKind | undefined => {
+  if (value === undefined) return undefined
+  if (value !== 'file' && value !== 'directory') {
+    throw new TypeError(`${name} must be file or directory`)
+  }
+  return value
+}
+
 const requireDocumentInputs = (value: unknown): MarkdownDocumentInput[] => {
   if (!Array.isArray(value)) throw new TypeError('documents must be an array')
   return value.map((document, index) => {
@@ -82,18 +94,30 @@ const requireDocumentInputs = (value: unknown): MarkdownDocumentInput[] => {
   })
 }
 
-const requirePrepareRequest = (
-  value: unknown
-): {
-  fromPath: string
-  toPath: string
-  documents: MarkdownDocumentInput[]
-} => {
+const requirePrepareRequest = (value: unknown): PrepareRenameRepairRequest => {
   if (!isRecord(value)) throw new TypeError('rename repair request must be an object')
+  const pathKind = requirePathKind(value.pathKind, 'pathKind')
+  if (value.includeResources !== undefined && typeof value.includeResources !== 'boolean') {
+    throw new TypeError('includeResources must be a boolean')
+  }
   return {
     fromPath: requireString(value.fromPath, 'fromPath'),
     toPath: requireString(value.toPath, 'toPath'),
+    ...(pathKind ? { pathKind } : {}),
+    ...(value.includeResources !== undefined
+      ? { includeResources: value.includeResources }
+      : {}),
     documents: requireDocumentInputs(value.documents)
+  }
+}
+
+const requireMoveHistoryPathRequest = (value: unknown): MoveHistoryPathRequest => {
+  if (!isRecord(value)) throw new TypeError('history move request must be an object')
+  const pathKind = requirePathKind(value.pathKind, 'pathKind')
+  return {
+    fromPath: requireString(value.fromPath, 'fromPath'),
+    toPath: requireString(value.toPath, 'toPath'),
+    ...(pathKind ? { pathKind } : {})
   }
 }
 
@@ -291,6 +315,10 @@ export const createDocumentIntelligenceHandlers = (
 
   restoreSnapshot(request) {
     return service.restoreSnapshot(requireRestoreRequest(request))
+  },
+
+  moveHistoryPath(request) {
+    return service.moveHistoryPath(requireMoveHistoryPathRequest(request))
   },
 
   pruneHistory() {

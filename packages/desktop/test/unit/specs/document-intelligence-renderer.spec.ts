@@ -49,7 +49,8 @@ const createApi = (): DocumentIntelligenceApi => ({
   })),
   listSnapshots: vi.fn(async() => []),
   getSnapshot: vi.fn(async(filePath) => snapshot(filePath)),
-  restoreSnapshot: vi.fn(async(request) => snapshot(request.filePath))
+  restoreSnapshot: vi.fn(async(request) => snapshot(request.filePath)),
+  moveHistoryPath: vi.fn(async() => 0)
 })
 
 interface Deferred<T> {

@@ -62,6 +62,30 @@ describe('Recent Documents renderer store', () => {
     expect(limited).not.toContainEqual(expect.objectContaining({ pathname: '/notes/2.md' }))
   })
 
+  it('migrates recent identity across file and directory moves without losing metadata', () => {
+    const store = useRecentDocumentsStore()
+    store.items = [
+      { pathname: '/notes/current.md', kind: 'file', pinned: true, lastOpenedAt: 11 },
+      { pathname: '/notes/nested/child.md', kind: 'file', pinned: false, lastOpenedAt: 7 },
+      { pathname: '/other.md', kind: 'file', pinned: false, lastOpenedAt: 5 }
+    ]
+
+    ;(store as unknown as {
+      MOVE_PATH: (input: { src: string; dest: string; pathKind: 'file' | 'directory' }) => void
+    }).MOVE_PATH({
+      src: '/notes',
+      dest: '/archive/notes',
+      pathKind: 'directory'
+    })
+
+    expect(store.items).toEqual([
+      { pathname: '/archive/notes/current.md', kind: 'file', pinned: true, lastOpenedAt: 11 },
+      { pathname: '/archive/notes/nested/child.md', kind: 'file', pinned: false, lastOpenedAt: 7 },
+      { pathname: '/other.md', kind: 'file', pinned: false, lastOpenedAt: 5 }
+    ])
+    expect(JSON.parse(localStorage.getItem(RECENT_DOCUMENTS_STORAGE_KEY) || '[]')).toEqual(store.items)
+  })
+
   it('supports file and folder entries with pin, remove, clear, and persistence actions', () => {
     const store = useRecentDocumentsStore()
 

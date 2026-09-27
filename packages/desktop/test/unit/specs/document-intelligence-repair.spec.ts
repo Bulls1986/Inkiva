@@ -83,6 +83,76 @@ describe('rename/move repair confirmation', () => {
     expect(adapter.readFile).toHaveBeenCalledWith(sourcePath)
   })
 
+  it('keeps current-document relative links and images pointing at the same targets after a move', () => {
+    const root = '/virtual/continuity'
+    const fromPath = canonicalDocumentPath(path.join(root, 'notes', 'current.md'))
+    const toPath = canonicalDocumentPath(path.join(root, 'archive', 'current.md'))
+    const guidePath = canonicalDocumentPath(path.join(root, 'notes', 'guide.md'))
+    const imagePath = canonicalDocumentPath(path.join(root, 'notes', 'images', 'diagram.png'))
+    const before = '[Guide](./guide.md)\n![Diagram](./images/diagram.png)'
+
+    const plan = createRenameRepairPlan({
+      fromPath,
+      toPath,
+      includeResources: true,
+      documents: [{ pathname: fromPath, markdown: before }]
+    })
+
+    expect(plan.linkCount).toBe(2)
+    expect(plan.changes).toHaveLength(1)
+    expect(plan.changes[0]?.after).toBe(
+      '[Guide](../notes/guide.md)\n![Diagram](../notes/images/diagram.png)'
+    )
+    expect(
+      canonicalDocumentPath(path.resolve(path.dirname(toPath), '../notes/guide.md'))
+    ).toBe(guidePath)
+    expect(
+      canonicalDocumentPath(path.resolve(path.dirname(toPath), '../notes/images/diagram.png'))
+    ).toBe(imagePath)
+  })
+
+  it('repairs a moved document when its parent directory is renamed', () => {
+    const root = '/virtual/continuity'
+    const fromDirectory = canonicalDocumentPath(path.join(root, 'notes'))
+    const toDirectory = canonicalDocumentPath(path.join(root, 'archive', 'notes'))
+    const sourcePath = canonicalDocumentPath(path.join(root, 'notes', 'current.md'))
+    const before = '[Outside](../shared/guide.md)'
+
+    const plan = createRenameRepairPlan({
+      fromPath: fromDirectory,
+      toPath: toDirectory,
+      pathKind: 'directory',
+      includeResources: true,
+      documents: [{ pathname: sourcePath, markdown: before }]
+    })
+
+    expect(plan.linkCount).toBe(1)
+    expect(plan.changes).toHaveLength(1)
+    expect(plan.changes[0]?.sourcePathAfter).toBe(
+      canonicalDocumentPath(path.join(root, 'archive', 'notes', 'current.md'))
+    )
+    expect(plan.changes[0]?.after).toBe('[Outside](../../shared/guide.md)')
+  })
+
+  it('treats child names beginning with two dots as descendants, not parent traversal', () => {
+    const root = '/virtual/continuity'
+    const fromDirectory = canonicalDocumentPath(path.join(root, 'notes'))
+    const toDirectory = canonicalDocumentPath(path.join(root, 'archive', 'notes'))
+    const sourcePath = canonicalDocumentPath(path.join(root, 'notes', '..drafts', 'current.md'))
+
+    const plan = createRenameRepairPlan({
+      fromPath: fromDirectory,
+      toPath: toDirectory,
+      pathKind: 'directory',
+      includeResources: true,
+      documents: [{ pathname: sourcePath, markdown: '[Outside](../../shared/guide.md)' }]
+    })
+
+    expect(plan.changes[0]?.sourcePathAfter).toBe(
+      canonicalDocumentPath(path.join(root, 'archive', 'notes', '..drafts', 'current.md'))
+    )
+  })
+
   it('exposes the same index and repair contract through the document service', () => {
     const service = new DocumentIntelligenceService({ historyRootPath: '/virtual/history' })
     const sourcePath = canonicalDocumentPath('/virtual/docs/source.md')

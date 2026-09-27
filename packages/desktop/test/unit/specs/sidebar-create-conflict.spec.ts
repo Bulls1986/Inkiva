@@ -13,7 +13,12 @@ vi.hoisted(() => {
     }
   }
   w.window ??= {}
-  w.window.path ??= { sep: '/', normalize: (p) => p, basename: (p) => p, dirname: (p) => p }
+  w.window.path ??= {
+    sep: '/',
+    normalize: (p) => p,
+    basename: (p) => p.split('/').at(-1) ?? p,
+    dirname: (p) => p.slice(0, Math.max(0, p.lastIndexOf('/'))) || '/'
+  }
   w.window.fileUtils ??= {
     hasMarkdownExtension: (n: string) => n.endsWith('.md'),
     pathExists: () => Promise.resolve(false)

@@ -215,27 +215,35 @@ export const splitMarkdownDestination = (
 
 export const isMarkdownPath = (value: string): boolean => MARKDOWN_PATH_RE.test(value)
 
-export const isStandardRelativeMarkdownDestination = (destination: string): boolean => {
+const isStandardRelativeDestination = (destination: string): boolean => {
   const { path: linkPath } = splitMarkdownDestination(unescapeDestination(destination))
   if (!linkPath || linkPath.startsWith('/') || linkPath.startsWith('//')) return false
-  if (URI_SCHEME_RE.test(linkPath)) return false
+  return !URI_SCHEME_RE.test(linkPath)
+}
+
+export const isStandardRelativeMarkdownDestination = (destination: string): boolean => {
+  if (!isStandardRelativeDestination(destination)) return false
+  const { path: linkPath } = splitMarkdownDestination(unescapeDestination(destination))
   return isMarkdownPath(linkPath)
 }
 
-/**
- * Parse only ordinary inline Markdown links whose destination is a relative
- * Markdown file. Images, reference links, URLs, anchors, and links inside
- * code/front matter are deliberately outside this document-intelligence
- * index.
- */
-export const parseStandardRelativeMarkdownLinks = (markdown: string): MarkdownLinkOccurrence[] => {
+export const isStandardRelativeResourceDestination = (destination: string): boolean =>
+  isStandardRelativeDestination(destination)
+
+const parseStandardRelativeDestinations = (
+  markdown: string,
+  options: { includeImages: boolean; markdownOnly: boolean }
+): MarkdownLinkOccurrence[] => {
   const masked = maskNonMarkdownRegions(markdown)
   const links: MarkdownLinkOccurrence[] = []
 
   for (let index = 0; index < masked.length; index += 1) {
     if (masked[index] !== '[') continue
     if (isEscaped(markdown, index)) continue
-    if (index > 0 && masked[index - 1] === '!' && !isEscaped(markdown, index - 1)) continue
+
+    const isImage =
+      index > 0 && masked[index - 1] === '!' && !isEscaped(markdown, index - 1)
+    if (isImage && !options.includeImages) continue
 
     const labelEnd = findLabelEnd(masked, index)
     if (labelEnd === -1 || masked[labelEnd + 1] !== '(') continue
@@ -244,7 +252,10 @@ export const parseStandardRelativeMarkdownLinks = (markdown: string): MarkdownLi
     if (!parsed) continue
 
     const destination = markdown.slice(parsed.start, parsed.end)
-    if (!isStandardRelativeMarkdownDestination(destination)) continue
+    const supported = options.markdownOnly
+      ? isStandardRelativeMarkdownDestination(destination)
+      : isStandardRelativeResourceDestination(destination)
+    if (!supported) continue
 
     const { path: linkPath, fragment } = splitMarkdownDestination(destination)
     links.push({
@@ -252,7 +263,7 @@ export const parseStandardRelativeMarkdownLinks = (markdown: string): MarkdownLi
       destination,
       path: unescapeDestination(linkPath),
       fragment,
-      start: index,
+      start: isImage ? index - 1 : index,
       end: parsed.close + 1,
       destinationStart: parsed.start,
       destinationEnd: parsed.end,
@@ -263,3 +274,22 @@ export const parseStandardRelativeMarkdownLinks = (markdown: string): MarkdownLi
 
   return links
 }
+
+/**
+ * Parse only ordinary inline Markdown links whose destination is a relative
+ * Markdown file. Images, reference links, URLs, anchors, and links inside
+ * code/front matter are deliberately outside this document-intelligence
+ * index.
+ */
+export const parseStandardRelativeMarkdownLinks = (markdown: string): MarkdownLinkOccurrence[] =>
+  parseStandardRelativeDestinations(markdown, { includeImages: false, markdownOnly: true })
+
+/**
+ * Parse relative inline resources for rename/move continuity. Unlike the link
+ * index this includes images and non-Markdown local targets, but still excludes
+ * URLs, anchors, reference links, code, and front matter.
+ */
+export const parseStandardRelativeMarkdownResources = (
+  markdown: string
+): MarkdownLinkOccurrence[] =>
+  parseStandardRelativeDestinations(markdown, { includeImages: true, markdownOnly: false })
