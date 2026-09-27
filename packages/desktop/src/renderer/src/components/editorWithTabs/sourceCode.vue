@@ -12,7 +12,7 @@ import { usePreferencesStore } from '@/store/preferences'
 import { findMarkdownHeadingLine, scrollSourceEditorToLine } from '@/util/sourceModeToc'
 import { storeToRefs } from 'pinia'
 import codeMirror, { setCursorAtFirstLine, setTextDirection } from '../../codeMirror'
-import { isMarkdownWysiwygRoundTripSafe, wordCount as getWordCount } from '@muyajs/core'
+import { isMarkdownWysiwygTransitionSafe, wordCount as getWordCount } from '@muyajs/core'
 import { adjustCursor } from '../../util'
 import bus from '../../bus'
 import { getApplicationAppearance } from 'common/theme'
@@ -489,11 +489,10 @@ const handleSourceModeExitReadiness = (
   flushSourceSnapshot()
   const markdown = editor.value.getValue() as string
   request.resolve(
-    isMarkdownWysiwygRoundTripSafe(markdown, {
+    isMarkdownWysiwygTransitionSafe(markdown, {
       footnote: preferencesStore.footnote,
       frontMatter: true,
       isGitlabCompatibilityEnabled: preferencesStore.isGitlabCompatibilityEnabled,
-      listIndentation: preferencesStore.listIndentation,
       math: true,
       trimUnnecessaryCodeBlockEmptyLines:
         preferencesStore.trimUnnecessaryCodeBlockEmptyLines

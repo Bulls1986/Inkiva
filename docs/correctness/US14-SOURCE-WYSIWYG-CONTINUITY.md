@@ -83,7 +83,7 @@ The production change is intentionally narrow:
 - `preferences.ts` no longer flips `sourceCode` directly. Source-mode requests are routed to one renderer-level transition coordinator.
 - `editorWithTabs/index.vue` owns a document-keyed pending intent (`documentId + target`), captures composition events from both WYSIWYG and CodeMirror, applies latest-intent-wins, and clears pending state when the active document or window changes.
 - `sourceCode.vue` owns Source snapshot readiness. Before Source -> WYSIWYG, it flushes the current CodeMirror snapshot and asks Muya whether that exact Markdown is safe to represent.
-- `@muyajs/core` exposes `isMarkdownWysiwygRoundTripSafe`. The check stays inside Muya: incomplete fenced blocks are rejected with a linear scan, then the parsed state must serialize back without changing meaningful Markdown bytes. Desktop does not duplicate Muya parsing rules.
+- `@muyajs/core` exposes `isMarkdownWysiwygTransitionSafe`. The check stays inside Muya and consumes parser-owned semantic metadata: an explicitly unfinished fenced block (`fenceClosed === false`) is unsafe, while otherwise representable Markdown is allowed even when Muya's serializer would normalize formatting. Desktop does not duplicate Markdown parsing rules.
 - The existing revision/save/history/virtual-surface paths were not replaced. Safe switches continue through the existing Source handoff, so mode changes do not add a content revision merely because the view changed.
 - The old CORRECTNESS-02 expectation that unfinished Markdown may leave Source was updated to the US14 contract: unsafe Markdown remains in Source and still saves byte-for-byte.
 
@@ -91,8 +91,8 @@ The production change is intentionally narrow:
 
 Deterministic local evidence captured from the US14 worktree:
 
-- Current-worktree Electron build: **PASS** after the final production/test changes (`electron-vite` main + preload + renderer, 33.99 s on the final recorded build).
-- Muya safety unit suite reached **3/3 PASS** before the later behavior-preserving regex-to-linear-scan lint refactor. After that refactor, the final Electron US14 suite and Muya ESLint/architecture guards are green; a final unit re-run was blocked before test discovery by the late-session Windows Node launcher issue and is not claimed as fresh green evidence.
+- Current-worktree Electron build: **PASS** after the CI remediation and API naming closeout (`electron-vite` main + preload + renderer, 35.70 s on the final recorded build).
+- Muya transition-safety unit suite: **5/5 PASS**. It covers canonical Markdown, terminal-newline variants, tables whose serializer spacing may differ, task/bullet lists, and an unfinished fenced block.
 - US14 focused Electron E2E: **5/5 PASS**:
   - WYSIWYG -> Source waits for IME composition end.
   - Source -> WYSIWYG waits for CodeMirror composition end.
@@ -106,6 +106,37 @@ Deterministic local evidence captured from the US14 worktree:
 - `scripts/recovery-history-boundary.test.mjs`: **1/1 PASS**.
 - `git diff --check`: **PASS**.
 - Combined US14 + existing Source readiness run: **12/13 PASS**. The sole failure was the full-document clipboard assertion: the copied text differed only by Windows `LF -> CRLF` normalization; no content bytes other than line-ending representation differed. This is recorded as platform/test-normalization evidence, not as content-loss evidence.
+
+## PR #208 first-CI remediation
+
+The first PR head (`eb9650c4`) completed **10/11 workflows successfully**. Lint, Test, Muya Lint/Test/Build/E2E, CommonMark+GFM, circular-dependency check, Performance Fast Gate, and the complete three-platform PR Build/package/updater-smoke chain were green. The only red workflow was Desktop E2E:
+
+- **379 passed / 15 skipped / 11 failed**.
+- All 11 failures clustered around Source-mode entry/exit helpers.
+- Nine failures (all-blocks round-trip, table alignment, PG1 table state, US12 table editing, issue-4346) could not leave Source because the initial safety gate required Muya parse -> serialize byte equality.
+- Two Typora IME tests attempted to call `getMarkdownContent()` while composition was active. That helper enters Source to read Markdown, which directly conflicts with US14's contract that a mode switch must wait for `compositionend`.
+
+Root cause:
+
+1. **Representability and byte stability were incorrectly conflated.** Muya may normalize table/list formatting during serialization even though the Markdown is valid and safely modelled in WYSIWYG. Source byte stability is already protected by the existing desktop handoff/revision contract and is not a precondition for entering WYSIWYG.
+2. **The first implementation duplicated fence parsing.** Muya already carries `code-block.meta.fenceClosed`; the transition gate should consume that semantic state instead of maintaining a parallel fence scanner.
+3. **A read helper had an interaction side effect.** IME tests need a read-only document observation path; switching modes merely to inspect Markdown invalidates the behavior being tested.
+
+Remediation:
+
+- transition safety now parses once through `MarkdownToState` and rejects only parser-described unsafe intermediate state (`fenceClosed === false`) or parse failure;
+- serializer byte equality and the duplicate fence scanner were removed;
+- the public API was renamed from `isMarkdownWysiwygRoundTripSafe` to `isMarkdownWysiwygTransitionSafe` to match the actual contract;
+- the two IME tests now read `editor.currentFile.markdown` directly from Pinia rather than entering Source.
+
+Post-remediation local evidence:
+
+- Muya transition-safety Red: table + task-list regressions reproduced **2 failed / 3 passed** before the production fix.
+- Muya transition-safety Green: **5/5 PASS** after the fix.
+- The seven specs containing the original CI failures plus US14: the original all-blocks/table/PG1/US12/issue-4346 failures all turned green, and US14 remained **5/5 PASS**. The remaining two IME failures were the helper-contract issue above.
+- Corrected Typora IME focused run: **2/2 PASS**.
+- Final targeted run (US14 + all-blocks + full Typora): **23/24 PASS**; the sole failure was the pre-existing/order-sensitive `pairs Markdown marker *` caret-placement test, which was green in the first GitHub full E2E and passed immediately when re-run alone (**1/1**). No product change was made for that unrelated fluctuation.
+- Final Muya ESLint, Desktop touched-file ESLint, Muya `tsc --noEmit`, Muya public-boundary guard, recovery/history boundary guard, Electron build, and `git diff --check`: **PASS**.
 
 Typecheck note:
 
@@ -121,12 +152,13 @@ AC-61 note:
 
 1. **Negative async UI assertions need a dwell window.** A `count === 0` check immediately after a Main -> Renderer IPC request can falsely pass before the IPC arrives. For deferred-transition tests, first prove the request had time to reach the renderer, then assert that the forbidden transition still has not happened.
 2. **Mode intent belongs to the document, not the global preference bit.** IME deferral must carry `{documentId, target}` and must be invalidated on tab/window ownership loss; otherwise a late composition end can mutate the wrong document.
-3. **Source safety belongs to Muya.** Desktop may ask whether a snapshot is representable, but Markdown structural detection and parse/serialize stability must stay in the editor engine boundary.
-4. **Round-trip byte equality alone is insufficient for editing intermediate states.** Muya can preserve an unfinished fence byte-for-byte while still interpreting it as a fenced block. Structural incompleteness must be rejected before the round-trip comparison.
-5. **Do not treat wrapper/bootstrap failures as product red.** The valid Red was captured only after current-worktree build + Electron launch + entry into the intended assertions.
+3. **Source transition safety belongs to Muya.** Desktop may ask whether a snapshot is safe to represent, but the answer must consume Muya's parser-owned semantic state rather than reimplement Markdown structure checks.
+4. **Representability is not byte identity.** Serializer normalization of a valid table/list is not evidence that WYSIWYG is unsafe. Exact Source bytes remain a separate desktop document-handoff/persistence contract.
+5. **Read-only test observation must stay read-only.** A helper that enters Source to inspect Markdown is invalid inside an IME-composition test whose contract explicitly forbids mode switching until composition ends. Use the authoritative store snapshot for observation instead.
+6. **Do not treat wrapper/bootstrap failures as product red.** The valid Red was captured only after current-worktree build + Electron launch + entry into the intended assertions.
 
 ## Closeout state
 
-Implementation, focused product Red -> Green, static lint, Muya type/unit gates, architecture guards, diff review, and stage/lesson recording are complete.
+Implementation, CI-root-cause remediation, focused Red -> Green, static lint, Muya type/unit gates, architecture guards, diff review, and stage/lesson recording are complete locally.
 
-Remaining repository workflow: commit the exact US14 change set, push the task branch, create/update the PR, and follow CI. Per repository policy this task must not auto-merge unless explicitly authorized.
+PR **#208** is open against `develop`. Remaining repository workflow: commit and push the CI remediation delta, then require the new PR head to pass CI. Per repository policy this task must not auto-merge unless explicitly authorized.
