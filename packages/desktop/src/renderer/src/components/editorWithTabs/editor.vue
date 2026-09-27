@@ -313,6 +313,15 @@ const {
 // Editor store refs
 const { currentFile, tabs, listToc } = storeToRefs(editorStore)
 const typewriterFollow = createTypewriterFollowController(typewriter.value)
+let cancelActiveTypewriterScroll: (() => void) | null = null
+const stopTypewriterScrollAnimation = (): void => {
+  cancelActiveTypewriterScroll?.()
+  cancelActiveTypewriterScroll = null
+}
+const suspendTypewriterFollow = (): void => {
+  stopTypewriterScrollAnimation()
+  typewriterFollow.suspend()
+}
 
 // Project store refs
 const { projectTree } = storeToRefs(projectStore)
@@ -971,6 +980,7 @@ watch(
 )
 
 watch(typewriter, (value) => {
+  stopTypewriterScrollAnimation()
   typewriterFollow.setEnabled(value)
   debouncedSendBufferedState()
   if (value) {
@@ -1740,6 +1750,7 @@ const getCursorY = (): number | null => {
 const scrollCaretToTypewriterReference = (caretViewportY: number, duration: number): void => {
   const container = getScrollContainer()
   if (!container) return
+  stopTypewriterScrollAnimation()
 
   const target = getTypewriterTargetScrollTop({
     scrollTop: container.scrollTop,
@@ -1750,7 +1761,9 @@ const scrollCaretToTypewriterReference = (caretViewportY: number, duration: numb
   if (Math.abs(container.scrollTop - target) <= 2) return
 
   editor.value?.editor?.scrollPage?.prepareForNavigation?.()
-  animatedScrollTo(container, target, duration)
+  cancelActiveTypewriterScroll = animatedScrollTo(container, target, duration, () => {
+    cancelActiveTypewriterScroll = null
+  })
 }
 
 const scrollTypewriterToCursor = (duration = 300): void => {
@@ -1775,7 +1788,7 @@ const scrollToCursor = (duration = 300) => {
 const scrollToCords = (y: number) => {
   const container = getScrollContainer()
   if (!container) return
-  typewriterFollow.suspend()
+  suspendTypewriterFollow()
 
   // Cancel any restore state from the previous document before reusing the
   // editor root for this document.
@@ -1840,7 +1853,7 @@ const scrollElementIntoView = (anchor: Element | null | undefined, duration = 30
 }
 
 const scrollToHighlight = () => {
-  typewriterFollow.suspend()
+  suspendTypewriterFollow()
   return scrollToElement('.mu-highlight')
 }
 
@@ -1851,7 +1864,7 @@ const scrollToHighlight = () => {
  * @param slug The TOC entry's slug from the `scroll-to-header` bus event.
  */
 const scrollToHeader = (slug: unknown) => {
-  typewriterFollow.suspend()
+  suspendTypewriterFollow()
   const container = getScrollContainer()
   if (!container) return
   const tocItem = editorStore.listToc.find((item) => item.slug === slug)
@@ -1867,7 +1880,7 @@ const scrollToHeader = (slug: unknown) => {
 // Scrolls to a non-heading in-document anchor target (e.g. a custom
 // `<a id="...">`) resolved by `FORMAT_LINK_CLICK` via `getElementById`.
 const scrollToAnchorElement = (element: unknown) => {
-  typewriterFollow.suspend()
+  suspendTypewriterFollow()
   if (element instanceof Element) scrollElementIntoView(element)
 }
 
@@ -2178,7 +2191,7 @@ const editorInteractionEvents = ['pointerdown', 'mousedown', 'touchstart', 'keyd
 const markExplicitEditorInteraction = (event: Event): void => {
   if (!event.isTrusted) return
   editorInteractionRevision += 1
-  typewriterFollow.suspend()
+  suspendTypewriterFollow()
 }
 
 const runWhenEditorRenderComplete = (
@@ -3240,6 +3253,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  stopTypewriterScrollAnimation()
   const container = getScrollContainer()
   if (container) {
     for (const eventName of editorInteractionEvents) {

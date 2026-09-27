@@ -493,14 +493,11 @@ test.describe('@virtualization-core async geometry invalidation closure', () => 
     const afterGrowth = await caretBlockOffset(page)
     expect(afterGrowth).not.toBeNull()
     if (!afterGrowth) throw new Error('US15 caret offset unavailable after growth')
-    const distanceAfterGrowth = Math.abs(
-      afterGrowth.relativeTop - afterGrowth.containerHeight * 0.4
-    )
-    expect(distanceAfterGrowth).toBeGreaterThan(20)
 
-    // Geometry can legitimately move content because the block above became
-    // taller. What Typewriter must not do is start a second scroll loop that
-    // converges the caret back onto its reference line.
+    // Geometry can legitimately move content — even onto the Typewriter
+    // reference line by coincidence — because the block above became taller.
+    // What Typewriter must not do is start a second scroll loop after that
+    // geometry settlement.
     await page.waitForTimeout(250)
     const settledAfterGrowth = await caretBlockOffset(page)
     expect(settledAfterGrowth).not.toBeNull()
@@ -508,9 +505,6 @@ test.describe('@virtualization-core async geometry invalidation closure', () => 
     expect(
       Math.abs(settledAfterGrowth.relativeTop - afterGrowth.relativeTop)
     ).toBeLessThanOrEqual(8)
-    expect(
-      Math.abs(settledAfterGrowth.relativeTop - settledAfterGrowth.containerHeight * 0.4)
-    ).toBeGreaterThan(20)
 
     // Move the insertion point only after geometry has settled. The click is
     // still navigation, not text input, so Typewriter must remain suspended.

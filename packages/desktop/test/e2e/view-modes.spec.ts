@@ -309,40 +309,136 @@ test.describe('View modes — typewriter scrolling (item 173)', () => {
   test('US15 AC-62: manual body click suspends typewriter follow until the next text input', async() => {
     await clickMenuById(app, 'typewriterModeMenuItem')
     await expect(page.locator('.editor-wrapper')).toHaveClass(/(^|\s)typewriter(\s|$)/)
+    await expect
+      .poll(
+        async() => {
+          const offset = await caretBlockOffset()
+          if (!offset) return false
+          const reference = offset.containerHeight * 0.4
+          return Math.abs(offset.relativeTop - reference) <= 60
+        },
+        { timeout: 4000 }
+      )
+      .toBe(true)
+    await expect
+      .poll(
+        async() => {
+          const before = await page.evaluate(() => {
+            const container = document.querySelector('.editor-component') as HTMLElement | null
+            return container?.scrollTop ?? null
+          })
+          if (before == null) return false
+          await page.waitForTimeout(80)
+          const after = await page.evaluate(() => {
+            const container = document.querySelector('.editor-component') as HTMLElement | null
+            return container?.scrollTop ?? null
+          })
+          return after != null && Math.abs(after - before) <= 1
+        },
+        { timeout: 4000 }
+      )
+      .toBe(true)
 
-    const selector =
-      '.mu-container > p.mu-paragraph:nth-of-type(40) .mu-paragraph-content'
-
-    // Put the target paragraph well above the typewriter reference line without
-    // using the editor selection. The subsequent real click is the newer user
-    // navigation intent that must suspend follow.
-    const clickTarget = await page.evaluate((sel) => {
+    // Move the viewport without touching the editor selection. Virtualized
+    // blocks may remount while this settles, so choose the click target only
+    // from the DOM that is actually visible after the scroll.
+    await page.evaluate(() => {
       const container = document.querySelector('.editor-component') as HTMLElement | null
-      const span = document.querySelector(sel) as HTMLElement | null
-      const target = span?.closest('p.mu-paragraph') as HTMLElement | null
-      if (!container || !span || !target) throw new Error('US15 target paragraph unavailable')
-      const containerRect = container.getBoundingClientRect()
-      const targetRect = target.getBoundingClientRect()
-      container.scrollTop += targetRect.top - containerRect.top - 160
+      if (!container) throw new Error('US15 scroll container unavailable')
+      container.scrollTop = Math.min(
+        container.scrollHeight - container.clientHeight,
+        container.scrollTop + container.clientHeight * 0.8
+      )
+      container.dispatchEvent(new Event('scroll'))
+    })
 
-      const settledContainer = container.getBoundingClientRect()
-      const settledTarget = target.getBoundingClientRect()
-      const spanRect = span.getBoundingClientRect()
-      return {
-        relativeTop: settledTarget.top - settledContainer.top,
-        containerHeight: settledContainer.height,
-        x: spanRect.left + Math.min(12, spanRect.width / 2),
-        y: spanRect.top + spanRect.height / 2
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const container = document.querySelector('.editor-component') as HTMLElement | null
+            if (!container) return false
+            const containerRect = container.getBoundingClientRect()
+            return Array.from(document.querySelectorAll<HTMLElement>('p.mu-paragraph')).some(
+              (target) => {
+                const content = target.querySelector<HTMLElement>('.mu-paragraph-content')
+                if (!content) return false
+                const targetRect = target.getBoundingClientRect()
+                const relativeTop = targetRect.top - containerRect.top
+                const reference = containerRect.height * 0.4
+                return (
+                  relativeTop > 80 &&
+                  relativeTop < containerRect.height - 120 &&
+                  Math.abs(relativeTop - reference) > 160
+                )
+              }
+            )
+          }),
+        { timeout: 4000 }
+      )
+      .toBe(true)
+
+    const clickTarget = await page.evaluate(() => {
+      const container = document.querySelector('.editor-component') as HTMLElement | null
+      if (!container) throw new Error('US15 target paragraph unavailable')
+      const containerRect = container.getBoundingClientRect()
+      const candidates = Array.from(document.querySelectorAll<HTMLElement>('p.mu-paragraph'))
+        .map((target) => ({
+          target,
+          content: target.querySelector<HTMLElement>('.mu-paragraph-content'),
+          rect: target.getBoundingClientRect()
+        }))
+        .filter(({ content, rect }) => {
+          const relativeTop = rect.top - containerRect.top
+          const reference = containerRect.height * 0.4
+          return (
+            !!content &&
+            relativeTop > 80 &&
+            relativeTop < containerRect.height - 120 &&
+            Math.abs(relativeTop - reference) > 160
+          )
+        })
+        .sort(
+          (a, b) =>
+            Math.abs(b.rect.top - containerRect.top - containerRect.height * 0.4) -
+            Math.abs(a.rect.top - containerRect.top - containerRect.height * 0.4)
+        )
+      const candidate = candidates[0]
+      if (!candidate?.content) throw new Error('US15 visible target paragraph unavailable')
+      const contentRect = candidate.content.getBoundingClientRect()
+      const x = contentRect.left + Math.min(12, Math.max(4, contentRect.width / 3))
+      const y = contentRect.top + contentRect.height / 2
+      const hit = document.elementFromPoint(x, y)
+      if (!hit || !candidate.target.contains(hit)) {
+        throw new Error('US15 target coordinates failed hit testing')
       }
-    }, selector)
+      return {
+        relativeTop: candidate.rect.top - containerRect.top,
+        containerHeight: containerRect.height,
+        x,
+        y,
+        text: candidate.target.textContent ?? ''
+      }
+    })
 
     expect(clickTarget.containerHeight).toBeGreaterThan(300)
-    expect(clickTarget.relativeTop).toBeGreaterThan(100)
-    expect(clickTarget.relativeTop).toBeLessThan(240)
+    const clickReference = clickTarget.containerHeight * 0.4
+    expect(Math.abs(clickTarget.relativeTop - clickReference)).toBeGreaterThan(160)
 
     // Use the real mouse at the already-visible target. Locator.click() can
     // auto-scroll and would obscure which layer owns the resulting viewport.
     await page.mouse.click(clickTarget.x, clickTarget.y)
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const selection = window.getSelection()
+          const node = selection?.focusNode ?? null
+          if (!node) return ''
+          const element = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement
+          return element?.closest('p.mu-paragraph')?.textContent ?? ''
+        })
+      )
+      .toBe(clickTarget.text)
 
     // This is intentionally a bounded negative-condition window: the legacy
     // implementation animates every selection-change back toward STANDAR_Y in
@@ -352,8 +448,9 @@ test.describe('View modes — typewriter scrolling (item 173)', () => {
     const afterClick = await caretBlockOffset()
     expect(afterClick).not.toBeNull()
     if (!afterClick) throw new Error('US15 caret offset unavailable after manual click')
-    expect(afterClick.relativeTop).toBeGreaterThan(100)
-    expect(afterClick.relativeTop).toBeLessThan(240)
+    expect(
+      Math.abs(afterClick.relativeTop - afterClick.containerHeight * 0.4)
+    ).toBeGreaterThan(80)
 
     // The next actual text input resumes Typewriter follow from the new caret.
     await page.keyboard.type('x')
