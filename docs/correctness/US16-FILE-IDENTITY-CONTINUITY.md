@@ -148,3 +148,17 @@ A local exact Playwright rerun was attempted but could not enter the test body b
 5. **Inbound links are dependencies, not owned content.** Known incoming references from other documents justify a warning and manual review, not silent background mutation of those documents.
 6. **Watcher events do not prove identity.** An external removal followed by a same-name file elsewhere cannot be interpreted as a move without stronger evidence.
 7. **Path containment is component-aware.** String predicates such as `startsWith('..')` are not valid traversal checks because legal child names can begin with two dots.
+
+## Stage 6 — merged closure
+
+Fresh CI on PR head `6e05ea63` completed with all required workflows Green:
+
+- Lint: success;
+- Test: success;
+- Performance Fast Gate: success;
+- PR Build: success, including Windows x64, macOS arm64, macOS x64 and package smoke jobs;
+- E2E Test: success after the fixture stabilization above.
+
+PR #212 was squash-merged into `develop` as `055f21e7857667435387dbd98fc8235b599fbd38`.
+
+US16 is therefore closed with no weakened gates, no skipped correctness coverage, and no unresolved rename/move blocker.
