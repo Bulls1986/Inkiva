@@ -29,6 +29,11 @@ describe('markdown WYSIWYG transition safety', () => {
         expect(isMarkdownWysiwygTransitionSafe(markdown)).toBe(true);
     });
 
+    it('rejects an unfinished diagram fence without losing parser metadata', () => {
+        const markdown = '# Draft\n\n```mermaid\ngraph TD\n  A --> B\n';
+        expect(isMarkdownWysiwygTransitionSafe(markdown)).toBe(false);
+    });
+
     it('rejects an unfinished fenced block flagged by Muya parser metadata', () => {
         const markdown = '# Draft\n\n\`\`\`ts\nconst value = 1\n';
         expect(isMarkdownWysiwygTransitionSafe(markdown, {

@@ -153,6 +153,8 @@ export interface IFrontmatterState {
 export interface IDiagramMeta {
     lang: string; // 'yaml' | 'json';
     type: 'mermaid' | 'plantuml' | 'vega-lite' | 'flowchart' | 'sequence';
+    // False only when the source fenced diagram has no closing fence yet.
+    fenceClosed?: boolean;
 }
 
 export interface IDiagramState {

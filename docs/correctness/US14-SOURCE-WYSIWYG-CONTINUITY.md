@@ -138,6 +138,35 @@ Post-remediation local evidence:
 - Final targeted run (US14 + all-blocks + full Typora): **23/24 PASS**; the sole failure was the pre-existing/order-sensitive `pairs Markdown marker *` caret-placement test, which was green in the first GitHub full E2E and passed immediately when re-run alone (**1/1**). No product change was made for that unrelated fluctuation.
 - Final Muya ESLint, Desktop touched-file ESLint, Muya `tsc --noEmit`, Muya public-boundary guard, recovery/history boundary guard, Electron build, and `git diff --check`: **PASS**.
 
+## PR #208 second-CI remediation
+
+The second PR head (`7ad13ba7`) again completed **10/11 workflows successfully**. All first-CI failures disappeared. Desktop E2E improved from **379 passed / 15 skipped / 11 failed** to **389 passed / 15 skipped / 1 failed**.
+
+The sole remaining failure was the CORRECTNESS-02 case `P0 unsafe Markdown remains in Source and saves byte-for-byte`. Its fixture begins with an unfinished ```mermaid` fence.
+
+Root cause:
+
+- `MarkdownToState` already calculated `fenceClosed === false` from the original code token;
+- ordinary fenced code preserved that metadata in `code-block.meta`;
+- the diagram conversion branch converted the same token into a `diagram` state but dropped `fenceClosed`;
+- transition safety therefore saw a valid diagram state rather than the parser-known unfinished fenced construct.
+
+The fix remains inside Muya's existing semantic boundary:
+
+- `IDiagramMeta` now carries optional `fenceClosed`;
+- `MarkdownToState` preserves `fenceClosed: false` when a fenced code token becomes a diagram state;
+- `isMarkdownWysiwygTransitionSafe` rejects parser-described unfinished diagram fences alongside ordinary unfinished fenced code.
+
+Validation:
+
+- added a dedicated unfinished-mermaid transition-safety test and captured valid Red: **5 passed / 1 failed** before production modification;
+- after preserving parser metadata, the transition-safety suite is **6/6 PASS**;
+- Muya touched-file ESLint: **PASS**;
+- Muya `tsc --noEmit`: **PASS**;
+- Electron build: **PASS** (40.71 s);
+- focused CORRECTNESS-02 unsafe-source + US14 unfinished-fence E2E: **2/2 PASS**;
+- Muya public-boundary and recovery/history guards: **1/1 PASS** each.
+
 Typecheck note:
 
 - `packages/desktop` `vue-tsc` in this fresh worktree reports existing Muya ambient/type-topology errors (`__MUYA_BLOCK__`, `MUYA_VERSION`, file-icons, sequence/prism declarations). The same command is green in the pre-warmed US13 worktree, while the current-worktree application build and Muya's own typecheck are green. This is classified as local dependency/topology evidence, not a US14 code regression; CI remains authoritative for the full desktop type gate.
@@ -155,10 +184,11 @@ AC-61 note:
 3. **Source transition safety belongs to Muya.** Desktop may ask whether a snapshot is safe to represent, but the answer must consume Muya's parser-owned semantic state rather than reimplement Markdown structure checks.
 4. **Representability is not byte identity.** Serializer normalization of a valid table/list is not evidence that WYSIWYG is unsafe. Exact Source bytes remain a separate desktop document-handoff/persistence contract.
 5. **Read-only test observation must stay read-only.** A helper that enters Source to inspect Markdown is invalid inside an IME-composition test whose contract explicitly forbids mode switching until composition ends. Use the authoritative store snapshot for observation instead.
-6. **Do not treat wrapper/bootstrap failures as product red.** The valid Red was captured only after current-worktree build + Electron launch + entry into the intended assertions.
+6. **Semantic metadata must survive state specialization.** If a parser token becomes a richer state such as `diagram`, correctness metadata such as fence completeness must not disappear during conversion.
+7. **Do not treat wrapper/bootstrap failures as product red.** The valid Red was captured only after current-worktree build + Electron launch + entry into the intended assertions.
 
 ## Closeout state
 
-Implementation, CI-root-cause remediation, focused Red -> Green, static lint, Muya type/unit gates, architecture guards, diff review, and stage/lesson recording are complete locally.
+Implementation, both CI-root-cause remediations, focused Red -> Green, static lint, Muya type/unit gates, architecture guards, diff review, and stage/lesson recording are complete locally.
 
-PR **#208** is open against `develop`. Remaining repository workflow: commit and push the CI remediation delta, then require the new PR head to pass CI. Per repository policy this task must not auto-merge unless explicitly authorized.
+PR **#208** is open against `develop`. Remaining repository workflow: commit and push the diagram-metadata remediation, then require the new PR head to pass CI. Per repository policy this task must not auto-merge unless explicitly authorized.

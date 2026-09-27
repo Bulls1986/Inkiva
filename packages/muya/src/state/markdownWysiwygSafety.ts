@@ -1,7 +1,7 @@
 import type { TContainerState, TState } from './types';
 import { MUYA_DEFAULT_OPTIONS } from '../config';
 import { MarkdownToState } from './markdownToState';
-import { isCodeBlockState } from './types';
+import { isCodeBlockState, isDiagramState } from './types';
 
 export interface IMarkdownWysiwygSafetyOptions {
     footnote: boolean;
@@ -24,6 +24,9 @@ function hasUnsafeIntermediateState(states: TState[]): boolean {
         ) {
             return true;
         }
+
+        if (isDiagramState(state) && state.meta.fenceClosed === false)
+            return true;
 
         if (isContainerState(state) && hasUnsafeIntermediateState(state.children))
             return true;
