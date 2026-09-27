@@ -349,6 +349,10 @@ export const usePreferencesStore = defineStore('preferences', {
         bus.emit('show-command-palette')
       })
       window.electron.ipcRenderer.on('mt::toggle-view-mode-entry', (_event, entryName) => {
+        if (entryName === 'sourceCode') {
+          bus.emit('view:request-source-code-toggle')
+          return
+        }
         this.TOGGLE_VIEW_MODE(entryName)
         const target = this as unknown as Record<string, unknown>
         this.DISPATCH_EDITOR_VIEW_STATE({ [entryName]: target[entryName] })
@@ -359,6 +363,10 @@ export const usePreferencesStore = defineStore('preferences', {
     LISTEN_TOGGLE_VIEW(): void {
       bus.on('view:toggle-view-entry', (entryName) => {
         const name = entryName as string
+        if (name === 'sourceCode') {
+          bus.emit('view:request-source-code-toggle')
+          return
+        }
         this.TOGGLE_VIEW_MODE(name)
         const target = this as unknown as Record<string, unknown>
         this.DISPATCH_EDITOR_VIEW_STATE({ [name]: target[name] })

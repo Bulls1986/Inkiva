@@ -5,6 +5,8 @@ export { de, en, es, fr, ja, ko, pt, tr, zhCN, zhTW } from './locales';
 export { Muya } from './muya';
 export type { ITocItem } from './state/getTOC';
 export { MarkdownToHtml } from './state/markdownToHtml';
+export { isMarkdownWysiwygRoundTripSafe } from './state/markdownWysiwygSafety';
+export type { IMarkdownWysiwygSafetyOptions } from './state/markdownWysiwygSafety';
 export { renderToStaticHTML } from './state/renderToStaticHTML';
 export type { IRenderToStaticHTMLOptions } from './state/renderToStaticHTML';
 export type { TState } from './state/types';
