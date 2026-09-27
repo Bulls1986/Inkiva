@@ -570,7 +570,13 @@ ol.mu-order-list ol.mu-order-list ul.mu-bullet-list {
 }
 
 .mu-focus-mode .mu-container > .mu-active,
-.mu-focus-mode .mu-container > .mu-virtual-segment > .mu-active {
+.mu-focus-mode .mu-container > .mu-focus-selection,
+.mu-focus-mode .mu-container > :has(.mu-highlight),
+.mu-focus-mode .mu-container > :has(.mu-selection),
+.mu-focus-mode .mu-container > .mu-virtual-segment > .mu-active,
+.mu-focus-mode .mu-container > .mu-virtual-segment > .mu-focus-selection,
+.mu-focus-mode .mu-container > .mu-virtual-segment > :has(.mu-highlight),
+.mu-focus-mode .mu-container > .mu-virtual-segment > :has(.mu-selection) {
     opacity: 1;
 }
 

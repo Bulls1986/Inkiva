@@ -41,7 +41,7 @@ These are the durable architecture constraints after governance closure:
 5. Logical block geometry has one authoritative propagation chain; diagram/image/table reflow must flow through top-level block geometry.
 6. Renderer-to-main communication goes through preload domain APIs and typed IPC contracts; do not add raw channel-string escape paths.
 7. Critical renderer events use explicit typed contracts; generic event-bus use is limited to low-risk UI signaling.
-8. Background work must be prioritized, cancellable where appropriate, observable, and kept off editor hot paths.
+8. Background/automated work must be prioritized, cancellable where appropriate, observable, and kept off editor hot paths. When newer user intent supersedes in-flight UI automation, cancellation must stop the already-running writer as well as prevent future scheduling; a stale animation/task must not regain ownership and overwrite the newer state.
 9. Durability work such as autosave keeps independent per-document ordering, single-flight, and revision acknowledgement semantics.
 10. Legacy guards/workarounds may be removed only with evidence and regression coverage, and must never bypass established architecture boundaries.
 11. User documents remain standard Markdown; Inkiva-specific indexes/projections must not redefine document ownership.

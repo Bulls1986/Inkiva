@@ -11,6 +11,8 @@ interface LayoutPartial {
   sideBarWidth?: number | string
   splitEditor?: boolean
   splitTabId?: string | null
+  focus?: boolean
+  typewriter?: boolean
 }
 
 export const DEFAULT_RIGHT_COLUMN = 'toc'
@@ -39,6 +41,8 @@ interface BufferedLayout {
   sideBarWidth: number
   splitEditor: boolean
   splitTabId: string | null
+  focus: boolean
+  typewriter: boolean
 }
 
 const createBufferedLayoutState = (state: unknown): BufferedLayout | null => {
@@ -51,7 +55,9 @@ const createBufferedLayoutState = (state: unknown): BufferedLayout | null => {
     showTabBar: !!s.showTabBar,
     sideBarWidth: normalizeSideBarWidth(s.sideBarWidth),
     splitEditor: !!s.splitEditor,
-    splitTabId: typeof s.splitTabId === 'string' ? s.splitTabId : null
+    splitTabId: typeof s.splitTabId === 'string' ? s.splitTabId : null,
+    focus: !!s.focus,
+    typewriter: !!s.typewriter
   }
 }
 
@@ -105,19 +111,23 @@ export const useLayoutStore = defineStore('layout', () => {
   }
 
   function CREATE_BUFFERED_STATE(): BufferedLayout | null {
+    const preferencesStore = usePreferencesStore()
     return createBufferedLayoutState({
       rightColumn: rightColumn.value,
       showSideBar: showSideBar.value,
       showTabBar: showTabBar.value,
       sideBarWidth: sideBarWidth.value,
       splitEditor: splitEditor.value,
-      splitTabId: splitTabId.value
+      splitTabId: splitTabId.value,
+      focus: preferencesStore.focus,
+      typewriter: preferencesStore.typewriter
     })
   }
 
   function RESTORE_BUFFERED_STATE(state: unknown): void {
     const layout = createBufferedLayoutState(state)
     if (!layout) return
+    const preferencesStore = usePreferencesStore()
 
     SET_SIDE_BAR_WIDTH(layout.sideBarWidth, { scheduleBufferUpdate: false })
     SET_LAYOUT(
@@ -130,7 +140,13 @@ export const useLayoutStore = defineStore('layout', () => {
       },
       { scheduleBufferUpdate: false }
     )
+    preferencesStore.SET_MODE({ type: 'focus', checked: layout.focus })
+    preferencesStore.SET_MODE({ type: 'typewriter', checked: layout.typewriter })
     DISPATCH_LAYOUT_MENU_ITEMS()
+    preferencesStore.DISPATCH_EDITOR_VIEW_STATE({
+      focus: layout.focus,
+      typewriter: layout.typewriter
+    })
   }
 
   function TOGGLE_LAYOUT_ENTRY(entryName: 'showSideBar' | 'showTabBar' | 'splitEditor'): void {

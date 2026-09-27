@@ -13,6 +13,8 @@ export interface BufferedProjectState {
 }
 
 export interface BufferedLayoutState {
+  focus?: boolean
+  typewriter?: boolean
   [key: string]: unknown
 }
 
