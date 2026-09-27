@@ -55,5 +55,8 @@ export const registerDocumentIntelligenceHandlers = (): void => {
   ipcMain.handle(DOCUMENT_INTELLIGENCE_CHANNELS.restoreSnapshot, (_event, request) =>
     getHandlers().restoreSnapshot(request)
   )
+  ipcMain.handle(DOCUMENT_INTELLIGENCE_CHANNELS.moveHistoryPath, (_event, request) =>
+    getHandlers().moveHistoryPath(request)
+  )
   ipcMain.handle(DOCUMENT_INTELLIGENCE_CHANNELS.pruneHistory, () => getHandlers().pruneHistory())
 }

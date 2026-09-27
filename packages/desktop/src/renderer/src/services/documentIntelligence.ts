@@ -8,6 +8,7 @@ import type {
   LocalHistoryEntry,
   LocalHistoryRestoreRequest,
   LocalHistorySnapshot,
+  MoveHistoryPathRequest,
   MarkdownBacklink
 } from '@shared/types/documentIntelligence'
 
@@ -46,6 +47,7 @@ export interface DocumentIntelligenceApi {
   listSnapshots(filePath: string): Promise<LocalHistoryEntry[]>
   getSnapshot(filePath: string, id: string): Promise<LocalHistorySnapshot | null>
   restoreSnapshot(request: LocalHistoryRestoreRequest): Promise<LocalHistorySnapshot>
+  moveHistoryPath(request: MoveHistoryPathRequest): Promise<number>
 }
 
 interface SnapshotCandidate {

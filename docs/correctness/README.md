@@ -11,6 +11,7 @@ Use this index for correctness/readiness contracts and product-functional gates.
 - [US12 — Table Editing Fidelity](US12-TABLE-EDITING-FIDELITY.md) — GFM-safe cell editing, atomic row/column operations, TSV paste/confirmation, and table round-trip fidelity.
 - [US13 — Operation-based Undo Grouping](US13-OPERATION-UNDO-GROUPING.md) — 750 ms adjacent-input grouping, standalone editing actions, tab isolation, and derived-work exclusion.
 - [US15 — Focus / Typewriter Writing View Stability](US15-FOCUS-TYPEWRITER-STABILITY.md) — Input-intent Typewriter follow, Focus selection/search legibility, window-level mode restore, and async-geometry scroll ownership.
+- [US16 — File Identity & Operation Continuity](US16-FILE-IDENTITY-CONTINUITY.md) — Rename/move identity continuity, dirty-tab preservation, relative-reference repair, Recent/Local History migration, and truthful failure handling.
 - [Settings functional gate](SETTINGS-FUNCTIONAL-GATE.md) — Settings UI → store → live effect → reopen/restart persistence contract.
 - [US06 — Settings Effect Closure](US06-SETTINGS-EFFECT-CLOSURE.md) — acknowledged preference writes, effect timing, retry/rollback, delayed-effect feedback, autosave bounds and Settings search targeting.
 - [v0.5 US01-US10 compliance closure](V0.5-US01-10-COMPLIANCE-CLOSURE.md) — Latest-`develop` re-audit, architecture debt closure, combined-state validation, and final acceptance record.

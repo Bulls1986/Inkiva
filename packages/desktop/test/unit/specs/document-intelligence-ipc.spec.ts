@@ -38,6 +38,7 @@ const createService = (): DocumentIntelligenceHandlerService => ({
     size: 0,
     content: ''
   })),
+  moveHistoryPath: vi.fn(async() => 1),
   pruneHistory: vi.fn(async() => ({ deleted: 0, reclaimedBytes: 0 }))
 })
 
@@ -49,8 +50,9 @@ describe('document intelligence IPC handlers', () => {
     handlers.indexDocument('/docs/note.md', '# Note')
     handlers.getLinkCandidates('/docs/note.md', ['/docs/other.md'])
     handlers.prepareRenameRepair({
-      fromPath: '/docs/old.md',
-      toPath: '/docs/new.md',
+      fromPath: '/docs',
+      toPath: '/archive/docs',
+      pathKind: 'directory',
       documents: []
     })
     await handlers.applyRenameRepair({ plan: emptyPlan, decision: 'keep' })
@@ -60,10 +62,20 @@ describe('document intelligence IPC handlers', () => {
       reason: 'before-save',
       lineEnding: 'lf'
     })
+    await handlers.moveHistoryPath({
+      fromPath: '/docs',
+      toPath: '/archive/docs',
+      pathKind: 'directory'
+    })
 
     expect(service.indexDocument).toHaveBeenCalledWith('/docs/note.md', '# Note')
     expect(service.getLinkCandidates).toHaveBeenCalledWith('/docs/note.md', ['/docs/other.md'])
-    expect(service.prepareRenameRepair).toHaveBeenCalled()
+    expect(service.prepareRenameRepair).toHaveBeenCalledWith({
+      fromPath: '/docs',
+      toPath: '/archive/docs',
+      pathKind: 'directory',
+      documents: []
+    })
     expect(service.applyRenameRepair).toHaveBeenCalledWith({ plan: emptyPlan, decision: 'keep' })
     expect(service.createSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -71,12 +83,32 @@ describe('document intelligence IPC handlers', () => {
         lineEnding: 'lf'
       })
     )
+    expect(service.moveHistoryPath).toHaveBeenCalledWith({
+      fromPath: '/docs',
+      toPath: '/archive/docs',
+      pathKind: 'directory'
+    })
 
     expect(() => handlers.indexDocument('', '# Note')).toThrow(TypeError)
     expect(() => handlers.getLinkCandidates('/docs/note.md', ['/docs/note.txt'])).not.toThrow()
     expect(() => handlers.applyRenameRepair({ plan: emptyPlan, decision: 'rewrite' })).toThrow(
       'decision must be update, keep, or cancel'
     )
+    expect(() =>
+      handlers.prepareRenameRepair({
+        fromPath: '/docs',
+        toPath: '/archive/docs',
+        pathKind: 'workspace',
+        documents: []
+      })
+    ).toThrow('pathKind must be file or directory')
+    expect(() =>
+      handlers.moveHistoryPath({
+        fromPath: '/docs',
+        toPath: '/archive/docs',
+        pathKind: 'workspace'
+      })
+    ).toThrow('pathKind must be file or directory')
     expect(() =>
       handlers.createSnapshot({ filePath: '/docs/note.md', content: '# Note', reason: 'ai' })
     ).toThrow('reason is not supported')

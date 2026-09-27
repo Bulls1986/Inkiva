@@ -15,6 +15,7 @@ import { ProjectTreeEventBatcher } from '../util/projectTreeEventBatch'
 import { isInlineFileData } from '../util/projectTreeEvents'
 import type { TreeNode } from '../components/sideBar/types'
 import type { FileChangeDetail } from '@shared/types/files'
+import type { RenameRepairPathKind } from '@shared/types/documentIntelligence'
 
 type ProjectTree = TreeNode
 type TreeChange = FileChangeDetail
@@ -67,6 +68,7 @@ interface CreateCacheEntry {
 interface ClipboardEntry {
   type: 'copy' | 'cut' | string
   src: string
+  pathKind?: RenameRepairPathKind
   dest?: string
 }
 
@@ -84,6 +86,7 @@ export const useProjectStore = defineStore('project', () => {
   const createCache = ref<CreateCacheEntry | Record<string, never>>({})
   const newFileNameCache = ref<string>('')
   const renameCache = ref<string | null>(null)
+  const renamePathKindCache = ref<RenameRepairPathKind>('file')
   const clipboard = ref<ClipboardEntry | null>(null)
   const projectTree = ref<ProjectTree | null>(null)
   const pendingTreeEvents = ref<PendingEvent[]>([])
@@ -260,8 +263,12 @@ export const useProjectStore = defineStore('project', () => {
       })
     })
     bus.on('SIDEBAR::copy-cut', (type: unknown) => {
-      const { pathname: src } = activeItem.value
-      clipboard.value = { type: String(type), src }
+      const { pathname: src, isDirectory } = activeItem.value
+      clipboard.value = {
+        type: String(type),
+        src,
+        pathKind: isDirectory ? 'directory' : 'file'
+      }
     })
     bus.on('SIDEBAR::paste', () => {
       const cb = clipboard.value
@@ -281,6 +288,28 @@ export const useProjectStore = defineStore('project', () => {
 
         paste(cb as PasteOptions)
           .then(() => {
+            if (cb.type === 'cut' && cb.dest) {
+              const editorStore = useEditorStore()
+              const recentStore = useRecentDocumentsStore()
+              const pathKind = cb.pathKind ?? 'file'
+              const src = cb.src
+              const dest = cb.dest
+
+              editorStore.RENAME_IF_NEEDED({ src, dest, pathKind })
+              recentStore.MOVE_PATH({ src, dest, pathKind })
+              void editorStore.REPAIR_MOVED_REFERENCES({ src, dest, pathKind })
+              void window.documentIntelligence
+                .moveHistoryPath({ fromPath: src, toPath: dest, pathKind })
+                .catch((error) => {
+                  notice.notify({
+                    title: 'File moved with history warning',
+                    type: 'warning',
+                    message:
+                      'The move succeeded, but Local History could not be reassociated. ' +
+                      `The existing history remains protected at the old path. ${error instanceof Error ? error.message : String(error)}`
+                  })
+                })
+            }
             clipboard.value = null
           })
           .catch((err) => {
@@ -293,8 +322,9 @@ export const useProjectStore = defineStore('project', () => {
       }
     })
     bus.on('SIDEBAR::rename', () => {
-      const { pathname } = activeItem.value
+      const { pathname, isDirectory } = activeItem.value
       renameCache.value = pathname
+      renamePathKindCache.value = isDirectory ? 'directory' : 'file'
       bus.emit('SIDEBAR::show-rename-input')
     })
   }
@@ -339,13 +369,39 @@ export const useProjectStore = defineStore('project', () => {
 
   function RENAME_IN_SIDEBAR(name: string): void {
     const editorStore = useEditorStore()
+    const recentStore = useRecentDocumentsStore()
     const src = renameCache.value
     if (!src) return
+    const pathKind = renamePathKindCache.value
     const dirname = window.path.dirname(src)
     const dest = dirname + PATH_SEPARATOR + name
-    rename(src, dest).then(() => {
-      editorStore.RENAME_IF_NEEDED({ src, dest })
-    })
+
+    rename(src, dest)
+      .then(() => {
+        editorStore.RENAME_IF_NEEDED({ src, dest, pathKind })
+        recentStore.MOVE_PATH({ src, dest, pathKind })
+        void editorStore.REPAIR_MOVED_REFERENCES({ src, dest, pathKind })
+        renameCache.value = null
+        void window.documentIntelligence
+          .moveHistoryPath({ fromPath: src, toPath: dest, pathKind })
+          .catch((error) => {
+            notice.notify({
+              title: 'File renamed with history warning',
+              type: 'warning',
+              message:
+                'The rename succeeded, but Local History could not be reassociated. ' +
+                `The existing history remains protected at the old path. ${error instanceof Error ? error.message : String(error)}`
+            })
+          })
+      })
+      .catch((error) => {
+        renameCache.value = null
+        notice.notify({
+          title: 'Rename failed',
+          type: 'error',
+          message: error instanceof Error ? error.message : String(error)
+        })
+      })
   }
 
   function OPEN_SETTING_WINDOW(): void {

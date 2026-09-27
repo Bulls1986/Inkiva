@@ -52,6 +52,7 @@ import type {
   LocalHistoryPruneResult,
   LocalHistoryRestoreRequest,
   LocalHistorySnapshot,
+  MoveHistoryPathRequest,
   MarkdownBacklink,
   MarkdownLinkCandidate,
   PrepareRenameRepairRequest,
@@ -156,6 +157,10 @@ export interface IpcInvokeChannels {
   'mt::document-intelligence::history-restore': {
     args: [request: LocalHistoryRestoreRequest]
     ret: LocalHistorySnapshot
+  }
+  'mt::document-intelligence::history-move-path': {
+    args: [request: MoveHistoryPathRequest]
+    ret: number
   }
   'mt::document-intelligence::history-prune': {
     args: []
@@ -409,7 +414,16 @@ export interface IpcMainEventChannels {
   'mt::screenshot-captured': [filePath: string]
   'mt::set-line-ending': [lineEnding: LineEnding]
   'mt::set-pathname': [
-    payload: { id: string; pathname: string; filename: string; revision?: number }
+    payload: {
+      id: string
+      pathname: string
+      filename: string
+      revision?: number
+      identityMove?: {
+        fromPath: string
+        pathKind: 'file' | 'directory'
+      }
+    }
   ]
   'mt::set-view-layout': [layout: unknown]
   'mt::show-command-palette': []

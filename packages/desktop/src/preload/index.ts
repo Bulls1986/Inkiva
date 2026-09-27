@@ -27,6 +27,7 @@ import {
   type ApplyRenameRepairRequest,
   type LocalHistoryCreateRequest,
   type LocalHistoryRestoreRequest,
+  type MoveHistoryPathRequest,
   type PrepareRenameRepairRequest
 } from '@shared/types/documentIntelligence'
 
@@ -387,6 +388,8 @@ const documentIntelligenceAPI = {
     invoke(DOCUMENT_INTELLIGENCE_CHANNELS.deleteSnapshot, filePath, id),
   restoreSnapshot: (request: LocalHistoryRestoreRequest) =>
     invoke(DOCUMENT_INTELLIGENCE_CHANNELS.restoreSnapshot, request),
+  moveHistoryPath: (request: MoveHistoryPathRequest) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.moveHistoryPath, request),
   pruneHistory: () => invoke(DOCUMENT_INTELLIGENCE_CHANNELS.pruneHistory)
 }
 

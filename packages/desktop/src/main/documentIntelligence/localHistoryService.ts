@@ -6,7 +6,8 @@ import type {
   LocalHistoryCreateRequest,
   LocalHistoryEntry,
   LocalHistoryPruneResult,
-  LocalHistorySnapshot
+  LocalHistorySnapshot,
+  MoveHistoryPathRequest
 } from '@shared/types/documentIntelligence'
 import { LocalHistoryStore, type LocalHistoryStoreOptions } from './localHistoryStore'
 
@@ -96,6 +97,10 @@ export class LocalHistoryService {
 
   deleteSnapshot(filePath: string, id: string): Promise<boolean> {
     return this.store.delete(filePath, id)
+  }
+
+  movePath(request: MoveHistoryPathRequest): Promise<number> {
+    return this.store.movePath(request.fromPath, request.toPath, request.pathKind ?? 'file')
   }
 
   prune(): Promise<LocalHistoryPruneResult> {

@@ -87,6 +87,58 @@ describe('LocalHistoryStore', () => {
     )
   })
 
+  it('migrates retained snapshots to the new document identity', async() => {
+    const root = createTemporaryDirectory()
+    const oldPath = path.join(root, 'notes', 'draft.md')
+    const newPath = path.join(root, 'archive', 'draft.md')
+    const store = new LocalHistoryStore({
+      rootPath: path.join(root, 'history'),
+      createId: vi.fn().mockReturnValueOnce('before-move')
+    })
+
+    await store.save({
+      filePath: oldPath,
+      content: 'dirty draft before move',
+      reason: 'before-save'
+    })
+
+    await (store as unknown as { movePath: (fromPath: string, toPath: string) => Promise<void> })
+      .movePath(oldPath, newPath)
+
+    expect(await store.list(oldPath)).toEqual([])
+    await expect(store.list(newPath)).resolves.toMatchObject([
+      {
+        id: 'before-move',
+        filePath: canonicalTestPath(newPath),
+        reason: 'before-save'
+      }
+    ])
+    await expect(store.read(newPath, 'before-move')).resolves.toMatchObject({
+      content: 'dirty draft before move',
+      filePath: canonicalTestPath(newPath)
+    })
+  })
+
+  it('migrates descendant history whose child name begins with two dots', async() => {
+    const root = createTemporaryDirectory()
+    const oldDirectory = path.join(root, 'notes')
+    const newDirectory = path.join(root, 'archive', 'notes')
+    const oldPath = path.join(oldDirectory, '..drafts', 'draft.md')
+    const newPath = path.join(newDirectory, '..drafts', 'draft.md')
+    const store = new LocalHistoryStore({
+      rootPath: path.join(root, 'history'),
+      createId: () => 'dot-child'
+    })
+
+    await store.save({ filePath: oldPath, content: 'draft' })
+    await store.movePath(oldDirectory, newDirectory, 'directory')
+
+    expect(await store.list(oldPath)).toEqual([])
+    await expect(store.list(newPath)).resolves.toMatchObject([
+      { id: 'dot-child', filePath: canonicalTestPath(newPath) }
+    ])
+  })
+
   it('applies per-file and age retention without touching the source file', async() => {
     const root = createTemporaryDirectory()
     const filePath = path.join(root, 'draft.md')

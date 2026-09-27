@@ -28,6 +28,7 @@ import type {
   LocalHistoryPruneResult,
   LocalHistoryRestoreRequest,
   LocalHistorySnapshot,
+  MoveHistoryPathRequest,
   MarkdownBacklink,
   MarkdownLinkCandidate,
   PrepareRenameRepairRequest,
@@ -230,6 +231,7 @@ declare global {
     getSnapshot(filePath: string, id: string): Promise<LocalHistorySnapshot | null>
     deleteSnapshot(filePath: string, id: string): Promise<boolean>
     restoreSnapshot(request: LocalHistoryRestoreRequest): Promise<LocalHistorySnapshot>
+    moveHistoryPath(request: MoveHistoryPathRequest): Promise<number>
     pruneHistory(): Promise<LocalHistoryPruneResult>
   }
 

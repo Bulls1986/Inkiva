@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import type { RenameRepairPathKind } from '@shared/types/documentIntelligence'
 
 export type RecentDocumentKind = 'file' | 'folder'
 
@@ -37,6 +38,31 @@ const samePath = (a: string, b: string): boolean => {
     // The renderer bridge may not exist in unit tests or during first paint.
   }
   return pathKey(a).toLowerCase() === pathKey(b).toLowerCase()
+}
+
+const remapRecentPath = (
+  pathname: string,
+  src: string,
+  dest: string,
+  pathKind: RenameRepairPathKind
+): string => {
+  if (samePath(pathname, src)) return dest
+  if (pathKind !== 'directory') return pathname
+
+  const sourceKey = pathKey(src)
+  const candidateKey = pathKey(pathname)
+  const sourceCompare = sourceKey.toLowerCase()
+  const candidateCompare = candidateKey.toLowerCase()
+  const prefix = sourceCompare.endsWith('/') ? sourceCompare : `${sourceCompare}/`
+  if (!candidateCompare.startsWith(prefix)) return pathname
+
+  const relative = candidateKey.slice(sourceKey.length).replace(/^\/+/, '')
+  if (!relative) return dest
+  try {
+    return window.path.join(dest, ...relative.split('/'))
+  } catch {
+    return `${pathKey(dest)}/${relative}`
+  }
 }
 
 const normalizeEntry = (
@@ -268,6 +294,27 @@ export const useRecentDocumentsStore = defineStore('recentDocuments', {
 
     RECORD_FOLDER(pathname: string): void {
       this.RECORD(pathname, 'folder')
+    },
+
+    MOVE_PATH({
+      src,
+      dest,
+      pathKind = 'file'
+    }: {
+      src: string
+      dest: string
+      pathKind?: RenameRepairPathKind
+    }): void {
+      const movedItems = this.items.map((entry) => ({
+        ...entry,
+        pathname: remapRecentPath(entry.pathname, src, dest, pathKind)
+      }))
+      this.items = limitRecentDocuments(mergeRecentDocuments(movedItems))
+      this.removedPaths = this.removedPaths.map((pathname) =>
+        remapRecentPath(pathname, src, dest, pathKind)
+      )
+      persistEntries(this.items)
+      persistRemovedPaths(this.removedPaths)
     },
 
     TOGGLE_PIN(pathname: string): void {

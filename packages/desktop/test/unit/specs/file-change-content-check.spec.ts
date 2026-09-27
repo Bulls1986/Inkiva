@@ -77,4 +77,31 @@ describe('useEditorStore LISTEN_FOR_FILE_CHANGE — content-identical change (#1
     expect(notifySpy).toHaveBeenCalledTimes(1)
     expect(tab.isSaved).toBe(false)
   })
+
+  it('keeps a removed tab bound to its old identity instead of guessing a same-name add elsewhere', () => {
+    const store = useEditorStore()
+    const tab = makeSavedTab(store)
+    const notifySpy = vi.spyOn(store, 'pushTabNotification').mockImplementation(() => {})
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    store.LISTEN_FOR_FILE_CHANGE()
+    const handler = captureHandler()
+
+    handler(null, { type: 'unlink', change: { pathname: '/x/a.md' } })
+    handler(null, {
+      type: 'add',
+      change: { pathname: '/y/a.md', data: { markdown: 'hello', filename: 'a.md' } }
+    })
+
+    expect(tab.pathname).toBe('/x/a.md')
+    expect(tab.isSaved).toBe(false)
+    expect(notifySpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tabId: 'tab-1',
+        exclusiveType: 'file_changed'
+      })
+    )
+    expect(errorSpy).toHaveBeenCalledWith(
+      'LISTEN_FOR_FILE_CHANGE: Cannot find tab for path "/y/a.md".'
+    )
+  })
 })

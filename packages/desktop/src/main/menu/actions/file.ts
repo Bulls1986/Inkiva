@@ -640,6 +640,11 @@ ipcMain.on('mt::rename', async(e, { id, pathname, newPathname }: RenamePayload) 
     fsRename(pathname, newPathname, (err: NodeJS.ErrnoException | null) => {
       if (err) {
         log.error(`mt::rename: Cannot rename "${pathname}" to "${newPathname}".\n${err.stack}`)
+        e.sender.send('mt::show-notification', {
+          title: 'Rename failed',
+          type: 'error',
+          message: err.message
+        })
         return
       }
 
@@ -647,7 +652,11 @@ ipcMain.on('mt::rename', async(e, { id, pathname, newPathname }: RenamePayload) 
       e.sender.send('mt::set-pathname', {
         id,
         pathname: newPathname,
-        filename: path.basename(newPathname)
+        filename: path.basename(newPathname),
+        identityMove: {
+          fromPath: pathname,
+          pathKind: 'file'
+        }
       })
     })
   }
@@ -687,6 +696,11 @@ ipcMain.on(
       fsRename(pathname, filePath, (err: NodeJS.ErrnoException | null) => {
         if (err) {
           log.error(`mt::rename: Cannot rename "${pathname}" to "${filePath}".\n${err.stack}`)
+          e.sender.send('mt::show-notification', {
+            title: 'Move failed',
+            type: 'error',
+            message: err.message
+          })
           return
         }
 
@@ -694,7 +708,11 @@ ipcMain.on(
         e.sender.send('mt::set-pathname', {
           id,
           pathname: filePath,
-          filename: path.basename(filePath)
+          filename: path.basename(filePath),
+          identityMove: {
+            fromPath: pathname,
+            pathKind: 'file'
+          }
         })
       })
     }

@@ -1,4 +1,5 @@
 export type RenameRepairDecision = 'update' | 'keep' | 'cancel'
+export type RenameRepairPathKind = 'file' | 'directory'
 
 export const DOCUMENT_INTELLIGENCE_CHANNELS = {
   indexDocument: 'mt::document-intelligence::index-document',
@@ -12,6 +13,7 @@ export const DOCUMENT_INTELLIGENCE_CHANNELS = {
   getSnapshot: 'mt::document-intelligence::history-get',
   deleteSnapshot: 'mt::document-intelligence::history-delete',
   restoreSnapshot: 'mt::document-intelligence::history-restore',
+  moveHistoryPath: 'mt::document-intelligence::history-move-path',
   pruneHistory: 'mt::document-intelligence::history-prune'
 } as const
 
@@ -72,6 +74,8 @@ export interface RenameRepairPlan {
 export interface PrepareRenameRepairRequest {
   fromPath: string
   toPath: string
+  pathKind?: RenameRepairPathKind
+  includeResources?: boolean
   documents: MarkdownDocumentInput[]
 }
 
@@ -89,6 +93,12 @@ export interface LocalHistoryRestoreRequest {
   filePath: string
   id: string
   expectedCurrentContent?: string
+}
+
+export interface MoveHistoryPathRequest {
+  fromPath: string
+  toPath: string
+  pathKind?: RenameRepairPathKind
 }
 
 export interface LocalHistoryPruneResult {
