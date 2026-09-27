@@ -3,7 +3,8 @@
 > Scope: Inkiva v0.5.0 US-15 / AC-62, AC-63, AC-64 and cross-flow AC-81
 > Branch: `feat/v0.5-us15-main`
 > Base: `origin/develop@0141b483`
-> Status: PR #210 open; local closeout complete; final CI pass 11/11 green
+> Status: **closed / merged**
+> Squash merge: `0d86925a530d7000e6c5afed93ac8834a1573ca8`
 
 ## Goal
 
@@ -389,6 +390,23 @@ Head `a7a54576` completed the full PR workflow set with `11/11` successful workf
 
 GitHub reports PR `#210` as open, mergeable and conflict-free against `develop@0141b483`.
 
+## Stage 8 — merge / authoritative closeout
+
+Status: **complete**
+
+- PR `#210` was explicitly authorized for final closeout and squash-merged with expected-head fence `fd8f6bf30cafe99690533131329aebb618d010f2`.
+- GitHub returned squash commit `0d86925a530d7000e6c5afed93ac8834a1573ca8`.
+- GitHub reports PR `#210` as merged; the authoritative remote `develop` ref resolves exactly to the same squash commit.
+- The merge completed at 2026-09-27 09:48:12 UTC.
+- The fully validated behavior-bearing head remained `a7a54576469ee5db9a197745f083c0f87ba499fb`; its complete `11/11` PR workflow matrix was Green before merge.
+- Final pre-merge head `fd8f6bf3` was documentation-only and triggered no additional workflow runs, so it did not invalidate the validated product/performance evidence.
+- Local `develop` was fast-forwarded from `7ffc085d` to the authoritative squash commit after merge, confirming the integrated diff is present in the working repository.
+- This post-merge update is documentation-only and follows the existing v0.5 US12/US14 merge-closeout pattern.
+
 ## Current blockers
 
-None. US15 implementation, local regression, architecture review, experience merge review, PR feedback closure and final CI are complete. PR `#210` is ready for merge consideration; this workflow does not auto-merge it.
+None.
+
+## Remaining delivery
+
+None. US15 / AC-62 / AC-63 / AC-64 / AC-81 are closed on authoritative `develop@0d86925a530d7000e6c5afed93ac8834a1573ca8`.
