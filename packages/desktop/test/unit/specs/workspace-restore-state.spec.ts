@@ -187,6 +187,8 @@ describe('US05 workspace restore state', () => {
     const layout = useLayoutStore()
     preferences.startUpAction = startUpAction
     preferences.restoreLayoutState = false
+    preferences.focus = false
+    preferences.typewriter = false
     layout.SET_LAYOUT(
       {
         rightColumn: 'files',
@@ -212,7 +214,9 @@ describe('US05 workspace restore state', () => {
         showTabBar: false,
         sideBarWidth: 480,
         splitEditor: true,
-        splitTabId: 'restored'
+        splitTabId: 'restored',
+        focus: true,
+        typewriter: true
       }
     })
 
@@ -221,6 +225,8 @@ describe('US05 workspace restore state', () => {
     expect(layout.showTabBar).toBe(true)
     expect(layout.sideBarWidth).toBe(320)
     expect(layout.splitEditor).toBe(false)
+    expect(preferences.focus).toBe(false)
+    expect(preferences.typewriter).toBe(false)
   })
 
   it('keeps per-tab mode and viewport but resets outline expansion for blank layout', () => {
@@ -250,12 +256,26 @@ describe('US05 workspace restore state', () => {
     })
   })
 
+  it('US15 AC-64 persists window-level Focus/Typewriter state with buffered layout', () => {
+    const preferences = usePreferencesStore()
+    const layout = useLayoutStore()
+    preferences.focus = true
+    preferences.typewriter = true
+
+    expect(layout.CREATE_BUFFERED_STATE()).toMatchObject({
+      focus: true,
+      typewriter: true
+    })
+  })
+
   it('restores buffered layout when layout restoration is enabled', () => {
     const editor = useEditorStore()
     const preferences = usePreferencesStore()
     const layout = useLayoutStore()
     preferences.startUpAction = 'restoreAll'
     preferences.restoreLayoutState = true
+    preferences.focus = false
+    preferences.typewriter = false
 
     editor.RESTORE_BUFFERED_STATE({
       editor: {
@@ -270,7 +290,9 @@ describe('US05 workspace restore state', () => {
         showTabBar: false,
         sideBarWidth: 360,
         splitEditor: false,
-        splitTabId: null
+        splitTabId: null,
+        focus: true,
+        typewriter: true
       }
     })
 
@@ -278,5 +300,7 @@ describe('US05 workspace restore state', () => {
     expect(layout.showSideBar).toBe(true)
     expect(layout.showTabBar).toBe(false)
     expect(layout.sideBarWidth).toBe(360)
+    expect(preferences.focus).toBe(true)
+    expect(preferences.typewriter).toBe(true)
   })
 })

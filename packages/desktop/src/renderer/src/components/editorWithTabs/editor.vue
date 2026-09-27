@@ -163,10 +163,16 @@ import { resolveTocHeadingElement } from '@/util/tocNavigation'
 import { createTocRefreshScheduler, createTocScrollSync } from '@/util/tocOutline'
 import { createEditorLayoutReconciler } from '@/util/editorLayout'
 import { createDocumentGeometryProjection } from '@/util/documentGeometry'
+import {
+  createTypewriterFollowController,
+  getTypewriterTargetScrollTop,
+  isTypewriterEditingInput
+} from '@/util/typewriterFollow'
 import { addCommonStyle, setEditorWidth } from '@/util/theme'
 import { usePreferencesStore } from '@/store/preferences'
 import { useEditorStore } from '@/store/editor'
 import { useProjectStore } from '@/store/project'
+import { debouncedSendBufferedState } from '@/store/bufferedState'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { getApplicationAppearance } from 'common/theme'
@@ -306,6 +312,7 @@ const {
 
 // Editor store refs
 const { currentFile, tabs, listToc } = storeToRefs(editorStore)
+const typewriterFollow = createTypewriterFollowController(typewriter.value)
 
 // Project store refs
 const { projectTree } = storeToRefs(projectStore)
@@ -415,6 +422,16 @@ const markEditorCompositionStart = (): void => {
   rejectPendingEditorCommandReadiness()
 }
 const markEditorCompositionEnd = (): void => { editorCompositionActive = false }
+const handleTypewriterBeforeInput = (event: Event): void => {
+  if (
+    typewriter.value &&
+    event.isTrusted &&
+    event instanceof InputEvent &&
+    isTypewriterEditingInput(event.inputType)
+  ) {
+    typewriterFollow.resumeFromInput()
+  }
+}
 
 watch(
   () => currentFile.value?.id,
@@ -449,6 +466,7 @@ function disposeEditorPresentationResources (): void {
     }
     inputContainer.removeEventListener('compositionstart', markEditorCompositionStart, true)
     inputContainer.removeEventListener('compositionend', markEditorCompositionEnd, true)
+    inputContainer.removeEventListener('beforeinput', handleTypewriterBeforeInput, true)
   }
   rejectPendingEditorCommandReadiness()
   editorCommandReadyDocumentId = null
@@ -953,12 +971,15 @@ watch(
 )
 
 watch(typewriter, (value) => {
+  typewriterFollow.setEnabled(value)
+  debouncedSendBufferedState()
   if (value) {
-    scrollToCursor()
+    scrollTypewriterToCursor()
   }
 })
 
 watch(focus, (value) => {
+  debouncedSendBufferedState()
   if (editor.value) {
     editor.value.setFocusMode(value)
   }
@@ -1716,6 +1737,30 @@ const getCursorY = (): number | null => {
   return rects.length ? rects[0].y : null
 }
 
+const scrollCaretToTypewriterReference = (caretViewportY: number, duration: number): void => {
+  const container = getScrollContainer()
+  if (!container) return
+
+  const target = getTypewriterTargetScrollTop({
+    scrollTop: container.scrollTop,
+    caretViewportY,
+    viewportTop: container.getBoundingClientRect().top,
+    viewportHeight: container.clientHeight
+  })
+  if (Math.abs(container.scrollTop - target) <= 2) return
+
+  editor.value?.editor?.scrollPage?.prepareForNavigation?.()
+  animatedScrollTo(container, target, duration)
+}
+
+const scrollTypewriterToCursor = (duration = 300): void => {
+  nextTick(() => {
+    const y = getCursorY()
+    if (y == null) return
+    scrollCaretToTypewriterReference(y, duration)
+  })
+}
+
 const scrollToCursor = (duration = 300) => {
   nextTick(() => {
     const container = getScrollContainer()
@@ -1730,6 +1775,7 @@ const scrollToCursor = (duration = 300) => {
 const scrollToCords = (y: number) => {
   const container = getScrollContainer()
   if (!container) return
+  typewriterFollow.suspend()
 
   // Cancel any restore state from the previous document before reusing the
   // editor root for this document.
@@ -1794,6 +1840,7 @@ const scrollElementIntoView = (anchor: Element | null | undefined, duration = 30
 }
 
 const scrollToHighlight = () => {
+  typewriterFollow.suspend()
   return scrollToElement('.mu-highlight')
 }
 
@@ -1804,6 +1851,7 @@ const scrollToHighlight = () => {
  * @param slug The TOC entry's slug from the `scroll-to-header` bus event.
  */
 const scrollToHeader = (slug: unknown) => {
+  typewriterFollow.suspend()
   const container = getScrollContainer()
   if (!container) return
   const tocItem = editorStore.listToc.find((item) => item.slug === slug)
@@ -1819,6 +1867,7 @@ const scrollToHeader = (slug: unknown) => {
 // Scrolls to a non-heading in-document anchor target (e.g. a custom
 // `<a id="...">`) resolved by `FORMAT_LINK_CLICK` via `getElementById`.
 const scrollToAnchorElement = (element: unknown) => {
+  typewriterFollow.suspend()
   if (element instanceof Element) scrollElementIntoView(element)
 }
 
@@ -2127,7 +2176,9 @@ const refreshEditorToc = (force = true): void => {
 let editorInteractionRevision = 0
 const editorInteractionEvents = ['pointerdown', 'mousedown', 'touchstart', 'keydown', 'wheel'] as const
 const markExplicitEditorInteraction = (event: Event): void => {
-  if (event.isTrusted) editorInteractionRevision += 1
+  if (!event.isTrusted) return
+  editorInteractionRevision += 1
+  typewriterFollow.suspend()
 }
 
 const runWhenEditorRenderComplete = (
@@ -2961,6 +3012,7 @@ onMounted(() => {
   for (const eventName of inputParseStartEvents) {
     container.addEventListener(eventName, inputParseProbe.begin, true)
   }
+  container.addEventListener('beforeinput', handleTypewriterBeforeInput, true)
   container.addEventListener('compositionstart', markEditorCompositionStart, true)
   container.addEventListener('compositionend', markEditorCompositionEnd, true)
 
@@ -3008,7 +3060,7 @@ onMounted(() => {
   bus.emit('cmd::register-command', spellcheckerLanguageCommand)
 
   if (typewriter.value) {
-    scrollToCursor()
+    scrollTypewriterToCursor()
   }
 
   // listen for bus events.
@@ -3146,14 +3198,8 @@ onMounted(() => {
   editor.value.on('selection-change', (changes: MuyaChange) => {
     const y = (changes.cursorCoords?.y ?? null) as number | null
     if (y != null) {
-      if (typewriter.value) {
-        const startPosition = container.scrollTop
-        const toPosition = startPosition + y - STANDAR_Y
-
-        // Prevent micro shakes and unnecessary scrolling.
-        if (Math.abs(startPosition - toPosition) > 2) {
-          animatedScrollTo(container, toPosition, 100)
-        }
+      if (typewriterFollow.shouldFollow() && !editorCompositionActive) {
+        scrollCaretToTypewriterReference(y, 100)
       }
 
       // Used to fix #628: auto scroll cursor to visible if the cursor is too low.

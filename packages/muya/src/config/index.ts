@@ -114,6 +114,7 @@ export const CLASS_NAMES = genUpper2LowerKeyHash([
     'MU_EMPTY',
     'MU_FENCE_CODE',
     'MU_FOCUS_MODE',
+    'MU_FOCUS_SELECTION',
     'MU_CODE_WRAP',
     'MU_FRONT_MATTER',
     'MU_FRONT_ICON',

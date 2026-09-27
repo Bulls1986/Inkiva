@@ -306,6 +306,72 @@ test.describe('View modes — typewriter scrolling (item 173)', () => {
       return { relativeTop: bRect.top - cRect.top, containerHeight: cRect.height }
     })
 
+  test('US15 AC-62: manual body click suspends typewriter follow until the next text input', async() => {
+    await clickMenuById(app, 'typewriterModeMenuItem')
+    await expect(page.locator('.editor-wrapper')).toHaveClass(/(^|\s)typewriter(\s|$)/)
+
+    const selector =
+      '.mu-container > p.mu-paragraph:nth-of-type(40) .mu-paragraph-content'
+
+    // Put the target paragraph well above the typewriter reference line without
+    // using the editor selection. The subsequent real click is the newer user
+    // navigation intent that must suspend follow.
+    const clickTarget = await page.evaluate((sel) => {
+      const container = document.querySelector('.editor-component') as HTMLElement | null
+      const span = document.querySelector(sel) as HTMLElement | null
+      const target = span?.closest('p.mu-paragraph') as HTMLElement | null
+      if (!container || !span || !target) throw new Error('US15 target paragraph unavailable')
+      const containerRect = container.getBoundingClientRect()
+      const targetRect = target.getBoundingClientRect()
+      container.scrollTop += targetRect.top - containerRect.top - 160
+
+      const settledContainer = container.getBoundingClientRect()
+      const settledTarget = target.getBoundingClientRect()
+      const spanRect = span.getBoundingClientRect()
+      return {
+        relativeTop: settledTarget.top - settledContainer.top,
+        containerHeight: settledContainer.height,
+        x: spanRect.left + Math.min(12, spanRect.width / 2),
+        y: spanRect.top + spanRect.height / 2
+      }
+    }, selector)
+
+    expect(clickTarget.containerHeight).toBeGreaterThan(300)
+    expect(clickTarget.relativeTop).toBeGreaterThan(100)
+    expect(clickTarget.relativeTop).toBeLessThan(240)
+
+    // Use the real mouse at the already-visible target. Locator.click() can
+    // auto-scroll and would obscure which layer owns the resulting viewport.
+    await page.mouse.click(clickTarget.x, clickTarget.y)
+
+    // This is intentionally a bounded negative-condition window: the legacy
+    // implementation animates every selection-change back toward STANDAR_Y in
+    // 100 ms. After a manual click, US15 requires that animation not to happen.
+    await page.waitForTimeout(250)
+
+    const afterClick = await caretBlockOffset()
+    expect(afterClick).not.toBeNull()
+    if (!afterClick) throw new Error('US15 caret offset unavailable after manual click')
+    expect(afterClick.relativeTop).toBeGreaterThan(100)
+    expect(afterClick.relativeTop).toBeLessThan(240)
+
+    // The next actual text input resumes Typewriter follow from the new caret.
+    await page.keyboard.type('x')
+    await expect
+      .poll(
+        async() => {
+          const offset = await caretBlockOffset()
+          if (!offset) return false
+          const reference = offset.containerHeight * 0.4
+          return Math.abs(offset.relativeTop - reference) <= 60
+        },
+        { timeout: 4000 }
+      )
+      .toBe(true)
+
+    await clickMenuById(app, 'typewriterModeMenuItem')
+  })
+
   // FIXME(headless): typewriter centering and the post-toggle scroll-into-view
   // assertions depend on a real rendered viewport and stable scroll settling,
   // which xvfb does not reproduce (this passes on a headed display). The

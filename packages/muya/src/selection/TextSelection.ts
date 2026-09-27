@@ -5,7 +5,7 @@ import type { Muya } from '../muya';
 import type { Nullable } from '../types';
 import type Selection from './index';
 import type { IAnchorFocusInfo, INodeOffset, ISelection } from './types';
-import { BLOCK_DOM_PROPERTY } from '../config';
+import { BLOCK_DOM_PROPERTY, CLASS_NAMES } from '../config';
 import { isMouseEvent } from '../utils';
 import {
     buildSelectionAffiliation,
@@ -67,6 +67,8 @@ class TextSelection {
         isSelect: false,
         selection: null,
     };
+
+    private _focusSelectionSyncPending = false;
 
     constructor(private _muya: Muya, private _selection: Selection) {
         this._listenSelectActions();
@@ -268,6 +270,48 @@ class TextSelection {
             anchorBlockInfo: endpointBlockInfo(anchorBlock),
             focusBlockInfo: endpointBlockInfo(focusBlock),
         });
+        this._scheduleFocusSelectionSync();
+    }
+
+    private _scheduleFocusSelectionSync() {
+        if (this._focusSelectionSyncPending)
+            return;
+
+        const view = this._doc.defaultView;
+        if (!view) {
+            this._syncFocusSelectionBlocks();
+            return;
+        }
+
+        this._focusSelectionSyncPending = true;
+        view.requestAnimationFrame(() => {
+            this._focusSelectionSyncPending = false;
+            this._syncFocusSelectionBlocks();
+        });
+    }
+
+    private _syncFocusSelectionBlocks() {
+        const className = CLASS_NAMES.MU_FOCUS_SELECTION;
+        this._muya.domNode
+            .querySelectorAll(`.${className}`)
+            .forEach(node => node.classList.remove(className));
+
+        if (this._isCollapsed)
+            return;
+
+        const anchorIndex = Number(this.anchorPath[0]);
+        const focusIndex = Number(this.focusPath[0]);
+        if (!Number.isInteger(anchorIndex) || !Number.isInteger(focusIndex))
+            return;
+
+        const scrollPage = this._muya.editor.scrollPage;
+        const start = Math.min(anchorIndex, focusIndex);
+        const end = Math.max(anchorIndex, focusIndex);
+
+        for (let index = start; index <= end; index++) {
+            const block = scrollPage?.queryBlock([index]);
+            block?.domNode?.classList.add(className);
+        }
     }
 
     private _listenSelectActions() {
