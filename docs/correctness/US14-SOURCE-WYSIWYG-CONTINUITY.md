@@ -167,6 +167,24 @@ Validation:
 - focused CORRECTNESS-02 unsafe-source + US14 unfinished-fence E2E: **2/2 PASS**;
 - Muya public-boundary and recovery/history guards: **1/1 PASS** each.
 
+## PR #208 final behavior-head CI
+
+Behavior-bearing head `6a858042` completed the full PR matrix with all **11 workflows successful** after same-head reruns of two environment/timing-sensitive failures:
+
+- Lint: **PASS**;
+- Test: **PASS**;
+- Desktop E2E: **PASS**;
+- PR Build, including Windows x64, macOS x64, macOS arm64, package smoke and updater artifact smoke: **PASS**;
+- Performance Fast Gate: **PASS**;
+- Muya Lint/Test/Build/E2E/CommonMark+GFM/Circular Dependency: **PASS**.
+
+The first attempt on this exact head had two non-product failures:
+
+1. Performance Fast Gate executed the measurement successfully, then reported two p95 threshold misses: **279.68 ms vs <200 ms** and **311.25 ms vs <250 ms**. The same head was rerun with no code, threshold, workload, sample-count, retry-policy or timeout change and passed.
+2. Muya E2E reported **259 passed / 3 flaky / 1 failed**. The stable failure was the existing empty-document `setContent("")` synchronization case, while search/replace, inline-format and auto-pair cases were classified flaky by Playwright. The same head was rerun with no code or test change and passed.
+
+Because both failures disappeared on an unchanged Git tree, they are recorded as runner/timing variance, not as evidence for additional product changes. No threshold, assertion, timeout, retry count or coverage was weakened to obtain the final green matrix.
+
 Typecheck note:
 
 - `packages/desktop` `vue-tsc` in this fresh worktree reports existing Muya ambient/type-topology errors (`__MUYA_BLOCK__`, `MUYA_VERSION`, file-icons, sequence/prism declarations). The same command is green in the pre-warmed US13 worktree, while the current-worktree application build and Muya's own typecheck are green. This is classified as local dependency/topology evidence, not a US14 code regression; CI remains authoritative for the full desktop type gate.
@@ -189,6 +207,6 @@ AC-61 note:
 
 ## Closeout state
 
-Implementation, both CI-root-cause remediations, focused Red -> Green, static lint, Muya type/unit gates, architecture guards, diff review, and stage/lesson recording are complete locally.
+Implementation, both CI-root-cause remediations, focused Red -> Green, static lint, Muya type/unit gates, architecture guards, diff review, and behavior-head CI closure are complete.
 
-PR **#208** is open against `develop`. Remaining repository workflow: commit and push the diagram-metadata remediation, then require the new PR head to pass CI. Per repository policy this task must not auto-merge unless explicitly authorized.
+PR **#208** is open against `develop`. Behavior-bearing head `6a858042` has the full green CI matrix. This final stage-record update is documentation-only and should use the repository's mixed-PR `[skip ci]` closeout rule; it does not invalidate the completed product/performance gates. Remaining delivery action is an explicitly authorized squash merge. Per repository policy this task must not auto-merge unless explicitly authorized.
