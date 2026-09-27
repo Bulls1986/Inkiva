@@ -112,6 +112,25 @@ Final current-worktree evidence after all review fixes:
 
 Environment/bootstrap failures encountered while constructing the worktree test environment, and test-fixture import failures before Vitest entered the intended test body, were explicitly excluded from Red evidence.
 
+## Stage 5 — PR CI closeout incident
+
+PR #212 was opened from a remote tree that was byte-for-byte identical to the locally validated US16 commit tree. Lint, Test, Performance Fast Gate and all three PR Build platform jobs passed.
+
+The E2E workflow failed twice on the same pre-existing US15 acceptance test:
+
+`US15 AC-81: Typewriter does not reclaim a newer user position when geometry above grows`
+
+Both Linux CI attempts reached the real assertion body, passed 394 tests with 15 skipped, and failed because `triggerAsyncGrowthForSection(page, section)` returned `false`. The failure was not in US16 rename/move code. Diagnosis showed that the fixture first positioned the async-growth block immediately above the viewport, then allowed up to four `wheel(120)` gestures. On CI this could evict that same block from the adjacent virtual segment before the intended ResizeObserver mutation was triggered.
+
+The fixture was tightened without weakening the product assertion:
+
+- keep the user-navigation input as a real wheel gesture, but reduce each step from 120 to 32 CSS pixels;
+- explicitly require the async-growth target to remain mounted while establishing the >20 px caret/reference-line offset;
+- keep the final Typewriter/geometry assertions unchanged;
+- do not add retries, skips, larger timeouts, or product-side special cases.
+
+A local exact Playwright rerun was attempted but could not enter the test body because the Windows worktree lacks the native `ced.node` binding. That environment failure is not counted as Green evidence. The repaired test must therefore be validated by a fresh Linux PR E2E run before merge.
+
 ## Guardrails
 
 - no batch rewrite of inbound links in other documents;
