@@ -12,7 +12,7 @@ import { usePreferencesStore } from '@/store/preferences'
 import { findMarkdownHeadingLine, scrollSourceEditorToLine } from '@/util/sourceModeToc'
 import { storeToRefs } from 'pinia'
 import codeMirror, { setCursorAtFirstLine, setTextDirection } from '../../codeMirror'
-import { wordCount as getWordCount } from '@muyajs/core'
+import { isMarkdownWysiwygTransitionSafe, wordCount as getWordCount } from '@muyajs/core'
 import { adjustCursor } from '../../util'
 import bus from '../../bus'
 import { getApplicationAppearance } from 'common/theme'
@@ -475,6 +475,31 @@ const handleScrollToHeader = (slug: unknown) => {
   scrollSourceEditorToLine(editor.value, line, sourceCodeContainer.value)
 }
 
+const handleSourceModeExitReadiness = (
+  request: {
+    documentId: string
+    resolve: (safe: boolean) => void
+  }
+): void => {
+  if (!editor.value || tabId.value !== request.documentId) {
+    request.resolve(false)
+    return
+  }
+
+  flushSourceSnapshot()
+  const markdown = editor.value.getValue() as string
+  request.resolve(
+    isMarkdownWysiwygTransitionSafe(markdown, {
+      footnote: preferencesStore.footnote,
+      frontMatter: true,
+      isGitlabCompatibilityEnabled: preferencesStore.isGitlabCompatibilityEnabled,
+      math: true,
+      trimUnnecessaryCodeBlockEmptyLines:
+        preferencesStore.trimUnnecessaryCodeBlockEmptyLines
+    })
+  )
+}
+
 onMounted(() => {
   if (!currentTab.value) return
   const { id } = currentTab.value
@@ -522,6 +547,7 @@ onMounted(() => {
   bus.on('flush-active-editor', flushSourceSnapshot)
   bus.on('flush-active-editor-for-save', flushSourceSnapshot)
   bus.on('flush-active-editor-for-tab-switch', flushSourceSnapshot)
+  bus.on('source-mode-exit-readiness', handleSourceModeExitReadiness)
 
   // For some reason, code mirror does not seem to play well with Vue's refs if we reference editor.value directly.
   // See https://github.com/codemirror/codemirror5/issues/6886 - hence, we need to use a local variable first.
@@ -566,6 +592,7 @@ onBeforeUnmount(() => {
   bus.off('flush-active-editor', flushSourceSnapshot)
   bus.off('flush-active-editor-for-save', flushSourceSnapshot)
   bus.off('flush-active-editor-for-tab-switch', flushSourceSnapshot)
+  bus.off('source-mode-exit-readiness', handleSourceModeExitReadiness)
 
   const id = tabId.value
   // Flush while the component is still current; the callback is guarded by

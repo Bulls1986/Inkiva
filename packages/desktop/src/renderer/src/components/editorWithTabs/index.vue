@@ -3,6 +3,8 @@
     class="editor-with-tabs"
     :class="{ 'is-split': splitActive }"
     data-testid="editor-with-tabs"
+    @compositionstart.capture="handleCompositionStart"
+    @compositionend.capture="handleCompositionEnd"
   >
     <div
       class="container"
@@ -71,6 +73,7 @@ import SplitDocumentPane from './splitDocumentPane.vue'
 import { storeToRefs } from 'pinia'
 import { useEditorStore } from '@/store/editor'
 import { useLayoutStore } from '@/store/layout'
+import { usePreferencesStore } from '@/store/preferences'
 import { getDefaultSplitTabId, normalizeSplitTabId, promoteSplitTab } from '@/util/splitEditor'
 import type { IFileState } from '@shared/types/files'
 
@@ -89,12 +92,122 @@ const props = defineProps<{
 
 const editorStore = useEditorStore()
 const layoutStore = useLayoutStore()
+const preferencesStore = usePreferencesStore()
 const { currentFile, tabs, tabLifecycle } = storeToRefs(editorStore)
 const { splitEditor, splitTabId } = storeToRefs(layoutStore)
 
 const isExtremeDocument = computed(() => shouldUseDegradedLargeDocumentMode(props.markdown))
 const degradedEditorRef = ref<HTMLElement | null>(null)
 let degradedPerformanceGeneration = 0
+
+interface PendingSourceModeIntent {
+  documentId: string
+  target: boolean
+}
+
+let composingDocumentId: string | null = null
+let pendingSourceModeIntent: PendingSourceModeIntent | null = null
+
+const reconcileSourceModeMenu = (): void => {
+  preferencesStore.DISPATCH_EDITOR_VIEW_STATE({ sourceCode: props.sourceCode })
+}
+
+const cancelPendingSourceModeIntent = (): void => {
+  pendingSourceModeIntent = null
+  composingDocumentId = null
+  reconcileSourceModeMenu()
+}
+
+const sourceSnapshotCanEnterWysiwyg = (documentId: string): boolean => {
+  let resolved = false
+  let safe = false
+  bus.emit('source-mode-exit-readiness', {
+    documentId,
+    resolve: (value) => {
+      resolved = true
+      safe = value
+    }
+  })
+  return resolved && safe
+}
+
+const applySourceModeIntent = (intent: PendingSourceModeIntent): void => {
+  const file = currentFile.value
+  if (!file || file.id !== intent.documentId) return
+
+  if (isExtremeDocument.value) {
+    reconcileSourceModeMenu()
+    return
+  }
+
+  if (intent.target === props.sourceCode) {
+    reconcileSourceModeMenu()
+    return
+  }
+
+  if (!intent.target && !sourceSnapshotCanEnterWysiwyg(intent.documentId)) {
+    file.sourceCodeMode = true
+    preferencesStore.SET_MODE({ type: 'sourceCode', checked: true })
+    preferencesStore.DISPATCH_EDITOR_VIEW_STATE({ sourceCode: true })
+    return
+  }
+
+  file.sourceCodeMode = intent.target
+  preferencesStore.SET_MODE({ type: 'sourceCode', checked: intent.target })
+  preferencesStore.DISPATCH_EDITOR_VIEW_STATE({ sourceCode: intent.target })
+}
+
+const handleSourceModeToggleRequest = (): void => {
+  const documentId = currentFile.value?.id
+  if (!documentId) return
+
+  const baseTarget =
+    pendingSourceModeIntent?.documentId === documentId
+      ? pendingSourceModeIntent.target
+      : props.sourceCode
+  const intent: PendingSourceModeIntent = {
+    documentId,
+    target: !baseTarget
+  }
+
+  if (composingDocumentId === documentId) {
+    pendingSourceModeIntent = intent
+    return
+  }
+
+  applySourceModeIntent(intent)
+}
+
+const handleCompositionStart = (): void => {
+  composingDocumentId = currentFile.value?.id ?? null
+}
+
+const handleCompositionEnd = (): void => {
+  const documentId = currentFile.value?.id
+  if (!documentId || composingDocumentId !== documentId) return
+
+  composingDocumentId = null
+  const intent = pendingSourceModeIntent
+  pendingSourceModeIntent = null
+  if (intent?.documentId === documentId) {
+    applySourceModeIntent(intent)
+  }
+}
+
+watch(
+  () => currentFile.value?.id,
+  (documentId, previousDocumentId) => {
+    if (documentId === previousDocumentId) return
+    if (
+      pendingSourceModeIntent?.documentId === previousDocumentId ||
+      composingDocumentId === previousDocumentId
+    ) {
+      pendingSourceModeIntent = null
+      composingDocumentId = null
+    }
+  },
+  { flush: 'sync' }
+)
 
 const degradedOperationId = (documentId?: string): string =>
   documentId ? `document-${documentId}` : 'document-initial'
@@ -169,12 +282,18 @@ const handleFileLoaded = (): void => {
 
 onMounted(() => {
   bus.on('file-loaded', handleFileLoaded)
+  bus.on('view:request-source-code-toggle', handleSourceModeToggleRequest)
+  window.addEventListener('blur', cancelPendingSourceModeIntent)
   if (isExtremeDocument.value) beginDegradedEditorPerformance()
 })
 
 onBeforeUnmount(() => {
   degradedPerformanceGeneration += 1
   bus.off('file-loaded', handleFileLoaded)
+  bus.off('view:request-source-code-toggle', handleSourceModeToggleRequest)
+  window.removeEventListener('blur', cancelPendingSourceModeIntent)
+  pendingSourceModeIntent = null
+  composingDocumentId = null
 })
 
 const splitActive = computed(() => splitEditor.value && !!currentFile.value)

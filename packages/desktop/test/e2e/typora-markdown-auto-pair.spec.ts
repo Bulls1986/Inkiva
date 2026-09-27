@@ -19,6 +19,17 @@ const readMarkdown = async(page: Page, app: ElectronApplication): Promise<string
   return getMarkdownContent(page, app)
 }
 
+const readStoreMarkdown = (page: Page): Promise<string> =>
+  page.evaluate(() => {
+    const root = document.querySelector('#app') as
+      | (Element & { __vue_app__?: { config?: { globalProperties?: Record<string, unknown> } } })
+      | null
+    const pinia = root?.__vue_app__?.config?.globalProperties?.$pinia as
+      | { _s?: Map<string, { currentFile?: { markdown?: string } | null }> }
+      | undefined
+    return pinia?._s?.get('editor')?.currentFile?.markdown ?? ''
+  })
+
 const selectRenderedContents = async(page: Page, selector: string): Promise<void> => {
   const selected = await page.evaluate((targetSelector) => {
     const root = document.querySelector('.editor-component')
@@ -205,7 +216,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
 
     await sendIpcToRenderer(app, 'mt::editor-format-action', { type: 'strong' })
     await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
-    expect(await getMarkdownContent(page, app)).toBe('seed\n')
+    expect(await readStoreMarkdown(page)).toBe('seed\n')
 
     await page.evaluate(() => {
       const node = document.querySelector('.editor-component span.mu-paragraph-content')
@@ -222,7 +233,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
     // again after compositionend; the command must no longer be rejected.
     await selectRenderedContents(page, '.mu-paragraph-content')
     await sendIpcToRenderer(app, 'mt::editor-format-action', { type: 'strong' })
-    await expect.poll(() => getMarkdownContent(page, app), { timeout: 5000 }).toContain('**seed**')
+    await expect.poll(() => readStoreMarkdown(page), { timeout: 5000 }).toContain('**seed**')
   })
   test('does not pair markers during IME composition and commits CJK text afterward', async() => {
     await placeCaretAtTextBoundary(page)
@@ -248,7 +259,7 @@ test.describe('Typora-style Markdown auto pairing', () => {
       }))
     })
 
-    const during = await readMarkdown(page, app)
+    const during = await readStoreMarkdown(page)
     expect(during).toBe(`${before}\n`)
 
     await page.evaluate(() => {
@@ -274,6 +285,6 @@ test.describe('Typora-style Markdown auto pairing', () => {
       }))
     })
 
-    await expect.poll(async() => readMarkdown(page, app)).toBe(`${before}你\n`)
+    await expect.poll(() => readStoreMarkdown(page)).toBe(`${before}你\n`)
   })
 })

@@ -486,6 +486,7 @@ export class MarkdownToState {
                 meta: {
                     type: diagramType,
                     lang: diagramType === 'vega-lite' ? 'json' : 'yaml',
+                    ...(fenceClosed === false ? { fenceClosed: false } : {}),
                 },
             };
         }

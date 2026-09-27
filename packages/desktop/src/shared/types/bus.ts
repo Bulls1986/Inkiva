@@ -119,6 +119,11 @@ export interface EditorCommandReadinessRequest {
   resolve: (ready: boolean) => void
 }
 
+export interface SourceModeExitReadinessRequest {
+  documentId: string
+  resolve: (safe: boolean) => void
+}
+
 export type BusEvents = {
   aboutDialog: undefined
   'cmd::execute': string
@@ -184,6 +189,7 @@ export type BusEvents = {
   searchValue: SearchValuePayload
   selectAll: 'selectAll'
   'show-command-palette': RendererCommandLike | null | undefined
+  'source-mode-exit-readiness': SourceModeExitReadinessRequest
   showExportDialog: ExportDialogType
   'SIDEBAR::copy-cut': SidebarClipboardType
   'SIDEBAR::new': SidebarCreateType
@@ -206,5 +212,6 @@ export type BusEvents = {
   'TABS::toggle-pin': string
   undo: 'undo'
   'view:toggle-layout-entry': LayoutEntry
+  'view:request-source-code-toggle': undefined
   'view:toggle-view-entry': ViewEntry
 }

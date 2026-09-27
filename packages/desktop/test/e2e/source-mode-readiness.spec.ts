@@ -222,7 +222,7 @@ test.describe('CORRECTNESS-02 / Source Mode readiness', () => {
     }
   })
 
-  test('P0 invalid Markdown survives mode switch and save byte-for-byte', async() => {
+  test('P0 unsafe Markdown remains in Source and saves byte-for-byte', async() => {
     const fence = String.fromCharCode(96).repeat(3)
     const invalid = [
       '# Incomplete document',
@@ -254,8 +254,8 @@ test.describe('CORRECTNESS-02 / Source Mode readiness', () => {
       await setSourceValue(launched.page, invalid)
       expect(await sourceValue(launched.page)).toBe(invalid)
 
-      await exitSourceMode(launched.page, launched.app)
-      await enterSourceMode(launched.page, launched.app)
+      await clickMenuById(launched.app, 'sourceCodeModeMenuItem')
+      await expect(launched.page.locator('.source-code .CodeMirror')).toHaveCount(1)
       expect(await sourceValue(launched.page)).toBe(invalid)
 
       await save(launched.app)
