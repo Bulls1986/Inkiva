@@ -205,8 +205,18 @@ AC-61 note:
 6. **Semantic metadata must survive state specialization.** If a parser token becomes a richer state such as `diagram`, correctness metadata such as fence completeness must not disappear during conversion.
 7. **Do not treat wrapper/bootstrap failures as product red.** The valid Red was captured only after current-worktree build + Electron launch + entry into the intended assertions.
 
-## Closeout state
+## Stage 7 — merge / authoritative closeout
 
-Implementation, both CI-root-cause remediations, focused Red -> Green, static lint, Muya type/unit gates, architecture guards, diff review, and behavior-head CI closure are complete.
+Status: **complete**
 
-PR **#208** is open against `develop`. Behavior-bearing head `6a858042` has the full green CI matrix. This final stage-record update is documentation-only and should use the repository's mixed-PR `[skip ci]` closeout rule; it does not invalidate the completed product/performance gates. Remaining delivery action is an explicitly authorized squash merge. Per repository policy this task must not auto-merge unless explicitly authorized.
+- PR #208 was squash-merged with expected-head fence `fae96c12d799fd6ba9a76a7dfa900c7a87991faa`.
+- GitHub returned squash commit `8fb08c244db7b86d0daedef4bc16019e0c2acd9d`.
+- The authoritative remote `develop` ref resolves exactly to `8fb08c244db7b86d0daedef4bc16019e0c2acd9d`.
+- The merge completed at 2026-09-27 05:05:33 UTC.
+- The fully validated behavior-bearing head remained `6a858042850f558e40afa5bcb48e746d0c2e0bae`; its full 11/11 PR workflow matrix was green before the documentation-only closure commit.
+- Final pre-merge documentation head `fae96c12` carried `[skip ci]` and changed only this stage record, so it did not invalidate the validated product/performance evidence.
+- This post-merge update is documentation-only and follows the existing v0.5 story closeout pattern.
+
+## Remaining delivery
+
+None. US14 / AC-59 / AC-60 / AC-61 / AC-80 are closed on authoritative `develop`.
