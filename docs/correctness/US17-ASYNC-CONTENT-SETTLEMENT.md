@@ -236,3 +236,32 @@ Post-fix local evidence:
 - `git -c core.whitespace=cr-at-eol diff --check`: **passed**.
 
 The failed intermediate attempt is also retained as evidence: repositioning the target programmatically **before** suspending Typewriter produced **10/10 failures** at the helper postcondition. That invalid approach was removed rather than masked with retries, larger timeouts, or weaker assertions.
+
+## Stage 7 — final PR CI closure
+
+Status: code head **fully green**; PR remains open and unmerged.
+
+Validated code head: `97be517d` (`test(e2e): stabilize typewriter geometry fixture`).
+
+GitHub PR #213 completed the full gate set successfully:
+
+- Desktop full E2E: **passed in 10m58s**;
+- Desktop Lint: **passed**;
+- Desktop Test: **passed**;
+- Performance Fast Gate: **passed in 2m46s** with unchanged thresholds/workload;
+- Muya Build: **passed**;
+- Muya Lint: **passed**;
+- Muya Test: **passed**;
+- Muya E2E (Chromium): **passed**;
+- Muya CommonMark + GFM spec: **passed**;
+- Muya circular dependency check: **passed**;
+- PR Build Windows x64: **passed**;
+- PR Build macOS x64: **passed**;
+- PR Build macOS arm64: **passed**;
+- package smoke on Windows x64 / macOS x64 / macOS arm64: **all passed**;
+- Updater artifact smoke: **passed**;
+- artifact-link PR step: **passed**.
+
+The first code head's Performance Fast Gate had reported only `observed max=1 does not satisfy eq 0`; the failed-step log did not identify the metric, and an artifact API lookup later timed out. The final code head passed the unchanged fast gate without any performance-threshold, sample-count, workload, retry, or product-code relaxation, so the earlier result is recorded as non-reproduced rather than assigned an invented root cause.
+
+Final handoff: PR #213 is `MERGEABLE` against `develop`; per repository policy it remains **not merged** until an explicit squash-merge decision.
