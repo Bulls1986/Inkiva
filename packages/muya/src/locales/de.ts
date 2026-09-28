@@ -92,6 +92,7 @@ export const de = {
         // preview block
         'Loading...': 'Wird geladen...',
         'Invalid Diagram Code': 'Ungültiger Diagramm-Code',
+        'Retry': 'Erneut versuchen',
         'Empty Diagram': 'Leeres Diagramm',
         'Input Mathematical Formula...': 'Mathematische Formel eingeben...',
         'Input Front Matter...': 'Front Matter eingeben...',

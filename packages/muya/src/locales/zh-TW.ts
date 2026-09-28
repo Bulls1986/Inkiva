@@ -92,6 +92,7 @@ export const zhTW = {
         // preview block
         'Loading...': '載入中...',
         'Invalid Diagram Code': '圖表渲染失敗',
+        'Retry': '重試',
         'Empty Diagram': '空圖表',
         'Input Mathematical Formula...': '輸入數學公式...',
         'Input Front Matter...': '輸入頁首資訊...',

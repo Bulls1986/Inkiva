@@ -175,39 +175,6 @@ const scrollToMountedGrowthTarget = async(page: Page): Promise<number> => {
   return 0
 }
 
-const moveGrowthTargetAboveViewport = async(page: Page, section: number): Promise<boolean> => {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const state = await page.evaluate((targetSection) => {
-      const editor = document.querySelector<HTMLElement>('.editor-component')
-      const target = Array.from(
-        document.querySelectorAll<HTMLElement>(
-          '.mu-container > .mu-virtual-segment > :not(.mu-virtual-render-placeholder)'
-        )
-      ).find((node) => (node.textContent ?? '').includes(`ASYNC-GROWTH-TARGET-${targetSection}`))
-      if (!editor || !target) return 'missing'
-      const viewport = editor.getBoundingClientRect()
-      if (target.getBoundingClientRect().bottom <= viewport.top) return 'above'
-      editor.scrollTop += editor.clientHeight * 0.35
-      editor.dispatchEvent(new Event('scroll'))
-      return 'move'
-    }, section)
-    if (state === 'above') return true
-    if (state === 'missing') return false
-    await assertViewportMaterialized(page)
-  }
-
-  return page.evaluate((targetSection) => {
-    const editor = document.querySelector<HTMLElement>('.editor-component')
-    const target = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '.mu-container > .mu-virtual-segment > :not(.mu-virtual-render-placeholder)'
-      )
-    ).find((node) => (node.textContent ?? '').includes(`ASYNC-GROWTH-TARGET-${targetSection}`))
-    if (!editor || !target) return false
-    return target.getBoundingClientRect().bottom <= editor.getBoundingClientRect().top
-  }, section)
-}
-
 const moveGrowthTargetJustAboveViewport = async(
   page: Page,
   section: number
@@ -602,7 +569,7 @@ test.describe('@virtualization-core async geometry invalidation closure', () => 
   test('GEO-E2E-04: growth above the viewport preserves the reading anchor', async() => {
     const section = await scrollToMountedGrowthTarget(page)
     expect(section).toBeGreaterThan(0)
-    expect(await moveGrowthTargetAboveViewport(page, section)).toBe(true)
+    expect(await moveGrowthTargetJustAboveViewport(page, section)).toBe(true)
 
     const result = await page.evaluate(async(targetSection) => {
       const editor = document.querySelector<HTMLElement>('.editor-component')

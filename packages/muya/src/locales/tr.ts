@@ -92,6 +92,7 @@ export const tr = {
         // preview block
         'Loading...': 'Yükleniyor...',
         'Invalid Diagram Code': 'Geçersiz Diyagram Kodu',
+        'Retry': 'Yeniden dene',
         'Empty Diagram': 'Boş Diyagram',
         'Input Mathematical Formula...': 'Matematiksel Formülü girin...',
         'Input Front Matter...': 'Ön Bilgiyi girin...',

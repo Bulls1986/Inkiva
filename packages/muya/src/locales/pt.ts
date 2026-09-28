@@ -92,6 +92,7 @@ export const pt = {
         // preview block
         'Loading...': 'Carregando...',
         'Invalid Diagram Code': 'Código de diagrama inválido',
+        'Retry': 'Tentar novamente',
         'Empty Diagram': 'Diagrama vazio',
         'Input Mathematical Formula...': 'Inserir fórmula matemática...',
         'Input Front Matter...': 'Inserir Front Matter...',

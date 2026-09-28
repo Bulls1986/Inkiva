@@ -92,6 +92,7 @@ export const en = {
         // preview block
         'Loading...': 'Loading...',
         'Invalid Diagram Code': 'Invalid Diagram Code',
+        'Retry': 'Retry',
         'Empty Diagram': 'Empty Diagram',
         'Input Mathematical Formula...': 'Input Mathematical Formula...',
         'Input Front Matter...': 'Input Front Matter...',

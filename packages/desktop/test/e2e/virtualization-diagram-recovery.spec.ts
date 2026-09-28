@@ -95,6 +95,10 @@ test.describe('@virtualization-core virtualization diagram scroll + invalid-sour
     for (const ratio of [0.16, 0.34, 0.52, 0.7, 0.88]) {
       const requested = await editor.evaluate((node, targetRatio) => {
         const surface = node as HTMLElement
+        // Model real user navigation, not a naked programmatic scroll. The
+        // trusted-input ownership contract yields any older async resize
+        // correction before the browser applies the user's new position.
+        surface.dispatchEvent(new WheelEvent('wheel', { deltaY: 120, bubbles: true }))
         surface.scrollTop = Math.max(
           0,
           (surface.scrollHeight - surface.clientHeight) * targetRatio
@@ -143,6 +147,7 @@ test.describe('@virtualization-core virtualization diagram scroll + invalid-sour
     await exitSourceMode(page, app)
 
     await expect(page.locator('.editor-component')).toContainText('after diagram')
+    await expect(page.locator('.mu-diagram-error-retry').first()).toBeVisible()
     await expectNoRendererErrors(app)
 
     await enterSourceMode(page, app)

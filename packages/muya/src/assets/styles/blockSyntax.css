@@ -1185,6 +1185,29 @@ pre.mu-active.mu-fenced-code::after {
     opacity: 0.7;
 }
 
+.mu-diagram-error-retry {
+    margin-top: var(--space-2, 8px);
+    padding: 2px 8px;
+
+    color: inherit;
+    font: inherit;
+    font-style: normal;
+
+    background: transparent;
+    border: 1px solid currentcolor;
+    border-radius: var(--interaction-radius);
+    cursor: pointer;
+}
+
+.mu-diagram-error-retry:hover {
+    opacity: 0.8;
+}
+
+.mu-diagram-error-retry:focus-visible {
+    outline: 2px solid currentcolor;
+    outline-offset: 2px;
+}
+
 .mu-content:empty::after {
     content: '\200B';
 }

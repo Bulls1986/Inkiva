@@ -92,6 +92,7 @@ export const zhCN = {
         // preview block
         'Loading...': '加载中...',
         'Invalid Diagram Code': '图表渲染失败',
+        'Retry': '重试',
         'Empty Diagram': '空图表',
         'Input Mathematical Formula...': '输入数学公式...',
         'Input Front Matter...': '输入页眉...',

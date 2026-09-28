@@ -92,6 +92,7 @@ export const fr = {
         // preview block
         'Loading...': 'Chargement...',
         'Invalid Diagram Code': 'Code de diagramme invalide',
+        'Retry': 'Réessayer',
         'Empty Diagram': 'Diagramme vide',
         'Input Mathematical Formula...': 'Saisir la formule mathématique...',
         'Input Front Matter...': 'Saisir le Front Matter...',

@@ -643,6 +643,10 @@ test.describe('@virtualization-core Render Surface 2.0 — Electron core interac
         return original.apply(store, args)
       }
       try {
+        // Model an actual user scroll burst. A wheel/pointer gesture is the
+        // ownership handoff that cancels any older async geometry correction
+        // before the browser applies the burst's scrollTop changes.
+        editor.dispatchEvent(new WheelEvent('wheel', { deltaY: 120, bubbles: true }))
         for (let index = 0; index < 20; index += 1) {
           editor.scrollTop += 12
           editor.dispatchEvent(new Event('scroll'))

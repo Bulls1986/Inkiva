@@ -222,6 +222,38 @@ describe('diagramPreview — invalid / error state', () => {
 
         expect(preview.domNode!.getAttribute('data-diagram-render-attempts')).toBe('1');
     });
+
+    it('offers an explicit retry action after a block-local render failure', async () => {
+        loadRendererMock.mockRejectedValueOnce(new Error('temporary renderer failure'));
+        const { preview } = makePreview('graph TD; A-->B');
+        const blockNode = mountPreview(preview);
+
+        await preview.update('graph TD; A-->B');
+
+        expect(blockNode.classList.contains('mu-diagram-error-state')).toBe(true);
+        expect(preview.domNode!.querySelector('.mu-diagram-error-detail')?.textContent)
+            .toContain('temporary renderer failure');
+        const retry = preview.domNode!.querySelector<HTMLButtonElement>('.mu-diagram-error-retry');
+        expect(retry).not.toBeNull();
+
+        const render = vi.fn().mockResolvedValue({
+            svg: '<svg data-rendered="retry-success"></svg>',
+        });
+        loadRendererMock.mockResolvedValue({
+            initialize: vi.fn(),
+            registerIconPacks: vi.fn(),
+            render,
+        });
+
+        retry!.click();
+
+        await vi.waitFor(() => {
+            expect(preview.domNode!.querySelector('[data-rendered="retry-success"]')).not.toBeNull();
+        });
+        expect(render).toHaveBeenCalledTimes(1);
+        expect(preview.domNode!.hasAttribute('data-diagram-error')).toBe(false);
+        expect(blockNode.classList.contains('mu-diagram-preview-only')).toBe(true);
+    });
 });
 
 describe('diagramPreview — Mermaid auto-rendering', () => {

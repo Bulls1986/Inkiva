@@ -187,7 +187,10 @@ import {
 import { rendererPerformance, rendererPerformanceMonitor } from '@/services/performance/runtime'
 import { createInputParseProbe } from '@/services/performance/inputParse'
 import { scheduleEditorPerformanceMilestones } from './editorPerformanceMilestones'
-import { markEditorScrollInteraction } from '@/services/editorInteraction'
+import {
+  getEditorScrollInteractionRevision,
+  markEditorScrollInteraction
+} from '@/services/editorInteraction'
 import { BACKGROUND_PRIORITY, BackgroundTaskScheduler } from '@/util/backgroundScheduler'
 
 // Importing the engine entrypoint auto-injects its editor CSS (the muya.ts
@@ -1775,7 +1778,13 @@ const scrollTypewriterToCursor = (duration = 300): void => {
 }
 
 const scrollToCursor = (duration = 300) => {
+  // Caret reveal is deliberately deferred to Vue's next paintable DOM state,
+  // but that also makes it a stale navigation candidate. A newer scroll owns
+  // the viewport and must invalidate this delayed reveal before it can recenter
+  // an old caret over the user's current reading position.
+  const scrollRevision = getEditorScrollInteractionRevision()
   nextTick(() => {
+    if (getEditorScrollInteractionRevision() !== scrollRevision) return
     const container = getScrollContainer()
     if (!container) return
     const y = getCursorY()
@@ -2187,10 +2196,19 @@ const refreshEditorToc = (force = true): void => {
 // is insufficient: a slow progressive render can finish after the user already
 // clicked, typed or scrolled somewhere else in the same document.
 let editorInteractionRevision = 0
+// A viewport scroll intentionally decouples the caret from the reading
+// position. Do not let a later engine/init selection-change pull the viewport
+// back to that offscreen caret. Pointer/keyboard caret intent reconnects the
+// two; if that gesture itself scrolls (for example scrollbar dragging), the
+// subsequent scroll event immediately suspends following again.
+let suppressCaretVisibilityAfterScroll = false
 const editorInteractionEvents = ['pointerdown', 'mousedown', 'touchstart', 'keydown', 'wheel'] as const
 const markExplicitEditorInteraction = (event: Event): void => {
   if (!event.isTrusted) return
   editorInteractionRevision += 1
+  if (event.type !== 'wheel' && event.type !== 'touchstart') {
+    suppressCaretVisibilityAfterScroll = false
+  }
   suspendTypewriterFollow()
 }
 
@@ -3146,6 +3164,7 @@ onMounted(() => {
   // The engine does not emit `scroll`; listen on the scroll container directly
   // so the desktop can persist each tab's scroll position.
   scrollHandler = () => {
+    suppressCaretVisibilityAfterScroll = true
     markEditorScrollInteraction()
     const pending = pendingScrollRestore
     if (pending) {
@@ -3215,15 +3234,17 @@ onMounted(() => {
         scrollCaretToTypewriterReference(y, 100)
       }
 
-      // Used to fix #628: auto scroll cursor to visible if the cursor is too low.
-      if (container.clientHeight - y < 100) {
-        // editableHeight is the lowest cursor position(till to top) that editor allowed.
-        const editableHeight = container.clientHeight - 100
-        animatedScrollTo(container, container.scrollTop + (y - editableHeight), 0)
-      } else if (y < 100) {
-        // Symmetric to #628: scroll up when the cursor rises above the top edge
-        // (e.g. Arrow-Up), otherwise the caret leaves the viewport (#3329).
-        animatedScrollTo(container, container.scrollTop + (y - 100), 0)
+      if (!suppressCaretVisibilityAfterScroll) {
+        // Used to fix #628: auto scroll cursor to visible if the cursor is too low.
+        if (container.clientHeight - y < 100) {
+          // editableHeight is the lowest cursor position(till to top) that editor allowed.
+          const editableHeight = container.clientHeight - 100
+          animatedScrollTo(container, container.scrollTop + (y - editableHeight), 0)
+        } else if (y < 100) {
+          // Symmetric to #628: scroll up when the cursor rises above the top edge
+          // (e.g. Arrow-Up), otherwise the caret leaves the viewport (#3329).
+          animatedScrollTo(container, container.scrollTop + (y - 100), 0)
+        }
       }
     }
 
