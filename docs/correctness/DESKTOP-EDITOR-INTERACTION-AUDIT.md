@@ -454,3 +454,30 @@ Running the repaired Windows/Electron path exposed three real defects that stati
 - No known desktop interaction-contract defect remains unimplemented in this branch.
 - No known architecture-boundary regression remains.
 - The branch is ready for commit/PR preparation subject to the separate macOS platform gate required by release policy.
+
+## Stage 11 — PR #215 CI feedback closure (2026-09-29)
+
+Status: **initial CI Red diagnosed and fixed locally; final-head CI pending**
+
+PR #215 ran the complete repository unit surface and exposed two gaps that the focused pre-push suite had not covered:
+
+1. **Hyperlink shortcut authority still drifted inside Muya.**
+   - Desktop keybindings had correctly moved hyperlink ownership to Ctrl/Cmd+K, but Muya inline-format toolbar metadata and its direct shortcut map still used Ctrl/Cmd+L.
+   - This was a real product consistency defect, not a stale assertion.
+   - Muya toolbar metadata now advertises Ctrl/Cmd+K and the inline toolbar key map now binds `k -> link`.
+   - A Muya config regression test pins Ctrl/Cmd+K and explicitly rejects Ctrl/Cmd+L.
+
+2. **UI-10 titlebar unit contract still encoded the removed persistent search zone.**
+   - Production correctly uses `'brand menu status controls'`; the test still required `'brand menu search status controls'`.
+   - The unit contract now asserts the no-titlebar-search layout and explicitly rejects a `grid-area: search` zone.
+
+Local validation after the CI fixes:
+- Desktop focused regression: **2 files / 32 tests Green**.
+- Muya inline-format toolbar config: **1 file / 12 tests Green**.
+- Muya targeted ESLint for the changed toolbar files: **0 errors**.
+- `pnpm check`: **Green**.
+- Full Desktop unit suite: **164 files / 1298 tests Green, 1 skipped**.
+- A duplicate full-unit job created by a tool-call timeout was explicitly stopped; only the first authoritative run is used as validation evidence.
+
+Reusable lesson:
+- A shortcut authority change is not closed by updating the application keybinding map alone. Every user-visible shortcut projection and local keyboard dispatch surface (menu accelerator, toolbar hint, toolbar key handler, command palette/help surface) must either derive from the same source or be covered by an authority-consistency test.

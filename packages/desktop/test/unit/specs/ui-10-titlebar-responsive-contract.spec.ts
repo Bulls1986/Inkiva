@@ -9,7 +9,7 @@ const renderer = resolve(here, '../../../src/renderer/src')
 const read = (relativePath: string): string => readFileSync(resolve(renderer, relativePath), 'utf8')
 
 describe('Inkiva UI-10 title bar responsive contract', () => {
-  it('uses separate layout zones for brand, menu, search, document status, and controls', () => {
+  it('uses separate layout zones for brand, menu, document status, and controls without a titlebar search zone', () => {
     const titleBar = read('components/titleBar/index.vue')
 
     expect(titleBar).toContain('data-testid="titlebar-document"')
@@ -19,7 +19,8 @@ describe('Inkiva UI-10 title bar responsive contract', () => {
     expect(titleBar).toContain('data-testid="titlebar-controls"')
     expect(titleBar).toContain("t('titlebar.menu')")
     expect(titleBar).toContain("t('titlebar.restore')")
-    expect(titleBar).toContain("grid-template-areas: 'brand menu search status controls';")
+    expect(titleBar).toContain("grid-template-areas: 'brand menu status controls';")
+    expect(titleBar).not.toContain('grid-area: search;')
     expect(titleBar).toContain('grid-area: brand;')
     expect(titleBar).toContain('grid-area: menu;')
     expect(titleBar).toContain('grid-area: status;')
