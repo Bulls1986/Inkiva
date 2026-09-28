@@ -347,6 +347,7 @@
     "pin": "置頂",
     "unpin": "取消置頂",
     "remove": "移除",
+    "missingAction": "此最近文件記錄仍會保留。要從最近文件中移除嗎？",
     "clear": "清除"
   },
   "import": {

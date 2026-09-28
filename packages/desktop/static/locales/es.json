@@ -347,6 +347,7 @@
     "pin": "Fijar",
     "unpin": "Desfijar",
     "remove": "Eliminar",
+    "missingAction": "Esta entrada reciente no ha cambiado. ¿Eliminarla de Recientes?",
     "clear": "Limpiar"
   },
   "import": {

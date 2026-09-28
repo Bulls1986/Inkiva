@@ -5,7 +5,7 @@ import type Cell from '../../gfm/table/cell';
 import type Row from '../../gfm/table/row';
 import type TableInner from '../../gfm/table/table';
 import { EVENT_KEYS, isOsx } from '../../../config';
-import { isKeyboardEvent } from '../../../utils';
+import { isKeyboardEvent, isMouseEvent } from '../../../utils';
 import Format from '../../base/format';
 import { ScrollPage } from '../../scrollPage';
 
@@ -87,7 +87,40 @@ class TableCellContent extends Format {
     }
 
     private _normalEnter(event: Event) {
-        return this._shiftEnter(event);
+        event.preventDefault();
+
+        const nextRow = this._findNextRow();
+        if (!nextRow)
+            return;
+
+        const offset = this._row.offset(this._cell);
+        const cursorBlock = (
+            nextRow.find(offset) as Cell
+        ).firstContentInDescendant();
+
+        cursorBlock?.setCursor(0, 0, true);
+    }
+
+    override contextMenuHandler(event: Event): void {
+        if (!isMouseEvent(event))
+            return;
+
+        const referenceNode = this.domNode;
+        if (!referenceNode)
+            return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        // This menu is intentionally deferred off the editor activation path.
+        // Ensure the first user right-click cannot race background UI-plugin init.
+        this.muya.initUiPlugin('tableBarTools');
+        this.muya.eventCenter.emit('muya-table-bar', {
+            reference: {
+                getBoundingClientRect: () => referenceNode.getBoundingClientRect(),
+            },
+            tableInfo: { barType: 'cell' },
+            block: this._cell,
+        });
     }
 
     override enterHandler(event: Event) {

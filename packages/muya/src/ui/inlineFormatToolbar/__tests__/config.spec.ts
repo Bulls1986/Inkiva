@@ -45,6 +45,12 @@ describe('inlineFormatToolbar config — required inline format types', () => {
             expect(matches.length, `type=${type} appears ${matches.length} times`).toBe(1);
         }
     });
+
+    it('link advertises the authoritative Cmd/Ctrl+K shortcut', () => {
+        const entry = icons.find(i => i.type === 'link')!;
+        expect(entry.shortcut).toMatch(/\+K$/);
+        expect(entry.shortcut).not.toMatch(/\+L$/);
+    });
 });
 
 // marktext #3630: the inline_code / inline_math tooltips advertised Cmd/Ctrl+E

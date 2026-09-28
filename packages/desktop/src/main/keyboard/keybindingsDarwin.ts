@@ -79,7 +79,7 @@ const keybindings: Map<string, string> = new Map([
   ['format.inline-code', 'Command+`'],
   ['format.inline-math', 'Shift+Command+M'],
   ['format.strike', 'Command+D'],
-  ['format.hyperlink', 'Command+L'],
+  ['format.hyperlink', 'Command+K'],
   ['format.image', 'Command+Shift+I'],
   ['format.clear-format', 'Shift+Command+R'],
 
@@ -97,7 +97,7 @@ const keybindings: Map<string, string> = new Map([
   ['view.focus-mode', 'Command+Shift+J'],
   ['view.toggle-sidebar', 'Command+J'],
   ['view.toggle-split-editor', 'Command+Shift+\\'],
-  ['view.toggle-toc', 'Command+K'],
+  ['view.toggle-toc', ''],
   ['view.toggle-tabbar', 'Command+Option+B'],
   ['view.toggle-dev-tools', 'Command+Option+I'],
   ['view.dev-reload', 'Command+Option+R'],

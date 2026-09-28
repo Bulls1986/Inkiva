@@ -347,6 +347,7 @@
     "pin": "Sabitle",
     "unpin": "Sabitlemeyi kaldır",
     "remove": "Kaldır",
+    "missingAction": "Bu son kullanılan kayıt değişmeden duruyor. Son kullanılanlardan kaldırılsın mı?",
     "clear": "Temizle"
   },
   "import": {

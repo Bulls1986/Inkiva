@@ -347,6 +347,7 @@
     "pin": "Anheften",
     "unpin": "Lösen",
     "remove": "Entfernen",
+    "missingAction": "Dieser Eintrag in „Zuletzt verwendet“ bleibt unverändert. Aus „Zuletzt verwendet“ entfernen?",
     "clear": "Leeren"
   },
   "import": {

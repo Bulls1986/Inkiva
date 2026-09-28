@@ -4,6 +4,8 @@ import type TableInner from '../../block/gfm/table/table';
 
 import type { Muya } from '../../index';
 import type { IMenuItem } from './config';
+import { EVENT_KEYS } from '../../config';
+import { isKeyboardEvent } from '../../utils';
 import { h, patch } from '../../utils/snabbdom';
 import BaseFloat from '../baseFloat';
 import { toolList } from './config';
@@ -20,7 +22,7 @@ const defaultOptions = {
 };
 
 interface ITableInfo {
-    barType: 'bottom' | 'right';
+    barType: 'bottom' | 'right' | 'cell';
 }
 
 export class TableRowColumMenu extends BaseFloat {
@@ -29,6 +31,7 @@ export class TableRowColumMenu extends BaseFloat {
     private _oldVNode: VNode | null = null;
     private _tableInfo: ITableInfo | null = null;
     private _block: TableBodyCell | null = null;
+    private _activeIndex = 0;
     private _tableBarContainer: HTMLDivElement = document.createElement('div');
 
     constructor(muya: Muya, options = {}) {
@@ -50,32 +53,80 @@ export class TableRowColumMenu extends BaseFloat {
                 if (reference) {
                     this._tableInfo = tableInfo;
                     this._block = block;
+                    this._activeIndex = 0;
                     this.show(reference);
                     this.render();
+                    if (tableInfo.barType === 'cell') {
+                        requestAnimationFrame(() => this._focusActiveItem());
+                    }
                 }
                 else {
                     this.hide();
                 }
             },
         );
+
+        const keyboardHandler = (event: Event) => {
+            if (
+                !this.status
+                || this._tableInfo?.barType !== 'cell'
+                || !isKeyboardEvent(event)
+            ) {
+                return;
+            }
+
+            if (event.key === EVENT_KEYS.ArrowDown || event.key === EVENT_KEYS.Tab) {
+                event.preventDefault();
+                event.stopPropagation();
+                this._step(event.shiftKey && event.key === EVENT_KEYS.Tab ? -1 : 1);
+            }
+            else if (event.key === EVENT_KEYS.ArrowUp) {
+                event.preventDefault();
+                event.stopPropagation();
+                this._step(-1);
+            }
+            else if (event.key === EVENT_KEYS.Enter || event.key === ' ') {
+                event.preventDefault();
+                event.stopPropagation();
+                const item = toolList[this._tableInfo!.barType][this._activeIndex];
+                if (item)
+                    this.selectItem(event, item);
+            }
+            else if (event.key === EVENT_KEYS.Escape && this._tableInfo?.barType === 'cell') {
+                event.preventDefault();
+                event.stopPropagation();
+                this.hide();
+                this._restoreCellFocus();
+            }
+        };
+
+        eventCenter.attachDOMEvent(this.floatBox!, 'keydown', keyboardHandler);
     }
 
     render() {
         const { _tableInfo: tableInfo, _oldVNode: oldVNode, _tableBarContainer: tableBarContainer } = this;
         const { i18n } = this.muya;
         const renderArray: IMenuItem[] = toolList[tableInfo!.barType];
-        const children = renderArray.map((item) => {
+        const children = renderArray.map((item, index) => {
             const { label } = item;
-
-            const selector = 'li.item';
+            const active = index === this._activeIndex;
 
             return h(
-                selector,
+                'li.item',
                 {
+                    class: { active },
+                    attrs: {
+                        id: `mu-table-menu-item-${index}`,
+                        role: 'menuitem',
+                        tabindex: active ? '0' : '-1',
+                    },
                     dataset: {
                         label: item.action,
                     },
                     on: {
+                        focus: () => {
+                            this._activeIndex = index;
+                        },
                         click: (event) => {
                             this.selectItem(event, item);
                         },
@@ -85,7 +136,12 @@ export class TableRowColumMenu extends BaseFloat {
             );
         });
 
-        const vnode = h('ul', children);
+        const vnode = h('ul', {
+            attrs: {
+                'role': 'menu',
+                'aria-label': i18n.t('Table Block'),
+            },
+        }, children);
 
         if (oldVNode)
             patch(oldVNode, vnode);
@@ -93,6 +149,23 @@ export class TableRowColumMenu extends BaseFloat {
             patch(tableBarContainer, vnode);
 
         this._oldVNode = vnode;
+    }
+
+    private _focusActiveItem() {
+        const items = this.floatBox!.querySelectorAll<HTMLElement>('li.item');
+        items[this._activeIndex]?.focus({ preventScroll: true });
+    }
+
+    private _step(delta: -1 | 1) {
+        const items = toolList[this._tableInfo!.barType];
+        this._activeIndex = (this._activeIndex + delta + items.length) % items.length;
+        this.render();
+        requestAnimationFrame(() => this._focusActiveItem());
+    }
+
+    private _restoreCellFocus() {
+        const content = this._block?.firstContentInDescendant();
+        content?.domNode?.focus({ preventScroll: true });
     }
 
     selectItem(event: Event, item: IMenuItem) {
@@ -129,6 +202,11 @@ export class TableRowColumMenu extends BaseFloat {
 
             if (cursorBlock)
                 cursorBlock.setCursor(0, 0);
+        }
+        else if (action === 'removeTable') {
+            const cursorBlock = table.removeTable();
+            if (cursorBlock)
+                cursorBlock.setCursor(0, 0, true);
         }
         else if (action === 'move') {
             let cursorBlock = null;

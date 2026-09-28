@@ -13,6 +13,7 @@ Use this index for correctness/readiness contracts and product-functional gates.
 - [US15 — Focus / Typewriter Writing View Stability](US15-FOCUS-TYPEWRITER-STABILITY.md) — Input-intent Typewriter follow, Focus selection/search legibility, window-level mode restore, and async-geometry scroll ownership.
 - [US16 — File Identity & Operation Continuity](US16-FILE-IDENTITY-CONTINUITY.md) — Rename/move identity continuity, dirty-tab preservation, relative-reference repair, Recent/Local History migration, and truthful failure handling.
 - [US17 — Async Content Settlement](US17-ASYNC-CONTENT-SETTLEMENT.md) — Async block geometry continuity, block-local failure/retry behavior, and newest-user-navigation ownership.
+- [Desktop Editor Interaction Contract Audit](DESKTOP-EDITOR-INTERACTION-AUDIT.md) — v0.5.0 desktop interaction contract matrix, Red/Green evidence, TODO closure, and platform/manual gates.
 - [Settings functional gate](SETTINGS-FUNCTIONAL-GATE.md) — Settings UI → store → live effect → reopen/restart persistence contract.
 - [US06 — Settings Effect Closure](US06-SETTINGS-EFFECT-CLOSURE.md) — acknowledged preference writes, effect timing, retry/rollback, delayed-effect feedback, autosave bounds and Settings search targeting.
 - [v0.5 US01-US10 compliance closure](V0.5-US01-10-COMPLIANCE-CLOSURE.md) — Latest-`develop` re-audit, architecture debt closure, combined-state validation, and final acceptance record.

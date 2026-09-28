@@ -21,6 +21,23 @@ describe('US09 selection, caret and pointer contract', () => {
     expect(blockStyles).not.toMatch(/\.mu-container\s*\{[^}]*cursor:\s*text;/s)
   })
 
+  it('preserves actionable pointer and resize cursors inside editable surfaces', () => {
+    const blockStyles = read('packages/muya/src/assets/styles/blockSyntax.css')
+    const inlineStyles = read('packages/muya/src/assets/styles/inlineSyntax.css')
+    const tableDragStyles = read('packages/muya/src/ui/tableDragBar/index.css')
+    const imageResizeStyles = read('packages/muya/src/ui/imageResizeBar/index.css')
+
+    expect(inlineStyles).toMatch(
+      /a\.mu-inline-rule,[\s\S]*span\.mu-inline-rule\.mu-link[\s\S]*cursor:\s*pointer;/
+    )
+    expect(blockStyles).toMatch(
+      /li\.mu-task-list-item > input\[type='checkbox'\],[\s\S]*span\.mu-task-list-checkbox[\s\S]*cursor:\s*pointer;/
+    )
+    expect(tableDragStyles).toMatch(/\.mu-table-drag-container\s*\{[^}]*cursor:\s*pointer;/s)
+    expect(imageResizeStyles).toMatch(/\.mu-transformer \.left\s*\{[^}]*cursor:\s*ew-resize;/s)
+    expect(imageResizeStyles).toMatch(/\.mu-transformer \.right\s*\{[^}]*cursor:\s*ew-resize;/s)
+  })
+
   it('uses the native text cursor in Source Mode while leaving CodeMirror controls alone', () => {
     const sourceStyles = read('packages/desktop/src/renderer/src/codeMirror/index.css')
 

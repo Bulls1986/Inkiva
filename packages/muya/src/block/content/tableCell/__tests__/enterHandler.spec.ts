@@ -9,8 +9,8 @@ import { Muya } from '../../../../muya';
 // the keyboard modifiers it reads off the event:
 //   - Shift+Enter  → `shiftEnter`   : inserts a literal `<br>` at the caret.
 //   - Cmd/Ctrl+Enter → `commandEnter`: inserts a new row after the current one.
-//   - plain Enter  → `normalEnter`  : US12 keeps editing in-cell and inserts
-//                     the same GFM-safe `<br>`.
+//   - plain Enter  → `normalEnter`  : moves to the cell directly below in the
+//                     same column when one exists, without mutating Markdown.
 // `isOsx` is resolved at import time from the userAgent. Under happy-dom the
 // userAgent is "...X11; Darwin arm64..." which does NOT match /Mac/, so
 // `isOsx === false` here and the command branch is reached via `ctrlKey`, not
@@ -120,7 +120,7 @@ describe('tableCellContent.enterHandler', () => {
         expect(cursor!.start.offset).toBe(5);
     });
 
-    it('plain Enter in a header cell inserts <br> without leaving the cell', async () => {
+    it('plain Enter moves to the cell directly below without mutating Markdown', async () => {
         const muya = bootMuya('| ab | cd |\n| --- | --- |\n| ef | gh |\n');
         const cells = tableCells(muya);
 
@@ -130,14 +130,14 @@ describe('tableCellContent.enterHandler', () => {
         const state = muya.getState();
         expect(state.length).toBe(1);
         expect(state[0].name).toBe('table');
-        expect(cells[0].text).toBe('a<br>b');
+        expect(cells[0].text).toBe('ab');
         expect(cells[2].text).toBe('ef');
-        const cursor = cells[0].getCursor();
+        const cursor = cells[2].getCursor();
         expect(cursor).not.toBeNull();
-        expect(cursor!.start.offset).toBe(5);
+        expect(cursor!.start.offset).toBe(0);
     });
 
-    it('plain Enter in a last-row cell keeps the table as the only document block', async () => {
+    it('plain Enter in the last row is a safe no-op and never inserts a hard-break token', async () => {
         const muya = bootMuya('| ab | cd |\n| --- | --- |\n| ef | gh |\n');
         const cells = tableCells(muya);
         enterAt(muya, cells[2], 1);
@@ -146,10 +146,10 @@ describe('tableCellContent.enterHandler', () => {
         const state = muya.getState();
         expect(state.length).toBe(1);
         expect(state[0].name).toBe('table');
-        expect(cells[2].text).toBe('e<br>f');
+        expect(cells[2].text).toBe('ef');
         const cursor = cells[2].getCursor();
         expect(cursor).not.toBeNull();
-        expect(cursor!.start.offset).toBe(5);
+        expect(cursor!.start.offset).toBe(1);
     });
 
     it('ctrl+Enter (command branch when !isOsx) inserts a new row, rowCount + 1', async () => {
@@ -172,23 +172,21 @@ describe('tableCellContent.enterHandler', () => {
         expect((state[0] as { children: unknown[] }).children.length).toBe(3);
     });
 
-    it('metaKey+Enter does NOT take the command branch under happy-dom and inserts <br>', async () => {
+    it('metaKey+Enter follows plain-Enter navigation under happy-dom when !isOsx', async () => {
         const muya = bootMuya('| ab | cd |\n| --- | --- |\n| ef | gh |\n');
         const cells = tableCells(muya);
         const table = (cells[0] as unknown as { table: { rowCount: number } }).table;
         const beforeRowCount = table.rowCount;
 
         // metaKey alone, ctrlKey false: because isOsx === false, this falls
-        // through to normalEnter rather than commandEnter, so no row is added
-        // and the edit stays inside the cell.
+        // through to normalEnter rather than commandEnter.
         enterAt(muya, cells[0], 1, { metaKey: true });
 
         await flush();
         expect(table.rowCount).toBe(beforeRowCount);
-
-        expect(cells[0].text).toBe('a<br>b');
-        const cursor = cells[0].getCursor();
+        expect(cells[0].text).toBe('ab');
+        const cursor = cells[2].getCursor();
         expect(cursor).not.toBeNull();
-        expect(cursor!.start.offset).toBe(5);
+        expect(cursor!.start.offset).toBe(0);
     });
 });

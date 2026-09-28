@@ -39,6 +39,22 @@ describe('Inkiva UI-12 focus and accessibility contract', () => {
     expect(theme).toContain('@keydown="handleThemeKeydown')
   })
 
+  it('keeps sidebar Search mounted and restores focus without discarding the session query', () => {
+    const sidebar = read('components/sideBar/index.vue')
+    const search = read('components/sideBar/search.vue')
+
+    expect(sidebar).toContain('<side-bar-search v-show="rightColumn === \'search\'" />')
+    expect(sidebar).not.toContain('<side-bar-search v-else-if="rightColumn === \'search\'" />')
+    expect(search).toContain('watch(rightColumn')
+    expect(search).toContain('handleFindInFolder(false, false)')
+    expect(search).toContain('searchEl.value.focus()')
+    expect(search).toContain(':aria-label="t(\'sideBar.search.searchInFolder\')"')
+    expect(search).toContain('searchNeedsRefresh')
+    expect(search).toContain('isSearchPanelActive')
+    expect(search).toContain('markSearchRefreshIfPending')
+    expect(search).toContain('if (searcherRunning.value || searchTimer)')
+  })
+
   it('uses the shared focus ring on custom controls and preference surfaces', () => {
     const sources = [
       read('components/sideBar/index.vue'),

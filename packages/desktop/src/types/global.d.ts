@@ -77,6 +77,7 @@ declare global {
     tryQuit(): void
     makeScreenshot(): void
     openFileByWindowId(windowId: number, filePath: string): void
+    openFolderByWindowId(windowId: number, folderPath: string): void
   }
 
   interface ElectronShellAPI {

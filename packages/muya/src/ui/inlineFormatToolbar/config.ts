@@ -60,7 +60,7 @@ const icons = [
     {
         type: 'link',
         tooltip: 'Link',
-        shortcut: `${COMMAND_KEY}+L`,
+        shortcut: `${COMMAND_KEY}+K`,
         icon: linkIcon,
     },
     {

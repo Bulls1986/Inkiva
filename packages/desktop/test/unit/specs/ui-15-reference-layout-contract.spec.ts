@@ -73,14 +73,14 @@ describe('Inkiva reference visual layout contract', () => {
     expect(markdown).toContain('font-size: 2em;')
   })
 
-  it('exposes the command palette as a writing-oriented titlebar search surface', () => {
+  it('keeps global search and command launching out of the persistent titlebar', () => {
     const titleBar = readRenderer('components/titleBar/index.vue')
 
-    expect(titleBar).toContain('data-testid="command-launcher"')
+    expect(titleBar).not.toContain('data-testid="command-launcher"')
+    expect(titleBar).not.toContain('commandPalette.placeholder')
+    expect(titleBar).not.toContain("bus.emit('show-command-palette')")
     expect(titleBar).toContain('data-testid="titlebar-brand"')
     expect(titleBar).toContain('data-testid="titlebar-document-status"')
-    expect(titleBar).toContain("bus.emit('show-command-palette')")
-    expect(titleBar).toContain("t('commandPalette.placeholder')")
   })
 
   it('keeps application controls on one border and one focus-ring contract', () => {

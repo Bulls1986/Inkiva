@@ -1191,6 +1191,11 @@ class App {
       }
     })
 
+    ipcMain.on('mt::open-folder-by-window-id', (_e, windowId: number, folderPath: string) => {
+      const resolvedPath = normalizeAndResolvePath(folderPath)
+      ipcMain.emit('app-open-directory-by-id', windowId, resolvedPath)
+    })
+
     ipcMain.on('mt::select-default-directory-to-open', async(e) => {
       const { preferences } = this._accessor
       const { defaultDirectoryToOpen } = preferences.getAll()

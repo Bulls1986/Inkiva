@@ -5,13 +5,18 @@ export const ja = {
         'Insert Row Above': '上へ行を挿入する',
         'Insert Row Below': '下へ行を挿入する',
         'Remove Row': '行を削除する',
+        'Delete Row': '行を削除する',
         // tableColumnTools
         'Align Left': '左揃え',
         'Align Center': '中央揃え',
         'Align Right': '右揃え',
         'Insert Column left': '左側へ列を挿入する',
         'Insert Column right': '右側へ列を挿入する',
+        'Insert Column Left': '左側へ列を挿入する',
+        'Insert Column Right': '右側へ列を挿入する',
         'Remove Column': '列を削除する',
+        'Delete Column': '列を削除する',
+        'Delete Table': '表を削除する',
         // quickInsert
         'Paragraph': '一般段落',
         'Horizontal Line': '水平分割線',

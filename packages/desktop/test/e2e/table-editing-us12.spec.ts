@@ -85,6 +85,40 @@ test.describe('us12 table editing fidelity', () => {
     if (app) await app.close()
   })
 
+  test('opens the table-cell context menu, activates a structural action by keyboard, and undoes atomically', async() => {
+    await placeCaretInFirstTableCell(page)
+    const cell = page.locator('.editor-component .mu-table-cell-content').first()
+    await cell.click({ button: 'right' })
+
+    const menu = page.locator('.mu-table-bar-tools [role="menu"]')
+    await expect(menu).toBeVisible({ timeout: 5000 })
+    const items = menu.locator('[role="menuitem"]')
+    await expect(items).toHaveCount(7)
+    await expect(items.first()).toBeFocused()
+
+    await items.first().press('Enter')
+    const float = page.locator('.mu-float-wrapper.mu-table-bar-tools')
+    await expect.poll(async() => float.evaluate((node) => {
+      const style = getComputedStyle(node)
+      return style.opacity === '0' && Number.parseFloat(style.top) < -9000
+    }), { timeout: 5000 }).toBe(true)
+    await expect.poll(
+      () => page.locator('.mu-table-inner tr').count(),
+      { timeout: 5000 }
+    ).toBe(3)
+
+    await triggerAppUndo(app)
+    await expect.poll(
+      () => page.locator('.mu-table-inner tr').count(),
+      { timeout: 5000 }
+    ).toBe(2)
+    expect(await readTableMatrix(page)).toEqual([
+      ['a', 'b'],
+      ['c', 'd']
+    ])
+    await expectNoRendererErrors(app)
+  })
+
   test('confirms non-empty rectangular TSV overwrite, cancels cleanly, and undoes atomically', async() => {
     const before = await getMarkdownContent(page, app)
 

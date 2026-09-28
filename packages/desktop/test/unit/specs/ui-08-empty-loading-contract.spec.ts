@@ -41,6 +41,21 @@ describe('Inkiva UI-08 empty and loading state contract', () => {
     expect(recent).not.toContain('linear-gradient')
   })
 
+  it('keeps Recent Documents on select-first activation semantics', () => {
+    const recent = read('components/recent/index.vue')
+
+    expect(recent).toContain('@click="selectRecent(item)"')
+    expect(recent).toContain('@dblclick.stop="openRecent(item)"')
+    expect(recent).toContain('@keydown.enter.prevent.stop="openRecent(item)"')
+    expect(recent).toContain('@contextmenu.prevent="handleRecentContextMenu($event, item)"')
+    expect(recent).toContain(':data-selected="selectedRecentPath === item.pathname"')
+    expect(recent).not.toContain('@click="openRecent(item)"')
+    expect(recent).toContain('window.electron.commands.openFileByWindowId(windowId, item.pathname)')
+    expect(recent).toContain('window.electron.commands.openFolderByWindowId(windowId, item.pathname)')
+    expect(recent).not.toContain("ipcRenderer.send('app-open-file-by-id'")
+    expect(recent).not.toContain("ipcRenderer.send('app-open-directory-by-id'")
+  })
+
   it('uses a small token-based loading rhythm and respects reduced motion', () => {
     const loading = read('components/loading/index.vue')
 
@@ -94,6 +109,7 @@ describe('Inkiva UI-08 empty and loading state contract', () => {
       expect(locale.recent?.welcomeDescription, file).toBeTruthy()
       expect(locale.recent?.openFile, file).toBeTruthy()
       expect(locale.recent?.quickOpen, file).toContain('{shortcut}')
+      expect(locale.recent?.missingAction, file).toBeTruthy()
     }
   })
 })

@@ -396,6 +396,7 @@
     "pin": "Pin",
     "unpin": "Unpin",
     "remove": "Remove",
+    "missingAction": "This Recent entry is unchanged. Remove it from Recent?",
     "clear": "Clear"
   },
   "import": {

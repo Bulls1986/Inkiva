@@ -262,6 +262,7 @@ export interface IpcSendChannels {
   'mt::menu::popup-application-submenu': [menuId: string, position?: MenuPopupPosition]
   'mt::open-file': [filePath: string, options?: TabOptions]
   'mt::open-file-by-window-id': [windowId: number, filePath: string, options?: TabOptions]
+  'mt::open-folder-by-window-id': [windowId: number, folderPath: string]
   'mt::open-keybindings-config': []
   'mt::open-setting-window': []
   'mt::rename': [

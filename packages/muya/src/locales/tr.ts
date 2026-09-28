@@ -5,13 +5,18 @@ export const tr = {
         'Insert Row Above': 'Üste Satır Ekle',
         'Insert Row Below': 'Alta Satır Ekle',
         'Remove Row': 'Satırı Kaldır',
+        'Delete Row': 'Satırı Sil',
         // tableColumnTools
         'Align Left': 'Sola Hizala',
         'Align Center': 'Ortala',
         'Align Right': 'Sağa Hizala',
         'Insert Column left': 'Sola Sütun Ekle',
         'Insert Column right': 'Sağa Sütun Ekle',
+        'Insert Column Left': 'Sola Sütun Ekle',
+        'Insert Column Right': 'Sağa Sütun Ekle',
         'Remove Column': 'Sütunu Kaldır',
+        'Delete Column': 'Sütunu Sil',
+        'Delete Table': 'Tabloyu Sil',
         // quickInsert
         'Paragraph': 'Paragraf',
         'Horizontal Line': 'Yatay Çizgi',
