@@ -457,7 +457,7 @@ Running the repaired Windows/Electron path exposed three real defects that stati
 
 ## Stage 11 — PR #215 CI feedback closure (2026-09-29)
 
-Status: **initial CI Red diagnosed and fixed locally; final-head CI pending**
+Status: **final executable head accepted by CI; merge-ready**
 
 PR #215 ran the complete repository unit surface and exposed two gaps that the focused pre-push suite had not covered:
 
@@ -478,6 +478,14 @@ Local validation after the CI fixes:
 - `pnpm check`: **Green**.
 - Full Desktop unit suite: **164 files / 1298 tests Green, 1 skipped**.
 - A duplicate full-unit job created by a tool-call timeout was explicitly stopped; only the first authoritative run is used as validation evidence.
+
+Final executable head `58d6e0d3cf3c3922013bb1c0e52b293f407418c2` CI:
+- **11/11 workflows Green**: Lint, Test, E2E Test, Performance Fast Gate, Muya Lint, Muya Test, Muya E2E, Muya Build, Muya Circular Dep Check, Muya Spec, and PR Build.
+- PR Build completed successfully for Windows x64, macOS ARM64, and macOS Intel.
+- Package smoke completed successfully for Windows x64, macOS ARM64, and macOS Intel.
+- Updater artifact smoke completed successfully.
+- The macOS CI result proves build/package correctness on both supported Mac architectures; it does **not** replace a manual/native interaction assertion for macOS titlebar/chrome behavior.
+- No final-head CI failure remains open. PR #215 is ready for squash merge after the docs-only closeout commit.
 
 Reusable lesson:
 - A shortcut authority change is not closed by updating the application keybinding map alone. Every user-visible shortcut projection and local keyboard dispatch surface (menu accelerator, toolbar hint, toolbar key handler, command palette/help surface) must either derive from the same source or be covered by an authority-consistency test.
