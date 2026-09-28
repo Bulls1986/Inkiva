@@ -34,6 +34,7 @@ Read only what the task needs.
 | Performance baselines/stages/history | [Performance index](docs/performance/README.md) |
 | Benchmark inventory/trustworthiness | [Benchmark index](docs/benchmark/README.md) |
 | Correctness/readiness/functional gates | [Correctness index](docs/correctness/README.md) |
+| User-observable desktop/editor interaction behavior | [Product interaction index](docs/product/README.md) |
 
 For comments, follow [.github/COMMENTING-GUIDELINES.md](.github/COMMENTING-GUIDELINES.md).
 
@@ -43,9 +44,9 @@ For comments, follow [.github/COMMENTING-GUIDELINES.md](.github/COMMENTING-GUIDE
 2. Inspect existing worktrees and active Jobs before creating/running anything.
 3. For any task that may change production code, always read [Testing](docs/agent/TESTING.md) and [Architecture & release](docs/agent/ARCHITECTURE_RELEASE.md) before the first production mutation. Read other quick guides only when relevant; do not preload troubleshooting/history documents without a matching need.
 4. If the change touches an ARCH-governed boundary (editor runtime, IPC, virtual surface, geometry, event bus, Muya public boundary, background scheduler/services, or legacy-boundary closure), open [Architecture index](docs/architecture/README.md) and read the specific contract before implementation.
-5. Confirm the selected worktree is clean of unrelated work and environment-ready.
-6. Reproduce the target behavior with an executed focused failing test and retain valid Red evidence; a missing/invalid Red gate blocks production-code mutation.
-7. Create/update the stage record when the task is multi-stage or high-risk.
+5. For changes to user-observable desktop/editor behavior, open [Product interaction index](docs/product/README.md) and apply the relevant durable interaction contract before implementation.
+6. Confirm the selected worktree is clean of unrelated work and environment-ready.
+7. Reproduce the target behavior with an executed focused failing test and retain valid Red evidence; a missing/invalid Red gate blocks production-code mutation.
+8. Create/update the stage record when the task is multi-stage or high-risk.
 
 If a canonical environment path already exists, follow it directly. Do not repeat earlier experiments unless new evidence proves the documented path invalid.
-
