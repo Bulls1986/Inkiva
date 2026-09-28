@@ -92,6 +92,7 @@ export const ja = {
         // preview block
         'Loading...': 'ロード中...',
         'Invalid Diagram Code': 'グラフのレンダリングが失敗しました',
+        'Retry': '再試行',
         'Empty Diagram': 'グラフがありません',
         'Input Mathematical Formula...': '数式を入力する...',
         'Input Front Matter...': 'ヘッダーを入力する...',

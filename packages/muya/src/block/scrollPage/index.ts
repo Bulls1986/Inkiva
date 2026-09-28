@@ -1064,9 +1064,12 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             // Subsequent callbacks reuse _virtualResizeAnchor* so a late caret
             // reveal cannot replace the original user viewport anchor.
             const rememberedAnchor = (
-                this._virtualViewportAnchorExact
-                && this._virtualViewportAnchorIndex !== null
+                this._virtualViewportAnchorIndex !== null
                 && this._virtualViewportAnchorOffset !== null
+                && (
+                    this._virtualViewportAnchorExact
+                    || this._virtualUserScrollIntent
+                )
             )
                 ? {
                         index: this._virtualViewportAnchorIndex,
@@ -1423,10 +1426,10 @@ export class ScrollPage extends Parent implements IDocumentSurface {
         const canPreserveViewportAnchor = (
             this._virtualNavigationTarget === null
             && this._virtualResizeCorrectionTarget === null
+            && !this._virtualUserScrollIntent
         );
         const rememberedMeasurementAnchor = (
             canPreserveViewportAnchor
-            && !this._virtualUserScrollIntent
             && this._virtualViewportAnchorIndex !== null
             && this._virtualViewportAnchorOffset !== null
             && Math.abs(container.scrollTop - this._virtualLastScrollTop) <= 2

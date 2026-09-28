@@ -384,4 +384,40 @@ describe('diagram render coordinator', () => {
             expect(outcome.error.message).toBe('mermaid engine failed');
         coordinator.dispose();
     });
+
+    it('keeps the queue moving when one block render fails', async () => {
+        const render = vi.fn(async (renderOptions: IDiagramRenderOptions) => {
+            if (renderOptions.code === 'broken')
+                throw new Error('broken block');
+
+            return result('<svg data-rendered="healthy-block"></svg>');
+        });
+        const coordinator = new DiagramRenderCoordinator({
+            maxConcurrent: 1,
+            render,
+        });
+        const failedTarget = target();
+        const healthyTarget = target();
+
+        const failed = coordinator.schedule({
+            blockId: 'broken-block',
+            generation: 1,
+            target: failedTarget,
+            options: options('broken'),
+        });
+        const healthy = coordinator.schedule({
+            blockId: 'healthy-block',
+            generation: 1,
+            target: healthyTarget,
+            options: options('healthy'),
+        });
+
+        await expect(failed.promise).resolves.toMatchObject({ status: 'error' });
+        await expect(healthy.promise).resolves.toMatchObject({ status: 'success' });
+        expect(failedTarget.innerHTML).toBe('');
+        expect(healthyTarget.innerHTML).toContain('data-rendered="healthy-block"');
+        expect(coordinator.activeCount).toBe(0);
+        expect(coordinator.queuedCount).toBe(0);
+        coordinator.dispose();
+    });
 });

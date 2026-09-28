@@ -685,6 +685,51 @@ describe('stage C1 virtualization production contract', () => {
         expect(internals._virtualViewportAnchorExact).toBe(true);
     });
 
+    it('does not replay a stale mounted anchor while newer user scroll intent is pending hydration', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, {
+            markdown: paragraphs(PROGRESSIVE_RENDER_THRESHOLD + 80),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const internals = scrollPage as unknown as {
+            _virtualBlocks: Array<{ domNode: HTMLElement | null }>;
+            _virtualScrollContainer: HTMLElement | null;
+            _virtualUserScrollIntent: boolean;
+            _virtualNavigationTarget: unknown;
+            _virtualResizeCorrectionTarget: number | null;
+            _captureVirtualViewportAnchor: (container: HTMLElement) => { index: number; viewportOffset: number };
+            _measureVirtualBlockHeights: (entries: readonly ResizeObserverEntry[]) => void;
+        };
+        const firstNode = internals._virtualBlocks[0]?.domNode;
+        const secondNode = internals._virtualBlocks[1]?.domNode;
+        const container = internals._virtualScrollContainer;
+        if (!firstNode || !secondNode || !container)
+            throw new Error('expected mounted blocks and virtual scroll container');
+
+        vi.spyOn(firstNode, 'getBoundingClientRect').mockReturnValue({ top: 10 } as DOMRect);
+        vi.spyOn(secondNode, 'getBoundingClientRect').mockReturnValue({ top: 110 } as DOMRect);
+        internals._virtualUserScrollIntent = true;
+        internals._virtualNavigationTarget = null;
+        internals._virtualResizeCorrectionTarget = null;
+        container.scrollTop = 2_200;
+        const capture = vi.spyOn(internals, '_captureVirtualViewportAnchor').mockReturnValue({
+            index: 0,
+            viewportOffset: 12,
+        });
+
+        internals._measureVirtualBlockHeights([{ target: firstNode } as unknown as ResizeObserverEntry]);
+
+        expect(capture).not.toHaveBeenCalled();
+        expect(container.scrollTop).toBe(2_200);
+        expect(internals._virtualUserScrollIntent).toBe(true);
+    });
+
     it('preserves the pre-reflow exact anchor when block measurement fires before the width resize observer', async () => {
         const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
         Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
@@ -820,6 +865,94 @@ describe('stage C1 virtualization production contract', () => {
             expect(capture).toHaveBeenCalledTimes(1);
             expect(internals._virtualResizeAnchorIndex).toBe(5);
             expect(internals._virtualResizeAnchorOffset).toBe(12);
+        }
+        finally {
+            vi.unstubAllGlobals();
+            if (originalResizeObserver)
+                vi.stubGlobal('ResizeObserver', originalResizeObserver);
+            if (originalClientWidth)
+                Object.defineProperty(HTMLElement.prototype, 'clientWidth', originalClientWidth);
+        }
+    });
+
+    it('keeps the latest logical user viewport authoritative when width reflow races hydration', async () => {
+        const originalResizeObserver = globalThis.ResizeObserver;
+        const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+        class ResizeObserverDouble {
+            readonly observed = new Set<Element>();
+
+            constructor(private readonly _callback: ResizeObserverCallback) {}
+
+            observe(target: Element): void {
+                this.observed.add(target);
+            }
+
+            unobserve(target: Element): void {
+                this.observed.delete(target);
+            }
+
+            disconnect(): void {
+                this.observed.clear();
+            }
+
+            trigger(target: Element): void {
+                this._callback([{ target } as ResizeObserverEntry], this as unknown as ResizeObserver);
+            }
+        }
+
+        Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+            configurable: true,
+            get: () => 800,
+        });
+        vi.stubGlobal('ResizeObserver', ResizeObserverDouble);
+        try {
+            const host = document.createElement('div');
+            document.body.appendChild(host);
+            const muya = new Muya(host, {
+                markdown: paragraphs(PROGRESSIVE_RENDER_THRESHOLD + 80),
+                virtualizeLargeDocuments: true,
+            });
+            editors.push(muya);
+
+            muya.init();
+            await muya.whenRenderComplete();
+            const scrollPage = muya.editor.scrollPage!;
+            const internals = scrollPage as unknown as {
+                domNode: HTMLElement;
+                _virtualScrollContainer: HTMLElement;
+                _virtualResizeObserver: ResizeObserverDouble;
+                _virtualViewportAnchorIndex: number | null;
+                _virtualViewportAnchorOffset: number | null;
+                _virtualViewportAnchorExact: boolean;
+                _virtualUserScrollIntent: boolean;
+                _virtualResizeAnchorIndex: number | null;
+                _virtualResizeAnchorOffset: number | null;
+                _captureVirtualViewportAnchor: (container: HTMLElement) => { index: number; viewportOffset: number };
+            };
+
+            // The scroll hot path has already recorded the user's latest logical
+            // viewport, but the two-paint hydration boundary has not made it an
+            // exact mounted-DOM anchor yet. The still-mounted old window must not
+            // win a later width ResizeObserver race.
+            internals._virtualViewportAnchorIndex = 37;
+            internals._virtualViewportAnchorOffset = -20;
+            internals._virtualViewportAnchorExact = false;
+            internals._virtualUserScrollIntent = true;
+            const capture = vi.spyOn(internals, '_captureVirtualViewportAnchor').mockReturnValue({
+                index: 5,
+                viewportOffset: 12,
+            });
+            Object.defineProperty(internals.domNode, 'clientWidth', {
+                configurable: true,
+                value: 600,
+            });
+            internals._virtualScrollContainer.scrollTop = 2_200;
+
+            internals._virtualResizeObserver.trigger(internals.domNode);
+
+            expect(capture).not.toHaveBeenCalled();
+            expect(internals._virtualResizeAnchorIndex).toBe(37);
+            expect(internals._virtualResizeAnchorOffset).toBe(-20);
         }
         finally {
             vi.unstubAllGlobals();
@@ -1507,22 +1640,97 @@ describe('stage C1 virtualization production contract', () => {
         await muya.whenRenderComplete();
         const scrollPage = muya.editor.scrollPage!;
         const internals = scrollPage as unknown as {
+            _virtualScrollContainer: HTMLElement | null;
             _virtualResizeCorrectionTarget: number | null;
             _virtualResizeAnchorIndex: number | null;
             _virtualResizeAnchorOffset: number | null;
             _virtualViewportAnchorExact: boolean;
+            _settleVirtualResizeScroll: (container: HTMLElement, target: number) => void;
         };
-        internals._virtualResizeCorrectionTarget = 1_234;
+        const container = internals._virtualScrollContainer;
+        if (!container)
+            throw new Error('expected virtual scroll container');
+
         internals._virtualResizeAnchorIndex = 5;
         internals._virtualResizeAnchorOffset = 12;
         internals._virtualViewportAnchorExact = true;
 
-        expect(scrollPage.revealBlock(0)).toBe(true);
+        const settleFrame: { current: FrameRequestCallback | null } = { current: null };
+        const request = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+            settleFrame.current = callback;
+            return 1;
+        });
+        const cancel = vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => undefined);
+        try {
+            internals._settleVirtualResizeScroll(container, 1_234);
+            const staleFrame = settleFrame.current;
+            if (!staleFrame)
+                throw new Error('expected resize settle frame');
 
-        expect(internals._virtualResizeCorrectionTarget).toBeNull();
-        expect(internals._virtualResizeAnchorIndex).toBeNull();
-        expect(internals._virtualResizeAnchorOffset).toBeNull();
-        expect(internals._virtualViewportAnchorExact).toBe(false);
+            expect(scrollPage.revealBlock(0)).toBe(true);
+            const navigationScrollTop = container.scrollTop;
+
+            // Simulate a browser delivering an already-queued callback after
+            // cancellation. Its generation must be stale and unable to reclaim
+            // the viewport after the newer Outline/navigation intent.
+            staleFrame(0);
+
+            expect(container.scrollTop).toBe(navigationScrollTop);
+            expect(internals._virtualResizeCorrectionTarget).toBeNull();
+            expect(internals._virtualResizeAnchorIndex).toBeNull();
+            expect(internals._virtualResizeAnchorOffset).toBeNull();
+            expect(internals._virtualViewportAnchorExact).toBe(false);
+        }
+        finally {
+            request.mockRestore();
+            cancel.mockRestore();
+        }
+    });
+
+    it('lets trusted user scroll intent invalidate a queued resize correction', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, {
+            markdown: paragraphs(PROGRESSIVE_RENDER_THRESHOLD + 120),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const internals = scrollPage as unknown as {
+            _virtualScrollContainer: HTMLElement | null;
+            _virtualResizeCorrectionTarget: number | null;
+            _settleVirtualResizeScroll: (container: HTMLElement, target: number) => void;
+        };
+        const container = internals._virtualScrollContainer;
+        if (!container)
+            throw new Error('expected virtual scroll container');
+
+        const settleFrame: { current: FrameRequestCallback | null } = { current: null };
+        const request = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+            settleFrame.current = callback;
+            return 1;
+        });
+        const cancel = vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => undefined);
+        try {
+            internals._settleVirtualResizeScroll(container, 1_234);
+            const staleFrame = settleFrame.current;
+            if (!staleFrame)
+                throw new Error('expected resize settle frame');
+
+            container.dispatchEvent(new Event('wheel'));
+            container.scrollTop = 777;
+            staleFrame(0);
+
+            expect(internals._virtualResizeCorrectionTarget).toBeNull();
+            expect(container.scrollTop).toBe(777);
+        }
+        finally {
+            request.mockRestore();
+            cancel.mockRestore();
+        }
     });
 
     it('ignores blank-root clicks when the logical tail block is dematerialized', async () => {

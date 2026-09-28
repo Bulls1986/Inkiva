@@ -269,6 +269,12 @@ class DiagramPreview extends Parent {
         event.preventDefault();
         event.stopPropagation();
 
+        const target = event.target;
+        if (target instanceof Element && target.closest('.mu-diagram-error-retry')) {
+            void this._renderImmediately();
+            return;
+        }
+
         this.showSource();
 
         if (this.parent == null)
@@ -412,7 +418,9 @@ class DiagramPreview extends Parent {
             detail,
             PREVIEW_DOMPURIFY_CONFIG,
             true,
-        )}</div></div>`;
+        )}</div><button type="button" class="mu-diagram-error-retry">${i18n.t(
+            'Retry',
+        )}</button></div>`;
         this._setPresentationMode('error');
     }
 

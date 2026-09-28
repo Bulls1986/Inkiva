@@ -92,6 +92,7 @@ export const ko = {
         // preview block
         'Loading...': '로딩 중...',
         'Invalid Diagram Code': '잘못된 다이어그램 코드',
+        'Retry': '다시 시도',
         'Empty Diagram': '빈 다이어그램',
         'Input Mathematical Formula...': '수식 입력...',
         'Input Front Matter...': '머리말 입력...',
