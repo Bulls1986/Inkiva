@@ -207,3 +207,32 @@ Status: implementation committed and pushed; PR open, **not merged**.
 - PR: **#213 — US17: close async content settlement**;
 - local closeout gates are recorded above; inspect the latest PR head for CI status before any merge decision;
 - merge policy remains squash-only, and this task does not auto-merge the PR.
+
+## Stage 6 — first PR CI E2E follow-up
+
+Status: first code-head CI exposed one test-fixture precondition race; fixture corrected locally and revalidated before repush.
+
+PR #213 code head `5756473f` ran the full Linux Electron suite. The E2E job completed with **394 passed / 15 skipped / 1 failed**. The only failure was:
+
+`US15 AC-81: Typewriter does not reclaim a newer user position when geometry above grows`
+
+The failure happened **before** the product ownership assertion: `growthTargetMounted` was `false`, so the async-growth target had left the bounded virtual window before the test could trigger ResizeObserver growth. This is fixture-precondition evidence, not evidence that Typewriter reclaimed the viewport after growth.
+
+Diagnosis showed that the fixture re-established the growth target with programmatic scroll while Typewriter follow was still active. Under loaded CI scheduling, Typewriter could legitimately recenter the caret and reclaim that programmatic fixture scroll before the target-settlement helper completed.
+
+The fixture now follows the ownership contract explicitly:
+
+1. after enabling Typewriter, issue a real wheel gesture first so user intent suspends Typewriter follow;
+2. only then re-establish a currently mounted growth target just above the viewport;
+3. use bounded small real wheel gestures and inspect actual geometry instead of assuming one wheel delta maps to a fixed pixel displacement;
+4. require the target to remain mounted before triggering async growth;
+5. keep the original AC-81 product assertions and geometry thresholds unchanged.
+
+Post-fix local evidence:
+
+- focused AC-81 stress: **10/10 passed with 2 workers**;
+- complete `pnpm --filter inkiva test:e2e:virtualization`: **50/50 passed in 3.3 minutes**;
+- changed-file Desktop ESLint: **passed**;
+- `git -c core.whitespace=cr-at-eol diff --check`: **passed**.
+
+The failed intermediate attempt is also retained as evidence: repositioning the target programmatically **before** suspending Typewriter produced **10/10 failures** at the helper postcondition. That invalid approach was removed rather than masked with retries, larger timeouts, or weaker assertions.

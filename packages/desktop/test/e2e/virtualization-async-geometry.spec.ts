@@ -381,7 +381,7 @@ test.describe('@virtualization-core async geometry invalidation closure', () => 
   })
 
   test('US15 AC-81: Typewriter does not reclaim a newer user position when geometry above grows', async() => {
-    const section = await scrollToMountedGrowthTarget(page)
+    let section = await scrollToMountedGrowthTarget(page)
     expect(section).toBeGreaterThan(0)
 
     // First use the already-proven GEO path while Typewriter is still off.
@@ -428,15 +428,31 @@ test.describe('@virtualization-core async geometry invalidation closure', () => 
     await clickMenuById(app, 'typewriterModeMenuItem')
     await expect(page.locator('.editor-wrapper')).toHaveClass(/(^|\s)typewriter(\s|$)/)
 
+    // First hand viewport ownership back to the user with a trusted gesture.
+    // Without this, the programmatic fixture scroll below can be reclaimed by
+    // Typewriter follow before the virtual window settles on the growth target.
+    await page.mouse.wheel(0, 24)
+    await page.waitForTimeout(120)
+    await assertViewportMaterialized(page)
+
+    // Typewriter enablement can recenter the caret enough to evict the target
+    // from a bounded virtual window on a loaded runner. Once follow is suspended,
+    // re-establish the exact geometry precondition deterministically.
+    section = await scrollToMountedGrowthTarget(page)
+    expect(section).toBeGreaterThan(0)
+    expect(await moveGrowthTargetJustAboveViewport(page, section)).toBe(true)
+    await assertViewportMaterialized(page)
+
     // A real wheel gesture is the explicit newer user navigation intent.
-    // Keep it deliberately small: this assertion needs the already-mounted
-    // async-growth target to remain in the adjacent virtual segment until its
-    // ResizeObserver mutation is triggered below.
+    // Use bounded small gestures and measure the actual geometry after each
+    // one; wheel displacement is not assumed to map to a fixed pixel distance
+    // across Electron platforms/runners. The target must remain mounted while
+    // the caret is moved away from the Typewriter reference line.
     let beforeGrowth = await caretBlockOffset(page)
     let growthTargetMounted = true
-    for (let attempt = 0; attempt < 4; attempt++) {
-      await page.mouse.wheel(0, 32)
-      await page.waitForTimeout(120)
+    for (let attempt = 0; attempt < 6; attempt++) {
+      await page.mouse.wheel(0, 8)
+      await page.waitForTimeout(80)
       await assertViewportMaterialized(page)
       beforeGrowth = await caretBlockOffset(page)
       growthTargetMounted = await page.evaluate((targetSection) =>
@@ -449,9 +465,9 @@ test.describe('@virtualization-core async geometry invalidation closure', () => 
           (node.textContent ?? '').includes(`ASYNC-GROWTH-TARGET-${targetSection}`)
         ),
       section)
+      if (!growthTargetMounted) break
       if (
         beforeGrowth &&
-        growthTargetMounted &&
         Math.abs(beforeGrowth.relativeTop - beforeGrowth.containerHeight * 0.4) > 20
       ) {
         break
