@@ -196,3 +196,14 @@ Desktop standalone `vue-tsc --noEmit -p tsconfig.json` remains non-green because
 - A focused E2E that passes alone can still hide a scheduler race. When evidence points to load sensitivity, use a bounded repeated run with the same assertion/workload before changing production code.
 - Test fixtures for scroll ownership must distinguish real input intent from naked programmatic `scrollTop` writes. The input gesture establishes ownership; direct geometry changes alone do not model the same product contract.
 - A failed baseline-comparison environment is not evidence. Record it as invalid and rely only on independently valid gates.
+
+## Stage 5 — PR handoff
+
+Status: implementation committed and pushed; PR open, **not merged**.
+
+- implementation commit: `5756473f` (`fix(editor): close async content settlement`);
+- branch: `feat/v0.5-us17`;
+- base: current `origin/develop@3e4da44e`;
+- PR: **#213 — US17: close async content settlement**;
+- local closeout gates are recorded above; inspect the latest PR head for CI status before any merge decision;
+- merge policy remains squash-only, and this task does not auto-merge the PR.
