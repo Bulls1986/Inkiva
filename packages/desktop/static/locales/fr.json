@@ -347,6 +347,7 @@
     "pin": "Épingler",
     "unpin": "Désépingler",
     "remove": "Supprimer",
+    "missingAction": "Cette entrée récente reste inchangée. La supprimer des récents ?",
     "clear": "Effacer"
   },
   "import": {

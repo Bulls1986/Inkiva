@@ -34,12 +34,8 @@ test.describe('Command palette', () => {
     await page.keyboard.press('Escape')
   })
 
-  test('titlebar search surface opens the same command palette', async() => {
-    const launcher = page.locator('[data-testid="command-launcher"]')
-    await expect(launcher).toBeVisible()
-    await launcher.click()
-    await expect(page.locator('input.search').first()).toBeVisible({ timeout: 5000 })
-    await page.keyboard.press('Escape')
+  test('does not expose a persistent command/search launcher in the titlebar', async() => {
+    await expect(page.locator('[data-testid="command-launcher"]')).toHaveCount(0)
   })
 
   test('exposes launcher sections and keyboard selection', async() => {

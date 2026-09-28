@@ -91,6 +91,25 @@ describe('us12 AC-52 — table structure operations are standalone undo units', 
         expect(tableOf(firstCell(muya)).columnCount).toBe(1);
     });
 
+    it('deletes the whole table as one undoable operation and preserves the preceding edit', async () => {
+        const muya = bootMuya('| a | b |\n| --- | --- |\n| c | d |\n\nafter\n');
+        const cell = firstCell(muya);
+        const table = tableOf(cell);
+
+        cell.text = 'edited';
+        (table as Table & { removeTable: () => Content | null }).removeTable();
+        await settle();
+
+        expect(muya.getMarkdown()).not.toContain('| edited');
+        expect(muya.getMarkdown()).toContain('after');
+
+        muya.undo();
+        await settle();
+
+        expect(muya.getMarkdown()).toContain('| edited');
+        expect(tableOf(firstCell(muya)).columnCount).toBe(2);
+    });
+
     it('moves one row and one column as one undoable operation each', async () => {
         const muya = bootMuya(
             '| h1 | h2 | h3 |\n'

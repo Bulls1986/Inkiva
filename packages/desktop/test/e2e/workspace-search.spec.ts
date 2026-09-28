@@ -155,6 +155,33 @@ test.describe('Typora-style workspace search', () => {
     fs.rmSync(root, { recursive: true, force: true })
   })
 
+  test('preserves the Search query/results and restores input focus after visiting another sidebar panel', async() => {
+    const root = createWorkspace()
+    const launched = await launchElectron([root])
+    app = launched.app
+    const { page } = launched
+    await waitForWorkspaceReady(page)
+    await waitForMenuReady(app)
+
+    await showSidebarPanel(app, page, 'search')
+    const input = page.locator('.side-bar-search input.search-input')
+    await expect(input).toBeFocused()
+    await input.fill('needle-target')
+    const result = page.locator('.side-bar-search .search-result-item')
+    await expect(result).toHaveCount(1, { timeout: 5000 })
+
+    await showSidebarPanel(app, page, 'files')
+    await expect(page.locator('.side-bar-search')).toBeHidden()
+
+    await showSidebarPanel(app, page, 'search')
+    await expect(input).toBeVisible()
+    await expect(input).toHaveValue('needle-target')
+    await expect(input).toBeFocused()
+    await expect(result).toHaveCount(1)
+
+    fs.rmSync(root, { recursive: true, force: true })
+  })
+
   test('uses the current file directory when no project folder is open', async() => {
     const launched = await launchWithMarkdown('# Current file\n\nfallback-needle\n')
     app = launched.app

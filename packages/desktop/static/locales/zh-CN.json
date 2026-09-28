@@ -395,6 +395,7 @@
     "pin": "置顶",
     "unpin": "取消置顶",
     "remove": "移除",
+    "missingAction": "该最近文档记录仍会保留。要从最近文档中移除吗？",
     "clear": "清空"
   },
   "import": {

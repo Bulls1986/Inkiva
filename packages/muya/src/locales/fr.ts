@@ -5,13 +5,18 @@ export const fr = {
         'Insert Row Above': 'Insérer une ligne au-dessus',
         'Insert Row Below': 'Insérer une ligne en dessous',
         'Remove Row': 'Supprimer la ligne',
+        'Delete Row': 'Supprimer la ligne',
         // tableColumnTools
         'Align Left': 'Aligner à gauche',
         'Align Center': 'Centrer',
         'Align Right': 'Aligner à droite',
         'Insert Column left': 'Insérer une colonne à gauche',
         'Insert Column right': 'Insérer une colonne à droite',
+        'Insert Column Left': 'Insérer une colonne à gauche',
+        'Insert Column Right': 'Insérer une colonne à droite',
         'Remove Column': 'Supprimer la colonne',
+        'Delete Column': 'Supprimer la colonne',
+        'Delete Table': 'Supprimer le tableau',
         // quickInsert
         'Paragraph': 'Paragraphe',
         'Horizontal Line': 'Ligne horizontale',

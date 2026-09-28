@@ -202,28 +202,37 @@ class Table extends Parent {
         if (row == null)
             return;
 
-        // Capture a surviving neighbour
-        // BEFORE the detach so the caller can place the caret on a cell that
-        // is still attached to the DOM. Prefer the next row, fall back to the
-        // previous; if no rows remain after this delete, capture a content
-        // block OUTSIDE the table so the caret never lands inside the
-        // about-to-be-detached table itself.
+        // Capture a surviving neighbour BEFORE detach so the caller can
+        // place the caret on content that remains attached. Removing the only
+        // row is not a special raw-detach path: route through removeTable()
+        // so an only-block table becomes an empty paragraph and keeps a
+        // meaningful focus target.
         const survivor = (row.next as TableRow | null) ?? (row.prev as TableRow | null);
-        // Always grab the outside-of-table fallback as well, in case the
-        // whole table is going away. `nextContentInContext` / `prev` walk
-        // out of the table by design.
+        if (survivor == null)
+            return this.removeTable();
+
+        return this._runAtomicMutation(() => {
+            row.remove();
+            return (survivor.firstChild as TableBodyCell).firstChild as TableCellContent;
+        });
+    }
+
+    removeTable(): Nullable<Content> {
         const outsideContent
             = this.nextContentInContext() ?? this.previousContentInContext();
 
         return this._runAtomicMutation(() => {
-            row.remove();
-
-            if (survivor == null) {
+            if (outsideContent) {
                 this.remove();
-                return outsideContent ?? null;
+                return outsideContent;
             }
 
-            return (survivor.firstChild as TableBodyCell).firstChild as TableCellContent;
+            const paragraph = ScrollPage.loadBlock('paragraph').create(this.muya, {
+                name: 'paragraph',
+                text: '',
+            });
+            this.replaceWith(paragraph);
+            return paragraph.firstContentInDescendant();
         });
     }
 
@@ -235,17 +244,8 @@ class Table extends Parent {
         }
 
         const table = this.firstChild as TableInner;
-        if (this.columnCount === 1) {
-            // Same outside-of-table fallback as removeRow when the whole
-            // table is removed — never leave the caret inside a detached
-            // subtree.
-            const outsideContent
-                = this.nextContentInContext() ?? this.previousContentInContext();
-            return this._runAtomicMutation(() => {
-                this.remove();
-                return outsideContent ?? null;
-            });
-        }
+        if (this.columnCount === 1)
+            return this.removeTable();
 
         // Capture the first row's surviving neighbour cell before mutation so
         // the caller can setCursor on a still-attached cell after the column

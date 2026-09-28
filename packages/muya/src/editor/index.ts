@@ -315,6 +315,20 @@ export class Editor {
             if (event.type === 'input')
                 this._nativeInputPending = false;
 
+            if (event.type === 'contextmenu') {
+                let target = isHTMLElement(event.target) ? event.target : null;
+                while (target && target !== domNode) {
+                    const block = getBlock(target);
+                    if (block?.isContent()) {
+                        this.activeContentBlock = block;
+                        block.contextMenuHandler(event);
+                        return;
+                    }
+                    target = target.parentElement;
+                }
+                return;
+            }
+
             const selectionResult = this.selection.getSelection();
             const anchorBlock = selectionResult?.anchor.block;
             const isSelectionInSameBlock = selectionResult?.isSelectionInSameBlock;
@@ -375,6 +389,7 @@ export class Editor {
         this._eventSubscription?.unsubscribe();
         this._eventSubscription = merge(
             fromEvent(domNode, 'click'),
+            fromEvent(domNode, 'contextmenu'),
             fromEvent(domNode, 'input'),
             fromEvent(domNode, 'keydown'),
             fromEvent(domNode, 'keyup'),

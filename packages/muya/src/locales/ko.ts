@@ -5,13 +5,18 @@ export const ko = {
         'Insert Row Above': '위에 행 삽입',
         'Insert Row Below': '아래에 행 삽입',
         'Remove Row': '행 삭제',
+        'Delete Row': '행 삭제',
         // tableColumnTools
         'Align Left': '왼쪽 정렬',
         'Align Center': '가운데 정렬',
         'Align Right': '오른쪽 정렬',
         'Insert Column left': '왼쪽에 열 삽입',
         'Insert Column right': '오른쪽에 열 삽입',
+        'Insert Column Left': '왼쪽에 열 삽입',
+        'Insert Column Right': '오른쪽에 열 삽입',
         'Remove Column': '열 삭제',
+        'Delete Column': '열 삭제',
+        'Delete Table': '표 삭제',
         // quickInsert
         'Paragraph': '단락',
         'Horizontal Line': '수평선',

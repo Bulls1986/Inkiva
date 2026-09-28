@@ -53,9 +53,9 @@
           :opened-files="openedFiles"
           :tabs="tabs"
         />
-        <side-bar-search v-else-if="rightColumn === 'search'" />
-        <toc v-else-if="rightColumn === 'toc'" />
-        <document-intelligence v-else-if="rightColumn === 'document-intelligence'" />
+        <side-bar-search v-show="rightColumn === 'search'" />
+        <toc v-if="rightColumn === 'toc'" />
+        <document-intelligence v-if="rightColumn === 'document-intelligence'" />
       </div>
       <div class="sidebar-footer">
         <button

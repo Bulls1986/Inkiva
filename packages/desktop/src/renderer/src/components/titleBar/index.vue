@@ -77,18 +77,6 @@
           {{ item.label }}
         </button>
       </nav>
-      <button
-        v-if="showCustomTitleBar"
-        type="button"
-        class="command-launcher title-no-drag"
-        data-testid="command-launcher"
-        :aria-label="t('commandPalette.placeholder')"
-        @click.stop="openCommandPalette"
-      >
-        <Search aria-hidden="true" />
-        <span>{{ t('commandPalette.placeholder') }}</span>
-        <kbd>{{ isOsx ? '⌘ K' : 'Ctrl K' }}</kbd>
-      </button>
       <div
         v-if="showCustomTitleBar"
         class="custom-document-status title-no-drag"
@@ -229,10 +217,9 @@ import { isOsx as isOsxPlatform } from '@/util'
 import { shouldShowInAppTitleBar } from './visibility'
 import { useEditorStore } from '@/store/editor'
 import { useI18n } from 'vue-i18n'
-import { ArrowRight, Search } from '@element-plus/icons-vue'
+import { ArrowRight } from '@element-plus/icons-vue'
 import type { FileWordCount } from '@shared/types/files'
 import type { DocumentDurabilityStatus } from '@/store/documentDurability'
-import bus from '../../bus'
 import inkivaLogo from '../../assets/images/logo.png'
 
 interface ProjectInfo {
@@ -363,10 +350,6 @@ const handleWordClick = () => {
   index += 1
   if (index >= len) index = 0
   show.value = ITEMS[index]!
-}
-
-const openCommandPalette = (): void => {
-  bus.emit('show-command-palette')
 }
 
 const handleCloseClick = () => {
@@ -505,8 +488,8 @@ img {
 
 .title-bar.frameless:not(.isOsx) {
   display: grid;
-  grid-template-columns: auto minmax(0, max-content) minmax(180px, 1fr) 138px 138px;
-  grid-template-areas: 'brand menu search status controls';
+  grid-template-columns: auto minmax(0, 1fr) 138px 138px;
+  grid-template-areas: 'brand menu status controls';
   column-gap: 6px;
 }
 
@@ -675,70 +658,6 @@ div.title > span {
   outline-offset: -2px;
 }
 
-.command-launcher {
-  -webkit-app-region: no-drag;
-  position: static;
-  grid-area: search;
-  align-self: center;
-  justify-self: center;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: min(420px, 100%);
-  height: 28px;
-  box-sizing: border-box;
-  padding: 0 8px;
-  color: var(--text-tertiary);
-  background: var(--surface-editor);
-  border: 1px solid var(--border-default);
-  border-radius: 7px;
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--font-size-secondary);
-  text-align: left;
-  transition:
-    color var(--motion-fast),
-    background-color var(--motion-fast),
-    border-color var(--motion-fast);
-}
-
-.command-launcher:hover {
-  color: var(--text-secondary);
-  background: var(--surface-elevated);
-  border-color: var(--border-focus);
-}
-
-.command-launcher:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
-.command-launcher > svg {
-  flex: 0 0 auto;
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-}
-
-.command-launcher > span {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.command-launcher > kbd {
-  flex: 0 0 auto;
-  padding: 1px 5px;
-  color: var(--text-tertiary);
-  font-family: inherit;
-  font-size: var(--font-size-metadata);
-  line-height: 16px;
-  background: var(--surface-chrome);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-}
-
 .word-count-toolbar {
   height: 100%;
   position: absolute;
@@ -869,17 +788,6 @@ div.title > span {
   line-height: normal;
 }
 
-@media (max-width: 1100px) {
-  .title-bar.frameless:not(.isOsx) {
-    grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr) 138px;
-    grid-template-areas: 'brand menu status controls';
-  }
-
-  .command-launcher {
-    display: none;
-  }
-}
-
 @media (max-width: 1000px) {
   .titlebar-brand {
     padding-left: 8px;
@@ -893,7 +801,7 @@ div.title > span {
 
 @media (max-width: 820px) {
   .title-bar.frameless:not(.isOsx) {
-    grid-template-columns: minmax(0, 1fr) minmax(0, max-content) 138px;
+    grid-template-columns: minmax(0, 1fr) 138px 138px;
     grid-template-areas: 'menu status controls';
   }
 
@@ -910,9 +818,6 @@ div.title > span {
     padding-right: 7px;
   }
 
-  .command-launcher {
-    display: none;
-  }
 }
 
 @media (max-width: 600px) {

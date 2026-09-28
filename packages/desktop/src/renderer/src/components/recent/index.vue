@@ -61,15 +61,24 @@
             :data-path="item.pathname"
             :data-kind="item.kind"
             :data-pinned="item.pinned"
+            :data-selected="selectedRecentPath === item.pathname"
+            @contextmenu.prevent="handleRecentContextMenu($event, item)"
           >
             <button
               type="button"
               class="recent-document-open"
               data-testid="recent-open"
-              :aria-label="t('recent.open') + ' ' + displayName(item.pathname)"
-              @click="openRecent(item)"
+              :aria-label="displayName(item.pathname)"
+              :aria-current="selectedRecentPath === item.pathname ? 'true' : undefined"
+              @focus="selectRecent(item)"
+              @click="selectRecent(item)"
+              @dblclick.stop="openRecent(item)"
+              @keydown.enter.prevent.stop="openRecent(item)"
             >
-              <el-icon :size="16" aria-hidden="true">
+              <el-icon
+                :size="16"
+                aria-hidden="true"
+              >
                 <FolderOpened v-if="item.kind === 'folder'" />
                 <Document v-else />
               </el-icon>
@@ -86,7 +95,10 @@
                 :aria-label="t(item.pinned ? 'recent.unpin' : 'recent.pin')"
                 @click.stop="recentStore.TOGGLE_PIN(item.pathname)"
               >
-                <el-icon :size="14" aria-hidden="true">
+                <el-icon
+                  :size="14"
+                  aria-hidden="true"
+                >
                   <Paperclip />
                 </el-icon>
               </button>
@@ -95,9 +107,12 @@
                 class="recent-document-action"
                 data-testid="recent-remove"
                 :aria-label="t('recent.remove')"
-                @click.stop="recentStore.REMOVE(item.pathname)"
+                @click.stop="removeRecent(item)"
               >
-                <el-icon :size="14" aria-hidden="true">
+                <el-icon
+                  :size="14"
+                  aria-hidden="true"
+                >
                   <Close />
                 </el-icon>
               </button>
@@ -158,15 +173,19 @@
 import { useEditorStore } from '@/store/editor'
 import { useRecentDocumentsStore, type RecentDocument } from '@/store/recentDocuments'
 import { storeToRefs } from 'pinia'
+import { ref } from 'vue'
 import { isOsx } from '@/util'
 import { Close, Document, DocumentAdd, FolderOpened, Paperclip } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import notice from '@/services/notification'
+import { showRecentContextMenu } from '../../contextMenu/recent'
 import bus from '../../bus'
 
 const editorStore = useEditorStore()
 const recentStore = useRecentDocumentsStore()
 const { t } = useI18n()
 const { items: recentItems } = storeToRefs(recentStore)
+const selectedRecentPath = ref<string | null>(null)
 
 const openFileShortcut = isOsx ? '⌘O' : 'Ctrl+O'
 const openFileKey = isOsx ? 'Meta+O' : 'Control+O'
@@ -185,17 +204,65 @@ const displayName = (pathname: string): string => {
   return window.path.basename(pathname) || pathname
 }
 
-const openRecent = (item: RecentDocument): void => {
-  const windowId = window.inkiva?.env?.windowId
-  if (typeof windowId !== 'number') return
-  if (item.kind === 'folder') {
-    window.electron.ipcRenderer.send('app-open-directory-by-id', windowId, item.pathname)
-  } else {
-    window.electron.ipcRenderer.send('app-open-file-by-id', windowId, item.pathname)
+const selectRecent = (item: RecentDocument): void => {
+  selectedRecentPath.value = item.pathname
+}
+
+const removeRecent = (item: RecentDocument): void => {
+  recentStore.REMOVE(item.pathname)
+  if (selectedRecentPath.value === item.pathname) {
+    selectedRecentPath.value = null
   }
 }
 
+const openRecent = async (item: RecentDocument): Promise<void> => {
+  selectRecent(item)
+
+  let available = false
+  try {
+    available = item.kind === 'folder'
+      ? await window.fileUtils.isDirectory(item.pathname)
+      : await window.fileUtils.isFile(item.pathname)
+  } catch {
+    available = false
+  }
+
+  if (!available) {
+    notice.notify({
+      title: t('recent.open'),
+      type: 'warning',
+      time: 10000,
+      showConfirm: true,
+      message: `${t('store.editor.fileRemovedOnDisk', {
+        name: displayName(item.pathname)
+      })} ${t('recent.missingAction')}`
+    }).then(() => removeRecent(item)).catch(() => {})
+    return
+  }
+
+  const windowId = window.inkiva?.env?.windowId
+  if (typeof windowId !== 'number') return
+  if (item.kind === 'folder') {
+    window.electron.commands.openFolderByWindowId(windowId, item.pathname)
+  } else {
+    window.electron.commands.openFileByWindowId(windowId, item.pathname)
+  }
+}
+
+const handleRecentContextMenu = (event: MouseEvent, item: RecentDocument): void => {
+  selectRecent(item)
+  showRecentContextMenu(event, item, {
+    open: () => {
+      openRecent(item).catch(() => {})
+    },
+    reveal: () => window.electron.shell.showItemInFolder(item.pathname),
+    togglePin: () => recentStore.TOGGLE_PIN(item.pathname),
+    remove: () => removeRecent(item)
+  })
+}
+
 const clearRecent = (): void => {
+  selectedRecentPath.value = null
   recentStore.CLEAR()
 }
 
@@ -348,6 +415,10 @@ const quickOpen = (): void => {
 }
 
 .recent-document-item[data-pinned='true'] {
+  background: var(--surface-selected);
+}
+
+.recent-document-item[data-selected='true'] {
   background: var(--surface-selected);
 }
 

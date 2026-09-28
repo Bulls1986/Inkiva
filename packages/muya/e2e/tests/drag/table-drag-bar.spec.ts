@@ -151,5 +151,48 @@ test.describe('TableDragBar column reorder', () => {
 
         const afterMd = await getMarkdown(page);
         expect(afterMd).toMatch(/\|\s*B\s*\|\s*A\s*\|/);
+
+        await page.evaluate(() => window.muya!.undo());
+        await expect.poll(async () => getMarkdown(page), {
+            timeout: 5_000,
+            intervals: [50, 100, 250, 500],
+        }).toMatch(/\|\s*col-a\s*\|\s*col-b\s*\|/);
+        expect(await getMarkdown(page)).toMatch(/\|\s*A\s*\|\s*B\s*\|/);
+    });
+
+    test('releasing without crossing a reorder target leaves Markdown unchanged', async ({ page }) => {
+        const table = await makeTableWithBody(page, ['left', 'right'], ['A', 'B']);
+        const beforeMd = await getMarkdown(page);
+
+        const firstColLastRow = table.locator('tr').last().locator('td').first();
+        const firstBox = await firstColLastRow.boundingBox();
+        if (!firstBox)
+            throw new Error('last-row cell has no bounding box');
+
+        const probeX = firstBox.x + firstBox.width / 2;
+        const probeY = firstBox.y + firstBox.height + 10;
+        await page.mouse.move(probeX, probeY);
+        await page.waitForTimeout(80);
+        await page.mouse.move(probeX, probeY + 1);
+
+        const dragBar = page.locator(floats.tableDragBar);
+        await expect.poll(async () => dragBar.evaluate((el) => {
+            const wrapper = el.closest('.mu-float-wrapper') as HTMLElement | null;
+            return Number.parseFloat(wrapper?.style.opacity || '0');
+        }), { timeout: 5_000 }).toBeGreaterThan(0);
+
+        const barBox = await dragBar.boundingBox();
+        if (!barBox)
+            throw new Error('drag bar has no bounding box');
+        const barCx = barBox.x + barBox.width / 2;
+        const barCy = barBox.y + barBox.height / 2;
+        await page.mouse.move(barCx, barCy);
+        await page.mouse.down();
+        await page.waitForTimeout(400);
+        await page.mouse.move(barCx + 6, barCy, { steps: 3 });
+        await page.mouse.up();
+        await page.waitForTimeout(350);
+
+        expect(await getMarkdown(page)).toBe(beforeMd);
     });
 });

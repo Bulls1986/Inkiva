@@ -107,6 +107,10 @@ test.describe('Document workflow', () => {
         .locator('[data-testid="recent-document-item"]')
         .filter({ hasText: path.basename(filePath) })
       await expect(fileItem).toHaveCount(1)
+      const fileActivator = fileItem.locator('[data-testid="recent-open"]')
+      await fileActivator.click()
+      await expect(fileItem).toHaveAttribute('data-selected', 'true')
+      await expect(list).toBeVisible()
       await fileItem.locator('[data-testid="recent-pin"]').click()
       await expect(fileItem).toHaveAttribute('data-pinned', 'true')
       await fileItem.locator('[data-testid="recent-remove"]').click()
@@ -115,6 +119,64 @@ test.describe('Document workflow', () => {
       await list.locator('[data-testid="recent-clear"]').click()
       await expect(list.locator('[data-testid="recent-document-item"]')).toHaveCount(0)
       await expect(list.locator('[data-testid="recent-empty"]')).toBeVisible()
+    } finally {
+      await launched.app.close()
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('opens a selected Recent Document with Enter instead of single click', async() => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-document-workflow-recent-enter-'))
+    const filePath = path.join(root, 'enter-note.md')
+    fs.writeFileSync(filePath, '# Opened with Enter\n', 'utf8')
+
+    const launched = await launchElectron([root])
+    try {
+      await waitForWorkspaceReady(launched.page)
+      expect(await callRecentAction(launched.page, 'CLEAR', '')).toBe(true)
+      expect(await callRecentAction(launched.page, 'RECORD_FILE', filePath)).toBe(true)
+
+      const item = launched.page
+        .locator('[data-testid="recent-document-item"]')
+        .filter({ hasText: path.basename(filePath) })
+      const activator = item.locator('[data-testid="recent-open"]')
+
+      await activator.click()
+      await expect(item).toHaveAttribute('data-selected', 'true')
+      await expect(launched.page.locator('[data-testid="recent-documents-list"]')).toBeVisible()
+
+      await activator.press('Enter')
+      await waitForEditor(launched.page)
+      await expect.poll(() => getMarkdownContent(launched.page, launched.app)).toContain(
+        '# Opened with Enter'
+      )
+    } finally {
+      await launched.app.close()
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('opens a Recent Document on double click', async() => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-document-workflow-recent-dblclick-'))
+    const filePath = path.join(root, 'double-click-note.md')
+    fs.writeFileSync(filePath, '# Opened with double click\n', 'utf8')
+
+    const launched = await launchElectron([root])
+    try {
+      await waitForWorkspaceReady(launched.page)
+      expect(await callRecentAction(launched.page, 'CLEAR', '')).toBe(true)
+      expect(await callRecentAction(launched.page, 'RECORD_FILE', filePath)).toBe(true)
+
+      const activator = launched.page
+        .locator('[data-testid="recent-document-item"]')
+        .filter({ hasText: path.basename(filePath) })
+        .locator('[data-testid="recent-open"]')
+
+      await activator.dblclick()
+      await waitForEditor(launched.page)
+      await expect.poll(() => getMarkdownContent(launched.page, launched.app)).toContain(
+        '# Opened with double click'
+      )
     } finally {
       await launched.app.close()
       fs.rmSync(root, { recursive: true, force: true })

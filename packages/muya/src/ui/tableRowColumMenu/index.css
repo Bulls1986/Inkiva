@@ -44,6 +44,12 @@
     content: '';
 }
 
-.mu-table-bar-tools li.item:hover {
+.mu-table-bar-tools li.item:hover,
+.mu-table-bar-tools li.item.active {
     background-color: var(--interaction-surface-hover);
+}
+
+.mu-table-bar-tools li.item:focus-visible {
+    outline: none;
+    box-shadow: var(--interaction-focus-ring);
 }

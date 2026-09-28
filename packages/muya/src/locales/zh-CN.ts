@@ -5,13 +5,18 @@ export const zhCN = {
         'Insert Row Above': '上面插入行',
         'Insert Row Below': '下面插入行',
         'Remove Row': '删除所在行',
+        'Delete Row': '删除行',
         // tableColumnTools
         'Align Left': '左对齐',
         'Align Center': '居中对齐',
         'Align Right': '右对齐',
         'Insert Column left': '在左边插入列',
         'Insert Column right': '在右边插入列',
+        'Insert Column Left': '在左边插入列',
+        'Insert Column Right': '在右边插入列',
         'Remove Column': '删除所在列',
+        'Delete Column': '删除列',
+        'Delete Table': '删除表格',
         // quickInsert
         'Paragraph': '普通段落',
         'Horizontal Line': '水平分割线',

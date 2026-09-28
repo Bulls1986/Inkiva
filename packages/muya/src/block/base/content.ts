@@ -454,6 +454,10 @@ class Content extends TreeNode {
         });
     }
 
+    contextMenuHandler(_event: Event): void {
+        // Content blocks opt in when they own a contextual editing surface.
+    }
+
     tabHandler(_event: Event): void {
     // Do nothing.
     }

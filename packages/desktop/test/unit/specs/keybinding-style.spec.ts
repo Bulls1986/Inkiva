@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { isEqualAccelerator } from 'common/keybinding'
 import keybindingsLinux from 'main_renderer/keyboard/keybindingsLinux'
 import keybindingsWindows from 'main_renderer/keyboard/keybindingsWindows'
@@ -24,6 +24,16 @@ describe('shortcut style presets', () => {
     expect(defaults).not.toBe(keybindingsLinux)
     expect([...defaults]).toEqual([...keybindingsLinux])
     expect(keybindingsLinux.get('view.source-code-mode')).toBe('Ctrl+E')
+  })
+
+  it('reserves Ctrl/Cmd+K for hyperlinks in every platform baseline', () => {
+    expect(keybindingsWindows.get('format.hyperlink')).toBe('Ctrl+K')
+    expect(keybindingsLinux.get('format.hyperlink')).toBe('Ctrl+K')
+    expect(keybindingsDarwin.get('format.hyperlink')).toBe('Command+K')
+
+    expect(keybindingsWindows.get('view.toggle-toc')).toBe('')
+    expect(keybindingsLinux.get('view.toggle-toc')).toBe('')
+    expect(keybindingsDarwin.get('view.toggle-toc')).toBe('')
   })
 
   it('provides Typora-style shortcuts for Linux without duplicate bindings', () => {

@@ -7,6 +7,7 @@
         type="text"
         class="search-input"
         :placeholder="t('sideBar.search.searchInFolder')"
+        :aria-label="t('sideBar.search.searchInFolder')"
         @input="handleSearchInput"
       >
       <div class="controls">
@@ -161,8 +162,12 @@ const isCaseSensitive = ref(false)
 const isWholeWord = ref(false)
 const isRegexp = ref(false)
 const searchEl = ref<HTMLInputElement | null>(null)
+const searchNeedsRefresh = ref(false)
 
 const { rightColumn, showSideBar } = storeToRefs(layoutStore)
+const isSearchPanelActive = computed(
+  () => showSideBar.value && rightColumn.value === 'search'
+)
 const { currentFile } = storeToRefs(editorStore)
 const { projectTree } = storeToRefs(projectStore)
 const {
@@ -356,7 +361,26 @@ const handleSearchInput = (): void => {
   scheduleSearch()
 }
 
-const handleFindInFolder = (executeSearch: boolean | unknown = true): void => {
+const refreshSearchOrDefer = (): void => {
+  if (!keyword.value.trim()) return
+  if (isSearchPanelActive.value) {
+    searchNeedsRefresh.value = false
+    scheduleSearch()
+  } else {
+    searchNeedsRefresh.value = true
+  }
+}
+
+const markSearchRefreshIfPending = (): void => {
+  if (searcherRunning.value || searchTimer) {
+    searchNeedsRefresh.value = true
+  }
+}
+
+const handleFindInFolder = (
+  executeSearch: boolean | unknown = true,
+  useSelectedText = true
+): void => {
   nextTick(() => {
     if (searchEl.value) {
       searchEl.value.focus()
@@ -364,7 +388,7 @@ const handleFindInFolder = (executeSearch: boolean | unknown = true): void => {
       // (legacy contract from CodeMirror / find-in-page). Narrow defensively.
       const selectedText = (searchMatches.value as { selectedText?: string } | undefined)
         ?.selectedText
-      if (selectedText) {
+      if (useSelectedText && selectedText) {
         keyword.value = selectedText
         if (executeSearch) {
           search()
@@ -421,17 +445,28 @@ const cancelSearcher = (): void => {
 watch(showSideBar, (value, oldValue) => {
   if (rightColumn.value === 'search') {
     if (value && !oldValue) {
-      handleFindInFolder(false)
-    } else {
+      handleFindInFolder(false, false)
+      if (searchNeedsRefresh.value) refreshSearchOrDefer()
+    } else if (!value && oldValue) {
+      markSearchRefreshIfPending()
       cancelSearcher()
       bus.emit('search-blur')
     }
   }
 })
 
-watch(searchRootPath, () => {
-  if (keyword.value.trim()) scheduleSearch()
+watch(rightColumn, (value, oldValue) => {
+  if (value === 'search' && showSideBar.value) {
+    handleFindInFolder(false, false)
+    if (searchNeedsRefresh.value) refreshSearchOrDefer()
+  } else if (oldValue === 'search' && value !== 'search') {
+    markSearchRefreshIfPending()
+    cancelSearcher()
+    bus.emit('search-blur')
+  }
 })
+
+watch(searchRootPath, refreshSearchOrDefer)
 
 const handleProjectTreeChanged = (payload: unknown): void => {
   const type =
@@ -442,12 +477,14 @@ const handleProjectTreeChanged = (payload: unknown): void => {
     (type === 'add' || type === 'unlink' || type === 'addDir' || type === 'unlinkDir') &&
     keyword.value.trim()
   ) {
-    scheduleSearch()
+    refreshSearchOrDefer()
   }
 }
 
 onMounted(() => {
-  handleFindInFolder()
+  if (showSideBar.value && rightColumn.value === 'search') {
+    handleFindInFolder()
+  }
   bus.on('findInFolder', handleFindInFolder)
   bus.on('project-tree-changed', handleProjectTreeChanged)
   if (keyword.value.length > 0 && searcherRunning.value === false) {

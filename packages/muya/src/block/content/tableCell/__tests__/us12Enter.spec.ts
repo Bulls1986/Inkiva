@@ -48,13 +48,13 @@ function firstCell(muya: Muya): Content {
     return muya.editor.scrollPage!.firstContentInDescendant()!;
 }
 
-describe('us12 AC-51 — Enter stays inside a GFM table cell', () => {
-    it('inserts a visible GFM-safe <br> instead of navigating out of the cell', async () => {
+describe('desktop interaction contract — table hard break', () => {
+    it('shift+Enter serializes a GFM-safe <br> while keeping plain Enter semantics separate', async () => {
         const muya = bootMuya('| alpha | beta |\n| --- | --- |\n| gamma | delta |\n');
         const cell = firstCell(muya) as TableCellContent;
         cell.setCursor(cell.text.length, cell.text.length, true);
 
-        cell.enterHandler(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        cell.enterHandler(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true }));
         await new Promise(resolve => setTimeout(resolve, 40));
 
         expect(cell.text).toBe('alpha<br>');

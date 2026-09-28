@@ -202,7 +202,9 @@ const rendererCommandAPI = {
   tryQuit: () => send('mt::app-try-quit'),
   makeScreenshot: () => send('mt::make-screenshot'),
   openFileByWindowId: (windowId: number, filePath: string) =>
-    send('mt::open-file-by-window-id', windowId, filePath)
+    send('mt::open-file-by-window-id', windowId, filePath),
+  openFolderByWindowId: (windowId: number, folderPath: string) =>
+    send('mt::open-folder-by-window-id', windowId, folderPath)
 }
 
 const shellAPI = {
