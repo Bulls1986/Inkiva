@@ -8,6 +8,16 @@ export interface ITableOverwriteRequest {
     nonEmptyCount: number;
 }
 
+export interface ITableResizeRequest {
+    fromRows: number;
+    fromColumns: number;
+    toRows: number;
+    toColumns: number;
+    rowsRemoved: number;
+    columnsRemoved: number;
+    nonEmptyCount: number;
+}
+
 export interface IMuyaOptions {
     fontSize: number;
     lineHeight: number;
@@ -84,8 +94,16 @@ export interface IMuyaOptions {
         request: ITableOverwriteRequest,
     ) => boolean | Promise<boolean>;
     /**
+     * Ask the embedder before an existing-table resize discards non-empty
+     * cells. Returning false cancels before any table/history mutation.
+     */
+    confirmTableResize?: (
+        request: ITableResizeRequest,
+    ) => boolean | Promise<boolean>;
+    /**
      * Inform the embedder that tabular-looking clipboard text was not a regular
-     * TSV rectangle and therefore fell back to literal insertion in one cell.
+     * TSV rectangle and therefore fell back to literal insertion for the active
+     * table target (one cell or the selected cell rectangle).
      */
     notifyTablePasteFallback?: (reason: 'non-rectangular-tsv') => void;
     /**

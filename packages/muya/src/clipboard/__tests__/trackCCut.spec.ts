@@ -15,8 +15,9 @@ import { SelectionCaretType, SelectionDirection } from '../../selection/types';
 //      its container (list item stays a list item, blockquote stays a quote).
 //   2. A whole-document selection collapses to a single empty paragraph
 //      (muyajs `isSelectAll` reset).
-//   3. An empty whole-row / whole-column / whole-table table-cell cut removes
-//      that row / column / table structurally.
+//   3. P1 supersedes the old table-selection escalation: rectangular Cut is
+//      always copy + content clear. Row / column / table structure changes only
+//      through explicit structural commands.
 
 // The clipboard module pulls in CodeBlockContent → utils/prism which touches
 // `window` at import time. Stub the prism shim (same stub as sibling specs).
@@ -317,53 +318,54 @@ async function cutSelectionAndRead(muya: Muya): Promise<string> {
     return muya.getMarkdown();
 }
 
-describe('track C — empty table row/column/whole-table cut is structural', () => {
-    it('cutting an already-empty whole column removes that column', async () => {
-        // 3-column table whose middle column is entirely empty.
+describe('p1 — rectangular table Cut is always copy + content clear', () => {
+    it('keeps an already-empty whole column in the table structure', async () => {
         const muya = bootMuya(
             '| a1 |  | c1 |\n| --- | --- | --- |\n| a2 |  | c2 |\n| a3 |  | c3 |\n',
         );
         const table = firstTable(muya);
-        dragSelect(table, 0, 1, 2, 1); // whole middle column (all 3 rows)
+        const beforeColumns = table.columnCount;
+        dragSelect(table, 0, 1, 2, 1);
         const md = await cutSelectionAndRead(muya);
-        // The empty middle column is gone; the table now has 2 columns.
         expect(md).toContain('a1');
         expect(md).toContain('c1');
-        expect(table.columnCount).toBe(2);
+        expect(table.columnCount).toBe(beforeColumns);
     });
 
-    it('cutting an already-empty whole row removes that row', async () => {
-        // 4 body rows; the LAST body row is entirely empty.
+    it('keeps an already-empty whole row in the table structure', async () => {
         const muya = bootMuya(
             '| a1 | b1 |\n| --- | --- |\n| a2 | b2 |\n|  |  |\n',
         );
         const table = firstTable(muya);
-        const before = table.rowCount;
-        dragSelect(table, before - 1, 0, before - 1, 1); // whole empty last row
+        const beforeRows = table.rowCount;
+        dragSelect(table, beforeRows - 1, 0, beforeRows - 1, 1);
         await cutSelectionAndRead(muya);
-        expect(table.rowCount).toBe(before - 1);
+        expect(table.rowCount).toBe(beforeRows);
     });
 
-    it('cutting an empty whole table removes the table block', async () => {
+    it('keeps an empty whole table as an empty table', async () => {
         const muya = bootMuya(
             '|  |  |\n| --- | --- |\n|  |  |\n',
         );
         const table = firstTable(muya);
-        dragSelect(table, 0, 0, table.rowCount - 1, table.columnCount - 1);
+        const beforeRows = table.rowCount;
+        const beforeColumns = table.columnCount;
+        dragSelect(table, 0, 0, beforeRows - 1, beforeColumns - 1);
         const md = await cutSelectionAndRead(muya);
-        expect(md).not.toContain('|');
+        expect(md).toContain('|');
+        expect(table.rowCount).toBe(beforeRows);
+        expect(table.columnCount).toBe(beforeColumns);
     });
 
-    it('cutting a PARTIAL content selection only empties in place', async () => {
+    it('clears a partial rectangular selection in place', async () => {
         const muya = bootMuya(
             '| a1 | b1 |\n| --- | --- |\n| a2 | b2 |\n',
         );
         const table = firstTable(muya);
         const beforeRows = table.rowCount;
         const beforeCols = table.columnCount;
-        dragSelect(table, 0, 0, 1, 0); // first column only — not the whole table
+        dragSelect(table, 0, 0, 1, 0);
         const md = await cutSelectionAndRead(muya);
-        // Structure unchanged; only the selected column's cells were emptied.
         expect(table.rowCount).toBe(beforeRows);
         expect(table.columnCount).toBe(beforeCols);
         expect(md).not.toMatch(/\ba1\b/);
@@ -372,16 +374,19 @@ describe('track C — empty table row/column/whole-table cut is structural', () 
         expect(md).toContain('b2');
     });
 
-    it('cutting a whole table that still has content removes the table (muyajs parity)', async () => {
+    it('clears a content-filled whole table without removing its structure', async () => {
         const muya = bootMuya(
             '| a1 | b1 |\n| --- | --- |\n| a2 | b2 |\n',
         );
         const table = firstTable(muya);
-        // whole table, with content
-        dragSelect(table, 0, 0, table.rowCount - 1, table.columnCount - 1);
+        const beforeRows = table.rowCount;
+        const beforeColumns = table.columnCount;
+        dragSelect(table, 0, 0, beforeRows - 1, beforeColumns - 1);
         const md = await cutSelectionAndRead(muya);
-        expect(md).not.toContain('|');
+        expect(md).toContain('|');
         expect(md).not.toContain('a1');
         expect(md).not.toContain('b2');
+        expect(table.rowCount).toBe(beforeRows);
+        expect(table.columnCount).toBe(beforeColumns);
     });
 });

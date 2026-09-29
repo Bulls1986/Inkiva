@@ -208,26 +208,6 @@ export class TableRowColumMenu extends BaseFloat {
             if (cursorBlock)
                 cursorBlock.setCursor(0, 0, true);
         }
-        else if (action === 'move') {
-            let cursorBlock = null;
-            if (target === 'row') {
-                const to = location === 'previous' ? rowCount - 1 : rowCount + 1;
-                if (to >= 0 && to < table.rowCount)
-                    cursorBlock = table.moveRow(rowCount, to, columnCount);
-            }
-            else {
-                const to = location === 'left' ? columnCount - 1 : columnCount + 1;
-                if (to >= 0 && to < table.columnCount)
-                    cursorBlock = table.moveColumn(columnCount, to, rowCount);
-            }
-
-            if (cursorBlock)
-                cursorBlock.setCursor(0, 0, true);
-        }
-        else if (action === 'align' && target === 'column' && item.value) {
-            table.alignColumn(columnCount, item.value);
-        }
-
         this.hide();
     }
 }

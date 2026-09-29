@@ -1057,7 +1057,14 @@
       "nonEmptyCount": "{count} non-empty cells already contain content.",
       "replace": "Replace",
       "unrecognizedTitle": "Pasted as text",
-      "unrecognizedMessage": "The clipboard data was not a regular table rectangle, so it was inserted only into the current cell."
+      "unrecognizedMessage": "The clipboard data was not a regular table rectangle, so it was treated as literal text for the selected table target."
+    },
+    "tableResize": {
+      "confirmTitle": "Resize table and remove content?",
+      "resizeMessage": "Resize the table from {from} to {to}.",
+      "removeMessage": "This removes {rows} row(s) and {columns} column(s).",
+      "nonEmptyCount": "{count} non-empty cell(s) will be deleted.",
+      "resize": "Resize"
     },
     "notifications": {
       "notificationNotFound": "Notification not found"

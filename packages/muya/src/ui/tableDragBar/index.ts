@@ -238,23 +238,19 @@ export class TableDragBar extends BaseFloat {
     private _mouseup = (event: Event) => {
         event.preventDefault();
         event.stopPropagation();
-        const { container, _barType: barType } = this;
-        const { eventCenter } = this.muya;
+        const { _barType: barType, _block: block } = this;
 
         if (this._mouseTimer) {
             clearTimeout(this._mouseTimer);
             this._mouseTimer = null;
-            if (barType === 'right') {
-                eventCenter.emit('muya-table-bar', {
-                    reference: {
-                        getBoundingClientRect: () => container!.getBoundingClientRect(),
-                    },
-                    tableInfo: {
-                        barType,
-                    },
-                    block: this._block,
-                });
-            }
+            if (!barType || !block)
+                return;
+
+            const index = getIndex(barType, block);
+            if (barType === 'right')
+                this.muya.editor.selection.table.selectRow(block.table, index);
+            else
+                this.muya.editor.selection.table.selectColumn(block.table, index);
         }
     };
 

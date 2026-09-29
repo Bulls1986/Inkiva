@@ -1,15 +1,11 @@
 import type Content from '../block/base/content';
 import type Parent from '../block/base/parent';
 import type TreeNode from '../block/base/treeNode';
-import type Table from '../block/gfm/table';
-import type TableBodyCell from '../block/gfm/table/cell';
 import type { Nullable } from '../types';
 import type Clipboard from './index';
 import Format from '../block/base/format';
 import { ScrollPage } from '../block/scrollPage';
-import { CLASS_NAMES } from '../config';
 import { SelectionDirection, SelectionType } from '../selection/types';
-import { getBlock } from '../utils/dom';
 
 /**
  * Whole-document selection predicate: the selection spans from the very first
@@ -231,117 +227,6 @@ function removeBlocks(before: TreeNode, after: TreeNode): void {
     pruneAfterBranch(afterBranch, after);
 }
 
-/**
- * Resolve the frozen table selection to its table and the list of selected
- * body cells, reading the highlighted cell DOM nodes. Returns `null` when
- * there is no resolvable selection.
- */
-function selectedTableCells(
-    clipboard: Clipboard,
-): Nullable<{ table: Table; cells: TableBodyCell[] }> {
-    const { domNode } = clipboard.muya;
-    const selectedDoms = domNode.querySelectorAll(`.${CLASS_NAMES.MU_TABLE_CELL_SELECTED}`);
-    const cells: TableBodyCell[] = [];
-    let table: Nullable<Table> = null;
-
-    for (const dom of selectedDoms) {
-        const block = getBlock(dom);
-        if (block == null || block.blockName !== 'table.cell')
-            continue;
-
-        const cell = block as TableBodyCell;
-        cells.push(cell);
-        table ??= cell.table;
-    }
-
-    if (table == null || cells.length === 0)
-        return null;
-
-    return { table, cells };
-}
-
-// Remove the whole table block and seat the caret just outside it (or reset to
-// a single empty paragraph when the table was the only block).
-function removeWholeTable(clipboard: Clipboard, table: Table): void {
-    clipboard.selection.table.clear();
-    const outsideContent
-        = table.nextContentInContext() ?? table.previousContentInContext();
-    table.remove();
-    if (clipboard.scrollPage?.length() === 0)
-        resetToEmptyParagraph(clipboard);
-    else
-        outsideContent?.setCursor(0, 0, true);
-}
-
-// For an already-empty frozen selection: if the rectangle covers whole
-// column(s), whole row(s), or the whole table, delete that structure and return
-// `true`; a partial rectangle returns `false` so the caller just drops the
-// selection. Multiple whole columns / rows are removed high-index-first so the
-// remaining offsets stay valid.
-function removeEmptyTableStructure(clipboard: Clipboard): boolean {
-    const selectedCells = selectedTableCells(clipboard);
-    if (selectedCells == null)
-        return false;
-
-    const { table, cells } = selectedCells;
-    const rows = new Set(cells.map(cell => cell.rowOffset));
-    const columns = new Set(cells.map(cell => cell.columnOffset));
-    const spansAllRows = rows.size === table.rowCount;
-    const spansAllColumns = columns.size === table.columnCount;
-
-    if (spansAllRows && spansAllColumns) {
-        removeWholeTable(clipboard, table);
-
-        return true;
-    }
-
-    if (spansAllRows) {
-        clipboard.selection.table.clear();
-        let cursorBlock: Nullable<Content> = null;
-        for (const column of [...columns].sort((a, b) => b - a))
-            cursorBlock = table.removeColumn(column);
-        cursorBlock?.setCursor(0, 0, true);
-
-        return true;
-    }
-
-    if (spansAllColumns) {
-        clipboard.selection.table.clear();
-        let cursorBlock: Nullable<Content> = null;
-        for (const row of [...rows].sort((a, b) => b - a))
-            cursorBlock = table.removeRow(row);
-        cursorBlock?.setCursor(0, 0, true);
-
-        return true;
-    }
-
-    return false;
-}
-
-// Clipboard cut over a frozen table selection: a whole-table selection is
-// deleted even with content; otherwise content cells fall back to an in-place
-// clear, and an empty whole column/row selection deletes that structure.
-function cutTableStructure(clipboard: Clipboard): boolean {
-    const selectedCells = selectedTableCells(clipboard);
-    if (selectedCells == null)
-        return false;
-
-    const { table, cells } = selectedCells;
-    const rows = new Set(cells.map(cell => cell.rowOffset));
-    const columns = new Set(cells.map(cell => cell.columnOffset));
-
-    if (rows.size === table.rowCount && columns.size === table.columnCount) {
-        removeWholeTable(clipboard, table);
-
-        return true;
-    }
-
-    if (cells.some(cell => (cell.firstChild as Content)?.text))
-        return false;
-
-    return removeEmptyTableStructure(clipboard);
-}
-
 export function cutSelection(clipboard: Clipboard): void {
     // Cut a selected image: the copy half wrote its raw markdown; remove it here.
     const selectedImage = clipboard.selection.image;
@@ -354,9 +239,7 @@ export function cutSelection(clipboard: Clipboard): void {
     }
 
     if (clipboard.selection.table.hasSelection) {
-        if (!cutTableStructure(clipboard))
-            clipboard.selection.table.clearSelectedCells();
-
+        clipboard.selection.table.clearSelectedCells();
         return;
     }
 
@@ -452,14 +335,8 @@ function collapseLanguageInputCut(
     resetIfEmpty(clipboard);
 }
 
-// Keyboard delete over a frozen table selection (two-stage, muyajs parity):
-// the first press clears the selected cells' text but keeps the rectangle
-// frozen; once the cells are empty, the next press removes whole column(s) /
-// row(s) / the whole table, or drops the selection for a partial rectangle.
+// Keyboard delete over a frozen table selection always means content deletion.
+// Selection geometry never escalates Delete/Backspace into a structural command.
 export function deleteTableSelection(clipboard: Clipboard): void {
-    if (clipboard.selection.table.emptySelectedCells())
-        return;
-
-    if (!removeEmptyTableStructure(clipboard))
-        clipboard.selection.table.clear();
+    clipboard.selection.table.emptySelectedCells();
 }

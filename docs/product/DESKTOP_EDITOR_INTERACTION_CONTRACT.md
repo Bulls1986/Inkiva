@@ -325,11 +325,15 @@ Inside a table cell:
 
 - `Tab` moves to the next cell.
 - `Shift+Tab` moves to the previous cell.
-- `Tab` from the final cell may append a new body row and move into it.
+- `Tab` from the final cell appends exactly one body row and moves to its first cell.
+- `Shift+Tab` from the first cell is a no-op.
 - `Enter` moves to the cell directly below in the same column when such a cell exists.
+- `Enter` in the final row is a no-op; it does not create structure.
 - `Enter` must **not** expose or insert a visible literal `<br>` token in WYSIWYG.
 - `Ctrl+Enter` / `Cmd+Enter` inserts a body row below the current row.
 - `Shift+Enter` inserts an explicit hard line break inside the current cell.
+- Arrow keys are navigation only; they must not create rows, paragraphs, or other table structure.
+- `Alt+Up` / `Alt+Down` moves the current row by one position when a destination exists; a boundary move is a no-op.
 
 ### 14.2 Hard-line-break representation
 
@@ -350,7 +354,7 @@ This is a core WYSIWYG abstraction boundary.
 
 ### 14.3 Table context menu
 
-Right-clicking a table cell must expose at least:
+Right-clicking a table cell exposes exactly the primary structural commands:
 
 - Insert Row Above;
 - Insert Row Below;
@@ -360,11 +364,7 @@ Right-clicking a table cell must expose at least:
 - Delete Column;
 - Delete Table.
 
-Column alignment may be included when supported:
-
-- Align Left;
-- Align Center;
-- Align Right.
+Do not add alignment, table-size, row/column move, or duplicate property commands to this menu. Those actions have separate primary surfaces below. Accessibility support must not make the visible structural menu a second all-purpose table toolbar.
 
 ### 14.4 Structural safety
 
@@ -374,17 +374,55 @@ Column alignment may be included when supported:
 - Delete Table deletes the table as one undoable operation.
 - If deleting the last required row/column would make the table invalid, Inkiva must use a defined safe behavior (disable that command or route the user to Delete Table); it must not silently emit malformed Markdown.
 - Structural actions must preserve a meaningful focus target after the operation.
+- A rectangular cell selection describes a content target only. `Delete` / `Backspace` clears selected cell content and never implicitly deletes a row, column, or table.
+- Repeating `Delete` / `Backspace` over an already-empty rectangular selection performs zero document mutation.
+- Cut over a rectangular selection is Copy + clear-content only; selected geometry never grants structural-delete authority.
 
 ### 14.5 Table mouse behavior
 
 When row/column drag affordances are present:
 
-- the affordance is visible on hover/focus;
+- the affordance is visible on the corresponding table border;
+- a short click selects the corresponding row or column rather than opening a duplicate command menu;
 - dragging must have clear insertion feedback;
 - dropping produces one atomic undoable operation;
+- a drag that never reaches a valid reorder destination produces zero document mutation;
 - dragging must not select arbitrary document text.
 
-### 14.6 Table acceptance matrix
+### 14.6 Table property toolbar
+
+The compact table property toolbar is the single primary surface for existing-table size and column alignment:
+
+- Rows × Columns;
+- Default alignment;
+- Left alignment;
+- Center alignment;
+- Right alignment.
+
+It must not duplicate row/column insertion, deletion, or move commands.
+
+When the caret is inside a table cell, `Alt+Enter` (Option+Enter on macOS keyboards) opens this existing property toolbar and moves focus to its first control. This is the keyboard-accessibility gateway; it must not be duplicated as a `Table Properties` context-menu item.
+
+Resize is one atomic table operation. Expansion preserves existing content/alignment and creates empty new cells. Shrinking across non-empty cells requires explicit confirmation before mutation; Cancel/Escape/close produces zero document/history mutation, and one Undo after confirmation restores the former dimensions, content, and alignment.
+
+`Default` is a distinct alignment state from explicit `Left`. Alignment changes must not normalize unrelated Markdown delimiters.
+
+### 14.7 Rectangular clipboard contract
+
+Rectangular cell selection is an Inkiva extension layered on standard Markdown table storage:
+
+- normal multi-cell Copy exposes TSV as `text/plain` and a semantic HTML table as `text/html`;
+- explicit Copy as Markdown exposes the GFM table representation;
+- scalar paste fills every selected cell;
+- matching rectangular TSV overwrites deterministically from the rectangular selection anchor;
+- a smaller matrix changes only its footprint from that anchor;
+- a larger matrix expands the table as required rather than silently truncating;
+- malformed TSV reports fallback and applies literal content deterministically instead of silently doing nothing;
+- overwriting existing non-empty target cells requires the destructive-overwrite confirmation contract;
+- Cancel produces zero document/history mutation;
+- rectangular clipboard operations must derive their target from the table selection itself and must not require a surviving native text caret/range.
+
+### 14.8 Table acceptance matrix
 
 A release gate for tables must cover at least:
 
@@ -398,6 +436,12 @@ A release gate for tables must cover at least:
 8. Delete Table is undoable.
 9. undo/redo restores structural changes and focus sensibly.
 10. CJK IME input works inside cells without premature transformations.
+11. row/column border drag reorders atomically, Undo restores, and invalid drag is a no-op.
+12. the compact property toolbar resizes with destructive-shrink confirmation and exposes Default/Left/Center/Right without structural duplicates.
+13. `Alt/Option+Enter` opens and focuses the compact property toolbar without adding a duplicate context-menu command.
+14. rectangular Delete/Cut never remove table structure, including repeated Delete on an empty selection.
+15. scalar/matrix/malformed rectangular paste follows the deterministic clipboard contract even though rectangular selection suppresses the ordinary native text range.
+16. large/wide tables retain horizontal-scroll containment and table operations remain usable after virtualization/remount.
 
 ## 15. Links contract
 
