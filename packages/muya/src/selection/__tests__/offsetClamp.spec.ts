@@ -95,12 +95,21 @@ describe('source ↔ DOM caret mapping', () => {
             .toBe('alpha<br>'.length);
     });
 
-    it('treats an Element Range offset as a child boundary rather than a character count', () => {
+    it('projects only explicit hard-break element boundaries into source offsets', () => {
         const paragraph = hardBreakDom();
 
         expect(getSourceOffsetOfDomPoint(paragraph, 1, paragraph)).toBe('alpha'.length);
         expect(getSourceOffsetOfDomPoint(paragraph, 3, paragraph)).toBe('alpha<br>'.length);
-        expect(getSourceOffsetOfDomPoint(paragraph, 4, paragraph)).toBe('alpha<br>beta'.length);
+    });
+
+    it('preserves legacy offsets for ordinary element boundaries', () => {
+        const paragraph = document.createElement('span');
+        const plainText = document.createElement('span');
+        plainText.classList.add('mu-plain-text');
+        plainText.textContent = 'The quick needleAlpha brown fox and needleBeta jumps.';
+        paragraph.appendChild(plainText);
+
+        expect(getSourceOffsetOfDomPoint(plainText, 1, paragraph)).toBe(1);
     });
 
     it('maps a caret after a rendered inline image to the atomic image source end', () => {

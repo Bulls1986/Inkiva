@@ -135,11 +135,42 @@ function getInlineImageSourceOffset(
     return imageStart + (domOffset > 0 ? imageLength : 0);
 }
 
+function getHardBreakSourceOffset(
+    node: Node,
+    domOffset: number,
+    paragraph: HTMLElement,
+): number | null {
+    if (!isElement(node))
+        return null;
+
+    const childNodes = node.childNodes;
+    const boundary = Math.min(Math.max(domOffset, 0), childNodes.length);
+    const beforeMarker = childNodes[boundary];
+    const afterBreak = boundary >= 2
+        && childNodes[boundary - 1]?.nodeName === 'BR'
+        && isHiddenHardBreakMarker(childNodes[boundary - 2]);
+
+    const beforeBreak = beforeMarker != null
+        && isHiddenHardBreakMarker(beforeMarker);
+
+    if (!beforeBreak && !afterBreak)
+        return null;
+
+    let localOffset = 0;
+    for (let i = 0; i < boundary; i++)
+        localOffset += getSelectionTextLength(childNodes[i]);
+
+    return getOffsetOfParagraph(node, paragraph) + localOffset;
+}
+
 /**
  * Convert one native DOM Range endpoint into the source-text offset used by
- * Muya's logical selection. A DOM offset on an Element is a child boundary,
- * not a character count, so it must be measured through the source projection
- * of the preceding children instead of being added blindly.
+ * Muya's logical selection.
+ *
+ * Ordinary Element offsets retain Muya's legacy DOM-boundary semantics.
+ * Renderers whose visual topology diverges from their source range must opt in
+ * through an explicit atomic-boundary mapping instead of changing every
+ * Element endpoint globally.
  */
 export function getSourceOffsetOfDomPoint(
     node: Node,
@@ -150,19 +181,16 @@ export function getSourceOffsetOfDomPoint(
     if (imageOffset != null)
         return imageOffset;
 
+    const hardBreakOffset = getHardBreakSourceOffset(node, domOffset, paragraph);
+    if (hardBreakOffset != null)
+        return hardBreakOffset;
+
     const baseOffset = getOffsetOfParagraph(node, paragraph);
 
     if (node.nodeType === Node.TEXT_NODE)
         return baseOffset + Math.min(Math.max(domOffset, 0), (node as Text).length);
 
-    const childNodes = node.childNodes;
-    const boundary = Math.min(Math.max(domOffset, 0), childNodes.length);
-    let localOffset = 0;
-
-    for (let i = 0; i < boundary; i++)
-        localOffset += getSelectionTextLength(childNodes[i]);
-
-    return baseOffset + localOffset;
+    return baseOffset + Math.min(Math.max(domOffset, 0), node.childNodes.length);
 }
 
 function isHiddenHardBreakMarker(node: Node): node is HTMLElement {

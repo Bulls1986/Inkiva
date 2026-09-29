@@ -91,7 +91,7 @@ The repair therefore changes the selection mapping contract, not table focus beh
 
 - hidden `<br>` source syntax remains part of source-length accounting but is treated as an atomic visual hard-break boundary for source → DOM mapping;
 - source positions at the token boundary map before/after the rendered hard break, never into the hidden marker;
-- native Element child-boundary offsets are converted back to source offsets by summing the source projection of preceding children rather than adding the child index as if it were text length.
+- renderer-defined atomic Element boundaries are converted back through explicit source projection; ordinary Element boundaries retain Muya's established mapping semantics.
 
 No `focus()`, timer, table-tail forcing, private Markdown syntax, or `_shiftEnter()` retry is introduced.
 
@@ -122,6 +122,39 @@ Focused atomic-token regression after the repair:
 - combined result: **15/15 Green**.
 
 This is deliberately a bounded mapping change, not a new selection subsystem.
+
+## Stage 3.1 — PR CI regression and mapper scope correction
+
+Status: **complete**
+
+The first PR CI run exposed a Desktop E2E failure in the existing Find/Escape flow:
+
+- expected restored selection: `needleAlpha`;
+- actual restored selection: the entire paragraph.
+
+This was treated as a possible task regression because the task changes a generic selection mapper. A detached worktree at the exact untouched base `1b3b0fb4` ran the same E2E case and passed **1/1**, while the task branch reproduced the failure locally. The regression was therefore confirmed as task-caused.
+
+Instrumentation showed Escape ultimately called `setCursor(0, 53, true)`, proving the active search match itself had already been polluted. A low-level Red then isolated the mapping error:
+
+- ordinary `.mu-plain-text` Element boundary `offset=1`;
+- expected legacy logical offset: `1`;
+- received after the broad projection change: `53`.
+
+Root cause: the inverse mapper had generalized the hard-break rule to **all** Element endpoints by summing preceding child source lengths. That is invalid for ordinary renderer wrappers.
+
+Final scope correction:
+
+- ordinary Element endpoints keep legacy boundary semantics;
+- hard-break boundaries opt into explicit source projection;
+- inline-image before/after boundaries keep their explicit atomic mapping;
+- no Find-specific or desktop-level workaround was added.
+
+Focused mapper/search/image/hard-break regression after correction: **21/21 Green**.
+
+Real Electron verification after the correction:
+
+- Find/Escape selection restoration: **1/1 Green**;
+- hard-break + Source/WYSIWYG IME suite: **7/7 Green**.
 
 ## Stage 4 — real Electron acceptance
 
@@ -173,6 +206,8 @@ Status: **complete with one baseline-reproducible unrelated canonical timeout re
 | Desktop unit suite | **164 files / 1298 passed / 1 existing skip** |
 | Electron hard-break flows | **2/2 Green** |
 | Electron Source/WYSIWYG IME | **5/5 Green** |
+| Electron Find/Escape selection restoration | **1/1 Green** |
+| focused mapper + search + image + hard-break regression | **21/21 Green** |
 | current-worktree Electron build | Green |
 | lint | Green: 0 errors; existing warnings remain |
 | typecheck / architecture type boundaries | Green |
@@ -204,7 +239,7 @@ The invariant is:
 
 > An atomic rendered token exposes stable caret-before / caret-after semantics; its hidden or non-text implementation details are not editable caret positions.
 
-The first protected cases are hard breaks and inline images. The same rule should be applied when evolving math, ruby, hidden Markdown syntax, and other atomic inline renderers.
+The first protected cases are hard breaks and inline images. The same rule should be applied when evolving math, ruby, hidden Markdown syntax, and other atomic inline renderers. Crucially, atomic projection is an **opt-in renderer contract**; it must not redefine ordinary Element-boundary selection behavior globally.
 
 ## Closeout conclusion
 
