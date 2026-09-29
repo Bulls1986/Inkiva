@@ -154,12 +154,22 @@ const invokeContext = async(page: Page, row: number, column: number, label: stri
   await menu.locator('[role="menuitem"]').nth(index).click()
 }
 
-const openProperties = async(page: Page, row: number, column: number): Promise<Locator> => {
+const openProperties = async(
+  page: Page,
+  row: number,
+  column: number,
+  expectedSize?: string
+): Promise<Locator> => {
   const box = await cell(page, row, column).boundingBox()
   if (!box) throw new Error('Unable to resolve table-cell geometry for property toolbar')
   await page.mouse.move(box.x + box.width / 2, Math.max(1, box.y - 8))
   const toolbar = page.locator('.mu-table-column-tools-container [role="toolbar"]')
-  await expect(toolbar).toBeVisible()
+  const float = page.locator('.mu-table-column-tools-container')
+  await expect.poll(async() => Number.parseFloat(await float.evaluate(node => (node as HTMLElement).style.opacity || '0')))
+    .toBeGreaterThan(0)
+  if (expectedSize) {
+    await expect(toolbar.locator('li.item.size')).toContainText(expectedSize)
+  }
   return toolbar
 }
 
@@ -331,7 +341,7 @@ test.describe.serial('P1 table interaction simplification — Electron acceptanc
     await chooseSize(page, 5, 4)
     await expect.poll(() => tableDimensions(page)).toEqual({ rows: 5, columns: 4 })
 
-    await openProperties(page, 0, 1)
+    await openProperties(page, 0, 1, '5 × 4')
     await chooseSize(page, 2, 2)
     const dialog = page.locator('.ag-table-resize-confirm-dialog')
     await expect(dialog).toBeVisible()
@@ -341,7 +351,7 @@ test.describe.serial('P1 table interaction simplification — Electron acceptanc
     await expect(dialog).toBeHidden()
     expect(await tableDimensions(page)).toEqual({ rows: 5, columns: 4 })
 
-    await openProperties(page, 0, 1)
+    await openProperties(page, 0, 1, '5 × 4')
     await chooseSize(page, 2, 2)
     await expect(dialog).toBeVisible()
     await dialog.locator('.dialog-footer .el-button').last().click()
@@ -356,7 +366,7 @@ test.describe.serial('P1 table interaction simplification — Electron acceptanc
       ['Align Center', ':---:'],
       ['Align Right', '---:']
     ] as const) {
-      const toolbar = await openProperties(page, 0, 0)
+      const toolbar = await openProperties(page, 0, 0, '3 × 3')
       const type = label === 'Align Left' ? 'left' : label === 'Align Center' ? 'center' : 'right'
       await toolbar.locator(`li.item.${type}`).focus()
       await toolbar.locator(`li.item.${type}`).press('Enter')
@@ -364,7 +374,7 @@ test.describe.serial('P1 table interaction simplification — Electron acceptanc
       expect(markdown).toContain(marker)
     }
 
-    const toolbar = await openProperties(page, 0, 0)
+    const toolbar = await openProperties(page, 0, 0, '3 × 3')
     await toolbar.locator('li.item.none').focus()
     await toolbar.locator('li.item.none').press('Enter')
     const defaultMarkdown = await getMarkdownContent(page, app)

@@ -447,7 +447,7 @@ Dedicated command:
 pnpm -C packages/desktop exec playwright test test/e2e/table-interaction-p1.spec.ts --config=test/e2e/playwright.config.ts --workers=1
 ```
 
-Final frozen result after the keyboard-accessibility gateway, selection-owned paste repair, unified overwrite confirmation, surface cleanup and corrected long-press drag harness: **8/8 passed (34.2s)**.
+Final frozen result after the keyboard-accessibility gateway, selection-owned paste repair, unified overwrite confirmation, surface cleanup, corrected long-press drag harness and BaseFloat readiness fix: **8/8 passed (36.7s)**.
 
 Covered flows:
 
@@ -517,6 +517,10 @@ The E2E coverage was migrated rather than deleted:
 
 Focused real-Chromium validation of those four specs completed **17/17 passed (40.0s)** before the follow-up push.
 
+PR #217's fourth CI pass reached **10/11 workflows green**; the only failure was the new Desktop P1 Electron Flow D/E itself. The failure dialog reported `3 × 3 → 2 × 2` where the test had already observed a preceding resize to `5 × 4`. Diagnosis showed an E2E float-readiness bug rather than a resize regression: Muya hides `BaseFloat` by moving it to `top/left: -9999px` with `opacity: 0`, while Playwright `toBeVisible()` can still consider the nonzero DOM box visible. `openProperties()` could therefore operate the toolbar before the throttled hover handler rebound `_block` to the resized table. The harness now waits for the float wrapper's real `opacity > 0` state and, when known, the current `Rows × Columns` label before issuing the next property action. No production resize code changed.
+
+After that harness correction, the complete P1 Electron spec was run twice in one single-worker invocation: **16/16 passed (1.2m)**, including Flow D/E in both repetitions. This is the final local race-regression evidence for the follow-up.
+
 ## 12. Lessons
 
 Reusable lessons from P1:
@@ -531,3 +535,4 @@ Reusable lessons from P1:
 7. **When a broad gate fails outside the changed behavior, compare the exact failing case on the frozen base before classifying it.** The tableChessboard dynamic-import timeout reproduced within milliseconds on `dc5cf076`, which prevented a pre-existing local timing ceiling from being misdiagnosed as a P1 regression or "fixed" by weakening the timeout.
 8. **Long-press drag E2E must preserve the hold gesture before probing movement.** Moving the pointer during the 300ms table-handle arming window re-enters hover ownership and can clear the handle's current block before `_startDrag()` runs. Keep the pointer stationary through the product threshold, then move past the real 5px drag threshold and assert the public `.mu-drag-cell` state.
 9. **When a product surface is intentionally removed, migrate higher-layer acceptance to the replacement surface instead of deleting the old test.** P1 retained the same structural and clipboard coverage while moving row insertion from an edge popup to the cell context menu, turning handle clicks into selection checks, and changing normal rectangular Copy from GFM to TSV.
+10. **For BaseFloat E2E, DOM visibility is not float readiness.** A parked Muya float keeps a rendered box but uses `opacity: 0` and offscreen coordinates. Tests that need the float's current semantic owner must wait for its product show state (for example `opacity > 0`) and, where possible, assert owner-derived content such as the current table-size label before interacting.
