@@ -33,7 +33,58 @@ const placeCaretAtEndOfFirstTableCell = async(page: Page): Promise<void> => {
   })
 
   expect(committed).toBe(true)
-  await page.waitForTimeout(100)
+}
+
+const readFirstTableCellText = async(page: Page): Promise<string> =>
+  page.evaluate(() => {
+    const target = document.querySelector('.editor-component .mu-table-cell-content')
+    if (!(target instanceof HTMLElement)) return ''
+
+    const block = (target as unknown as Record<string, unknown>).__MUYA_BLOCK__ as
+      | { text?: string }
+      | undefined
+    return typeof block?.text === 'string' ? block.text : ''
+  })
+
+const expectFirstTableCellCaret = async(page: Page, logicalOffset: number): Promise<void> => {
+  const state = await page.evaluate(() => {
+    const target = document.querySelector('.editor-component .mu-table-cell-content')
+    if (!(target instanceof HTMLElement)) return null
+
+    const block = (target as unknown as Record<string, unknown>).__MUYA_BLOCK__ as
+      | {
+        getCursor?: () =>
+            | {
+              isCollapsed?: boolean
+              start?: { offset?: number }
+              end?: { offset?: number }
+            }
+            | null
+      }
+      | undefined
+    const selection = document.getSelection()
+    const anchorNode = selection?.anchorNode ?? null
+    const anchorElement =
+      anchorNode instanceof Element ? anchorNode : anchorNode?.parentElement ?? null
+    const cursor = block?.getCursor?.() ?? null
+
+    return {
+      rangeCount: selection?.rangeCount ?? 0,
+      nativeCollapsed: selection?.isCollapsed ?? false,
+      insideHiddenSyntax: !!anchorElement?.closest('.mu-hide, .mu-output-remove'),
+      logicalCollapsed: cursor?.isCollapsed ?? false,
+      startOffset: cursor?.start?.offset ?? -1,
+      endOffset: cursor?.end?.offset ?? -1
+    }
+  })
+
+  expect(state).not.toBeNull()
+  expect(state!.rangeCount).toBe(1)
+  expect(state!.nativeCollapsed).toBe(true)
+  expect(state!.insideHiddenSyntax).toBe(false)
+  expect(state!.logicalCollapsed).toBe(true)
+  expect(state!.startOffset).toBe(logicalOffset)
+  expect(state!.endOffset).toBe(logicalOffset)
 }
 
 const readSource = async(page: Page): Promise<string> =>
@@ -56,7 +107,15 @@ test('Shift+Enter hard break stays visual in WYSIWYG and survives Source/save/re
     await first.page.keyboard.press('Shift+Enter')
 
     const cell = first.page.locator('.editor-component .mu-table-cell-content').first()
+    await expect.poll(() => readFirstTableCellText(first.page)).toBe('alpha<br>')
     await expect(cell.locator('br')).toHaveCount(1)
+    await expectFirstTableCellCaret(first.page, 'alpha<br>'.length)
+
+    // P0 contract: no second click/focus repair between hard break and continued typing.
+    await first.page.keyboard.type('beta')
+    await expect.poll(() => readFirstTableCellText(first.page)).toBe('alpha<br>beta')
+    await expect(cell.locator('br')).toHaveCount(1)
+    await expectFirstTableCellCaret(first.page, 'alpha<br>beta'.length)
 
     const marker = cell.locator('.mu-hide.mu-html-tag.mu-output-remove')
     await expect(marker).toHaveCount(1)
@@ -73,9 +132,15 @@ test('Shift+Enter hard break stays visual in WYSIWYG and survives Source/save/re
     expect(markerLayout.height).toBe(0)
     expect(markerLayout.overflow).toBe('hidden')
 
+    await sendIpcToRenderer(first.app, 'mt::editor-edit-action', 'undo')
+    await expect.poll(() => readFirstTableCellText(first.page)).not.toBe('alpha<br>beta')
+    await sendIpcToRenderer(first.app, 'mt::editor-edit-action', 'redo')
+    await expect.poll(() => readFirstTableCellText(first.page)).toBe('alpha<br>beta')
+    await expectFirstTableCellCaret(first.page, 'alpha<br>beta'.length)
+
     await enterSourceMode(first.page, first.app)
     const sourceBeforeSave = await readSource(first.page)
-    expect(sourceBeforeSave).toContain('alpha<br>')
+    expect(sourceBeforeSave).toContain('alpha<br>beta')
     expect(sourceBeforeSave.match(/<br>/g)).toHaveLength(1)
     expect(sourceBeforeSave).not.toContain('&lt;br&gt;')
     await exitSourceMode(first.page, first.app)
@@ -84,7 +149,7 @@ test('Shift+Enter hard break stays visual in WYSIWYG and survives Source/save/re
     await expect.poll(
       () => fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n'),
       { timeout: 5000 }
-    ).toContain('alpha<br>')
+    ).toContain('alpha<br>beta')
   } finally {
     await first.app.close()
   }
@@ -104,10 +169,42 @@ test('Shift+Enter hard break stays visual in WYSIWYG and survives Source/save/re
     await enterSourceMode(first.page, first.app)
     const reopenedSource = await readSource(first.page)
     expect(reopenedSource.match(/<br>/g)).toHaveLength(1)
-    expect(reopenedSource).toContain('alpha<br>')
+    expect(reopenedSource).toContain('alpha<br>beta')
     expect(reopenedSource).not.toContain('&lt;br&gt;')
   } finally {
     await first.app.close()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('typed <br> rerender keeps the caret live for the next character without a second click', async() => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-table-typed-hard-break-'))
+  const filePath = path.join(root, 'typed-hard-break.md')
+  fs.writeFileSync(filePath, TABLE, 'utf8')
+
+  const launched = await launchElectron([filePath])
+  try {
+    await waitForEditor(launched.page)
+    await placeCaretAtEndOfFirstTableCell(launched.page)
+
+    await launched.page.keyboard.type('<br>')
+    await expect.poll(() => readFirstTableCellText(launched.page)).toBe('alpha<br>')
+    await expect(
+      launched.page.locator('.editor-component .mu-table-cell-content').first().locator('br')
+    ).toHaveCount(1)
+    await expectFirstTableCellCaret(launched.page, 'alpha<br>'.length)
+
+    await launched.page.keyboard.type('beta')
+    await expect.poll(() => readFirstTableCellText(launched.page)).toBe('alpha<br>beta')
+    await expectFirstTableCellCaret(launched.page, 'alpha<br>beta'.length)
+
+    await enterSourceMode(launched.page, launched.app)
+    const source = await readSource(launched.page)
+    expect(source).toContain('alpha<br>beta')
+    expect(source.match(/<br>/g)).toHaveLength(1)
+    expect(source).not.toContain('&lt;br&gt;')
+  } finally {
+    await launched.app.close()
     fs.rmSync(root, { recursive: true, force: true })
   }
 })
