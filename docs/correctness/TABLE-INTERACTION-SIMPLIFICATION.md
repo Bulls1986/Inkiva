@@ -483,6 +483,8 @@ Final local quality gates:
 
 Desktop full `vue-tsc` remains the same pre-existing imported-Muya declaration baseline blocker already recorded above; no unrelated declaration workaround was introduced for P1.
 
+PR closeout note: PR #217's first CI pass exposed two `antfu/curly` errors in the newly added shared overwrite-preflight guards in `clipboard/paste.ts`. This was a Muya-package lint rule not surfaced by the root lint command. The failure was diagnosed from the exact `Muya Lint` job log and corrected by adding braces only; no behavior changed. The Muya-package lint command is part of the final pre-push revalidation for the follow-up commit.
+
 ## 12. Lessons
 
 Reusable lessons from P1:

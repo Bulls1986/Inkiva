@@ -114,8 +114,9 @@ async function applyRectangularTablePaste(
         startColumn,
         endRow,
         endColumn,
-    ))
+    )) {
         return;
+    }
 
     const focus = table.applyCellMatrix(startRow, startColumn, rows);
     clipboard.selection.table.clear();
@@ -565,8 +566,9 @@ async function applyLiteralPaste(
             range.minColumn,
             range.maxRow,
             range.maxColumn,
-        ))
+        )) {
             return;
+        }
 
         runPasteMutation(clipboard, () => {
             for (let row = range.minRow; row <= range.maxRow; row++) {
