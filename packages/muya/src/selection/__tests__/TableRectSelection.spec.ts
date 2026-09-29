@@ -153,22 +153,17 @@ describe('cross-cell table selection — highlight', () => {
 });
 
 describe('cross-cell table selection — copy', () => {
-    it('copies a multi-cell rectangle as GFM table markdown', () => {
+    it('copies a multi-cell rectangle as TSV plain text with semantic table HTML', () => {
         const muya = bootMuya(TABLE_MD);
         const table = firstTable(muya);
         dragSelect(table, 0, 0, 1, 1);
 
         const store = dispatchCopy(muya, 'copy');
         const text = store.get('text/plain')!;
-        // a1/b1 header row + a2/b2 body row, serialised as a table.
-        expect(text).toContain('a1');
-        expect(text).toContain('b1');
-        expect(text).toContain('a2');
-        expect(text).toContain('b2');
-        expect(text).not.toContain('c1'); // the un-selected column is excluded
-        expect(text).not.toContain('a3'); // the un-selected row is excluded
-        // It is a real GFM table (header separator present).
-        expect(text).toMatch(/\|\s*-+/);
+        expect(text).toBe('a1\tb1\na2\tb2');
+        expect(store.get('text/html')).toContain('<table>');
+        expect(store.get('text/html')).toContain('a1');
+        expect(store.get('text/html')).not.toContain('c1');
     });
 
     it('copies a single selected cell as plain text (no table, no html)', () => {

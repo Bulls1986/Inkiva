@@ -101,7 +101,10 @@ async function applyRectangularTablePaste(
     rows: string[][],
 ): Promise<void> {
     const cell = anchorBlock.closestBlock('table.cell') as TableBodyCell;
-    const selectionRange = clipboard.selection.table.getRange();
+    const tableSelection = clipboard.selection.table;
+    const selectionRange = typeof tableSelection?.getRange === 'function'
+        ? tableSelection.getRange()
+        : null;
     const table = selectionRange?.table ?? cell.table;
     const startRow = selectionRange?.anchorRow ?? cell.rowOffset;
     const startColumn = selectionRange?.anchorColumn ?? cell.columnOffset;
@@ -119,7 +122,7 @@ async function applyRectangularTablePaste(
     }
 
     const focus = table.applyCellMatrix(startRow, startColumn, rows);
-    clipboard.selection.table.clear();
+    tableSelection?.clear();
     const offset = focus.text.length;
     focus.setCursor(offset, offset, true);
 }
@@ -550,14 +553,15 @@ async function applyLiteralPaste(
     // A frozen table-cell selection is an explicit target range. Literal/scalar
     // paste fills every selected cell; it never silently no-ops and never changes
     // table structure. Matrix TSV took the dedicated path above.
+    const tableSelection = clipboard.selection.table;
+    const range = typeof tableSelection?.getRange === 'function'
+        ? tableSelection.getRange()
+        : null;
     if (
         anchorBlock.blockName === 'table.cell.content'
-        && clipboard.selection.table.hasSelection
+        && tableSelection?.hasSelection
+        && range
     ) {
-        const range = clipboard.selection.table.getRange();
-        if (!range)
-            return;
-
         const value = markdown.trim().replace(/\n/g, '<br>');
         if (!await confirmTableRangeOverwrite(
             clipboard,
@@ -586,7 +590,7 @@ async function applyLiteralPaste(
             range.anchorRow,
             range.anchorColumn,
         )?.firstContentInDescendant();
-        clipboard.selection.table.clear();
+        tableSelection.clear();
         if (caretBlock) {
             const offset = caretBlock.text.length;
             caretBlock.setCursor(offset, offset, true);
@@ -736,7 +740,10 @@ async function applyPaste(clipboard: Clipboard, data: IPasteData): Promise<void>
     // text range and clears activeContentBlock. It is nevertheless a complete
     // paste target in its own right, so do not require TextSelection to exist
     // before routing scalar/TSV clipboard text into the table contract.
-    const tableRange = clipboard.selection.table.getRange();
+    const tableSelection = clipboard.selection.table;
+    const tableRange = typeof tableSelection?.getRange === 'function'
+        ? tableSelection.getRange()
+        : null;
     if (tableRange && data.text !== '') {
         const anchorBlock = tableRange.table.cellAt(
             tableRange.anchorRow,

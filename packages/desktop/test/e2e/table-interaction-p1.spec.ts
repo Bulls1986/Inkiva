@@ -218,22 +218,26 @@ const dragVisibleHandleToCell = async(
   await page.mouse.move(x, y)
   await page.mouse.down()
 
-  // Product contract: hold for >=300ms before reorder starts. Under a loaded
-  // Electron runner the timer callback can be scheduled slightly later, so use
-  // bounded real mouse probes and observe the drag class instead of assuming a
-  // fixed sleep proves readiness.
+  // Product contract: keep the pointer stationary on the handle for >=300ms
+  // before moving. Moving during the hold would re-run hover ownership and can
+  // clear the handle's current table cell before its long-press timer fires.
+  await page.waitForTimeout(330)
+
+  // Once the long press has armed document-level dragging, move beyond the
+  // product's 5px threshold and observe the public drag class rather than
+  // relying on the timer alone as proof that reorder mode started.
   let dragStarted = false
-  for (let attempt = 0; attempt < 5; attempt++) {
-    await page.waitForTimeout(100)
-    const probe = 6 + attempt
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const probe = 6 + attempt * 2
     await page.mouse.move(
       type === 'bottom' ? x + probe : x,
       type === 'right' ? y + probe : y
     )
-    if (await page.locator('.mu-drag-cell').count()) {
+    if (await page.locator('.mu-drag-cell').count() > 0) {
       dragStarted = true
       break
     }
+    await page.waitForTimeout(50)
   }
   expect(dragStarted).toBe(true)
 

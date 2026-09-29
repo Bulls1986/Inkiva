@@ -447,7 +447,7 @@ Dedicated command:
 pnpm -C packages/desktop exec playwright test test/e2e/table-interaction-p1.spec.ts --config=test/e2e/playwright.config.ts --workers=1
 ```
 
-Final frozen result after the keyboard-accessibility gateway, selection-owned paste repair, unified overwrite confirmation, surface cleanup and geometry-stable drag harness: **8/8 passed (34.3s)**.
+Final frozen result after the keyboard-accessibility gateway, selection-owned paste repair, unified overwrite confirmation, surface cleanup and corrected long-press drag harness: **8/8 passed (34.2s)**.
 
 Covered flows:
 
@@ -485,6 +485,23 @@ Desktop full `vue-tsc` remains the same pre-existing imported-Muya declaration b
 
 PR closeout note: PR #217's first CI pass exposed two `antfu/curly` errors in the newly added shared overwrite-preflight guards in `clipboard/paste.ts`. This was a Muya-package lint rule not surfaced by the root lint command. The failure was diagnosed from the exact `Muya Lint` job log and corrected by adding braces only; no behavior changed. The Muya-package lint command is part of the final pre-push revalidation for the follow-up commit.
 
+PR #217's second CI pass moved past lint/build/spec/circular checks but exposed stale full-suite contracts plus one compatibility assumption in `Muya Test`:
+
+- older clipboard test doubles did not implement `TableRectSelection.getRange()`, while the P1 paste path initially assumed that capability unconditionally;
+- `keydownTableGuard.spec.ts` still encoded the removed two-stage "second Delete removes structure" behavior;
+- `TableRectSelection.spec.ts` still expected normal multi-cell Copy to emit GFM instead of the P1 TSV + semantic-HTML contract;
+- `arrowHandler.spec.ts` still expected final-row ArrowDown to create a paragraph.
+
+The compatibility fix is capability-based rather than test-specific: all clipboard paths consult `getRange()` only when the structured table-selection implementation exposes it, otherwise they fall back to the established caret/cell path. Old tests were updated only where their asserted product behavior was explicitly superseded by this P1 contract; no P1 assertion was weakened.
+
+Local full-Muya revalidation after those changes reached **1714/1717** with all table/clipboard/P1 tests green. The three remaining failures were 5-second timeout-only cases outside the changed behavior. Focused classification established:
+
+- `searchAsync.spec.ts` — green focused;
+- `markdownToStateParentStackPerformance.spec.ts` — green focused;
+- `tableChessboard.spec.ts` package-entry export check — still ~5.01s locally, but the identical test on clean base `dc5cf076` also times out at ~5.03s; P1 changes only add a type-only export to `packages/muya/src/index.ts`, so the runtime import graph is unchanged.
+
+Therefore the remaining local full-suite timeout is recorded as reproduced baseline/environment evidence, not a P1 regression. CI remains authoritative for the Linux full-suite gate.
+
 ## 12. Lessons
 
 Reusable lessons from P1:
@@ -495,3 +512,6 @@ Reusable lessons from P1:
    The resulting pattern is `Alt+Enter` / Option+Enter → focus the existing compact property toolbar; the structural context menu remains unchanged.
 4. **Float-tool E2E must reproduce its real geometry owner.** Column reorder is exposed on the table bottom border, not every internal row boundary; property tools are revealed from the table top edge. Tests should drive the actual border/hover geometry instead of invoking model methods or inventing alternate gateways.
 5. **Native-module bootstrap failures are not product regressions.** `--ignore-scripts` correctly isolated install side effects but required an explicit Electron/native bootstrap for E2E. The unrelated `native-keymap` Electron-42/MSVC build failure was kept outside the P1 product diff rather than “fixed” to make a table gate green.
+6. **Structured-selection APIs must be capability-safe at integration boundaries.** Production owns the full `TableRectSelection`, but focused clipboard tests and embedders may supply narrower selection facades. Consult optional structured-selection capabilities before using them; a missing higher-level range should fall back to the established caret path rather than crash unrelated image/plain-text paste flows.
+7. **When a broad gate fails outside the changed behavior, compare the exact failing case on the frozen base before classifying it.** The tableChessboard dynamic-import timeout reproduced within milliseconds on `dc5cf076`, which prevented a pre-existing local timing ceiling from being misdiagnosed as a P1 regression or "fixed" by weakening the timeout.
+8. **Long-press drag E2E must preserve the hold gesture before probing movement.** Moving the pointer during the 300ms table-handle arming window re-enters hover ownership and can clear the handle's current block before `_startDrag()` runs. Keep the pointer stationary through the product threshold, then move past the real 5px drag threshold and assert the public `.mu-drag-cell` state.
