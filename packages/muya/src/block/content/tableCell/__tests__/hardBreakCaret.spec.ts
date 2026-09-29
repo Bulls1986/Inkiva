@@ -93,7 +93,7 @@ function insertTextAtNativeCaret(cell: TableCellContent, text: string) {
     }));
 }
 
-describe('P0 table hard-break caret correctness', () => {
+describe('p0 table hard-break caret correctness', () => {
     it('keeps Shift+Enter caret outside hidden source syntax and allows uninterrupted typing', () => {
         const muya = bootMuya('| alpha | beta |\n| --- | --- |\n');
         const cell = firstCell(muya);
