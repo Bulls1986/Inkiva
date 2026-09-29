@@ -146,7 +146,7 @@ test.describe('cross-cell table selection', () => {
         expect(styles.borderRightStyle).toBe('solid');
     });
 
-    test('copy yields only the selected sub-rectangle as a GFM table', async ({ browserName, context, page }) => {
+    test('copy yields only the selected sub-rectangle as TSV plain text', async ({ browserName, context, page }) => {
         test.skip(browserName !== 'chromium', 'clipboard read unreliable on Firefox/WebKit headless — BACKLOG Phase 3.');
         await context.grantPermissions(['clipboard-read', 'clipboard-write']);
         await seedTable(page);
@@ -157,13 +157,7 @@ test.describe('cross-cell table selection', () => {
         await page.keyboard.press(`${metaKey()}+c`);
 
         const copied = await page.evaluate(() => navigator.clipboard.readText());
-        // a1/b1 + a2/b2 only — the un-selected column/row are excluded.
-        expect(copied).toContain('a1');
-        expect(copied).toContain('b2');
-        expect(copied).not.toContain('c1');
-        expect(copied).not.toContain('a3');
-        // It is a real GFM table (header separator row).
-        expect(copied).toMatch(/\|\s*-+/);
+        expect(copied).toBe('a1\tb1\na2\tb2');
     });
 
     test('cut empties only the selected cells', async ({ browserName, context, page }) => {

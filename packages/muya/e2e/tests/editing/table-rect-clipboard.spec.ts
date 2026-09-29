@@ -9,7 +9,7 @@ import { editor } from '../helpers/selectors';
  * table rectangle no longer plants a model-level text caret in the anchor
  * cell — focus stays on the editor root and the clipboard listeners moved to
  * `document` with an ownership guard. This spec proves a real Cmd/Ctrl+C still
- * fires copy (clipboard receives the GFM sub-table) and Cmd/Ctrl+X still fires
+ * fires copy (clipboard receives TSV plain text) and Cmd/Ctrl+X still fires
  * cut (the spanned cells are emptied) under that new arrangement, in real
  * Chromium.
  *
@@ -84,7 +84,7 @@ test.describe('table rect clipboard (root-focus exclusivity)', () => {
         expect(state.editorHasFocus).toBe(true);
     });
 
-    test('Cmd/Ctrl+C copies the selected rectangle as a GFM sub-table', async ({ browserName, context, page }) => {
+    test('Cmd/Ctrl+C copies the selected rectangle as TSV plain text', async ({ browserName, context, page }) => {
         test.skip(browserName !== 'chromium', 'clipboard read unreliable on Firefox/WebKit headless — BACKLOG Phase 3.');
         await context.grantPermissions(['clipboard-read', 'clipboard-write']);
         await seedTable(page);
@@ -95,13 +95,7 @@ test.describe('table rect clipboard (root-focus exclusivity)', () => {
         await page.keyboard.press(`${metaKey()}+c`);
 
         const copied = await page.evaluate(() => navigator.clipboard.readText());
-        expect(copied).toContain('a1');
-        expect(copied).toContain('b1');
-        expect(copied).toContain('a2');
-        expect(copied).toContain('b2');
-        expect(copied).not.toContain('c1');
-        expect(copied).not.toContain('a3');
-        expect(copied).toMatch(/\|\s*-+/);
+        expect(copied).toBe('a1\tb1\na2\tb2');
     });
 
     test('Cmd/Ctrl+X cuts the selected rectangle, emptying only those cells', async ({ browserName, context, page }) => {

@@ -502,6 +502,21 @@ Local full-Muya revalidation after those changes reached **1714/1717** with all 
 
 Therefore the remaining local full-suite timeout is recorded as reproduced baseline/environment evidence, not a P1 regression. CI remains authoritative for the Linux full-suite gate.
 
+PR #217's third CI pass restored `Muya Test` and the main unit `Test` gates, then exposed six stale **Muya browser E2E** expectations in the Chromium lane. All six asserted interaction surfaces that P1 intentionally replaced:
+
+- `table-column-toolbar.spec.ts` still expected six alignment/insert/remove icons and second-click alignment toggling;
+- `table-row-column-menu.spec.ts` still expected a short click on the right border handle to open the old row-operation popup and used that removed popup for Insert Row Below;
+- `table-cell-selection.spec.ts` and `table-rect-clipboard.spec.ts` still expected normal multi-cell Copy to return GFM Markdown instead of TSV.
+
+The E2E coverage was migrated rather than deleted:
+
+- compact property toolbar now proves `Rows × Columns` + Default/Left/Center/Right only, with explicit Default restoring `none`;
+- right/bottom border short-clicks prove row/column selection and no duplicate structural popup;
+- Insert Row Below remains browser-E2E covered through the real cell context menu, including the seven-command menu shape;
+- both rectangular clipboard specs assert exact TSV plain text (`a1\tb1\na2\tb2`).
+
+Focused real-Chromium validation of those four specs completed **17/17 passed (40.0s)** before the follow-up push.
+
 ## 12. Lessons
 
 Reusable lessons from P1:
@@ -515,3 +530,4 @@ Reusable lessons from P1:
 6. **Structured-selection APIs must be capability-safe at integration boundaries.** Production owns the full `TableRectSelection`, but focused clipboard tests and embedders may supply narrower selection facades. Consult optional structured-selection capabilities before using them; a missing higher-level range should fall back to the established caret path rather than crash unrelated image/plain-text paste flows.
 7. **When a broad gate fails outside the changed behavior, compare the exact failing case on the frozen base before classifying it.** The tableChessboard dynamic-import timeout reproduced within milliseconds on `dc5cf076`, which prevented a pre-existing local timing ceiling from being misdiagnosed as a P1 regression or "fixed" by weakening the timeout.
 8. **Long-press drag E2E must preserve the hold gesture before probing movement.** Moving the pointer during the 300ms table-handle arming window re-enters hover ownership and can clear the handle's current block before `_startDrag()` runs. Keep the pointer stationary through the product threshold, then move past the real 5px drag threshold and assert the public `.mu-drag-cell` state.
+9. **When a product surface is intentionally removed, migrate higher-layer acceptance to the replacement surface instead of deleting the old test.** P1 retained the same structural and clipboard coverage while moving row insertion from an edge popup to the cell context menu, turning handle clicks into selection checks, and changing normal rectangular Copy from GFM to TSV.
