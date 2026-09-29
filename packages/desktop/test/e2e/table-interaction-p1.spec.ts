@@ -130,6 +130,12 @@ const pasteText = async(page: Page, text: string, row = 0, column = 0): Promise<
   }, text)
 }
 
+const confirmPasteOverwrite = async(dialog: Locator): Promise<void> => {
+  await expect(dialog).toBeVisible()
+  await dialog.locator('.dialog-footer .el-button').last().click()
+  await expect(dialog).toBeHidden()
+}
+
 const openContextMenu = async(page: Page, row: number, column: number): Promise<Locator> => {
   await cell(page, row, column).click({ button: 'right' })
   const menu = page.locator('.mu-table-bar-tools [role="menu"]')
@@ -487,15 +493,13 @@ test.describe.serial('P1 table interaction simplification — Electron acceptanc
     await setSourceMarkdown(page, app, TABLE_2X2)
     await dragSelect(page, 0, 0, 1, 1)
     await pasteText(page, 'x')
-    await expect(overwrite).toBeVisible()
-    await overwrite.locator('.dialog-footer .el-button').last().click()
+    await confirmPasteOverwrite(overwrite)
     await expect.poll(() => tableMatrix(page)).toEqual([['x', 'x'], ['x', 'x']])
 
     await setSourceMarkdown(page, app, TABLE_2X2)
     await dragSelect(page, 0, 0, 1, 1)
     await pasteText(page, '1\t2\n3\t4')
-    await expect(overwrite).toBeVisible()
-    await overwrite.locator('.dialog-footer .el-button').last().click()
+    await confirmPasteOverwrite(overwrite)
     await expect.poll(() => tableMatrix(page)).toEqual([['1', '2'], ['3', '4']])
     await undo(app)
     await expect.poll(() => tableMatrix(page)).toEqual([['a', 'b'], ['c', 'd']])
@@ -503,8 +507,7 @@ test.describe.serial('P1 table interaction simplification — Electron acceptanc
     await setSourceMarkdown(page, app, TABLE_2X2)
     await dragSelect(page, 0, 0, 1, 1)
     await pasteText(page, 'left\tright\nragged')
-    await expect(overwrite).toBeVisible()
-    await overwrite.locator('.dialog-footer .el-button').last().click()
+    await confirmPasteOverwrite(overwrite)
     await expect.poll(() => tableMatrix(page)).toEqual([
       ['left\tright<br>ragged', 'left\tright<br>ragged'],
       ['left\tright<br>ragged', 'left\tright<br>ragged']
@@ -513,8 +516,7 @@ test.describe.serial('P1 table interaction simplification — Electron acceptanc
     await setSourceMarkdown(page, app, TABLE_2X2)
     await dragSelect(page, 1, 0, 1, 1)
     await pasteText(page, 'w\tx\tq\ny\tz\tr', 1, 0)
-    await expect(overwrite).toBeVisible()
-    await overwrite.locator('.dialog-footer .el-button').last().click()
+    await confirmPasteOverwrite(overwrite)
     await expect.poll(() => tableDimensions(page)).toEqual({ rows: 3, columns: 3 })
     expect((await tableMatrix(page)).slice(1)).toEqual([
       ['w', 'x', 'q'],
