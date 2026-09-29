@@ -195,76 +195,95 @@ const revealDragHandle = async(
   type: 'right' | 'bottom',
   row: number,
   column: number
-): Promise<{ handle: Locator; width: number; height: number }> => {
+): Promise<{ handle: Locator; pressX: number; pressY: number }> => {
   const td = page.locator('.mu-table-inner tr').nth(row).locator('td.mu-table-cell').nth(column)
   const box = await td.boundingBox()
   if (!box) throw new Error('Unable to resolve table-cell geometry for drag handle')
 
-  if (type === 'right') {
-    await page.mouse.move(box.x + box.width + 6, box.y + box.height / 2)
-  } else {
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height + 6)
-  }
+  const revealX = type === 'right' ? box.x + box.width + 6 : box.x + box.width / 2
+  const revealY = type === 'right' ? box.y + box.height / 2 : box.y + box.height + 6
+  await page.mouse.move(revealX, revealY)
 
   const handle = page.locator(`.mu-table-drag-bar[data-drag="${type}"]`)
   await expect(handle).toBeVisible()
-  return { handle, width: box.width, height: box.height }
+  const handleBox = await handle.boundingBox()
+  if (!handleBox) throw new Error('Unable to resolve visible drag-handle geometry')
+
+  // Pick a point that is simultaneously inside the rendered handle and inside
+  // the drag-bar hover ownership band (OFFSET=20). This keeps the trailing
+  // throttled mousemove from hiding the handle before the long press arms.
+  let pressX: number
+  let pressY: number
+  if (type === 'right') {
+    const minX = Math.max(handleBox.x + 1, box.x + box.width + 1)
+    const maxX = Math.min(handleBox.x + handleBox.width - 1, box.x + box.width + 19)
+    if (minX > maxX) throw new Error('Right drag handle does not overlap its hover ownership band')
+    pressX = (minX + maxX) / 2
+    pressY = Math.min(
+      Math.max(box.y + box.height / 2, handleBox.y + 1),
+      handleBox.y + handleBox.height - 1
+    )
+  } else {
+    const minY = Math.max(handleBox.y + 1, box.y + box.height + 1)
+    const maxY = Math.min(handleBox.y + handleBox.height - 1, box.y + box.height + 19)
+    if (minY > maxY) throw new Error('Bottom drag handle does not overlap its hover ownership band')
+    pressX = Math.min(
+      Math.max(box.x + box.width / 2, handleBox.x + 1),
+      handleBox.x + handleBox.width - 1
+    )
+    pressY = (minY + maxY) / 2
+  }
+  await page.mouse.move(pressX, pressY)
+  const hitType = await page.evaluate(({ x, y }) =>
+    document.elementFromPoint(x, y)?.closest('.mu-table-drag-bar')?.getAttribute('data-drag') ?? null,
+  { x: pressX, y: pressY })
+  expect(hitType).toBe(type)
+  return { handle, pressX, pressY }
 }
 
 const dragVisibleHandleToCell = async(
   page: Page,
-  handle: Locator,
+  probe: { handle: Locator; pressX: number; pressY: number },
   type: 'right' | 'bottom',
   targetRow: number,
   targetColumn: number
 ): Promise<void> => {
-  const handleBox = await handle.boundingBox()
   const targetBox = await cell(page, targetRow, targetColumn).boundingBox()
-  if (!handleBox || !targetBox) throw new Error('Unable to resolve drag geometry')
-  const x = handleBox.x + handleBox.width / 2
-  const y = handleBox.y + handleBox.height / 2
+  if (!targetBox) throw new Error('Unable to resolve drag geometry')
+  const { pressX: x, pressY: y } = probe
   const targetX = targetBox.x + targetBox.width / 2
   const targetY = targetBox.y + targetBox.height / 2
-  await page.mouse.move(x, y)
   await page.mouse.down()
 
-  // Product contract: keep the pointer stationary on the handle for >=300ms
-  // before moving. Moving during the hold would re-run hover ownership and can
-  // clear the handle's current table cell before its long-press timer fires.
-  await page.waitForTimeout(330)
+  // `_startDrag()` arms the document-level drag listeners and marks the
+  // non-drag cells with `mu-cell-transform` before any >5px movement occurs.
+  // Wait for that observable product state while the pointer remains still;
+  // do not guess that a fixed 300ms timer has fired under CI load.
+  await expect.poll(() => page.locator('.mu-table-inner .mu-cell-transform').count()).toBeGreaterThan(0)
 
-  // Once the long press has armed document-level dragging, move beyond the
-  // product's 5px threshold and observe the public drag class rather than
-  // relying on the timer alone as proof that reorder mode started.
-  let dragStarted = false
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const probe = 6 + attempt * 2
-    await page.mouse.move(
-      type === 'bottom' ? x + probe : x,
-      type === 'right' ? y + probe : y
-    )
-    if (await page.locator('.mu-drag-cell').count() > 0) {
-      dragStarted = true
-      break
-    }
-    await page.waitForTimeout(50)
-  }
-  expect(dragStarted).toBe(true)
+  // Now cross the real 5px threshold and wait for the dragged row/column to
+  // enter its public drag state.
+  await page.mouse.move(
+    type === 'bottom' ? x + 6 : x,
+    type === 'right' ? y + 6 : y
+  )
+  await expect.poll(() => page.locator('.mu-table-inner .mu-drag-cell').count()).toBeGreaterThan(0)
 
   await page.mouse.move(targetX, targetY, { steps: 8 })
   await page.mouse.up()
 }
 
-const dragVisibleHandleBelowThreshold = async(page: Page, handle: Locator): Promise<void> => {
-  const box = await handle.boundingBox()
-  if (!box) throw new Error('Unable to resolve drag-handle geometry')
-  const x = box.x + box.width / 2
-  const y = box.y + box.height / 2
-  await page.mouse.move(x, y)
+const dragVisibleHandleBelowThreshold = async(
+  page: Page,
+  probe: { handle: Locator; pressX: number; pressY: number }
+): Promise<void> => {
+  const { pressX: x, pressY: y } = probe
   await page.mouse.down()
-  await page.waitForTimeout(450)
+  await expect.poll(() => page.locator('.mu-table-inner .mu-cell-transform').count()).toBeGreaterThan(0)
   await page.mouse.move(x, y + 2)
   await page.mouse.up()
+  await expect.poll(() => page.locator('.mu-table-inner .mu-cell-transform').count()).toBe(0)
+  await expect(page.locator('.mu-table-inner .mu-drag-cell')).toHaveCount(0)
 }
 
 const undo = async(app: ElectronApplication): Promise<void> =>
@@ -396,7 +415,7 @@ test.describe.serial('P1 table interaction simplification — Electron acceptanc
   test('Flow F — border handles reorder rows/columns atomically and invalid drag is a no-op', async() => {
     await setSourceMarkdown(page, app, DRAG_TABLE)
     const rowHandle = await revealDragHandle(page, 'right', 1, 2)
-    await dragVisibleHandleToCell(page, rowHandle.handle, 'right', 2, 2)
+    await dragVisibleHandleToCell(page, rowHandle, 'right', 2, 2)
     await expect.poll(() => tableMatrix(page)).toEqual([
       ['h1', 'h2', 'h3'],
       ['r2c1', 'r2c2', 'r2c3'],
@@ -415,7 +434,7 @@ test.describe.serial('P1 table interaction simplification — Electron acceptanc
     // Column reorder handle lives on the table's bottom edge, so reveal it
     // from the last row rather than an internal row boundary.
     const columnHandle = await revealDragHandle(page, 'bottom', 3, 0)
-    await dragVisibleHandleToCell(page, columnHandle.handle, 'bottom', 3, 1)
+    await dragVisibleHandleToCell(page, columnHandle, 'bottom', 3, 1)
     await expect.poll(() => tableMatrix(page)).toEqual([
       ['h2', 'h1', 'h3'],
       ['r1c2', 'r1c1', 'r1c3'],
@@ -432,7 +451,7 @@ test.describe.serial('P1 table interaction simplification — Electron acceptanc
 
     const beforeInvalidDrag = await getMarkdownContent(page, app)
     const invalidHandle = await revealDragHandle(page, 'right', 1, 2)
-    await dragVisibleHandleBelowThreshold(page, invalidHandle.handle)
+    await dragVisibleHandleBelowThreshold(page, invalidHandle)
     expect(await getMarkdownContent(page, app)).toBe(beforeInvalidDrag)
     await expectNoRendererErrors(app)
   })

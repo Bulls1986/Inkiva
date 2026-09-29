@@ -447,14 +447,14 @@ Dedicated command:
 pnpm -C packages/desktop exec playwright test test/e2e/table-interaction-p1.spec.ts --config=test/e2e/playwright.config.ts --workers=1
 ```
 
-Final frozen result after the keyboard-accessibility gateway, selection-owned paste repair, unified overwrite confirmation, surface cleanup, corrected long-press drag harness and BaseFloat readiness fix: **8/8 passed (36.7s)**.
+Final frozen result after the keyboard-accessibility gateway, selection-owned paste repair, unified overwrite confirmation, surface cleanup, BaseFloat readiness fix and drag cancel-state closure: **8/8 passed (32.4s)**.
 
 Covered flows:
 
 - **A/B:** continuous keyboard editing, `Shift+Enter` hard break, final-cell `Tab` growth, focus continuity, Undo;
 - **C:** each primary context-menu row/column structural action plus atomic Undo;
 - **D/E:** `Alt+Enter` keyboard reveal/focus plus normal hover reveal of the same compact property toolbar, 3×3→5×4 resize, destructive 5×4→2×2 Cancel/Confirm/Undo, exact Default/Left/Center/Right alignment and Source/WYSIWYG round-trip;
-- **F:** real 300ms-hold border-handle row reorder, column reorder, Undo, and sub-threshold invalid drag with zero Markdown change;
+- **F:** real long-press border-handle row reorder, column reorder, Undo, and sub-threshold invalid drag with zero Markdown change **and zero residual drag UI state**;
 - **G/H:** rectangular Delete/repeated Delete/Cut over row/column/table targets with structure preserved and Undo restoration;
 - **I:** scalar fill, matrix overwrite, malformed fallback, larger-than-selection expansion, and destructive confirmation for every non-empty rectangular overwrite path;
 - **J:** hard-break WYSIWYG→Source→WYSIWYG stability;
@@ -521,6 +521,17 @@ PR #217's fourth CI pass reached **10/11 workflows green**; the only failure was
 
 After that harness correction, the complete P1 Electron spec was run twice in one single-worker invocation: **16/16 passed (1.2m)**, including Flow D/E in both repetitions. This is the final local race-regression evidence for the follow-up.
 
+PR #217's fifth CI pass again reached **10/11 workflows green**. `PR Build`, Muya E2E, Muya Test, main Test, lint/spec/circular/performance gates all passed; the sole Desktop E2E failure moved to **Flow F**. Under the full 424-test runner, the fixed `330ms` long-press assumption could expire before the browser timer callback actually armed dragging, so the harness sometimes moved the pointer before `_startDrag()` had installed document drag ownership.
+
+Replacing that timing guess with observable drag state exposed a real product defect rather than just a flaky test. Once `_startDrag()` arms, it marks non-drag cells with `.mu-cell-transform`. A long press followed by less than the 5px reorder threshold and mouseup left those classes behind indefinitely. Two cleanup gaps caused it:
+
+- `_docMouseup()` returned immediately when `_isDragTableBar` was still false, without resetting the already-armed `_dragInfo` visual state;
+- when the sub-threshold mouseup landed on the drag handle itself, the handle's `_mouseup()` stopped propagation, so the document-level `_docMouseup()` never received the finish event.
+
+The production fix now centralizes drag-state cleanup in `_resetDragTableBar()`, removing `mu-cell-transform`, `mu-drag-cell`, orientation drag classes and inline transforms; the sub-threshold document path calls that reset; and an armed mouseup on the handle explicitly forwards into the same document finish path. Quick-click row/column selection remains the pre-arm branch and is unchanged.
+
+The Flow F harness was also made state- and geometry-driven: it chooses a press point that lies inside both the rendered handle and the table's hover-ownership band, waits for `.mu-cell-transform` as proof that `_startDrag()` really armed, moves beyond the real 5px threshold only after that state exists, and verifies invalid/cancel drag leaves no drag classes behind. Red evidence was **9 residual `.mu-cell-transform` cells** after a sub-threshold release; after the production fix and a fresh Electron rebuild, the complete P1 Electron suite is **8/8 passed (32.4s)**. The final repeated stability gate then completed **16/16 passed (1.1m)** with both Flow F repetitions green. A focused real-Chromium drag-handle regression also remains **4/4 passed (13.9s)**, covering right/bottom quick-click selection and the cell context-menu structural path.
+
 ## 12. Lessons
 
 Reusable lessons from P1:
@@ -533,6 +544,8 @@ Reusable lessons from P1:
 5. **Native-module bootstrap failures are not product regressions.** `--ignore-scripts` correctly isolated install side effects but required an explicit Electron/native bootstrap for E2E. The unrelated `native-keymap` Electron-42/MSVC build failure was kept outside the P1 product diff rather than “fixed” to make a table gate green.
 6. **Structured-selection APIs must be capability-safe at integration boundaries.** Production owns the full `TableRectSelection`, but focused clipboard tests and embedders may supply narrower selection facades. Consult optional structured-selection capabilities before using them; a missing higher-level range should fall back to the established caret path rather than crash unrelated image/plain-text paste flows.
 7. **When a broad gate fails outside the changed behavior, compare the exact failing case on the frozen base before classifying it.** The tableChessboard dynamic-import timeout reproduced within milliseconds on `dc5cf076`, which prevented a pre-existing local timing ceiling from being misdiagnosed as a P1 regression or "fixed" by weakening the timeout.
-8. **Long-press drag E2E must preserve the hold gesture before probing movement.** Moving the pointer during the 300ms table-handle arming window re-enters hover ownership and can clear the handle's current block before `_startDrag()` runs. Keep the pointer stationary through the product threshold, then move past the real 5px drag threshold and assert the public `.mu-drag-cell` state.
+8. **Long-press drag E2E must wait for product state, not a guessed wall-clock delay.** A nominal 300ms timer is not proof that `_startDrag()` has executed under a loaded CI runner. Keep the pointer inside the handle's hover-ownership geometry and wait for the armed-state marker (`.mu-cell-transform`) before crossing the real 5px movement threshold and asserting `.mu-drag-cell`.
 9. **When a product surface is intentionally removed, migrate higher-layer acceptance to the replacement surface instead of deleting the old test.** P1 retained the same structural and clipboard coverage while moving row insertion from an edge popup to the cell context menu, turning handle clicks into selection checks, and changing normal rectangular Copy from GFM to TSV.
 10. **For BaseFloat E2E, DOM visibility is not float readiness.** A parked Muya float keeps a rendered box but uses `opacity: 0` and offscreen coordinates. Tests that need the float's current semantic owner must wait for its product show state (for example `opacity > 0`) and, where possible, assert owner-derived content such as the current table-size label before interacting.
+11. **Cancel/no-op interaction contracts include transient UI state, not only document mutation.** A sub-threshold drag that leaves Markdown untouched but strands transform classes is still a correctness defect. Cancellation must restore both model and presentation state.
+12. **If a child handler stops propagation, it owns completion for any gesture state it has already armed.** The table handle's mouseup cannot rely only on a document listener after long-press activation, because releasing on the handle never reaches that listener. Route the armed path through the same centralized finish/reset routine explicitly.
