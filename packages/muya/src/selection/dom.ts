@@ -81,6 +81,15 @@ export function getTextContent(node: Node, blackList: string[] = []) {
     return text;
 }
 
+const SELECTION_TEXT_BLACKLIST = [
+    CLASS_NAMES.MU_MATH_RENDER,
+    CLASS_NAMES.MU_RUBY_RENDER,
+];
+
+function getSelectionTextLength(node: Node): number {
+    return getTextContent(node, SELECTION_TEXT_BLACKLIST).length;
+}
+
 export function getOffsetOfParagraph(node: Node, paragraph: HTMLElement): number {
     let offset = 0;
     let preSibling: Node | null = node;
@@ -90,17 +99,98 @@ export function getOffsetOfParagraph(node: Node, paragraph: HTMLElement): number
 
     do {
         preSibling = preSibling.previousSibling;
-        if (preSibling) {
-            offset += getTextContent(preSibling, [
-                CLASS_NAMES.MU_MATH_RENDER,
-                CLASS_NAMES.MU_RUBY_RENDER,
-            ]).length;
-        }
+        if (preSibling)
+            offset += getSelectionTextLength(preSibling);
     } while (preSibling);
 
     return node === paragraph || node.parentNode === paragraph
         ? offset
         : offset + getOffsetOfParagraph(node.parentNode!, paragraph);
+}
+
+function getInlineImageSourceOffset(
+    node: Node,
+    domOffset: number,
+    paragraph: HTMLElement,
+): number | null {
+    if (
+        !isElement(node)
+        || !node.classList.contains(CLASS_NAMES.MU_IMAGE_CONTAINER)
+    ) {
+        return null;
+    }
+
+    const imageContainer = node;
+    const imageWrapper = imageContainer.closest<HTMLElement>(
+        `.${CLASS_NAMES.MU_INLINE_IMAGE}`,
+    );
+
+    if (!imageWrapper || !paragraph.contains(imageWrapper))
+        return null;
+
+    const imageStart = getOffsetOfParagraph(imageWrapper, paragraph);
+    const raw = imageWrapper.getAttribute('data-raw');
+    const imageLength = raw?.length ?? getSelectionTextLength(imageWrapper);
+
+    return imageStart + (domOffset > 0 ? imageLength : 0);
+}
+
+/**
+ * Convert one native DOM Range endpoint into the source-text offset used by
+ * Muya's logical selection. A DOM offset on an Element is a child boundary,
+ * not a character count, so it must be measured through the source projection
+ * of the preceding children instead of being added blindly.
+ */
+export function getSourceOffsetOfDomPoint(
+    node: Node,
+    domOffset: number,
+    paragraph: HTMLElement,
+): number {
+    const imageOffset = getInlineImageSourceOffset(node, domOffset, paragraph);
+    if (imageOffset != null)
+        return imageOffset;
+
+    const baseOffset = getOffsetOfParagraph(node, paragraph);
+
+    if (node.nodeType === Node.TEXT_NODE)
+        return baseOffset + Math.min(Math.max(domOffset, 0), (node as Text).length);
+
+    const childNodes = node.childNodes;
+    const boundary = Math.min(Math.max(domOffset, 0), childNodes.length);
+    let localOffset = 0;
+
+    for (let i = 0; i < boundary; i++)
+        localOffset += getSelectionTextLength(childNodes[i]);
+
+    return baseOffset + localOffset;
+}
+
+function isHiddenHardBreakMarker(node: Node): node is HTMLElement {
+    return isElement(node)
+        && node.classList.contains(CLASS_NAMES.MU_HIDE)
+        && node.classList.contains(CLASS_NAMES.MU_HTML_TAG)
+        && node.classList.contains(CLASS_NAMES.MU_OUTPUT_REMOVE)
+        && node.nextSibling?.nodeName === 'BR';
+}
+
+function getHardBreakBoundary(
+    parent: Node,
+    markerIndex: number,
+    sourceOffset: number,
+    sourceLength: number,
+): { node: Node; offset: number } {
+    const before = markerIndex;
+    const after = Math.min(markerIndex + 2, parent.childNodes.length);
+
+    if (sourceOffset <= 0)
+        return { node: parent, offset: before };
+
+    if (sourceOffset >= sourceLength)
+        return { node: parent, offset: after };
+
+    return sourceOffset * 2 < sourceLength
+        ? { node: parent, offset: before }
+        : { node: parent, offset: after };
 }
 
 export function getNodeAndOffset(
@@ -121,11 +211,21 @@ export function getNodeAndOffset(
 
     for (i = 0; i < len; i++) {
         const child = childNodes[i];
-        const textContent = getTextContent(child, [
-            CLASS_NAMES.MU_MATH_RENDER,
-            CLASS_NAMES.MU_RUBY_RENDER,
-        ]);
+        const textContent = getTextContent(child, SELECTION_TEXT_BLACKLIST);
         const textLength = textContent.length;
+
+        if (
+            isHiddenHardBreakMarker(child)
+            && count <= offset
+            && offset <= count + textLength
+        ) {
+            return getHardBreakBoundary(
+                node,
+                i,
+                offset - count,
+                textLength,
+            );
+        }
 
         // Fix #1460 - put the cursor at the next text node or element if it can be put at the last of /^\n$/ or the next text node/element.
         if (
