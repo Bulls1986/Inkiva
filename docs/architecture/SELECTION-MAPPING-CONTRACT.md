@@ -58,6 +58,14 @@ Current protected examples:
 - hard break `<br>`;
 - inline image whose `<img>` contributes no DOM text but whose `data-raw` spans the complete Markdown image token.
 
+### Non-text selection ownership
+
+Not every editor selection is represented by a browser `Range`. A structured selection may intentionally suppress the native text range so the browser cannot create an unrelated text selection while the editor owns a higher-level target.
+
+Current example: rectangular table-cell selection clears the native range and owns its anchor/focus in `TableRectSelection`.
+
+Commands operating on such a selection must treat that structured selection as authoritative. In particular, clipboard/delete pipelines must not first require `TextSelection.getSelection()` or `activeContentBlock` and return early before consulting the structured selection. Tests for these paths must include a case where the ordinary native/text selection is absent; a stub caret can hide the integration defect this contract is intended to prevent.
+
 ## Regression discipline
 
 When changing generic selection mapping:

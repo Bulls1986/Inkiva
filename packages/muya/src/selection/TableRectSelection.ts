@@ -19,6 +19,16 @@ interface ICellPosition {
     column: number;
 }
 
+export interface ITableSelectionRange {
+    table: Table;
+    anchorRow: number;
+    anchorColumn: number;
+    minRow: number;
+    maxRow: number;
+    minColumn: number;
+    maxColumn: number;
+}
+
 class TableRectSelection {
     private _table: Nullable<Table> = null;
     private _anchor: Nullable<ICellPosition> = null;
@@ -104,6 +114,35 @@ class TableRectSelection {
         this._isSelecting = true;
         this._freezeNativeSelection();
         this._renderHighlight();
+    }
+
+    selectRange(
+        table: Table,
+        anchorRow: number,
+        anchorColumn: number,
+        focusRow: number,
+        focusColumn: number,
+    ): void {
+        const anchorCell = table.cellAt(anchorRow, anchorColumn);
+        const focusCell = table.cellAt(focusRow, focusColumn);
+        if (anchorCell == null || focusCell == null)
+            return;
+
+        this.clear();
+        this._table = table;
+        this._anchor = { cell: anchorCell, row: anchorRow, column: anchorColumn };
+        this._focus = { cell: focusCell, row: focusRow, column: focusColumn };
+        this._isSelecting = true;
+        this._freezeNativeSelection();
+        this._renderHighlight();
+    }
+
+    selectRow(table: Table, row: number): void {
+        this.selectRange(table, row, 0, row, table.columnCount - 1);
+    }
+
+    selectColumn(table: Table, column: number): void {
+        this.selectRange(table, 0, column, table.rowCount - 1, column);
     }
 
     private _attach(): void {
@@ -278,34 +317,50 @@ class TableRectSelection {
         );
     }
 
+    getRange(): Nullable<ITableSelectionRange> {
+        if (!this.hasSelection)
+            return null;
+
+        const anchorRow = this._anchor!.row;
+        const anchorColumn = this._anchor!.column;
+        const focusRow = this._focus!.row;
+        const focusColumn = this._focus!.column;
+
+        return {
+            table: this._table!,
+            anchorRow,
+            anchorColumn,
+            minRow: Math.min(anchorRow, focusRow),
+            maxRow: Math.max(anchorRow, focusRow),
+            minColumn: Math.min(anchorColumn, focusColumn),
+            maxColumn: Math.max(anchorColumn, focusColumn),
+        };
+    }
+
     /**
      * Empty every selected cell's text and re-render it, keeping the frozen
-     * selection. Returns whether any cell actually had content to clear — the
-     * caller uses that to drive the two-stage keyboard delete (first press
-     * clears, second press removes structure). Each cleared cell is re-rendered
-     * via `update()`; setting `.text` alone only patches state, so without this
-     * the non-anchor cells would keep their stale DOM.
+     * selection. Selection geometry is never interpreted as permission to
+     * remove table structure. The whole clear is one explicit history unit.
      */
     emptySelectedCells(): boolean {
         if (!this.hasSelection)
             return false;
 
-        const minRow = Math.min(this._anchor!.row, this._focus!.row);
-        const maxRow = Math.max(this._anchor!.row, this._focus!.row);
-        const minColumn = Math.min(this._anchor!.column, this._focus!.column);
-        const maxColumn = Math.max(this._anchor!.column, this._focus!.column);
+        const range = this.getRange()!;
 
         let hadContent = false;
-        for (let r = minRow; r <= maxRow; r++) {
-            for (let c = minColumn; c <= maxColumn; c++) {
-                const content = this._table!.cellAt(r, c)?.firstChild;
-                if (content && content.isContent() && content.text !== '') {
-                    hadContent = true;
-                    content.text = '';
-                    content.update();
+        this._muya.editor.history.runUserOperation(() => {
+            for (let r = range.minRow; r <= range.maxRow; r++) {
+                for (let c = range.minColumn; c <= range.maxColumn; c++) {
+                    const content = range.table.cellAt(r, c)?.firstChild;
+                    if (content && content.isContent() && content.text !== '') {
+                        hadContent = true;
+                        content.text = '';
+                        content.update();
+                    }
                 }
             }
-        }
+        });
 
         return hadContent;
     }

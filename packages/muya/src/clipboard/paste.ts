@@ -1,6 +1,7 @@
 import type Content from '../block/base/content';
 import type Parent from '../block/base/parent';
 import type TreeNode from '../block/base/treeNode';
+import type Table from '../block/gfm/table';
 import type TableBodyCell from '../block/gfm/table/cell';
 import type { Muya } from '../muya';
 import type { TState } from '../state/types';
@@ -36,20 +37,6 @@ function runPasteMutation<T>(clipboard: Clipboard, mutation: () => T): T {
     return history ? history.runUserOperation(mutation) : mutation();
 }
 
-/**
- * Whether the frozen table-cell selection covers exactly one cell. Mirrors
- * the single-cell shape check used by the copy path: one row containing one
- * cell. Used to decide between replacing a single cell's text and cancelling
- * a multi-cell paste.
- */
-function isSingleCellSelected(clipboard: Clipboard): boolean {
-    const state = clipboard.selection.table.getStateForCopy();
-    if (state == null)
-        return false;
-
-    return state.children.length === 1 && state.children[0].children.length === 1;
-}
-
 type TsvParseResult
     = | { kind: 'not-tsv' }
         | { kind: 'malformed' }
@@ -71,17 +58,15 @@ function parseRectangularTsv(text: string): TsvParseResult {
     return { kind: 'rectangular', rows };
 }
 
-async function applyRectangularTablePaste(
+async function confirmTableRangeOverwrite(
     clipboard: Clipboard,
-    anchorBlock: Content,
-    rows: string[][],
-): Promise<void> {
-    const cell = anchorBlock.closestBlock('table.cell') as TableBodyCell;
-    const { table, rowOffset: startRow, columnOffset: startColumn } = cell;
-    const endRow = startRow + rows.length - 1;
-    const endColumn = startColumn + rows[0].length - 1;
+    table: Table,
+    startRow: number,
+    startColumn: number,
+    endRow: number,
+    endColumn: number,
+): Promise<boolean> {
     let nonEmptyCount = 0;
-
     for (let row = startRow; row <= Math.min(endRow, table.rowCount - 1); row++) {
         for (
             let column = startColumn;
@@ -94,24 +79,50 @@ async function applyRectangularTablePaste(
         }
     }
 
-    if (nonEmptyCount > 0) {
-        const confirmOverwrite = clipboard.muya.options.confirmTableOverwrite;
-        if (!confirmOverwrite)
-            return;
+    if (nonEmptyCount === 0)
+        return true;
 
-        const accepted = await confirmOverwrite({
-            startRow,
-            startColumn,
-            endRow,
-            endColumn,
-            nonEmptyCount,
-        });
-        if (!accepted)
-            return;
+    const confirmOverwrite = clipboard.muya.options.confirmTableOverwrite;
+    if (!confirmOverwrite)
+        return false;
+
+    return confirmOverwrite({
+        startRow,
+        startColumn,
+        endRow,
+        endColumn,
+        nonEmptyCount,
+    });
+}
+
+async function applyRectangularTablePaste(
+    clipboard: Clipboard,
+    anchorBlock: Content,
+    rows: string[][],
+): Promise<void> {
+    const cell = anchorBlock.closestBlock('table.cell') as TableBodyCell;
+    const tableSelection = clipboard.selection.table;
+    const selectionRange = typeof tableSelection?.getRange === 'function'
+        ? tableSelection.getRange()
+        : null;
+    const table = selectionRange?.table ?? cell.table;
+    const startRow = selectionRange?.anchorRow ?? cell.rowOffset;
+    const startColumn = selectionRange?.anchorColumn ?? cell.columnOffset;
+    const endRow = startRow + rows.length - 1;
+    const endColumn = startColumn + rows[0].length - 1;
+    if (!await confirmTableRangeOverwrite(
+        clipboard,
+        table,
+        startRow,
+        startColumn,
+        endRow,
+        endColumn,
+    )) {
+        return;
     }
 
     const focus = table.applyCellMatrix(startRow, startColumn, rows);
-    clipboard.selection.table.clear();
+    tableSelection?.clear();
     const offset = focus.text.length;
     focus.setCursor(offset, offset, true);
 }
@@ -539,22 +550,51 @@ async function applyLiteralPaste(
         }
     }
 
-    // A frozen table-cell selection scopes the paste: a single cell gets its
-    // text replaced (with `\n` → `<br>`); a multi-cell rectangle cancels the
-    // paste.
+    // A frozen table-cell selection is an explicit target range. Literal/scalar
+    // paste fills every selected cell; it never silently no-ops and never changes
+    // table structure. Matrix TSV took the dedicated path above.
+    const tableSelection = clipboard.selection.table;
+    const range = typeof tableSelection?.getRange === 'function'
+        ? tableSelection.getRange()
+        : null;
     if (
         anchorBlock.blockName === 'table.cell.content'
-        && clipboard.selection.table.hasSelection
+        && tableSelection?.hasSelection
+        && range
     ) {
-        if (!isSingleCellSelected(clipboard))
+        const value = markdown.trim().replace(/\n/g, '<br>');
+        if (!await confirmTableRangeOverwrite(
+            clipboard,
+            range.table,
+            range.minRow,
+            range.minColumn,
+            range.maxRow,
+            range.maxColumn,
+        )) {
             return;
+        }
 
         runPasteMutation(clipboard, () => {
-            anchorBlock.text = markdown.trim().replace(/\n/g, '<br>');
-            const offset = anchorBlock.text.length;
-            anchorBlock.setCursor(offset, offset, true);
-            clipboard.selection.table.clear();
+            for (let row = range.minRow; row <= range.maxRow; row++) {
+                for (let column = range.minColumn; column <= range.maxColumn; column++) {
+                    const contentBlock = range.table.cellAt(row, column)?.firstContentInDescendant();
+                    if (!contentBlock)
+                        continue;
+                    contentBlock.text = value;
+                    contentBlock.update();
+                }
+            }
         });
+
+        const caretBlock = range.table.cellAt(
+            range.anchorRow,
+            range.anchorColumn,
+        )?.firstContentInDescendant();
+        tableSelection.clear();
+        if (caretBlock) {
+            const offset = caretBlock.text.length;
+            caretBlock.setCursor(offset, offset, true);
+        }
 
         return;
     }
@@ -695,6 +735,36 @@ async function applyPaste(clipboard: Clipboard, data: IPasteData): Promise<void>
     // (now absent) text selection.
     if (clipboard.selection.image && await tryReplaceSelectedImage(clipboard, data.imageFile))
         return;
+
+    // A frozen rectangular table selection intentionally suppresses the native
+    // text range and clears activeContentBlock. It is nevertheless a complete
+    // paste target in its own right, so do not require TextSelection to exist
+    // before routing scalar/TSV clipboard text into the table contract.
+    const tableSelection = clipboard.selection.table;
+    const tableRange = typeof tableSelection?.getRange === 'function'
+        ? tableSelection.getRange()
+        : null;
+    if (tableRange && data.text !== '') {
+        const anchorBlock = tableRange.table.cellAt(
+            tableRange.anchorRow,
+            tableRange.anchorColumn,
+        )?.firstContentInDescendant();
+        if (!anchorBlock)
+            return;
+
+        const text = data.text.replace(/\r\n?/g, '\n');
+        const wrapperBlock = anchorBlock.getAnchor();
+        const ctx: IPasteContext = {
+            anchorBlock,
+            wrapperBlock,
+            originWrapperBlock: wrapperBlock,
+            start: { offset: 0 },
+            end: { offset: 0 },
+            content: anchorBlock.text,
+        };
+        await applyLiteralPaste(clipboard, ctx, text);
+        return;
+    }
 
     const selection = clipboard.selection.getSelection();
     if (!selection)

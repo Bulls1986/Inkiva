@@ -3,8 +3,8 @@ import { expect, test } from '../fixtures/muya';
 import { editor, floats } from '../helpers/selectors';
 
 /**
- * TableRowColumMenu (the `.mu-table-bar-tools` row/column operations popup)
- * end-to-end coverage.
+ * Table drag-handle selection + cell structural context-menu end-to-end
+ * coverage.
  *
  * Trigger contract (source of truth:
  * `packages/core/src/ui/tableDragBar/index.ts`):
@@ -13,15 +13,10 @@ import { editor, floats } from '../helpers/selectors';
  *     `barType` is 'bottom' when a cell is 20px above (cursor below the
  *     table) and 'right' when a cell is 20px to the left (cursor right of
  *     the table).
- *   - A QUICK click on the bar (mousedown + mouseup inside the 300ms drag
- *     arming window) clears the drag timer. ONLY when `barType === 'right'`
- *     does `mouseup` emit `muya-table-bar`, which shows the
- *     `TableRowColumMenu`. A quick click on the BOTTOM bar emits nothing —
- *     no menu opens (the column equivalent is wired through
- *     `TableColumnToolbar`, not this popup).
- *
- * The 'right' menu renders Insert Row Above / Insert Row Below / Remove Row
- * (`packages/core/src/ui/tableRowColumMenu/config.ts::toolList.right`).
+ *   - A QUICK click on the right/bottom handle selects the corresponding row
+ *     or column. It does not open a duplicate structural command menu.
+ *   - Structural insert/delete commands are exposed from the cell context
+ *     menu instead.
  */
 
 const TWO_BY_TWO = '| h1 | h2 |\n| --- | --- |\n| a | b |\n';
@@ -119,7 +114,7 @@ async function quickClickBar(page: Page, bar: ReturnType<Page['locator']>) {
     await page.mouse.up();
 }
 
-test.describe('TableRowColumMenu (row/column bar popup)', () => {
+test.describe('table drag-handle selection + cell context menu', () => {
     test('the drag bar appears with right-orientation when hovering to the right of the table', async ({ page }) => {
         const table = await makeTwoByTwo(page);
         const bar = await revealRightBar(page, table);
@@ -131,30 +126,18 @@ test.describe('TableRowColumMenu (row/column bar popup)', () => {
         }).toBe('right');
     });
 
-    test('a quick-click on the RIGHT bar opens the row-operations menu', async ({ page }) => {
+    test('a quick-click on the RIGHT bar selects the row without opening a menu', async ({ page }) => {
         const table = await makeTwoByTwo(page);
         const bar = await revealRightBar(page, table);
         await expect.poll(async () => bar.getAttribute('data-drag')).toBe('right');
 
         await quickClickBar(page, bar);
 
-        const menu = menuContainer(page);
-        await expectShown(page, floats.tableRowColumMenu);
-
-        // US12 extends the existing row menu with move-up/down while keeping
-        // the original insert/remove actions on the same surface.
-        const items = menu.locator('li.item');
-        await expect(items).toHaveCount(5);
-        await expect(menu).toContainText('Insert Row Above');
-        await expect(menu).toContainText('Insert Row Below');
-        await expect(menu).toContainText('Move Row Up');
-        await expect(menu).toContainText('Move Row Down');
-        await expect(menu).toContainText('Remove Row');
-        // It is the ROW menu, not the column menu.
-        await expect(menu).not.toContainText('Column');
+        await expect(table.locator('tr').last().locator('td.mu-table-cell-selected')).toHaveCount(2);
+        expect(await wrapperOpacity(page, floats.tableRowColumMenu)).toBe(0);
     });
 
-    test('a quick-click on the BOTTOM bar does NOT open the row/column menu', async ({ page }) => {
+    test('a quick-click on the BOTTOM bar selects the column without opening a menu', async ({ page }) => {
         const table = await makeTwoByTwo(page);
         const bar = await revealBottomBar(page, table);
         await expect.poll(async () => bar.getAttribute('data-drag'), {
@@ -167,25 +150,19 @@ test.describe('TableRowColumMenu (row/column bar popup)', () => {
 
         await quickClickBar(page, bar);
 
-        // `mouseup` emits `muya-table-bar` only for the 'right' bar, so the
-        // bottom bar must leave the popup parked. Give the (absent) emit a
-        // window to land, then assert it never showed.
-        await page.waitForTimeout(400);
+        await expect(table.locator('tr td.mu-table-cell-selected').nth(0)).toBeVisible();
+        await expect(table.locator('tr').nth(1).locator('td').first()).toHaveClass(/mu-table-cell-selected/);
         expect(await wrapperOpacity(page, floats.tableRowColumMenu)).toBe(0);
     });
 
-    test('Insert Row Below adds a body row to the table', async ({ page }) => {
+    test('cell context menu Insert Row Below adds a body row to the table', async ({ page }) => {
         const table = await makeTwoByTwo(page);
-        const bar = await revealRightBar(page, table);
-        await expect.poll(async () => bar.getAttribute('data-drag')).toBe('right');
-
-        await quickClickBar(page, bar);
+        await table.locator('tr').last().locator('.mu-table-cell-content').first().click({ button: 'right' });
 
         const menu = menuContainer(page);
         await expectShown(page, floats.tableRowColumMenu);
+        await expect(menu.locator('li.item')).toHaveCount(7);
 
-        // `data-label` on each item is the action verb ('insert' / 'remove'),
-        // shared across the two insert rows; disambiguate by visible text.
         await menu.locator('li.item', { hasText: 'Insert Row Below' }).click();
 
         // Adding a row grows the table from 2 rows (header + 1 body) to 3.

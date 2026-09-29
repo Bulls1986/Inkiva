@@ -104,6 +104,39 @@
         </div>
       </template>
     </el-dialog>
+    <el-dialog
+      v-model="tableResizeConfirmVisible"
+      :modal="true"
+      :close-on-click-modal="false"
+      class="ag-table-resize-confirm-dialog"
+      width="454px"
+      center
+      @closed="handleTableResizeConfirmClosed"
+    >
+      <template #title>
+        <div class="dialog-title">
+          {{ t('editor.tableResize.confirmTitle') }}
+        </div>
+      </template>
+      <div class="table-paste-overwrite-message">
+        <p>{{ t('editor.tableResize.resizeMessage', { from: tableResizeConfirm.from, to: tableResizeConfirm.to }) }}</p>
+        <p>{{ t('editor.tableResize.removeMessage', { rows: tableResizeConfirm.rowsRemoved, columns: tableResizeConfirm.columnsRemoved }) }}</p>
+        <p>{{ t('editor.tableResize.nonEmptyCount', { count: tableResizeConfirm.nonEmptyCount }) }}</p>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="finishTableResizeConfirm(false)">
+            {{ t('common.cancel') }}
+          </el-button>
+          <el-button
+            type="primary"
+            @click="finishTableResizeConfirm(true)"
+          >
+            {{ t('editor.tableResize.resize') }}
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -142,7 +175,8 @@ import {
   zhCN,
   zhTW,
   type ILocale,
-  type ITableOverwriteRequest
+  type ITableOverwriteRequest,
+  type ITableResizeRequest
 } from '@muyajs/core'
 import { exportStyledHTML, type HeaderFooterPart } from '@/util/exportHtml'
 import { applyCursor, isIndexCursor } from '@/util/cursor'
@@ -376,6 +410,43 @@ const handleTablePasteOverwriteClosed = (): void => {
   // Closing via Escape/title-bar X is semantically identical to Cancel.
   if (tablePasteOverwriteResolve) {
     finishTablePasteOverwrite(false)
+  }
+}
+
+const tableResizeConfirmVisible = ref(false)
+const tableResizeConfirm = reactive({
+  from: '',
+  to: '',
+  rowsRemoved: 0,
+  columnsRemoved: 0,
+  nonEmptyCount: 0
+})
+let tableResizeConfirmResolve: ((confirmed: boolean) => void) | null = null
+
+const requestTableResizeConfirm = (request: ITableResizeRequest): Promise<boolean> => {
+  tableResizeConfirmResolve?.(false)
+  tableResizeConfirm.from = `${request.fromRows} × ${request.fromColumns}`
+  tableResizeConfirm.to = `${request.toRows} × ${request.toColumns}`
+  tableResizeConfirm.rowsRemoved = request.rowsRemoved
+  tableResizeConfirm.columnsRemoved = request.columnsRemoved
+  tableResizeConfirm.nonEmptyCount = request.nonEmptyCount
+  tableResizeConfirmVisible.value = true
+
+  return new Promise<boolean>((resolve) => {
+    tableResizeConfirmResolve = resolve
+  })
+}
+
+const finishTableResizeConfirm = (confirmed: boolean): void => {
+  const resolve = tableResizeConfirmResolve
+  tableResizeConfirmResolve = null
+  tableResizeConfirmVisible.value = false
+  resolve?.(confirmed)
+}
+
+const handleTableResizeConfirmClosed = (): void => {
+  if (tableResizeConfirmResolve) {
+    finishTableResizeConfirm(false)
   }
 }
 
@@ -2948,6 +3019,7 @@ onMounted(() => {
     // Read the OS clipboard's plain text for "Paste as Plain Text" (execCommand('paste') no longer fires).
     clipboardText: () => window.electron.clipboard.readText(),
     confirmTableOverwrite: requestTablePasteOverwrite,
+    confirmTableResize: requestTableResizeConfirm,
     notifyTablePasteFallback,
     // Image-persist callbacks read by the engine's clipboard + drag-drop handlers
     // from `muya.options.*` (distinct from the ImageEditTool plugin option above).

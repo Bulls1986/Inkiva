@@ -13,6 +13,12 @@ import { CopyType } from './types';
 export interface IClipboardPayload {
     html: string;
     text: string;
+    /**
+     * Optional Markdown-specific representation. Rectangular table selections
+     * use TSV for normal text interoperability while preserving GFM for the
+     * explicit "Copy as Markdown" command.
+     */
+    markdown?: string;
 }
 
 // Document-order resolution of a cross-block selection: the start/end outmost
@@ -45,9 +51,9 @@ function buildHtmlOptions(options: Muya['options']) {
 
 /**
  * Clipboard payload for a frozen cross-cell table selection, or `null` when
- * none is active. A single selected cell with text yields its plain text and
- * no HTML (so a paste lands as literal text, matching legacy
- * `docCopyHandler`); a larger rectangle serialises to GFM table markdown.
+ * none is active. One cell stays ordinary plain text. A rectangular range
+ * publishes TSV as `text/plain`, a semantic HTML table for rich targets, and
+ * keeps GFM separately for the explicit "Copy as Markdown" command.
  */
 function getTableSelectionClipboardData(
     clipboard: Clipboard,
@@ -58,14 +64,16 @@ function getTableSelectionClipboardData(
 
     const isSingleCell
         = state.children.length === 1 && state.children[0].children.length === 1;
-    if (isSingleCell) {
+    if (isSingleCell)
         return { html: '', text: state.children[0].children[0].text };
-    }
 
-    const text = new StateToMarkdown().generate([state]);
-    const html = getClipBoardHtml(text, buildHtmlOptions(clipboard.muya.options));
+    const markdown = new StateToMarkdown().generate([state]);
+    const html = getClipBoardHtml(markdown, buildHtmlOptions(clipboard.muya.options));
+    const text = state.children
+        .map(row => row.children.map(cell => cell.text).join('\t'))
+        .join('\n');
 
-    return { html, text };
+    return { html, text, markdown };
 }
 
 // Returns `null` when the outmost-block offsets can't be read (e.g. no scroll page).
@@ -401,7 +409,7 @@ export function writeClipboardData(
 
     const { copyType } = clipboard;
 
-    const { html, text } = clipboard.getClipboardData();
+    const { html, text, markdown } = clipboard.getClipboardData();
 
     // Mirror native copy behavior: leave the system clipboard untouched
     // when the selection has nothing to contribute, so a previous copy
@@ -410,7 +418,7 @@ export function writeClipboardData(
         case CopyType.NORMAL: {
             if (text.length === 0)
                 return;
-            event.clipboardData.setData('text/html', '');
+            event.clipboardData.setData('text/html', markdown == null ? '' : html);
             event.clipboardData.setData('text/plain', text);
             break;
         }
@@ -422,7 +430,7 @@ export function writeClipboardData(
             event.clipboardData.setData(
                 'text/plain',
                 getSanitizeClipboardHtml(
-                    text,
+                    markdown ?? text,
                     buildHtmlOptions(clipboard.muya.options ?? {}),
                 ),
             );
@@ -443,10 +451,11 @@ export function writeClipboardData(
         }
 
         case CopyType.COPY_AS_MARKDOWN: {
-            if (text.length === 0)
+            const markdownText = markdown ?? text;
+            if (markdownText.length === 0)
                 return;
             event.clipboardData.setData('text/html', '');
-            event.clipboardData.setData('text/plain', text);
+            event.clipboardData.setData('text/plain', markdownText);
             break;
         }
 

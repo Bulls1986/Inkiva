@@ -113,7 +113,12 @@ function makeAnchorBlock(
 function makeClipboard(
     anchorBlock: any,
     options: Record<string, unknown> = {},
-    tableStub: { hasSelection: boolean; getStateForCopy: () => any; clear: ReturnType<typeof vi.fn> } = {
+    tableStub: {
+        hasSelection: boolean;
+        getStateForCopy: () => any;
+        clear: ReturnType<typeof vi.fn>;
+        getRange?: () => any;
+    } = {
         hasSelection: false,
         getStateForCopy: () => null,
         clear: vi.fn(),
@@ -326,7 +331,18 @@ describe('pasteHandler — table-cell paste guards (sub-item 4)', () => {
         anchorBlock: any,
         hasSelection: boolean,
         isSingleCell: boolean,
+        withRange = true,
     ) {
+        const selected = isSingleCell
+            ? [anchorBlock]
+            : [anchorBlock, makeAnchorBlock('table.cell.content', 'second', anchorBlock.getAnchor(), 0)];
+        const table = {
+            rowCount: 1,
+            columnCount: selected.length,
+            cellAt: (row: number, column: number) => row === 0 && selected[column]
+                ? { firstContentInDescendant: () => selected[column] }
+                : null,
+        };
         const rows = isSingleCell
             ? [{ children: [{ text: '' }] }]
             : [{ children: [{ text: '' }, { text: '' }] }];
@@ -334,15 +350,35 @@ describe('pasteHandler — table-cell paste guards (sub-item 4)', () => {
             hasSelection,
             getStateForCopy: () => ({ name: 'table', children: rows }),
             clear: vi.fn(),
+            getRange: withRange && hasSelection
+                ? () => ({
+                        table,
+                        anchorRow: 0,
+                        anchorColumn: 0,
+                        focusRow: 0,
+                        focusColumn: selected.length - 1,
+                        minRow: 0,
+                        maxRow: 0,
+                        minColumn: 0,
+                        maxColumn: selected.length - 1,
+                    })
+                : undefined,
         };
-        return makeClipboard(anchorBlock, {}, tableStub);
+        return {
+            clipboard: makeClipboard(
+                anchorBlock,
+                { confirmTableOverwrite: async () => true },
+                tableStub,
+            ),
+            selected,
+        };
     }
 
     it('single-cell selection replaces the cell text (\\n → <br>)', async () => {
         installLoadBlockSpy([]);
         const wrapper = makeWrapper('table');
         const anchor = makeAnchorBlock('table.cell.content', 'old', wrapper, 3);
-        const clipboard = makeClipboardWithTableSelection(anchor, true, true);
+        const { clipboard } = makeClipboardWithTableSelection(anchor, true, true);
 
         await clipboard.pasteHandler(
             makePasteEvent({ 'text/plain': 'line1\nline2' }),
@@ -351,16 +387,16 @@ describe('pasteHandler — table-cell paste guards (sub-item 4)', () => {
         expect(anchor.text).toBe('line1<br>line2');
     });
 
-    it('multi-cell selection is a no-op — the cell text is left unchanged', async () => {
+    it('a legacy table-selection double without range capability falls back to normal caret paste without throwing', async () => {
         installLoadBlockSpy([]);
         const wrapper = makeWrapper('table');
         const anchor = makeAnchorBlock('table.cell.content', 'keep', wrapper, 4);
-        const clipboard = makeClipboardWithTableSelection(anchor, true, false);
+        const { clipboard } = makeClipboardWithTableSelection(anchor, true, false, false);
 
         await clipboard.pasteHandler(
             makePasteEvent({ 'text/plain': 'pasted' }),
         );
 
-        expect(anchor.text).toBe('keep');
+        expect(anchor.text).toBe('keeppasted');
     });
 });

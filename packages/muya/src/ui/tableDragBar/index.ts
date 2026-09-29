@@ -238,23 +238,26 @@ export class TableDragBar extends BaseFloat {
     private _mouseup = (event: Event) => {
         event.preventDefault();
         event.stopPropagation();
-        const { container, _barType: barType } = this;
-        const { eventCenter } = this.muya;
+        const { _barType: barType, _block: block } = this;
 
         if (this._mouseTimer) {
             clearTimeout(this._mouseTimer);
             this._mouseTimer = null;
-            if (barType === 'right') {
-                eventCenter.emit('muya-table-bar', {
-                    reference: {
-                        getBoundingClientRect: () => container!.getBoundingClientRect(),
-                    },
-                    tableInfo: {
-                        barType,
-                    },
-                    block: this._block,
-                });
-            }
+            if (!barType || !block)
+                return;
+
+            const index = getIndex(barType, block);
+            if (barType === 'right')
+                this.muya.editor.selection.table.selectRow(block.table, index);
+            else
+                this.muya.editor.selection.table.selectColumn(block.table, index);
+        }
+        else if (this._dragInfo) {
+            // Once the long-press timer has armed dragging, mouseup may still
+            // land on the handle itself (for example a <5px cancelled drag).
+            // This handler stops propagation, so forward the event through the
+            // same document-level finish path explicitly to guarantee cleanup.
+            this._docMouseup(event);
         }
     };
 
@@ -321,8 +324,10 @@ export class TableDragBar extends BaseFloat {
             eventCenter.detachDOMEvent(id);
 
         this._dragEventIds = [];
-        if (!this._isDragTableBar)
+        if (!this._isDragTableBar) {
+            this._resetDragTableBar();
             return;
+        }
 
         this._setDropTargetStyle();
 
@@ -506,6 +511,17 @@ export class TableDragBar extends BaseFloat {
     };
 
     private _resetDragTableBar = () => {
+        if (this._dragInfo) {
+            const { cells, barType } = this._dragInfo;
+            for (const row of cells) {
+                for (const cell of row) {
+                    cell.classList.remove('mu-cell-transform');
+                    cell.classList.remove('mu-drag-cell');
+                    cell.classList.remove(`mu-drag-${barType}`);
+                    cell.style.transform = '';
+                }
+            }
+        }
         this._dragInfo = null;
         this._isDragTableBar = false;
     };

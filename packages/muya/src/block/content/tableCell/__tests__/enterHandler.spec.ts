@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isOsx } from '../../../../config';
 import { Muya } from '../../../../muya';
 
-// `TableCellContent.enterHandler` dispatches to one of three branches based on
+// `TableCellContent.enterHandler` dispatches to one of four branches based on
 // the keyboard modifiers it reads off the event:
+//   - Alt/Option+Enter → opens the existing table property toolbar.
 //   - Shift+Enter  → `shiftEnter`   : inserts a literal `<br>` at the caret.
 //   - Cmd/Ctrl+Enter → `commandEnter`: inserts a new row after the current one.
 //   - plain Enter  → `normalEnter`  : moves to the cell directly below in the
@@ -67,10 +68,11 @@ function tableCells(muya: Muya): Content[] {
 }
 
 function makeEnterEvent(
-    modifiers: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean } = {},
+    modifiers: { altKey?: boolean; shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean } = {},
 ): KeyboardEvent {
     return {
         key: 'Enter',
+        altKey: modifiers.altKey ?? false,
         shiftKey: modifiers.shiftKey ?? false,
         metaKey: modifiers.metaKey ?? false,
         ctrlKey: modifiers.ctrlKey ?? false,
@@ -83,7 +85,7 @@ function enterAt(
     muya: Muya,
     cell: Content,
     offset: number,
-    modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean },
+    modifiers?: { altKey?: boolean; shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean },
 ): void {
     muya.editor.activeContentBlock = cell;
     cell.setCursor(offset, offset, true);
@@ -118,6 +120,32 @@ describe('tableCellContent.enterHandler', () => {
         // Caret advances by `<br>`.length (4) from the original offset 1.
         expect(cursor!.start.offset).toBe(1 + '<br>'.length);
         expect(cursor!.start.offset).toBe(5);
+    });
+
+    it('alt+Enter opens table properties without mutating table content', () => {
+        const muya = bootMuya('| ab | cd |\n| --- | --- |\n| ef | gh |\n');
+        const cells = tableCells(muya);
+        const emit = vi.spyOn(muya.eventCenter, 'emit');
+
+        enterAt(muya, cells[0], 1, { altKey: true });
+
+        expect(emit).toHaveBeenCalledWith('muya-table-properties', {
+            block: expect.anything(),
+            focus: true,
+        });
+        expect(cells[0].text).toBe('ab');
+    });
+
+    it('alt+shift+Enter keeps the Shift+Enter hard-break contract instead of opening properties', async () => {
+        const muya = bootMuya('| ab | cd |\n| --- | --- |\n| ef | gh |\n');
+        const cells = tableCells(muya);
+        const emit = vi.spyOn(muya.eventCenter, 'emit');
+
+        enterAt(muya, cells[0], 1, { altKey: true, shiftKey: true });
+
+        await flush();
+        expect(cells[0].text).toBe('a<br>b');
+        expect(emit).not.toHaveBeenCalledWith('muya-table-properties', expect.anything());
     });
 
     it('plain Enter moves to the cell directly below without mutating Markdown', async () => {

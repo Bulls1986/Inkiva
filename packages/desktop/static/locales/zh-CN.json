@@ -1050,7 +1050,14 @@
       "nonEmptyCount": "其中有 {count} 个非空单元格已有内容。",
       "replace": "覆盖",
       "unrecognizedTitle": "已按文本粘贴",
-      "unrecognizedMessage": "未识别为规则表格数据，内容仅插入当前单元格。"
+      "unrecognizedMessage": "未识别为规则表格数据，已按纯文本应用到当前选中的表格目标。"
+    },
+    "tableResize": {
+      "confirmTitle": "调整表格大小并删除内容？",
+      "resizeMessage": "将表格从 {from} 调整为 {to}。",
+      "removeMessage": "将删除 {rows} 行、{columns} 列。",
+      "nonEmptyCount": "其中 {count} 个非空单元格的内容将被删除。",
+      "resize": "调整大小"
     },
     "notifications": {
       "notificationNotFound": "未找到通知"

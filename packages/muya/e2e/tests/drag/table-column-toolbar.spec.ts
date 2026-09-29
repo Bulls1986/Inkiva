@@ -4,8 +4,8 @@ import { getMarkdown } from '../helpers/api';
 import { editor, floats } from '../helpers/selectors';
 
 /**
- * TableColumnToolbar (the `.mu-table-column-tools` per-column alignment +
- * insert/remove popup) end-to-end coverage.
+ * TableColumnToolbar (the `.mu-table-column-tools` compact size + alignment
+ * surface) end-to-end coverage.
  *
  * Trigger contract (source of truth:
  * `packages/muya/src/ui/tableColumnToolbar/index.ts`):
@@ -13,11 +13,10 @@ import { editor, floats } from '../helpers/selectors';
  *     cursor sits OUTSIDE every cell but `elementsFromPoint(x, y + 27)`
  *     lands inside a `table.cell` — i.e. hovering just ABOVE a column.
  *     `_block` becomes that cell; `show(cell)` reveals the float.
- *   - The toolbar renders six icons (config.ts order): align left / center
- *     / right, insert column left / right, remove column.
- *   - Clicking an align icon calls `table.alignColumn(offset, type)`, which
- *     toggles every cell in that column between the requested alignment and
- *     'none' (writing `data-align` + `meta.align` + an OT op).
+ *   - The toolbar renders five controls: Rows × Columns, Default, Left,
+ *     Center, Right. Structural insert/remove commands do not live here.
+ *   - Alignment controls set an exact document state; Default is distinct
+ *     from explicit Left and replaces the old toggle-on-second-click behavior.
  *   - Item 92: the handler bails to `this.hide()` when the inline format
  *     toolbar (`mu-format-picker`) is currently shown, so the column tools
  *     never sit on top of the format picker.
@@ -105,23 +104,19 @@ test.describe('TableColumnToolbar (per-column alignment popup)', () => {
         await revealColumnToolbar(page, table, 0);
     });
 
-    test('the toolbar renders six column-operation icons', async ({ page }) => {
+    test('the toolbar renders size plus four exact alignment controls only', async ({ page }) => {
         const table = await makeThreeColumnTable(page);
         const toolbar = await revealColumnToolbar(page, table, 0);
 
-        // config.ts order: left / center / right align + insert-left /
-        // insert-right + remove. The align items render as `item left` etc.
-        // while the insert items share the `left` / `right` tokens
-        // (`item insert left`), so scope the align assertions with
-        // `:not(.insert)` to disambiguate.
         const items = toolbar.locator('li.item');
-        await expect(items).toHaveCount(6);
-        await expect(toolbar.locator('li.item.left:not(.insert)')).toHaveCount(1);
+        await expect(items).toHaveCount(5);
+        await expect(toolbar.locator('li.item.size')).toHaveCount(1);
+        await expect(toolbar.locator('li.item.none')).toHaveCount(1);
+        await expect(toolbar.locator('li.item.left')).toHaveCount(1);
         await expect(toolbar.locator('li.item.center')).toHaveCount(1);
-        await expect(toolbar.locator('li.item.right:not(.insert)')).toHaveCount(1);
-        await expect(toolbar.locator('li.item.insert.left')).toHaveCount(1);
-        await expect(toolbar.locator('li.item.insert.right')).toHaveCount(1);
-        await expect(toolbar.locator('li.item.remove')).toHaveCount(1);
+        await expect(toolbar.locator('li.item.right')).toHaveCount(1);
+        await expect(toolbar.locator('li.item.insert')).toHaveCount(0);
+        await expect(toolbar.locator('li.item.remove')).toHaveCount(0);
     });
 
     test('clicking center-align aligns the whole column and writes :---: in markdown', async ({ page }) => {
@@ -145,7 +140,7 @@ test.describe('TableColumnToolbar (per-column alignment popup)', () => {
         expect(await columnAligns(table, 1)).toEqual(['none', 'none']);
     });
 
-    test('clicking center-align again toggles the column back to none', async ({ page }) => {
+    test('choosing Default after center-align returns the column to none', async ({ page }) => {
         const table = await makeThreeColumnTable(page);
         let toolbar = await revealColumnToolbar(page, table, 0);
 
@@ -162,8 +157,9 @@ test.describe('TableColumnToolbar (per-column alignment popup)', () => {
         await page.waitForTimeout(80);
         toolbar = await revealColumnToolbar(page, table, 0);
 
-        // Second click with the same alignment toggles back to none.
-        await toolbar.locator('li.item.center').click();
+        // Default is an explicit alignment state, not an implicit second-click
+        // toggle on the previously selected alignment control.
+        await toolbar.locator('li.item.none').click();
         await expect
             .poll(async () => columnAligns(table, 0))
             .toEqual(['none', 'none']);

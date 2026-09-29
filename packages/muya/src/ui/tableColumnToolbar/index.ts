@@ -7,6 +7,7 @@ import { isMouseEvent, throttle } from '../../utils';
 import { h, patch } from '../../utils/snabbdom';
 import BaseFloat from '../baseFloat';
 import icons from './config';
+import { resizeTableWithConfirmation } from './resize';
 
 import './index.css';
 
@@ -25,7 +26,7 @@ const defaultOptions = {
 export class TableColumnToolbar extends BaseFloat {
     private _oldVNode: VNode | null = null;
     private _block: CellBlock | null = null;
-    private _icons: TableColumnToolIcon[] = icons;
+    private readonly _icons: readonly TableColumnToolIcon[] = icons;
     private _toolsContainer: HTMLDivElement = document.createElement('div');
 
     static pluginName = 'tableColumnTools';
@@ -44,6 +45,22 @@ export class TableColumnToolbar extends BaseFloat {
     override listen() {
         const { eventCenter } = this.muya;
         super.listen();
+
+        eventCenter.subscribe('muya-table-properties', ({ block, focus }) => {
+            if (!block?.domNode)
+                return;
+
+            this._block = block as CellBlock;
+            this.show(block.domNode);
+            this.render();
+            if (focus) {
+                requestAnimationFrame(() => {
+                    this.floatBox?.querySelector<HTMLElement>('li.item')?.focus({
+                        preventScroll: true,
+                    });
+                });
+            }
+        });
 
         const handler = throttle((event: Event) => {
             if (!isMouseEvent(event))
@@ -89,46 +106,65 @@ export class TableColumnToolbar extends BaseFloat {
         const { _icons: icons, _oldVNode: oldVNode, _toolsContainer: toolsContainer, _block: block } = this;
         const { i18n } = this.muya;
         const children = icons.map((i) => {
-            const iconWrapperSelector = 'div.icon-wrapper';
-            const icon = h(
-                'i.icon',
-                h(
-                    'i.icon-inner',
-                    {
-                        style: {
-                            'background': `url(${i.icon}) no-repeat`,
-                            'background-size': '100%',
-                        },
-                    },
-                    '',
-                ),
-            );
-            const iconWrapper = h(iconWrapperSelector, icon);
+            const content = 'icon' in i
+                ? h(
+                        'div.icon-wrapper',
+                        h(
+                            'i.icon',
+                            h(
+                                'i.icon-inner',
+                                {
+                                    style: {
+                                        'background': `url(${i.icon}) no-repeat`,
+                                        'background-size': '100%',
+                                    },
+                                },
+                                '',
+                            ),
+                        ),
+                    )
+                : h(
+                        'span.text-label',
+                        i.type === 'size'
+                            ? (block ? `${block.table.rowCount} × ${block.table.columnCount}` : '')
+                            : i18n.t(i.label),
+                    );
 
             let itemSelector = `li.item.${i.type}`;
             if (block?.align === i.type)
                 itemSelector += '.active';
 
-            if (i.type === 'remove')
-                itemSelector += '.delete';
-
             return h(
                 itemSelector,
                 {
                     attrs: {
-                        title: `${i18n.t(i.tooltip)}`,
+                        'title': `${i18n.t(i.tooltip)}`,
+                        'aria-label': `${i18n.t(i.tooltip)}`,
+                        'role': 'button',
+                        'tabindex': '0',
                     },
                     on: {
                         click: (event) => {
-                            this.selectItem(event, i);
+                            void this.selectItem(event, i);
+                        },
+                        keydown: (event: KeyboardEvent) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                void this.selectItem(event, i);
+                            }
                         },
                     },
                 },
-                [iconWrapper],
+                [content],
             );
         });
 
-        const vnode = h('ul', children);
+        const vnode = h('ul', {
+            attrs: {
+                'role': 'toolbar',
+                'aria-label': i18n.t('Table Properties'),
+            },
+        }, children);
 
         if (oldVNode)
             patch(oldVNode, vnode);
@@ -138,49 +174,47 @@ export class TableColumnToolbar extends BaseFloat {
         this._oldVNode = vnode;
     }
 
-    selectItem(event: Event, item: TableColumnToolIcon) {
+    async selectItem(event: Event, item: TableColumnToolIcon) {
         event.preventDefault();
         event.stopPropagation();
 
         const { _block: block } = this;
-        // Block is not null, just in case
         if (!block || !block.parent)
             return;
 
-        const offset = block.parent.offset(block);
         const { table, row } = block;
-        const columnCount = row.offset(this._block!);
+        const columnCount = row.offset(block);
 
-        switch (item.type) {
-            case 'remove': {
-                // removeColumn returns a content block to re-anchor the caret
-                // on (inside the table
-                // if columns remain, outside the table if the whole table was
-                // removed). Without this setCursor the caret stays in the
-                // detached cell.
-                const cursorBlock = block.table.removeColumn(offset);
-                if (cursorBlock)
-                    cursorBlock.setCursor(0, 0);
+        if (item.type === 'size') {
+            const currentRows = table.rowCount;
+            const currentColumns = table.columnCount;
+            const reference = (event.currentTarget as HTMLElement | null) ?? this.floatBox!;
 
-                return this.hide();
-            }
+            this.muya.initUiPlugin('tablePicker');
+            this.muya.eventCenter.emit(
+                'muya-table-picker',
+                { row: currentRows - 1, column: currentColumns - 1 },
+                reference,
+                async (rowIndex: number, columnIndex: number) => {
+                    const cursor = await resizeTableWithConfirmation(
+                        this.muya,
+                        table,
+                        rowIndex + 1,
+                        columnIndex + 1,
+                        block.rowOffset,
+                        columnCount,
+                    );
+                    if (!cursor)
+                        return;
 
-            case 'insert left':
-                // fall through
-            case 'insert right': {
-                const offset
-                    = item.type === 'insert left' ? columnCount : columnCount + 1;
-                const cursorBlock = table.insertColumn(offset);
-                if (cursorBlock)
-                    cursorBlock.setCursor(0, 0);
-
-                return this.hide();
-            }
-
-            default:
-                block.table.alignColumn(offset, item.type);
-
-                return this.render();
+                    cursor.setCursor(0, 0, true);
+                    this.hide();
+                },
+            );
+            return;
         }
+
+        table.setColumnAlignment(columnCount, item.type);
+        this.render();
     }
 }

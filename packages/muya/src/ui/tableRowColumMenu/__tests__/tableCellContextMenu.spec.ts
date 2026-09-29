@@ -4,9 +4,7 @@ import { toolList } from '../config';
 
 describe('desktop interaction contract — table cell context menu', () => {
     it('exposes the required row, column, and whole-table structural actions', () => {
-        const labels = toolList.cell.map(item => item.label);
-
-        expect(labels).toEqual([
+        expect(toolList.cell.map(item => item.label)).toEqual([
             'Insert Row Above',
             'Insert Row Below',
             'Insert Column Left',

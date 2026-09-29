@@ -127,12 +127,23 @@ class TableCellContent extends Format {
         if (!isKeyboardEvent(event))
             return;
 
-        if (event.shiftKey)
+        if (event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+            event.preventDefault();
+            event.stopPropagation();
+            this.muya.eventCenter.emit('muya-table-properties', {
+                block: this._cell,
+                focus: true,
+            });
+        }
+        else if (event.shiftKey) {
             return this._shiftEnter(event);
-        else if ((isOsx && event.metaKey) || (!isOsx && event.ctrlKey))
+        }
+        else if ((isOsx && event.metaKey) || (!isOsx && event.ctrlKey)) {
             return this._commandEnter(event);
-        else
+        }
+        else {
             return this._normalEnter(event);
+        }
     }
 
     override arrowHandler(event: Event) {
@@ -143,12 +154,25 @@ class TableCellContent extends Format {
         const nextRow = this._findNextRow();
         const { table, _cell: cell, _row: row } = this;
         const offset = row.offset(cell);
+        const rowOffset = this._tableInner.offset(row);
         const tablePrevContent = table.prev
             ? table.prev.lastContentInDescendant()
             : null;
         const tableNextContent = table.next
             ? table.next.firstContentInDescendant()
             : null;
+
+        if (event.altKey && (event.key === EVENT_KEYS.ArrowUp || event.key === EVENT_KEYS.ArrowDown)) {
+            event.preventDefault();
+            event.stopPropagation();
+            const targetRow = rowOffset + (event.key === EVENT_KEYS.ArrowUp ? -1 : 1);
+            if (targetRow < 0 || targetRow >= table.rowCount)
+                return;
+
+            const cursorBlock = table.moveRow(rowOffset, targetRow, offset);
+            cursorBlock.setCursor(0, 0, true);
+            return;
+        }
 
         if (event.key === EVENT_KEYS.ArrowUp) {
             event.preventDefault();
@@ -177,26 +201,8 @@ class TableCellContent extends Format {
 
                 cursorBlock?.setCursor(0, 0, true);
             }
-            else {
-                let cursorBlock = null;
-                if (tableNextContent) {
-                    cursorBlock = tableNextContent;
-                }
-                else {
-                    const state = {
-                        name: 'paragraph',
-                        text: '',
-                    };
-
-                    const newParagraphBlock = ScrollPage.loadBlock('paragraph').create(
-                        this.muya,
-                        state,
-                    );
-                    this.scrollPage?.append(newParagraphBlock, 'user');
-                    cursorBlock = newParagraphBlock.firstContentInDescendant();
-                }
-
-                cursorBlock.setCursor(0, 0, true);
+            else if (tableNextContent) {
+                tableNextContent.setCursor(0, 0, true);
             }
         }
         else {

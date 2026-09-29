@@ -115,7 +115,7 @@ describe('tableCellContent arrow navigation', () => {
         expect(cells[2].getCursor()).toBeNull();
     });
 
-    it('arrowDown from the last body cell with no following block appends a trailing paragraph and lands the caret there', async () => {
+    it('arrowDown from the last body cell with no following block is a structural no-op', async () => {
         const muya = bootMuya('| ab | cd |\n| --- | --- |\n| ef | gh |\n');
         const cells = tableCells(muya);
         expect(cells.length).toBe(4);
@@ -124,19 +124,10 @@ describe('tableCellContent arrow navigation', () => {
         arrowAtStart(muya, cells[3], 'ArrowDown');
         await flush();
 
-        // A trailing paragraph was appended after the table.
+        // P1 table navigation never creates document structure implicitly.
         const state = muya.getState();
-        expect(state.length).toBe(2);
+        expect(state.length).toBe(1);
         expect(state[0].name).toBe('table');
-        expect(state[1].name).toBe('paragraph');
-        expect((state[1] as { text: string }).text).toBe('');
-
-        // The caret lands in the new paragraph at offset 0.
-        const appended = muya.editor.scrollPage!.lastContentInDescendant() as Content;
-        expect(appended.constructor.name).toBe('ParagraphContent');
-        const cursor = appended.getCursor();
-        expect(cursor).not.toBeNull();
-        expect(cursor!.start.offset).toBe(0);
     });
 
     it('arrowUp from a header cell with a preceding paragraph jumps the caret to the END of that paragraph', async () => {

@@ -84,7 +84,7 @@ function pressDelete(table: TableBlock, key: 'Backspace' | 'Delete'): void {
     document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
 }
 
-describe('track C — keydown over a frozen table rect (two-stage, muyajs parity)', () => {
+describe('p1 — keydown over a frozen table rect is content-only', () => {
     it('first Backspace clears the selected cells but keeps the frozen selection', async () => {
         const muya = bootMuya('| a1 | b1 | c1 |\n| --- | --- | --- |\n| a2 | b2 | c2 |\n');
         const table = firstTable(muya);
@@ -108,18 +108,18 @@ describe('track C — keydown over a frozen table rect (two-stage, muyajs parity
         expect(md).toContain('c2');
     });
 
-    it('a second Backspace on the emptied whole-column selection removes those columns', async () => {
+    it('repeated Backspace on an emptied whole-column selection is a structural no-op', async () => {
         const muya = bootMuya('| a1 | b1 | c1 |\n| --- | --- | --- |\n| a2 | b2 | c2 |\n');
         const table = firstTable(muya);
 
         dragSelect(table, 0, 0, 1, 1);
         pressDelete(table, 'Backspace'); // clear
         await tick();
-        pressDelete(table, 'Backspace'); // remove the now-empty columns
+        pressDelete(table, 'Backspace'); // already empty: no structural escalation
         await tick();
 
-        expect(table.columnCount).toBe(1);
-        expect(muya.editor.selection.table.hasSelection).toBe(false);
+        expect(table.columnCount).toBe(3);
+        expect(muya.editor.selection.table.hasSelection).toBe(true);
         const md = muya.getMarkdown();
         expect(md).toContain('c1');
         expect(md).toContain('c2');
@@ -141,7 +141,7 @@ describe('track C — keydown over a frozen table rect (two-stage, muyajs parity
         expect(md).not.toMatch(/\bb2\b/);
     });
 
-    it('a second Backspace on an emptied PARTIAL rectangle drops the selection without changing the grid', async () => {
+    it('a second Backspace on an emptied partial rectangle preserves selection and grid', async () => {
         // 3×3 table so a top-left 2×2 spans neither all rows nor all columns.
         const muya = bootMuya('| a | b | c |\n| --- | --- | --- |\n| d | e | f |\n| g | h | i |\n');
         const table = firstTable(muya);
@@ -151,10 +151,10 @@ describe('track C — keydown over a frozen table rect (two-stage, muyajs parity
         await tick();
         expect(muya.editor.selection.table.hasSelection).toBe(true);
 
-        pressDelete(table, 'Backspace'); // partial empty → just deselect
+        pressDelete(table, 'Backspace'); // empty rectangle → no mutation
         await tick();
 
-        expect(muya.editor.selection.table.hasSelection).toBe(false);
+        expect(muya.editor.selection.table.hasSelection).toBe(true);
         expect(table.rowCount).toBe(3);
         expect(table.columnCount).toBe(3);
     });

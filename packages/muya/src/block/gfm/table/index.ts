@@ -293,6 +293,104 @@ class Table extends Parent {
         });
     }
 
+    setColumnAlignment(offset: number, value: 'none' | 'left' | 'center' | 'right') {
+        const { columnCount } = this;
+        if (offset < 0 || offset >= columnCount) {
+            debug.warn(`Column at ${offset} is not existed.`);
+            return;
+        }
+
+        this._runAtomicMutation(() => {
+            const table = this.firstChild as TableInner;
+            table.forEach((row) => {
+                const cell = (row as TableRow).find(offset) as TableBodyCell;
+                if (!cell || cell.align === value)
+                    return;
+
+                const oldValue = cell.align;
+                cell.align = value;
+                const diffs = diff(oldValue, cell.align);
+                const { path } = cell;
+                path.push('meta', 'align');
+                this.jsonState.editOperation(path, diffToTextOp(diffs));
+            });
+        });
+    }
+
+    getResizeImpact(rowCount: number, columnCount: number) {
+        const targetRows = Math.max(1, rowCount);
+        const targetColumns = Math.max(1, columnCount);
+        const state = this.getState();
+        let nonEmptyCount = 0;
+
+        state.children.forEach((row, rowOffset) => {
+            row.children.forEach((cell, columnOffset) => {
+                if (
+                    (rowOffset >= targetRows || columnOffset >= targetColumns)
+                    && cell.text.length > 0
+                ) {
+                    nonEmptyCount++;
+                }
+            });
+        });
+
+        return {
+            rowsRemoved: Math.max(0, this.rowCount - targetRows),
+            columnsRemoved: Math.max(0, this.columnCount - targetColumns),
+            nonEmptyCount,
+        };
+    }
+
+    resize(
+        rowCount: number,
+        columnCount: number,
+        focusRow = 0,
+        focusColumn = 0,
+    ): TableCellContent {
+        const targetRows = Math.max(1, rowCount);
+        const targetColumns = Math.max(1, columnCount);
+        if (targetRows === this.rowCount && targetColumns === this.columnCount) {
+            return this.cellAt(
+                Math.max(0, Math.min(focusRow, this.rowCount - 1)),
+                Math.max(0, Math.min(focusColumn, this.columnCount - 1)),
+            )!.firstChild as TableCellContent;
+        }
+
+        const state = this.getState();
+        const existingAlignments = state.children[0].children.map(cell => cell.meta.align);
+        const alignments = Array.from({ length: targetColumns }, (_, column) =>
+            existingAlignments[column] ?? 'none');
+
+        state.children = state.children.slice(0, targetRows);
+        for (const row of state.children) {
+            row.children = row.children.slice(0, targetColumns);
+            while (row.children.length < targetColumns) {
+                row.children.push({
+                    name: 'table.cell',
+                    meta: { align: alignments[row.children.length] },
+                    text: '',
+                });
+            }
+        }
+
+        while (state.children.length < targetRows) {
+            state.children.push({
+                name: 'table.row',
+                children: alignments.map(align => ({
+                    name: 'table.cell',
+                    meta: { align },
+                    text: '',
+                })),
+            });
+        }
+
+        const newTable = this._replaceState(state);
+        return newTable.cellAt(
+            Math.max(0, Math.min(focusRow, newTable.rowCount - 1)),
+            Math.max(0, Math.min(focusColumn, newTable.columnCount - 1)),
+        )!.firstChild as TableCellContent;
+    }
+
     private _replaceState(state: ITableState): Table {
         return this._runAtomicMutation(() => {
             const newTable = Table.create(this.muya, state);

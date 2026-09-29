@@ -10,7 +10,7 @@ export type { IMarkdownWysiwygSafetyOptions } from './state/markdownWysiwygSafet
 export { renderToStaticHTML } from './state/renderToStaticHTML';
 export type { IRenderToStaticHTMLOptions } from './state/renderToStaticHTML';
 export type { TState } from './state/types';
-export type { IMuyaOptions, ITableOverwriteRequest } from './types';
+export type { IMuyaOptions, ITableOverwriteRequest, ITableResizeRequest } from './types';
 
 export { CodeBlockLanguageSelector } from './ui/codeBlockLanguageSelector';
 // Export ui tools.
