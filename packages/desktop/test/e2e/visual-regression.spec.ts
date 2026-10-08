@@ -371,7 +371,8 @@ test.describe.serial('UI-14 visual regression baseline', () => {
     fs.writeFileSync(path.join(userDataDir, 'preferences.json'), JSON.stringify({
       startUpAction: 'restoreAll'
     }), 'utf8')
-    fs.writeFileSync(path.join(editorStatesDir, 'visual_editor_buffer_store.json'), JSON.stringify({
+    const recoveryStatePath = path.join(editorStatesDir, 'visual_editor_buffer_store.json')
+    fs.writeFileSync(recoveryStatePath, JSON.stringify({
       version: 1,
       currentFileId: 'visual-draft',
       tabs: [{
@@ -383,6 +384,10 @@ test.describe.serial('UI-14 visual regression baseline', () => {
       }],
       restoreWarnings: []
     }), 'utf8')
+    // Recovery Center displays the snapshot file's mtime as "saved at".
+    // Pin it to a fixed instant before launch, otherwise every CI run differs.
+    const savedAt = new Date('2026-01-01T00:00:00.000Z')
+    fs.utimesSync(recoveryStatePath, savedAt, savedAt)
     const recovery = await launchElectron([], { userDataDir, suppressErrorDialog: true })
     try {
       await waitForMenuReady(recovery.app)
