@@ -120,11 +120,6 @@ test.describe('us12 table editing fidelity', () => {
   })
 
   test('dismisses the cell context menu with Escape and outside click without editing Markdown', async() => {
-    page.on('console', (msg) => {
-      if (msg.text().startsWith('ISSUE224_RESTORE_')) {
-        console.info(msg.text())
-      }
-    })
     const before = await getMarkdownContent(page, app)
     const cell = page.locator('.editor-component .mu-table-cell-content').first()
     const menu = page.locator('.mu-table-bar-tools [role="menu"]')
@@ -146,32 +141,15 @@ test.describe('us12 table editing fidelity', () => {
     await expect(menu.locator('[role="menuitem"]').first()).toBeFocused()
     await page.keyboard.press('Escape')
     await expectOffscreen()
-    const focusAfterEscape = await page.evaluate(() => {
-      const active = document.activeElement
-      const cell = document.querySelector('.editor-component .mu-table-cell-content')
-      return {
-        activeTag: active?.tagName,
-        activeClass: active instanceof HTMLElement ? active.className : '',
-        activeText: active?.textContent?.slice(0, 60),
-        activeConnected: active?.isConnected,
-        cellConnected: cell?.isConnected,
-        cellIsActive: active === cell,
-        focusedCells: document.querySelectorAll('.mu-table-cell-content:focus').length
-      }
-    })
-    console.info('ISSUE224_FOCUS_AFTER_ESCAPE', JSON.stringify(focusAfterEscape))
-    if (!focusAfterEscape.cellIsActive) {
-      const manual = await cell.evaluate((node) => {
-        node.focus({ preventScroll: true })
-        return {
-          succeeded: document.activeElement === node,
-          connected: node.isConnected,
-          editable: (node as HTMLElement).isContentEditable
-        }
-      })
-      console.info('ISSUE224_MANUAL_FOCUS', JSON.stringify(manual))
-    }
-    expect(focusAfterEscape.cellIsActive).toBe(true)
+    await expect(page.locator('.editor-component .mu-editor')).toBeFocused()
+    await expect.poll(() => cell.evaluate((node) => {
+      const selection = window.getSelection()
+      const anchor = selection?.anchorNode
+      return Boolean(
+        anchor && (anchor === node || node.contains(anchor))
+        && selection?.isCollapsed
+      )
+    })).toBe(true)
 
     await cell.click({ button: 'right' })
     await expect(menu).toBeVisible()

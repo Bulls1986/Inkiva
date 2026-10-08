@@ -72,6 +72,34 @@ no contenteditable table cell had focus. This excludes a stale-cell DOM
 will distinguish a missing invocation from a no-op focus call. Remove all
 instrumentation before the final non-debug validation.
 
-## Stage 2 — Closeout
+Focused run
+[37753663806](https://github.com/Bulls1986/Inkiva/actions/runs/37753663806)
+proved the model target was the same attached, editable, visible
+`span.mu-table-cell-content` as the DOM target. Both the production
+`content.domNode.focus()` and a separate immediate test call to
+`cell.focus()` failed to move focus away from the hidden menu `li`.
+This is a nested-contenteditable focus ownership problem, not stale state,
+missing focus-event routing, or an offscreen visibility failure.
+
+## Stage 2 — Minimal correction and Green gate
+
+The Muya editor owns focus on its outer `.mu-editor[contenteditable]`
+container, not individual nested cell spans. Escape now focuses that
+authoritative editor container and restores the original table-cell
+selection through `TableCellContent.setCursor`, reusing the surviving
+anchor/focus offsets where they refer to that cell. Detached content
+is ignored rather than being targeted. This corrects focus without changing
+any Markdown, structural menu action, or UI interaction model.
+
+The E2E asserts the actual editor focus owner, a collapsed native caret
+inside the original table cell, the offscreen/opacity dismissal state,
+outside click dismissal and unchanged document Markdown. The diagnostic
+`console.info` statements and temporary focused CI step have been
+removed. No timeout, test count, or pixel acceptance threshold was reduced.
+
+Pending: full Linux Electron CI / Muya tests, build, documentation evidence,
+then squash merge and verified #224 closure.
+
+## Stage 3 — Closeout
 
 Pending: CI gates, PR squash merge to `develop`, and verify issue closure.

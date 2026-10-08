@@ -165,25 +165,17 @@ export class TableRowColumMenu extends BaseFloat {
 
     private _restoreCellFocus() {
         const content = this._block?.firstContentInDescendant();
-        console.info('ISSUE224_RESTORE_BEFORE', JSON.stringify({
-            hasBlock: Boolean(this._block),
-            hasContent: Boolean(content),
-            attached: content?.domNode?.isConnected,
-            targetTag: content?.domNode?.tagName,
-            targetClass: content?.domNode?.className,
-            targetEditable: content?.domNode?.isContentEditable,
-            targetEqualsFirstCell: content?.domNode === document.querySelector('.editor-component .mu-table-cell-content'),
-            targetDisplay: content?.domNode ? getComputedStyle(content.domNode).display : null,
-            targetVisibility: content?.domNode ? getComputedStyle(content.domNode).visibility : null,
-            activeTag: document.activeElement?.tagName,
-            activeClass: document.activeElement instanceof HTMLElement ? document.activeElement.className : '',
-        }));
-        content?.domNode?.focus({ preventScroll: true });
-        console.info('ISSUE224_RESTORE_AFTER', JSON.stringify({
-            attached: content?.domNode?.isConnected,
-            isActive: document.activeElement === content?.domNode,
-            activeTag: document.activeElement?.tagName,
-        }));
+        if (!content?.domNode?.isConnected)
+            return;
+
+        // Table cell spans are nested contenteditables and cannot acquire
+        // programmatic DOM focus in Chromium. The outer editor owns focus;
+        // restore its active caret in the original cell after Escape.
+        const selection = this.muya.editor.selection;
+        const start = selection.anchorBlock === content ? (selection.anchor?.offset ?? 0) : 0;
+        const end = selection.focusBlock === content ? (selection.focus?.offset ?? start) : start;
+        this.muya.domNode.focus({ preventScroll: true });
+        content.setCursor(start, end);
     }
 
     selectItem(event: Event, item: IMenuItem) {

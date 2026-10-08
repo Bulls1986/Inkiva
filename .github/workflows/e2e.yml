@@ -52,12 +52,6 @@ jobs:
       - name: Build app
         run: pnpm build
 
-      # Investigation-only fail-fast check; remove before accepting #224.
-      - name: Focused Issue 224 dismissal diagnosis
-        if: github.head_ref == 'fix/224-table-menu-dismiss'
-        run: |
-          xvfb-run --auto-servernum pnpm --filter inkiva exec playwright test test/e2e/table-editing-us12.spec.ts --config=test/e2e/playwright.config.ts --grep "dismisses the cell context menu"
-
       - name: Run E2E Tests
         run: xvfb-run --auto-servernum pnpm test:e2e
 
