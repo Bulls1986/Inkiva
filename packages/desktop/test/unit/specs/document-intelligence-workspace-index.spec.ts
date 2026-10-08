@@ -96,4 +96,24 @@ describe('V06-02 workspace Markdown links', () => {
     expect(service.getBacklinks(oldTarget)).toHaveLength(0)
     expect(service.getBacklinks(newTarget)).toHaveLength(1)
   })
+
+  it('keeps two editor windows with different workspace roots isolated', async() => {
+    const a = await createWorkspace()
+    const b = await createWorkspace()
+    const aTarget = path.join(a, 'target.md')
+    const bTarget = path.join(b, 'target.md')
+    await fs.writeFile(aTarget, '# A')
+    await fs.writeFile(bTarget, '# B')
+    await fs.writeFile(path.join(a, 'source.md'), '[A](./target.md)')
+    await fs.writeFile(path.join(b, 'source.md'), '[B](./target.md)')
+    const service = new DocumentIntelligenceService({ historyRootPath: path.join(a, '.history') })
+
+    await service.indexWorkspace(a, 11)
+    await service.indexWorkspace(b, 22)
+
+    expect(service.getBacklinks(aTarget, 11)).toHaveLength(1)
+    expect(service.getBacklinks(bTarget, 22)).toHaveLength(1)
+    expect(service.getBacklinks(bTarget, 11)).toHaveLength(0)
+    expect(service.getBacklinks(aTarget, 22)).toHaveLength(0)
+  })
 })

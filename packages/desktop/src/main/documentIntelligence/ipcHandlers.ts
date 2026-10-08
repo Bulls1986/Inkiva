@@ -19,11 +19,15 @@ import type {
 } from '@shared/types/documentIntelligence'
 
 export interface DocumentIntelligenceHandlerService {
-  indexWorkspace(rootPath: string | null): Promise<WorkspaceLinkIndexResult>
-  indexDocument(pathname: string, markdown: string): void
-  removeDocument(pathname: string): void
-  getBacklinks(targetPath: string): MarkdownBacklink[]
-  getLinkCandidates(sourcePath: string, pathnames: readonly string[]): MarkdownLinkCandidate[]
+  indexWorkspace(rootPath: string | null, scopeId?: number): Promise<WorkspaceLinkIndexResult>
+  indexDocument(pathname: string, markdown: string, scopeId?: number): void
+  removeDocument(pathname: string, scopeId?: number): void
+  getBacklinks(targetPath: string, scopeId?: number): MarkdownBacklink[]
+  getLinkCandidates(
+    sourcePath: string,
+    pathnames: readonly string[],
+    scopeId?: number
+  ): MarkdownLinkCandidate[]
   prepareRenameRepair(request: PrepareRenameRepairRequest): RenameRepairPlan
   applyRenameRepair(request: ApplyRenameRepairRequest): Promise<ApplyRenameRepairResult>
   createSnapshot(request: LocalHistoryCreateRequest): Promise<LocalHistoryEntry>
@@ -270,7 +274,8 @@ const requireRestoreRequest = (
 }
 
 export const createDocumentIntelligenceHandlers = (
-  service: DocumentIntelligenceHandlerService
+  service: DocumentIntelligenceHandlerService,
+  scopeId?: number
 ): DocumentIntelligenceHandlers => ({
   indexWorkspace(rootPath) {
     if (rootPath !== null && (typeof rootPath !== 'string' || !rootPath)) {
@@ -279,28 +284,36 @@ export const createDocumentIntelligenceHandlers = (
     if (typeof rootPath === 'string' && !path.isAbsolute(rootPath)) {
       throw new TypeError('rootPath must be absolute')
     }
-    return service.indexWorkspace(rootPath)
+    return scopeId === undefined
+      ? service.indexWorkspace(rootPath)
+      : service.indexWorkspace(rootPath, scopeId)
   },
   indexDocument(pathname, markdown) {
-    service.indexDocument(
-      requireString(pathname, 'pathname'),
-      requireMarkdown(markdown, 'markdown')
-    )
+    const source = requireString(pathname, 'pathname')
+    const content = requireMarkdown(markdown, 'markdown')
+    if (scopeId === undefined) service.indexDocument(source, content)
+    else service.indexDocument(source, content, scopeId)
   },
 
   removeDocument(pathname) {
-    service.removeDocument(requireString(pathname, 'pathname'))
+    const source = requireString(pathname, 'pathname')
+    if (scopeId === undefined) service.removeDocument(source)
+    else service.removeDocument(source, scopeId)
   },
 
   getBacklinks(targetPath) {
-    return service.getBacklinks(requireString(targetPath, 'targetPath'))
+    const target = requireString(targetPath, 'targetPath')
+    return scopeId === undefined
+      ? service.getBacklinks(target)
+      : service.getBacklinks(target, scopeId)
   },
 
   getLinkCandidates(sourcePath, pathnames) {
-    return service.getLinkCandidates(
-      requireString(sourcePath, 'sourcePath'),
-      requireStringArray(pathnames, 'pathnames')
-    )
+    const source = requireString(sourcePath, 'sourcePath')
+    const candidates = requireStringArray(pathnames, 'pathnames')
+    return scopeId === undefined
+      ? service.getLinkCandidates(source, candidates)
+      : service.getLinkCandidates(source, candidates, scopeId)
   },
 
   prepareRenameRepair(request) {

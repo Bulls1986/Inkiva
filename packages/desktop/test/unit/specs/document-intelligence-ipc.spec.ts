@@ -50,6 +50,27 @@ const createService = (): DocumentIntelligenceHandlerService => ({
 })
 
 describe('document intelligence IPC handlers', () => {
+  it('routes link indexing through separate window owner scopes', async() => {
+    const service = createService()
+    const first = createDocumentIntelligenceHandlers(service, 11)
+    const second = createDocumentIntelligenceHandlers(service, 22)
+    const root = path.resolve('docs')
+
+    await first.indexWorkspace(root)
+    second.indexDocument(path.join(root, 'source.md'), '[B](./target.md)')
+    first.getBacklinks(path.join(root, 'target.md'))
+    second.getBacklinks(path.join(root, 'target.md'))
+
+    expect(service.indexWorkspace).toHaveBeenCalledWith(root, 11)
+    expect(service.indexDocument).toHaveBeenCalledWith(
+      path.join(root, 'source.md'),
+      '[B](./target.md)',
+      22
+    )
+    expect(service.getBacklinks).toHaveBeenCalledWith(path.join(root, 'target.md'), 11)
+    expect(service.getBacklinks).toHaveBeenCalledWith(path.join(root, 'target.md'), 22)
+  })
+
   it('validates untrusted IPC payloads before calling the service', async() => {
     const service = createService()
     const handlers = createDocumentIntelligenceHandlers(service)

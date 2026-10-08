@@ -47,6 +47,13 @@ const MAX_INDEX_FILE_BYTES = 5 * 1024 * 1024
 const MAX_TOTAL_INDEX_BYTES = 64 * 1024 * 1024
 const IGNORED_DIRECTORIES = new Set(['.git', 'node_modules'])
 
+interface LinkIndexScope {
+  linkIndex: MarkdownLinkIndex
+  openDocuments: Map<string, string>
+  workspaceDocuments: Map<string, string>
+  generation: number
+}
+
 const defaultFiles: DocumentIntelligenceFileAdapter = {
   readFile: (filePath) => readFile(filePath, 'utf8'),
   writeFile: async(filePath, content) => {
@@ -69,13 +76,17 @@ export class DocumentIntelligenceService {
   readonly linkIndex: MarkdownLinkIndex
   readonly localHistory: LocalHistoryService
   private readonly files: DocumentIntelligenceFileAdapter
-  private readonly openDocuments = new Map<string, string>()
-  private workspaceDocuments = new Map<string, string>()
-  private workspaceGeneration = 0
+  private readonly indexScopes = new Map<number, LinkIndexScope>()
 
   constructor(options: DocumentIntelligenceServiceOptions) {
     this.files = options.files ?? defaultFiles
     this.linkIndex = new MarkdownLinkIndex()
+    this.indexScopes.set(0, {
+      linkIndex: this.linkIndex,
+      openDocuments: new Map(),
+      workspaceDocuments: new Map(),
+      generation: 0
+    })
     this.localHistory = new LocalHistoryService({
       rootPath: options.historyRootPath,
       files: this.files,
@@ -83,24 +94,52 @@ export class DocumentIntelligenceService {
     })
   }
 
-  indexDocument(pathname: string, markdown: string): void {
-    this.openDocuments.set(canonicalDocumentPath(pathname), markdown)
-    this.linkIndex.updateDocument(pathname, markdown)
+  private getScope(scopeId: number): LinkIndexScope {
+    let scope = this.indexScopes.get(scopeId)
+    if (!scope) {
+      scope = {
+        linkIndex: new MarkdownLinkIndex(),
+        openDocuments: new Map(),
+        workspaceDocuments: new Map(),
+        generation: 0
+      }
+      this.indexScopes.set(scopeId, scope)
+    }
+    return scope
   }
 
-  removeDocument(pathname: string): void {
+  closeScope(scopeId: number): void {
+    if (scopeId === 0) return
+    const scope = this.indexScopes.get(scopeId)
+    if (!scope) return
+    scope.generation += 1
+    scope.linkIndex.clear()
+    scope.openDocuments.clear()
+    scope.workspaceDocuments.clear()
+    this.indexScopes.delete(scopeId)
+  }
+
+  indexDocument(pathname: string, markdown: string, scopeId = 0): void {
+    const scope = this.getScope(scopeId)
+    scope.openDocuments.set(canonicalDocumentPath(pathname), markdown)
+    scope.linkIndex.updateDocument(pathname, markdown)
+  }
+
+  removeDocument(pathname: string, scopeId = 0): void {
+    const scope = this.getScope(scopeId)
     const key = canonicalDocumentPath(pathname)
-    this.openDocuments.delete(key)
-    const saved = this.workspaceDocuments.get(key)
-    if (saved === undefined) this.linkIndex.removeDocument(pathname)
-    else this.linkIndex.updateDocument(pathname, saved)
+    scope.openDocuments.delete(key)
+    const saved = scope.workspaceDocuments.get(key)
+    if (saved === undefined) scope.linkIndex.removeDocument(pathname)
+    else scope.linkIndex.updateDocument(pathname, saved)
   }
 
-  async indexWorkspace(rootPath: string | null): Promise<WorkspaceLinkIndexResult> {
-    const generation = ++this.workspaceGeneration
+  async indexWorkspace(rootPath: string | null, scopeId = 0): Promise<WorkspaceLinkIndexResult> {
+    const scope = this.getScope(scopeId)
+    const generation = ++scope.generation
     // Clear the old workspace immediately while retaining live-tab overlays.
-    this.workspaceDocuments.clear()
-    this.rebuildIndex()
+    scope.workspaceDocuments.clear()
+    this.rebuildIndex(scope)
     if (!rootPath) {
       return { rootPath: null, indexedFiles: 0, skippedFiles: 0, complete: true }
     }
@@ -112,7 +151,7 @@ export class DocumentIntelligenceService {
     let encounteredFiles = 0
     let skippedFiles = 0
     let totalBytes = 0
-    while (pendingDirectories.length && generation === this.workspaceGeneration) {
+    while (pendingDirectories.length && generation === scope.generation) {
       visitedDirectories += 1
       if (visitedDirectories > MAX_WORKSPACE_DIRECTORIES) {
         skippedFiles += 1
@@ -127,7 +166,7 @@ export class DocumentIntelligenceService {
         continue
       }
       for (const entry of entries) {
-        if (generation !== this.workspaceGeneration) break
+        if (generation !== scope.generation) break
         if (entry.isSymbolicLink()) continue
         const pathname = path.join(directory, entry.name)
         if (entry.isDirectory()) {
@@ -148,7 +187,7 @@ export class DocumentIntelligenceService {
             continue
           }
           const markdown = await this.files.readFile(pathname)
-          if (generation !== this.workspaceGeneration) break
+          if (generation !== scope.generation) break
           totalBytes += size
           documents.set(canonicalDocumentPath(pathname), markdown)
         } catch {
@@ -157,11 +196,11 @@ export class DocumentIntelligenceService {
       }
     }
 
-    if (generation !== this.workspaceGeneration) {
+    if (generation !== scope.generation) {
       return { rootPath: root, indexedFiles: 0, skippedFiles: 0, complete: false }
     }
-    this.workspaceDocuments = documents
-    this.rebuildIndex()
+    scope.workspaceDocuments = documents
+    this.rebuildIndex(scope)
     return {
       rootPath: root,
       indexedFiles: documents.size,
@@ -170,22 +209,26 @@ export class DocumentIntelligenceService {
     }
   }
 
-  private rebuildIndex(): void {
-    this.linkIndex.clear()
-    for (const [pathname, markdown] of this.workspaceDocuments) {
-      if (!this.openDocuments.has(pathname)) this.linkIndex.updateDocument(pathname, markdown)
+  private rebuildIndex(scope: LinkIndexScope): void {
+    scope.linkIndex.clear()
+    for (const [pathname, markdown] of scope.workspaceDocuments) {
+      if (!scope.openDocuments.has(pathname)) scope.linkIndex.updateDocument(pathname, markdown)
     }
-    for (const [pathname, markdown] of this.openDocuments) {
-      this.linkIndex.updateDocument(pathname, markdown)
+    for (const [pathname, markdown] of scope.openDocuments) {
+      scope.linkIndex.updateDocument(pathname, markdown)
     }
   }
 
-  getBacklinks(targetPath: string): MarkdownBacklink[] {
-    return this.linkIndex.getBacklinks(targetPath)
+  getBacklinks(targetPath: string, scopeId = 0): MarkdownBacklink[] {
+    return this.getScope(scopeId).linkIndex.getBacklinks(targetPath)
   }
 
-  getLinkCandidates(sourcePath: string, pathnames: readonly string[]): MarkdownLinkCandidate[] {
-    return this.linkIndex.getLinkCandidates(sourcePath, pathnames)
+  getLinkCandidates(
+    sourcePath: string,
+    pathnames: readonly string[],
+    scopeId = 0
+  ): MarkdownLinkCandidate[] {
+    return this.getScope(scopeId).linkIndex.getLinkCandidates(sourcePath, pathnames)
   }
 
   prepareRenameRepair(request: PrepareRenameRepairRequest): RenameRepairPlan {
