@@ -14,6 +14,10 @@ This directory contains durable product contracts and resumable implementation r
 - [US05 — Workspace / Session Restore](US05-WORKSPACE-RESTORE.md)
 - [US07 — Restore Editing Continuity](US07-RESTORE-EDITING-CONTINUITY.md)
 
+## v0.6.0 planning
+
+- [v0.6.0 delivery plan, work breakdown, dependencies and acceptance gates](V0.6-DELIVERY-PLAN.md) — planned scope, static capability inventory, task IDs V06-00–V06-15, estimates, staged calendar, test/architecture guardrails and resumable planning ledger.
+
 ## Loading rule
 
 Open the interaction contract when work changes user-observable desktop editing behavior. Open individual US records only when implementing, auditing, or resuming that story.
