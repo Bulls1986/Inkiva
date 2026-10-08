@@ -20,6 +20,10 @@ This directory contains durable product contracts and resumable implementation r
 
 - [V06-00 capability audit](V0.6-CAPABILITY-AUDIT.md) — examined code, focused probe evidence, scope decisions and next-stage handoff.
 
+## v0.6.0 interaction contracts
+
+- [V06-01 — Link, Path and Navigation Contract](V0.6-LINK-NAVIGATION-CONTRACT.md) — standard relative Markdown links, explicit navigation, workspace backlinks, broken-link diagnostics and safe rename/move behavior.
+
 ## Loading rule
 
 Open the interaction contract when work changes user-observable desktop editing behavior. Open individual US records only when implementing, auditing, or resuming that story.
