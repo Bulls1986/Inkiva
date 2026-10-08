@@ -10,6 +10,7 @@ Use this index for correctness/readiness contracts and product-functional gates.
 - [US10 — Inline Markdown Syntax Visibility & Fidelity](US10-INLINE-SYNTAX-VISIBILITY.md) — Half-open inline marker visibility, render-only reveal/hide, and incomplete Markdown source fidelity.
 - [US11 — Structured Block Keyboard Editing](US11-STRUCTURED-BLOCK-KEYBOARD.md) — Lists, tasks, headings, quotations, fenced-code keyboard semantics, caret and Undo boundary correctness.
 - [US12 — Table Editing Fidelity](US12-TABLE-EDITING-FIDELITY.md) — GFM-safe cell editing, atomic row/column operations, TSV paste/confirmation, and table round-trip fidelity.
+- [Issue #224 — Table Context Menu Dismissal](ISSUE-224-TABLE-MENU-DISMISSAL.md) — Electron dismissal diagnostics, visibility-oracle correctness and non-mutating Escape/outside-click regression.
 - [US13 — Operation-based Undo Grouping](US13-OPERATION-UNDO-GROUPING.md) — 750 ms adjacent-input grouping, standalone editing actions, tab isolation, and derived-work exclusion.
 - [US15 — Focus / Typewriter Writing View Stability](US15-FOCUS-TYPEWRITER-STABILITY.md) — Input-intent Typewriter follow, Focus selection/search legibility, window-level mode restore, and async-geometry scroll ownership.
 - [US16 — File Identity & Operation Continuity](US16-FILE-IDENTITY-CONTINUITY.md) — Rename/move identity continuity, dirty-tab preservation, relative-reference repair, Recent/Local History migration, and truthful failure handling.
