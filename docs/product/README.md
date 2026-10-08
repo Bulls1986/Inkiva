@@ -18,6 +18,8 @@ This directory contains durable product contracts and resumable implementation r
 
 - [v0.6.0 delivery plan, work breakdown, dependencies and acceptance gates](V0.6-DELIVERY-PLAN.md) — planned scope, static capability inventory, task IDs V06-00–V06-15, estimates, staged calendar, test/architecture guardrails and resumable planning ledger.
 
+- [V06-00 capability audit](V0.6-CAPABILITY-AUDIT.md) — examined code, focused probe evidence, scope decisions and next-stage handoff.
+
 ## Loading rule
 
 Open the interaction contract when work changes user-observable desktop editing behavior. Open individual US records only when implementing, auditing, or resuming that story.
