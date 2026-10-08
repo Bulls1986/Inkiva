@@ -35,12 +35,29 @@ oracle with a weaker or merely eventual screenshot check is not acceptable.
 No production-code mutation is authorized unless the executable test proves
 a real violation of the visible/keyboard contract.
 
-## Stage 1 — Focused Electron evidence
+## Stage 1 — Executed Red evidence (2026-10-08)
 
-Pending: run the new focused case on the Linux Electron runner and classify
-the result. If it passes, issue #224 was a test-oracle false positive;
-retain the new strict interaction test to guard real regressions. If it fails,
-diagnose event routing and float lifecycle before changing product code.
+Full Linux Electron run
+[37750586836](https://github.com/Bulls1986/Inkiva/actions/runs/37750586836)
+executed 431 cases, reported 415 passed, 15 skipped and **one real
+product-facing Red** in the new targeted case. Escape was delivered and
+the transparent/off-screen assertions **passed**, but the subsequent
+`expect(cell).toBeFocused()` failed for five seconds: the original
+`span[contenteditable=true].mu-table-cell-content` was inactive.
+
+Thus the original visual-only symptom was a **false-positive visibility
+oracle**, but a separate keyboard-focus restoration defect is confirmed.
+Do not close the issue solely as a Playwright misassertion.
+
+Source analysis: `TableRowColumMenu` dispatches `hide()` then calls
+`_restoreCellFocus()`, which invokes `content.domNode.focus()` without
+verifying that its reference is still connected or that editor focus
+and caret state were actually restored. Before mutating production code,
+instrument the focused case to report `document.activeElement`,
+the original cell's attachment state, and focused-cell count.
+A temporary, branch-scoped pre-full-E2E command runs only this
+diagnostic case; it **must be removed before merging**. All other E2E
+cases stay in the canonical full gate.
 
 ## Stage 2 — Closeout
 

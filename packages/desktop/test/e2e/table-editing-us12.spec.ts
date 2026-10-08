@@ -141,6 +141,20 @@ test.describe('us12 table editing fidelity', () => {
     await expect(menu.locator('[role="menuitem"]').first()).toBeFocused()
     await page.keyboard.press('Escape')
     await expectOffscreen()
+    const focusAfterEscape = await page.evaluate(() => {
+      const active = document.activeElement
+      const cell = document.querySelector('.editor-component .mu-table-cell-content')
+      return {
+        activeTag: active?.tagName,
+        activeClass: active instanceof HTMLElement ? active.className : '',
+        activeText: active?.textContent?.slice(0, 60),
+        activeConnected: active?.isConnected,
+        cellConnected: cell?.isConnected,
+        cellIsActive: active === cell,
+        focusedCells: document.querySelectorAll('.mu-table-cell-content:focus').length
+      }
+    })
+    console.info('ISSUE224_FOCUS_AFTER_ESCAPE', JSON.stringify(focusAfterEscape))
     await expect(cell).toBeFocused()
 
     await cell.click({ button: 'right' })
