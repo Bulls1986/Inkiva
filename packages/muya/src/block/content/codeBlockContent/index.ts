@@ -266,6 +266,7 @@ class CodeBlockContent extends Content {
 
     override enterHandler(event: KeyboardEvent): void {
         event.preventDefault();
+        this.muya.editor.history.cutoff();
 
         // Shift + Enter to jump out of code block.
         if (event.shiftKey) {
@@ -315,6 +316,7 @@ class CodeBlockContent extends Content {
 
     override tabHandler(event: KeyboardEvent): void {
         event.preventDefault();
+        this.muya.editor.history.cutoff();
         const { start, end } = this.getCursor()!;
         const { _lang: lang, text } = this;
         const isMarkupCodeContent = /markup|html|xml|svg|mathml/.test(lang);

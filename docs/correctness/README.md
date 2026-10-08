@@ -8,6 +8,7 @@ Use this index for correctness/readiness contracts and product-functional gates.
 - [US04 — Local History Safe Restore](US04-LOCAL-HISTORY-SAFE-RESTORE.md) — Read-only snapshot preview, open-as-copy, confirmed in-place restore, and automatic rollback point.
 - [US08 — Input / IME Continuity](US08-INPUT-IME-CONTINUITY.md) — Continuous typing, Markdown trigger conversion, auto-pair, and CJK IME correctness for v0.5.0.
 - [US10 — Inline Markdown Syntax Visibility & Fidelity](US10-INLINE-SYNTAX-VISIBILITY.md) — Half-open inline marker visibility, render-only reveal/hide, and incomplete Markdown source fidelity.
+- [US11 — Structured Block Keyboard Editing](US11-STRUCTURED-BLOCK-KEYBOARD.md) — Lists, tasks, headings, quotations, fenced-code keyboard semantics, caret and Undo boundary correctness.
 - [US12 — Table Editing Fidelity](US12-TABLE-EDITING-FIDELITY.md) — GFM-safe cell editing, atomic row/column operations, TSV paste/confirmation, and table round-trip fidelity.
 - [US13 — Operation-based Undo Grouping](US13-OPERATION-UNDO-GROUPING.md) — 750 ms adjacent-input grouping, standalone editing actions, tab isolation, and derived-work exclusion.
 - [US15 — Focus / Typewriter Writing View Stability](US15-FOCUS-TYPEWRITER-STABILITY.md) — Input-intent Typewriter follow, Focus selection/search legibility, window-level mode restore, and async-geometry scroll ownership.

@@ -213,6 +213,55 @@ describe('paragraphContent.tabHandler — indent / unindent a list item', () => 
     });
 });
 
+describe('paragraphContent.tabHandler — change block-quote depth at item start (US11 / AC-49)', () => {
+    it('tab nests only the current quoted paragraph and leaves adjacent normal blocks untouched', async () => {
+        const muya = bootMuya('> first\n>\n> second\n\noutside\n');
+        const second = contentByText(muya, 'second');
+
+        tabAt(muya, second, 0);
+        await flush();
+
+        const state = muya.getState() as Array<{
+            name: string;
+            text?: string;
+            children?: Array<{ name: string; text?: string; children?: Array<{ name: string; text?: string }> }>;
+        }>;
+        expect(state).toHaveLength(2);
+        expect(state[0].name).toBe('block-quote');
+        expect(state[0].children?.map(child => child.name)).toEqual(['paragraph', 'block-quote']);
+        expect(state[0].children?.[1].children?.[0]).toMatchObject({
+            name: 'paragraph',
+            text: 'second',
+        });
+        expect(state[1]).toMatchObject({ name: 'paragraph', text: 'outside' });
+        expect(contentByText(muya, 'second').getCursor()?.start.offset).toBe(0);
+    });
+
+    it('shift+Tab lifts only the current nested quote by one level', async () => {
+        const muya = bootMuya('> first\n>\n> > second\n>\n> third\n\noutside\n');
+        const second = contentByText(muya, 'second');
+
+        tabAt(muya, second, 0, true);
+        await flush();
+
+        const state = muya.getState() as Array<{
+            name: string;
+            text?: string;
+            children?: Array<{ name: string; text?: string; children?: Array<{ name: string; text?: string }> }>;
+        }>;
+        expect(state).toHaveLength(2);
+        expect(state[0].name).toBe('block-quote');
+        expect(state[0].children?.map(child => child.name)).toEqual([
+            'paragraph',
+            'paragraph',
+            'paragraph',
+        ]);
+        expect(state[0].children?.map(child => child.text)).toEqual(['first', 'second', 'third']);
+        expect(state[1]).toMatchObject({ name: 'paragraph', text: 'outside' });
+        expect(contentByText(muya, 'second').getCursor()?.start.offset).toBe(0);
+    });
+});
+
 describe('paragraphContent.tabHandler — jump past a closing inline marker', () => {
     it('tab just inside a closing `**` moves the caret past the marker with no text change', async () => {
         const muya = bootMuya('**bold**\n');

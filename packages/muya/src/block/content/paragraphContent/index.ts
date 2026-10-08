@@ -491,6 +491,13 @@ class ParagraphContent extends Format {
         const list = listItem!.parent! as BulletList | OrderList | TaskList;
 
         if (text.length === 0) {
+            const unindentType = this._getUnindentType();
+            if (unindentType != null) {
+                this.muya.editor.history.cutoff();
+                this._unindentListItem(unindentType);
+                return;
+            }
+
             if (parent!.isOnlyChild()) {
                 switch (true) {
                     case listItem.isOnlyChild(): {
@@ -698,6 +705,13 @@ class ParagraphContent extends Format {
 
         if (!parent.isFirstChild())
             return this._handleBackspaceInParagraph();
+
+        const unindentType = this._getUnindentType();
+        if (unindentType != null) {
+            this.muya.editor.history.cutoff();
+            this._unindentListItem(unindentType);
+            return;
+        }
 
         if (listItem.isOnlyChild()) {
             listItem.forEach((node, i: number) => {
@@ -921,6 +935,88 @@ class ParagraphContent extends Format {
         cursorBlock?.setCursor(start.offset, end.offset, true);
     }
 
+    private _changeBlockQuoteDepth(shiftKey: boolean): boolean {
+        const cursor = this.getCursor();
+        const paragraph = this.parent;
+        const blockQuote = paragraph?.parent;
+
+        if (
+            cursor == null
+            || paragraph == null
+            || !this.isCollapsed
+            || cursor.start.offset !== 0
+            || blockQuote?.blockName !== 'block-quote'
+        ) {
+            return false;
+        }
+
+        const quoteParent = blockQuote.parent;
+        if (quoteParent == null)
+            return false;
+
+        // A root-level quote has no shallower quote level. Consume Shift+Tab
+        // without mutating source, matching the root-list no-op contract.
+        if (shiftKey && quoteParent.blockName !== 'block-quote')
+            return true;
+
+        this.muya.editor.history.cutoff();
+
+        if (!shiftKey) {
+            const nestedState: IBlockQuoteState = {
+                name: 'block-quote',
+                children: [paragraph.getState()],
+            };
+            const nestedQuote = ScrollPage.loadBlock(nestedState.name).create(
+                this.muya,
+                nestedState,
+            );
+
+            paragraph.replaceWith(nestedQuote);
+            nestedQuote.firstContentInDescendant()?.setCursor(0, 0, true);
+            return true;
+        }
+
+        const promotedParagraph = paragraph.clone() as Paragraph;
+
+        if (paragraph.isOnlyChild()) {
+            blockQuote.replaceWith(promotedParagraph);
+        }
+        else if (paragraph.isFirstChild()) {
+            quoteParent.insertBefore(promotedParagraph, blockQuote);
+            paragraph.remove();
+        }
+        else if (paragraph.isLastChild()) {
+            quoteParent.insertAfter(promotedParagraph, blockQuote);
+            paragraph.remove();
+        }
+        else {
+            // Promoting a paragraph from the middle of a nested quote must not
+            // flatten the following quoted siblings. Split the nested quote
+            // around the current paragraph and keep the tail at its old depth.
+            const trailingQuoteState: IBlockQuoteState = {
+                name: 'block-quote',
+                children: [],
+            };
+            const paragraphOffset = blockQuote.offset(paragraph);
+            blockQuote.forEachAt(paragraphOffset + 1, undefined, (node) => {
+                if (node.isParent())
+                    trailingQuoteState.children.push(node.getState());
+                node.remove();
+            });
+
+            const trailingQuote = ScrollPage.loadBlock(trailingQuoteState.name).create(
+                this.muya,
+                trailingQuoteState,
+            );
+            quoteParent.insertAfter(promotedParagraph, blockQuote);
+            quoteParent.insertAfter(trailingQuote, promotedParagraph);
+            paragraph.remove();
+        }
+
+        promotedParagraph.firstContentInDescendant()?.setCursor(0, 0, true);
+        return true;
+    }
+
     protected override insertTab() {
         const { muya, text } = this;
         const { tabSize } = muya.options;
@@ -986,6 +1082,9 @@ class ParagraphContent extends Format {
 
         const { start, end } = this.getCursor()!;
         if (!start || !end)
+            return;
+
+        if (this._changeBlockQuoteDepth(event.shiftKey))
             return;
 
         if (event.shiftKey) {
