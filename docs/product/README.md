@@ -24,6 +24,10 @@ This directory contains durable product contracts and resumable implementation r
 
 - [V06-01 — Link, Path and Navigation Contract](V0.6-LINK-NAVIGATION-CONTRACT.md) — standard relative Markdown links, explicit navigation, workspace backlinks, broken-link diagnostics and safe rename/move behavior.
 
+## v0.6.0 implementation records
+
+- [V06-02 — Workspace Link Index / Backlinks](V0.6-WORKSPACE-INDEX-PROGRESS.md) — test-first implementation, index and lifecycle hardening, canonical CI, squash-merge record and deferred V06-13/14 issues.
+
 ## Loading rule
 
 Open the interaction contract when work changes user-observable desktop editing behavior. Open individual US records only when implementing, auditing, or resuming that story.
