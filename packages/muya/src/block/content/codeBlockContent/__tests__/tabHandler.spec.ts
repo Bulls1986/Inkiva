@@ -24,6 +24,7 @@ import CodeBlockContent from '../index';
 interface IFakeCell {
     text: string;
     _lang: string;
+    muya: { editor: { history: { cutoff: ReturnType<typeof vi.fn> } } };
     cursor: { start: number; end: number };
     getCursor: () => { start: { offset: number }; end: { offset: number } };
     setCursor: (start: number, end: number, _selected?: boolean) => void;
@@ -38,6 +39,7 @@ function makeFakeCodeContent(initial: {
     return {
         text: initial.text,
         _lang: initial.lang,
+        muya: { editor: { history: { cutoff: vi.fn() } } },
         cursor: { start: initial.cursorAt, end: initial.cursorAt },
         getCursor() {
             return {

@@ -193,6 +193,66 @@ describe('codeBlockContent.enterHandler — plain Enter inserts newline + indent
     });
 });
 
+describe('codeBlockContent Tab source fidelity — US11 / AC-50', () => {
+    it('preserves the exact inserted indent in visible code and serialized Markdown', async () => {
+        const muya = bootMuya('&#96;&#96;&#96;js\ncode\n&#96;&#96;&#96;'.replaceAll('&#96;', '`'));
+        let content = codeContent(muya);
+        muya.editor.activeContentBlock = content;
+        content.setCursor(2, 2, true);
+
+        content.tabHandler(keyEvent({ key: 'Tab' }));
+        expect(content.text).toBe('co    de');
+        expect(content.getCursor()?.start.offset).toBe(6);
+
+        await flush();
+        content = codeContent(muya);
+        expect(content.text).toBe('co    de');
+        expect(muya.getMarkdown()).toBe('&#96;&#96;&#96;js\nco    de\n&#96;&#96;&#96;\n'.replaceAll('&#96;', '`'));
+    });
+});
+
+describe('codeBlockContent keyboard history boundaries — US11 / AC-50', () => {
+    it('records Enter, Tab, and ArrowDown exit as three independent undo steps', async () => {
+        const muya = bootMuya('&#96;&#96;&#96;js\ncode\n&#96;&#96;&#96;'.replaceAll('&#96;', '`'));
+        let content = codeContent(muya);
+        muya.editor.activeContentBlock = content;
+        content.setCursor(content.text.length, content.text.length, true);
+        muya.editor.history.clear();
+
+        content.enterHandler(keyEvent({ key: 'Enter' }));
+        await flush();
+        content = codeContent(muya);
+        const afterEnter = content.text;
+        content.setCursor(content.text.length, content.text.length, true);
+        expect(muya.editor.history.getHistory().stack.undo).toHaveLength(1);
+
+        content.tabHandler(keyEvent({ key: 'Tab' }));
+        await flush();
+        content = codeContent(muya);
+        const afterTab = content.text;
+        content.setCursor(content.text.length, content.text.length, true);
+        expect(afterTab).not.toBe(afterEnter);
+        expect(muya.editor.history.getHistory().stack.undo).toHaveLength(2);
+
+        content.arrowHandler(keyEvent({ key: 'ArrowDown' }));
+        await flush();
+        expect(muya.editor.activeContentBlock?.blockName).toBe('paragraph.content');
+        expect(muya.editor.history.getHistory().stack.undo).toHaveLength(3);
+
+        muya.undo();
+        await flush();
+        expect(codeContent(muya).text).toBe(afterTab);
+
+        muya.undo();
+        await flush();
+        expect(codeContent(muya).text).toBe(afterEnter);
+
+        muya.undo();
+        await flush();
+        expect(codeContent(muya).text).toBe('code');
+    });
+});
+
 describe('codeBlockContent.enterHandler — Shift+Enter jumps out of the code block', () => {
     it('appends a trailing paragraph and moves the caret to it when nothing follows', async () => {
         // A doc that is ONLY a fenced code block — no following content block.

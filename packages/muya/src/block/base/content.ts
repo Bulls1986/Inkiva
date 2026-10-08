@@ -595,6 +595,10 @@ class Content extends TreeNode {
                     muya,
                     newNodeState,
                 );
+                // Creating the trailing paragraph is a structural keyboard
+                // action (e.g. ArrowDown out of a final fenced code block), so
+                // it must not coalesce with the preceding text edit.
+                muya.editor.history.cutoff();
                 this.scrollPage?.append(newNode, 'user');
                 cursorBlock = newNode.children.head;
             }

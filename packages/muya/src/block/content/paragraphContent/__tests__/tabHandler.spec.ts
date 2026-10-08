@@ -27,6 +27,7 @@ function makeKeyEvent(shiftKey: boolean) {
 interface IFakeParagraph {
     getCursor: ReturnType<typeof vi.fn>;
     isCollapsed: boolean;
+    _changeBlockQuoteDepth: ReturnType<typeof vi.fn>;
     _getUnindentType: ReturnType<typeof vi.fn>;
     _unindentListItem: ReturnType<typeof vi.fn>;
     _canIndentListItem: ReturnType<typeof vi.fn>;
@@ -40,6 +41,7 @@ function makeFakeParagraph(overrides: Partial<IFakeParagraph> = {}): IFakeParagr
     return {
         getCursor: vi.fn(() => ({ start: { offset: 0 }, end: { offset: 0 } })),
         isCollapsed: true,
+        _changeBlockQuoteDepth: vi.fn(() => false),
         _getUnindentType: vi.fn(() => null),
         _unindentListItem: vi.fn(),
         _canIndentListItem: vi.fn(() => false),
