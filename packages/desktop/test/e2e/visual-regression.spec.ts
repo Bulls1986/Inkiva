@@ -201,8 +201,15 @@ test.describe.serial('UI-14 visual regression baseline', () => {
   test('captures the command palette launcher', async() => {
     await page.bringToFront()
     await sendIpcToRenderer(app, 'mt::show-command-palette')
-    await expect(page.locator('input.search').first()).toBeVisible({ timeout: 5000 })
-    await expect(page.getByTestId('command-palette-option').first()).toBeVisible({ timeout: 5000 })
+    const search = page.locator('input.search').first()
+    await expect(search).toBeVisible({ timeout: 5000 })
+    // The unfiltered option order depends on which background commands have
+    // registered before paint. A stable real search result is a better visual
+    // contract than blessing a particular incidental command-list order.
+    await search.fill('Open File')
+    await expect(
+      page.getByTestId('command-palette-option').filter({ hasText: 'Open File' }).first()
+    ).toBeVisible({ timeout: 5000 })
     await capture(page, 'command-palette')
     await closeCommandPalette(page)
   })
@@ -312,7 +319,12 @@ test.describe.serial('UI-14 visual regression baseline', () => {
   })
 
   test('captures v0.5 Recent Documents with a populated workspace', async() => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-visual-recent-'))
+    // The welcome surface renders absolute recent-file paths. A random
+    // mkdtemp suffix would make this pixel baseline change on every CI run.
+    // Use a dedicated, stable path and clear only our own visual fixture.
+    const directory = path.join(os.tmpdir(), 'inkiva-v05-visual-baseline-recent')
+    fs.rmSync(directory, { recursive: true, force: true })
+    fs.mkdirSync(directory, { recursive: true })
     const recentFile = path.join(directory, 'visual-recent-note.md')
     fs.writeFileSync(recentFile, '# Recent document\n', 'utf8')
     const recent = await launchElectron([directory])
@@ -345,7 +357,11 @@ test.describe.serial('UI-14 visual regression baseline', () => {
   })
 
   test('captures v0.5 recovery decision without mutating the disk document', async() => {
-    const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-visual-recovery-'))
+    // Recovery renders absolute saved-file paths as well: keep their bytes
+    // and directory names reproducible, independent from random temp suffixes.
+    const userDataDir = path.join(os.tmpdir(), 'inkiva-v05-visual-baseline-recovery')
+    fs.rmSync(userDataDir, { recursive: true, force: true })
+    fs.mkdirSync(userDataDir, { recursive: true })
     const documentsDir = path.join(userDataDir, 'documents')
     const editorStatesDir = path.join(userDataDir, 'editorStates')
     fs.mkdirSync(documentsDir, { recursive: true })
