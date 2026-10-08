@@ -29,6 +29,11 @@ export interface DocumentIntelligenceHandlerService {
     pathnames: readonly string[],
     scopeId?: number
   ): MarkdownLinkCandidate[]
+  searchWorkspaceLinkCandidates(
+    sourcePath: string,
+    query: string,
+    scopeId?: number
+  ): MarkdownLinkCandidate[]
   prepareRenameRepair(request: PrepareRenameRepairRequest): RenameRepairPlan
   applyRenameRepair(request: ApplyRenameRepairRequest): Promise<ApplyRenameRepairResult>
   createSnapshot(request: LocalHistoryCreateRequest): Promise<LocalHistoryEntry>
@@ -47,6 +52,7 @@ export interface DocumentIntelligenceHandlers {
   removeDocument(pathname: unknown): void
   getBacklinks(targetPath: unknown): MarkdownBacklink[]
   getLinkCandidates(sourcePath: unknown, pathnames: unknown): MarkdownLinkCandidate[]
+  searchWorkspaceLinkCandidates(sourcePath: unknown, query: unknown): MarkdownLinkCandidate[]
   prepareRenameRepair(request: unknown): RenameRepairPlan
   applyRenameRepair(request: unknown): Promise<ApplyRenameRepairResult>
   createSnapshot(request: unknown): Promise<LocalHistoryEntry>
@@ -323,6 +329,14 @@ export const createDocumentIntelligenceHandlers = (
     return scopeId === undefined
       ? service.getLinkCandidates(source, candidates)
       : service.getLinkCandidates(source, candidates, scopeId)
+  },
+
+  searchWorkspaceLinkCandidates(sourcePath, query) {
+    const source = requireString(sourcePath, 'sourcePath')
+    const search = requireMarkdown(query, 'query')
+    return scopeId === undefined
+      ? service.searchWorkspaceLinkCandidates(source, search)
+      : service.searchWorkspaceLinkCandidates(source, search, scopeId)
   },
 
   prepareRenameRepair(request) {

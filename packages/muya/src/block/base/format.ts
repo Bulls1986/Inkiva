@@ -1602,7 +1602,7 @@ class Format extends Content {
         return { formats, tokens, neighbors };
     }
 
-    format(type: string) {
+    format(type: string, linkDestination?: string) {
         const cursor = this.getCursor();
         if (cursor == null)
             return;
@@ -1627,6 +1627,22 @@ class Format extends Content {
                     })
                     .reverse(),
         );
+
+        if (type === 'link' && linkDestination !== undefined) {
+            const existingLink = currentFormats.find(format => format.type === 'link');
+            if (existingLink?.type === 'link') {
+                // Retarget only the supported inline syntax; preserve label,
+                // optional title and all surrounding source bytes unchanged.
+                const match = /^(\[[^\]\r\n]*\]\()(<[^>\r\n]+>|[^\s()]+)(\s+(?:"[^"]*"|'[^']*'))?(\))$/.exec(existingLink.raw);
+                if (!match)
+                    return;
+                const rewritten = match[1] + linkDestination + (match[3] ?? '') + match[4];
+                this.text = this.text.slice(0, existingLink.range.start) + rewritten + this.text.slice(existingLink.range.end);
+                const newOffset = existingLink.range.start + match[1].length + linkDestination.length;
+                this.setCursor(newOffset, newOffset, true);
+                return;
+            }
+        }
 
         // cache delta
         if (type === 'clear') {
@@ -1665,7 +1681,7 @@ class Format extends Content {
                 end.offset -= selected.length - selected.trimEnd().length;
             }
 
-            this._addFormat(type, { start, end });
+            this._addFormat(type, { start, end }, linkDestination);
 
             if (type === 'image') {
                 // Show image selector when create a inline image by menu/shortcut/or just input `![]()`
@@ -1705,6 +1721,7 @@ class Format extends Content {
     private _addFormat(
         type: string,
         { start, end }: { start: IOffset; end: IOffset },
+        linkDestination?: string,
     ) {
         switch (type) {
             case 'em':
@@ -1761,14 +1778,16 @@ class Format extends Content {
             case 'image': {
                 const oldText = this.text;
                 const anchorTextLen = end.offset - start.offset;
+                const destination = type === 'link' ? linkDestination ?? '' : '';
                 this.text
                     = `${oldText.substring(0, start.offset)
                     + (type === 'link' ? '[' : '![')
                     + oldText.substring(start.offset, end.offset)
-                    }]()${
+                    }](${destination})${
                         oldText.substring(end.offset)}`;
-                // put cursor between `()`
-                start.offset += type === 'link' ? 3 + anchorTextLen : 4 + anchorTextLen;
+                // The old empty-link action leaves the caret between (), but
+                // a completed destination is an atomic format operation.
+                start.offset += (type === 'link' ? 3 : 4) + anchorTextLen + destination.length;
                 end.offset = start.offset;
                 break;
             }

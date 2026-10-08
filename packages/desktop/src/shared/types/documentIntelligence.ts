@@ -8,6 +8,7 @@ export const DOCUMENT_INTELLIGENCE_CHANNELS = {
   removeDocument: 'mt::document-intelligence::remove-document',
   getBacklinks: 'mt::document-intelligence::backlinks',
   getLinkCandidates: 'mt::document-intelligence::link-candidates',
+  searchWorkspaceLinkCandidates: 'mt::document-intelligence::workspace-link-candidates',
   prepareRenameRepair: 'mt::document-intelligence::prepare-rename-repair',
   applyRenameRepair: 'mt::document-intelligence::apply-rename-repair',
   createSnapshot: 'mt::document-intelligence::history-create',

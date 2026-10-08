@@ -51,9 +51,12 @@ interface LinkIndexScope {
   linkIndex: MarkdownLinkIndex
   openDocuments: Map<string, string>
   workspaceDocuments: Map<string, string>
+  workspaceDocumentPaths: Map<string, string>
+  openDocumentPaths: Map<string, string>
   generation: number
   rootPath: string | null
   pendingScanUpdates: Map<string, string | null> | null
+  pendingScanPaths: Map<string, string | null> | null
   fileRevisions: Map<string, number>
   nextFileRevision: number
 }
@@ -97,9 +100,12 @@ export class DocumentIntelligenceService {
       linkIndex: this.linkIndex,
       openDocuments: new Map(),
       workspaceDocuments: new Map(),
+      workspaceDocumentPaths: new Map(),
+      openDocumentPaths: new Map(),
       generation: 0,
       rootPath: null,
       pendingScanUpdates: null,
+      pendingScanPaths: null,
       fileRevisions: new Map(),
       nextFileRevision: 0
     })
@@ -117,9 +123,12 @@ export class DocumentIntelligenceService {
         linkIndex: new MarkdownLinkIndex(),
         openDocuments: new Map(),
         workspaceDocuments: new Map(),
+        workspaceDocumentPaths: new Map(),
+        openDocumentPaths: new Map(),
         generation: 0,
         rootPath: null,
         pendingScanUpdates: null,
+        pendingScanPaths: null,
         fileRevisions: new Map(),
         nextFileRevision: 0
       }
@@ -136,7 +145,10 @@ export class DocumentIntelligenceService {
     scope.linkIndex.clear()
     scope.openDocuments.clear()
     scope.workspaceDocuments.clear()
+    scope.workspaceDocumentPaths.clear()
+    scope.openDocumentPaths.clear()
     scope.pendingScanUpdates = null
+    scope.pendingScanPaths = null
     scope.fileRevisions.clear()
     this.indexScopes.delete(scopeId)
   }
@@ -144,6 +156,7 @@ export class DocumentIntelligenceService {
   indexDocument(pathname: string, markdown: string, scopeId = 0): void {
     const scope = this.getScope(scopeId)
     scope.openDocuments.set(canonicalDocumentPath(pathname), markdown)
+    scope.openDocumentPaths.set(canonicalDocumentPath(pathname), path.resolve(pathname))
     scope.linkIndex.updateDocument(pathname, markdown)
   }
 
@@ -151,6 +164,7 @@ export class DocumentIntelligenceService {
     const scope = this.getScope(scopeId)
     const key = canonicalDocumentPath(pathname)
     scope.openDocuments.delete(key)
+    scope.openDocumentPaths.delete(key)
     const saved = scope.workspaceDocuments.get(key)
     if (saved === undefined) scope.linkIndex.removeDocument(pathname)
     else scope.linkIndex.updateDocument(pathname, saved)
@@ -162,7 +176,9 @@ export class DocumentIntelligenceService {
     // Clear the old workspace immediately while retaining live-tab overlays.
     scope.rootPath = rootPath ? path.resolve(rootPath) : null
     scope.workspaceDocuments.clear()
+    scope.workspaceDocumentPaths.clear()
     scope.pendingScanUpdates = rootPath ? new Map() : null
+    scope.pendingScanPaths = rootPath ? new Map() : null
     scope.fileRevisions.clear()
     this.rebuildIndex(scope)
     if (!rootPath) {
@@ -171,6 +187,7 @@ export class DocumentIntelligenceService {
 
     const root = scope.rootPath!
     const documents = new Map<string, string>()
+    const documentPaths = new Map<string, string>()
     const pendingDirectories = [root]
     let visitedDirectories = 0
     let encounteredFiles = 0
@@ -215,6 +232,7 @@ export class DocumentIntelligenceService {
           if (generation !== scope.generation) break
           totalBytes += size
           documents.set(canonicalDocumentPath(pathname), markdown)
+          documentPaths.set(canonicalDocumentPath(pathname), pathname)
         } catch {
           skippedFiles += 1
         }
@@ -228,8 +246,14 @@ export class DocumentIntelligenceService {
       if (markdown === null) documents.delete(pathname)
       else documents.set(pathname, markdown)
     }
+    for (const [key, pathname] of scope.pendingScanPaths ?? []) {
+      if (pathname === null) documentPaths.delete(key)
+      else documentPaths.set(key, pathname)
+    }
     scope.pendingScanUpdates = null
+    scope.pendingScanPaths = null
     scope.workspaceDocuments = documents
+    scope.workspaceDocumentPaths = documentPaths
     this.rebuildIndex(scope)
     return {
       rootPath: root,
@@ -277,7 +301,10 @@ export class DocumentIntelligenceService {
     if (scope.generation !== generation || scope.fileRevisions.get(key) !== revision) return
     if (markdown === null) scope.workspaceDocuments.delete(key)
     else scope.workspaceDocuments.set(key, markdown)
+    if (markdown === null) scope.workspaceDocumentPaths.delete(key)
+    else scope.workspaceDocumentPaths.set(key, absolute)
     scope.pendingScanUpdates?.set(key, markdown)
+    scope.pendingScanPaths?.set(key, markdown === null ? null : absolute)
     if (scope.openDocuments.has(key)) return
     if (markdown === null) scope.linkIndex.removeDocument(absolute)
     else scope.linkIndex.updateDocument(absolute, markdown)
@@ -303,6 +330,26 @@ export class DocumentIntelligenceService {
     scopeId = 0
   ): MarkdownLinkCandidate[] {
     return this.getScope(scopeId).linkIndex.getLinkCandidates(sourcePath, pathnames)
+  }
+
+  searchWorkspaceLinkCandidates(
+    sourcePath: string,
+    query: string,
+    scopeId = 0
+  ): MarkdownLinkCandidate[] {
+    const scope = this.getScope(scopeId)
+    const root = scope.rootPath
+    if (!root || !path.isAbsolute(sourcePath) || !isWithinDirectory(root, path.resolve(sourcePath))) {
+      return []
+    }
+    const sourceKey = canonicalDocumentPath(sourcePath)
+    const pathnames = new Map(scope.workspaceDocumentPaths)
+    for (const [key, pathname] of scope.openDocumentPaths) {
+      if (isWithinDirectory(root, pathname)) pathnames.set(key, pathname)
+    }
+    pathnames.delete(sourceKey)
+    const candidates = scope.linkIndex.getLinkCandidates(sourcePath, [...pathnames.values()])
+    return scope.linkIndex.rankLinkCandidates(candidates, query)
   }
 
   prepareRenameRepair(request: PrepareRenameRepairRequest): RenameRepairPlan {

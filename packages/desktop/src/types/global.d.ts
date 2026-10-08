@@ -228,6 +228,7 @@ declare global {
     removeDocument(pathname: string): Promise<void>
     getBacklinks(targetPath: string): Promise<MarkdownBacklink[]>
     getLinkCandidates(sourcePath: string, pathnames: string[]): Promise<MarkdownLinkCandidate[]>
+    searchWorkspaceLinkCandidates(sourcePath: string, query: string): Promise<MarkdownLinkCandidate[]>
     prepareRenameRepair(request: PrepareRenameRepairRequest): Promise<RenameRepairPlan>
     applyRenameRepair(request: ApplyRenameRepairRequest): Promise<ApplyRenameRepairResult>
     createSnapshot(request: LocalHistoryCreateRequest): Promise<LocalHistoryEntry>

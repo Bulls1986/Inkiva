@@ -1041,6 +1041,17 @@
     }
   },
   "editor": {
+    "linkCompletion": {
+      "title": "插入链接",
+      "destination": "链接目标",
+      "placeholder": "搜索工作区 Markdown 文档或输入网址",
+      "suggestions": "工作区 Markdown 文档",
+      "loading": "正在搜索工作区…",
+      "unavailable": "暂时无法获取候选，可手动输入链接目标。",
+      "noWorkspace": "打开工作区文件夹后即可获取文档建议，也可以直接输入网址。",
+      "saveAsFirst": "请先将文档另存为文件，才能创建可移植的相对链接。",
+      "noMatches": "没有匹配的工作区文档"
+    },
     "insertTable": {
       "title": "插入表格",
       "rows": "行",

@@ -26,6 +26,7 @@ const createService = (): DocumentIntelligenceHandlerService => ({
   removeDocument: vi.fn(),
   getBacklinks: vi.fn(() => []),
   getLinkCandidates: vi.fn(() => []),
+  searchWorkspaceLinkCandidates: vi.fn(() => []),
   prepareRenameRepair: vi.fn(() => emptyPlan),
   applyRenameRepair: vi.fn(async() => ({ decision: 'keep' as const, updatedPaths: [] })),
   createSnapshot: vi.fn(async() => ({
@@ -61,6 +62,7 @@ describe('document intelligence IPC handlers', () => {
     second.indexDocument(path.join(root, 'source.md'), '[B](./target.md)')
     first.getBacklinks(path.join(root, 'target.md'))
     second.getBacklinks(path.join(root, 'target.md'))
+    first.searchWorkspaceLinkCandidates(path.join(root, 'source.md'), 'guide')
 
     expect(service.indexWorkspace).toHaveBeenCalledWith(root, 11)
     expect(service.indexDocument).toHaveBeenCalledWith(
@@ -70,6 +72,9 @@ describe('document intelligence IPC handlers', () => {
     )
     expect(service.getBacklinks).toHaveBeenCalledWith(path.join(root, 'target.md'), 11)
     expect(service.getBacklinks).toHaveBeenCalledWith(path.join(root, 'target.md'), 22)
+    expect(service.searchWorkspaceLinkCandidates).toHaveBeenCalledWith(
+      path.join(root, 'source.md'), 'guide', 11
+    )
     await first.refreshWorkspaceFile(path.join(root, 'source.md'))
     expect(service.refreshWorkspaceFile).toHaveBeenCalledWith(
       path.join(root, 'source.md'),
@@ -85,6 +90,7 @@ describe('document intelligence IPC handlers', () => {
     const rootPath = path.resolve('docs')
     await handlers.indexWorkspace(rootPath)
     handlers.getLinkCandidates('/docs/note.md', ['/docs/other.md'])
+    handlers.searchWorkspaceLinkCandidates('/docs/note.md', '')
     handlers.prepareRenameRepair({
       fromPath: '/docs',
       toPath: '/archive/docs',
@@ -107,6 +113,7 @@ describe('document intelligence IPC handlers', () => {
     expect(service.indexDocument).toHaveBeenCalledWith('/docs/note.md', '# Note')
     expect(service.indexWorkspace).toHaveBeenCalledWith(rootPath)
     expect(service.getLinkCandidates).toHaveBeenCalledWith('/docs/note.md', ['/docs/other.md'])
+    expect(service.searchWorkspaceLinkCandidates).toHaveBeenCalledWith('/docs/note.md', '')
     expect(service.prepareRenameRepair).toHaveBeenCalledWith({
       fromPath: '/docs',
       toPath: '/archive/docs',
@@ -127,6 +134,8 @@ describe('document intelligence IPC handlers', () => {
     })
 
     expect(() => handlers.indexDocument('', '# Note')).toThrow(TypeError)
+    expect(() => handlers.searchWorkspaceLinkCandidates('', 'read')).toThrow(TypeError)
+    expect(() => handlers.searchWorkspaceLinkCandidates('/docs/note.md', 123)).toThrow(TypeError)
     expect(() => handlers.indexWorkspace('../relative')).toThrow('rootPath must be absolute')
     expect(() => handlers.getLinkCandidates('/docs/note.md', ['/docs/note.txt'])).not.toThrow()
     expect(() => handlers.applyRenameRepair({ plan: emptyPlan, decision: 'rewrite' })).toThrow(
