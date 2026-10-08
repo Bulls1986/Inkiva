@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import path from 'node:path'
+import { performance } from 'node:perf_hooks'
 
 import {
   isStandardRelativeMarkdownDestination,
@@ -73,6 +74,57 @@ describe('standard Markdown link parser', () => {
 })
 
 describe('MarkdownLinkIndex', () => {
+  it('keeps absent-target lookups bounded for a large workspace', () => {
+    const index = new MarkdownLinkIndex()
+    const root = '/virtual/inkiva-large-workspace'
+    for (let file = 0; file < 12_000; file += 1) {
+      index.updateDocument(path.join(root, `source-${file}.md`), '[Link](./target.md)')
+    }
+
+    const absentTarget = path.join(root, 'does-not-exist.md')
+    for (let i = 0; i < 5; i += 1) {
+      expect(index.getBacklinks(absentTarget)).toEqual([])
+    }
+
+    const start = performance.now()
+    for (let i = 0; i < 64; i += 1) {
+      expect(index.getBacklinks(absentTarget)).toEqual([])
+    }
+    // Query time must not grow with workspace-wide sources. This guard uses
+    // a generous total budget to avoid depending on one scheduler tick.
+    expect(performance.now() - start).toBeLessThan(150)
+  })
+
+  it('updates inverse backlinks correctly after repeated edits, removals and clear', () => {
+    const root = '/virtual/inkiva-workspace'
+    const sourceA = path.join(root, 'notes', 'a.md')
+    const sourceB = path.join(root, 'b.md')
+    const targetA = path.join(root, 'a.md')
+    const targetB = path.join(root, 'other.md')
+    const index = new MarkdownLinkIndex()
+
+    index.updateDocument(sourceA, '[First](../a.md)\n[Second](../a.md)')
+    index.updateDocument(sourceB, '[Third](./a.md)')
+    // Paths sort before source offsets: b.md precedes notes/a.md.
+    expect(index.getBacklinks(targetA).map(({ label }) => label)).toEqual([
+      'Third', 'First', 'Second'
+    ])
+
+    index.updateDocument(sourceA, '[Moved](../other.md)')
+    expect(index.getBacklinks(targetA).map(({ label }) => label)).toEqual(['Third'])
+    expect(index.getBacklinks(targetB).map(({ label }) => label)).toEqual(['Moved'])
+
+    index.removeDocument(sourceB)
+    expect(index.getBacklinks(targetA)).toEqual([])
+    expect(index.getBacklinks(targetB)).toHaveLength(1)
+
+    index.clear()
+    expect(index.getBacklinks(targetA)).toEqual([])
+    expect(index.getBacklinks(targetB)).toEqual([])
+    index.updateDocument(sourceB, '[Again](./a.md)')
+    expect(index.getBacklinks(targetA).map(({ label }) => label)).toEqual(['Again'])
+  })
+
   it('resolves links relative to each source and returns sorted backlinks', () => {
     const root = '/virtual/inkiva-docs'
     const target = canonicalDocumentPath(path.join(root, 'design.md'))

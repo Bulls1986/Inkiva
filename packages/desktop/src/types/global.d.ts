@@ -32,7 +32,8 @@ import type {
   MarkdownBacklink,
   MarkdownLinkCandidate,
   PrepareRenameRepairRequest,
-  RenameRepairPlan
+  RenameRepairPlan,
+  WorkspaceLinkIndexResult
 } from '@shared/types/documentIntelligence'
 
 declare global {
@@ -221,6 +222,8 @@ declare global {
   }
 
   interface DocumentIntelligenceAPI {
+    indexWorkspace(rootPath: string | null): Promise<WorkspaceLinkIndexResult>
+    refreshWorkspaceFile(pathname: string): Promise<void>
     indexDocument(pathname: string, markdown: string): Promise<void>
     removeDocument(pathname: string): Promise<void>
     getBacklinks(targetPath: string): Promise<MarkdownBacklink[]>

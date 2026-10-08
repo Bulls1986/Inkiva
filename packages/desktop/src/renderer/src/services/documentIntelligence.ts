@@ -9,7 +9,8 @@ import type {
   LocalHistoryRestoreRequest,
   LocalHistorySnapshot,
   MoveHistoryPathRequest,
-  MarkdownBacklink
+  MarkdownBacklink,
+  WorkspaceLinkIndexResult
 } from '@shared/types/documentIntelligence'
 
 export interface DocumentIntelligenceDocument {
@@ -32,6 +33,7 @@ export type DocumentIntelligenceError =
 export interface DocumentIntelligenceState {
   currentDocumentId: string | null
   currentPath: string | null
+  workspaceIndex: WorkspaceLinkIndexResult | null
   backlinks: MarkdownBacklink[]
   history: LocalHistoryEntry[]
   loading: boolean
@@ -40,6 +42,8 @@ export interface DocumentIntelligenceState {
 }
 
 export interface DocumentIntelligenceApi {
+  indexWorkspace(rootPath: string | null): Promise<WorkspaceLinkIndexResult>
+  refreshWorkspaceFile(pathname: string): Promise<void>
   indexDocument(pathname: string, markdown: string): Promise<void>
   removeDocument(pathname: string): Promise<void>
   getBacklinks(targetPath: string): Promise<MarkdownBacklink[]>
@@ -69,6 +73,7 @@ const DEFAULT_SNAPSHOT_DELAY_MS = 2_000
 const initialState = (): DocumentIntelligenceState => ({
   currentDocumentId: null,
   currentPath: null,
+  workspaceIndex: null,
   backlinks: [],
   history: [],
   loading: false,
@@ -104,6 +109,9 @@ export class DocumentIntelligenceCoordinator {
   private indexTimer: ReturnType<typeof setTimeout> | null = null
   private snapshotTimer: ReturnType<typeof setTimeout> | null = null
   private selectionVersion = 0
+  private workspaceIndexVersion = 0
+  private workspaceReady = true
+  private readonly pendingWorkspaceFiles = new Set<string>()
   private disposed = false
   private state = initialState()
 
@@ -118,6 +126,7 @@ export class DocumentIntelligenceCoordinator {
   getState(): DocumentIntelligenceState {
     return {
       ...this.state,
+      workspaceIndex: this.state.workspaceIndex ? { ...this.state.workspaceIndex } : null,
       backlinks: [...this.state.backlinks],
       history: [...this.state.history]
     }
@@ -125,6 +134,61 @@ export class DocumentIntelligenceCoordinator {
 
   setInteractivePending(pending: boolean): void {
     this.scheduler.setInteractivePending(pending)
+  }
+
+  async indexWorkspace(rootPath: string | null): Promise<void> {
+    if (this.disposed) return
+    const indexVersion = ++this.workspaceIndexVersion
+    this.pendingWorkspaceFiles.clear()
+    this.workspaceReady = false
+    this.selectionVersion += 1
+    this.patchState({
+      workspaceIndex: null,
+      backlinks: [],
+      loading: !!this.state.currentPath,
+      error: null
+    })
+    try {
+      const result = await this.runBackground(
+        'workspace-index',
+        BACKGROUND_PRIORITY.backgroundIndexing,
+        () => this.api.indexWorkspace(rootPath)
+      )
+      if (indexVersion !== this.workspaceIndexVersion || this.disposed) return
+      this.workspaceReady = true
+      this.patchState({ workspaceIndex: result })
+      if (this.state.currentPath) await this.refresh()
+      else this.patchState({ loading: false, error: null })
+      const changedFiles = [...this.pendingWorkspaceFiles]
+      this.pendingWorkspaceFiles.clear()
+      for (const pathname of changedFiles) void this.refreshWorkspaceFile(pathname)
+    } catch {
+      if (indexVersion !== this.workspaceIndexVersion || this.disposed) return
+      this.workspaceReady = true
+      this.patchState({ workspaceIndex: null, loading: false, error: 'sync' })
+    }
+  }
+
+  async refreshWorkspaceFile(pathname: string): Promise<void> {
+    if (this.disposed) return
+    if (!this.workspaceReady) {
+      this.pendingWorkspaceFiles.add(pathname)
+      return
+    }
+    const version = this.workspaceIndexVersion
+    try {
+      await this.runBackground(
+        'workspace-file:' + pathname,
+        BACKGROUND_PRIORITY.backgroundIndexing,
+        () => this.api.refreshWorkspaceFile(pathname)
+      )
+      if (this.disposed || version !== this.workspaceIndexVersion) return
+      if (this.state.currentPath) await this.refreshBacklinks()
+    } catch {
+      if (!this.disposed && version === this.workspaceIndexVersion) {
+        this.patchState({ error: 'sync' })
+      }
+    }
   }
 
   updateDocuments(
@@ -203,12 +267,14 @@ export class DocumentIntelligenceCoordinator {
         restoringSnapshotId: null,
         error: null
       })
-      if (currentPath) void this.loadCurrent(this.selectionVersion, currentPath)
+      if (currentPath && this.workspaceReady) {
+        void this.loadCurrent(this.selectionVersion, currentPath)
+      }
     }
   }
 
   async refresh(): Promise<void> {
-    if (!this.state.currentPath || this.disposed) return
+    if (!this.state.currentPath || this.disposed || !this.workspaceReady) return
     const version = this.selectionVersion
     this.patchState({ loading: true, error: null })
     await this.loadCurrent(version, this.state.currentPath)
@@ -282,6 +348,7 @@ export class DocumentIntelligenceCoordinator {
   dispose(): void {
     this.disposed = true
     this.selectionVersion += 1
+    this.pendingWorkspaceFiles.clear()
     if (this.indexTimer) clearTimeout(this.indexTimer)
     if (this.snapshotTimer) clearTimeout(this.snapshotTimer)
     this.indexTimer = null
@@ -428,7 +495,12 @@ export class DocumentIntelligenceCoordinator {
         )
       ])
       if (version !== this.selectionVersion || this.disposed) return
-      this.patchState({ backlinks, history, loading: false, error: null })
+      this.patchState({
+        backlinks,
+        history,
+        loading: false,
+        error: null
+      })
     } catch {
       if (version === this.selectionVersion) {
         this.patchState({ loading: false, error: 'load' })

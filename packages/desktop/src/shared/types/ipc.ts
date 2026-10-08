@@ -56,7 +56,8 @@ import type {
   MarkdownBacklink,
   MarkdownLinkCandidate,
   PrepareRenameRepairRequest,
-  RenameRepairPlan
+  RenameRepairPlan,
+  WorkspaceLinkIndexResult
 } from './documentIntelligence'
 
 export const WINDOW_INITIAL_SHELL_READY_CHANNEL = 'mt::window-initial-shell-ready'
@@ -116,6 +117,14 @@ export interface IpcInvokeChannels {
   'mt::preferences::set': {
     args: [partial: PreferencePatch]
     ret: PreferenceMutationResult
+  }
+  'mt::document-intelligence::index-workspace': {
+    args: [rootPath: string | null]
+    ret: WorkspaceLinkIndexResult
+  }
+  'mt::document-intelligence::refresh-workspace-file': {
+    args: [pathname: string]
+    ret: void
   }
   'mt::document-intelligence::index-document': {
     args: [pathname: string, markdown: string]

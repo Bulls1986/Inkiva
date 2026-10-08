@@ -3,7 +3,8 @@ import { defineStore } from 'pinia'
 import type {
   LocalHistoryEntry,
   LocalHistorySnapshot,
-  MarkdownBacklink
+  MarkdownBacklink,
+  WorkspaceLinkIndexResult
 } from '@shared/types/documentIntelligence'
 import {
   DocumentIntelligenceCoordinator,
@@ -15,6 +16,7 @@ import { rendererPerformance } from '@/services/performance/runtime'
 import { BackgroundTaskScheduler } from '@/util/backgroundScheduler'
 import bus from '@/bus'
 import { useEditorStore } from './editor'
+import { useProjectStore } from './project'
 
 const toDocument = (
   tab: ReturnType<typeof useEditorStore>['tabs'][number]
@@ -31,6 +33,7 @@ const toDocument = (
 export const useDocumentIntelligenceStore = defineStore('documentIntelligence', () => {
   const currentDocumentId = ref<string | null>(null)
   const currentPath = ref<string | null>(null)
+  const workspaceIndex = ref<WorkspaceLinkIndexResult | null>(null)
   const backlinks = ref<MarkdownBacklink[]>([])
   const history = ref<LocalHistoryEntry[]>([])
   const loading = ref(false)
@@ -41,7 +44,12 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
   let coordinator: DocumentIntelligenceCoordinator | null = null
   let scheduler: BackgroundTaskScheduler | null = null
   let stopWatchingEditor: WatchStopHandle | null = null
+  let stopWatchingProject: WatchStopHandle | null = null
   let stopInteractionListeners: (() => void) | null = null
+  let stopWorkspaceEvents: (() => void) | null = null
+  let workspaceEventTimer: ReturnType<typeof setTimeout> | null = null
+  const pendingWorkspaceFiles = new Set<string>()
+  let workspaceDirectoryChanged = false
   let interactionReleaseFrame: number | null = null
 
   const editorStore = useEditorStore()
@@ -57,6 +65,7 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
   const applyState = (state: DocumentIntelligenceState): void => {
     currentDocumentId.value = state.currentDocumentId
     currentPath.value = state.currentPath
+    workspaceIndex.value = state.workspaceIndex
     backlinks.value = state.backlinks
     history.value = state.history
     loading.value = state.loading
@@ -66,6 +75,7 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
 
   function START(): void {
     if (started.value) return
+    const projectStore = useProjectStore()
     scheduler = new BackgroundTaskScheduler({
       onSlice: (task, durationMs) => {
         rendererPerformance.recordSample('background.taskSlice', 'ms', durationMs, {
@@ -109,6 +119,52 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
 
     started.value = true
 
+    const handleProjectTreeChange = ({ type, change }: {
+      type: string
+      change?: unknown
+    }): void => {
+      if (!projectStore.projectTree?.pathname) return
+      if (type === 'addDir' || type === 'unlinkDir') {
+        workspaceDirectoryChanged = true
+      } else if (type === 'add' || type === 'change' || type === 'unlink') {
+        const pathname = (change as { pathname?: unknown } | null)?.pathname
+        if (typeof pathname !== 'string') return
+        pendingWorkspaceFiles.add(pathname)
+        if (pendingWorkspaceFiles.size > 256) workspaceDirectoryChanged = true
+      } else {
+        return
+      }
+      if (workspaceEventTimer) clearTimeout(workspaceEventTimer)
+      workspaceEventTimer = setTimeout(() => {
+        workspaceEventTimer = null
+        const root = projectStore.projectTree?.pathname ?? null
+        if (!root) return
+        const rescan = workspaceDirectoryChanged
+        workspaceDirectoryChanged = false
+        const files = [...pendingWorkspaceFiles]
+        pendingWorkspaceFiles.clear()
+        if (rescan) {
+          void coordinator?.indexWorkspace(root)
+        } else {
+          for (const pathname of files) void coordinator?.refreshWorkspaceFile(pathname)
+        }
+      }, 350)
+    }
+    bus.on('project-tree-changed', handleProjectTreeChange)
+    stopWorkspaceEvents = () => bus.off('project-tree-changed', handleProjectTreeChange)
+
+    stopWatchingProject = watch(
+      () => projectStore.projectTree?.pathname ?? null,
+      (rootPath) => {
+        if (workspaceEventTimer) clearTimeout(workspaceEventTimer)
+        workspaceEventTimer = null
+        pendingWorkspaceFiles.clear()
+        workspaceDirectoryChanged = false
+        void coordinator?.indexWorkspace(rootPath)
+      },
+      { immediate: true, flush: 'post' }
+    )
+
     stopWatchingEditor = watch(
       () => ({
         currentId: editorStore.currentFile?.id ?? null,
@@ -120,10 +176,18 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
   }
 
   function STOP(): void {
+    if (workspaceEventTimer) clearTimeout(workspaceEventTimer)
+    workspaceEventTimer = null
+    pendingWorkspaceFiles.clear()
+    workspaceDirectoryChanged = false
+    stopWorkspaceEvents?.()
+    stopWorkspaceEvents = null
     stopInteractionListeners?.()
     stopInteractionListeners = null
     stopWatchingEditor?.()
     stopWatchingEditor = null
+    stopWatchingProject?.()
+    stopWatchingProject = null
     coordinator?.dispose()
     coordinator = null
     scheduler = null
@@ -187,6 +251,7 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
   return {
     currentDocumentId,
     currentPath,
+    workspaceIndex,
     backlinks,
     history,
     loading,

@@ -39,6 +39,13 @@ const snapshot = (filePath = '/docs/note.md'): LocalHistorySnapshot => ({
 })
 
 const createApi = (): DocumentIntelligenceApi => ({
+  indexWorkspace: vi.fn(async(rootPath) => ({
+    rootPath,
+    indexedFiles: 0,
+    skippedFiles: 0,
+    complete: true
+  })),
+  refreshWorkspaceFile: vi.fn(async() => undefined),
   indexDocument: vi.fn(async() => undefined),
   removeDocument: vi.fn(async() => undefined),
   getBacklinks: vi.fn(async() => []),
@@ -79,6 +86,64 @@ describe('renderer document intelligence coordinator', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('reconciles file watcher changes queued during an initial workspace scan', async() => {
+    const api = createApi()
+    const initialScan = deferred<Awaited<ReturnType<DocumentIntelligenceApi['indexWorkspace']>>>()
+    vi.mocked(api.indexWorkspace).mockReturnValue(initialScan.promise)
+    const coordinator = new DocumentIntelligenceCoordinator({ api })
+
+    const scanning = coordinator.indexWorkspace('/docs')
+    await coordinator.refreshWorkspaceFile('/docs/unopened.md')
+    expect(api.refreshWorkspaceFile).not.toHaveBeenCalled()
+
+    initialScan.resolve({ rootPath: '/docs', indexedFiles: 2, skippedFiles: 0, complete: true })
+    await flushScheduler()
+    await scanning
+    await flushScheduler()
+    expect(api.refreshWorkspaceFile).toHaveBeenCalledWith('/docs/unopened.md')
+    coordinator.dispose()
+  })
+
+  it('reports partial workspace index counts without misreporting document sync failure', async() => {
+    const api = createApi()
+    vi.mocked(api.indexWorkspace)
+      .mockResolvedValueOnce({
+        rootPath: '/docs',
+        indexedFiles: 2,
+        skippedFiles: 3,
+        complete: false
+      })
+      .mockResolvedValueOnce({
+        rootPath: '/docs',
+        indexedFiles: 5,
+        skippedFiles: 0,
+        complete: true
+      })
+    const coordinator = new DocumentIntelligenceCoordinator({ api })
+    const partial = coordinator.indexWorkspace('/docs')
+    await flushScheduler()
+    await partial
+    expect(coordinator.getState().workspaceIndex).toEqual({
+      rootPath: '/docs',
+      indexedFiles: 2,
+      skippedFiles: 3,
+      complete: false
+    })
+    expect(coordinator.getState().error).toBeNull()
+
+    const complete = coordinator.indexWorkspace('/docs')
+    await flushScheduler()
+    await complete
+    expect(coordinator.getState().workspaceIndex).toEqual({
+      rootPath: '/docs',
+      indexedFiles: 5,
+      skippedFiles: 0,
+      complete: true
+    })
+    expect(coordinator.getState().error).toBeNull()
+    coordinator.dispose()
   })
 
   it('debounces indexing and coalesces history snapshots to the newest content', async() => {

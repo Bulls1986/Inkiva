@@ -1,8 +1,7 @@
 import path from 'path'
 import type {
   MarkdownBacklink,
-  MarkdownLinkCandidate,
-  MarkdownLinkOccurrence
+  MarkdownLinkCandidate
 } from '@shared/types/documentIntelligence'
 import { isMarkdownPath, parseStandardRelativeMarkdownLinks } from './markdownLinks'
 
@@ -54,8 +53,7 @@ export const createStandardMarkdownLink = (
 }
 
 interface IndexedDocument {
-  pathname: string
-  links: MarkdownLinkOccurrence[]
+  targets: string[]
 }
 
 const comparePathStrings = (left: string, right: string): number =>
@@ -63,42 +61,68 @@ const comparePathStrings = (left: string, right: string): number =>
 
 export class MarkdownLinkIndex {
   private readonly documents = new Map<string, IndexedDocument>()
+  // Targets point to the source documents that reference them. This avoids
+  // scanning the entire workspace on each Backlinks panel refresh.
+  private readonly backlinksByTarget = new Map<string, Map<string, MarkdownBacklink[]>>()
 
   updateDocument(pathname: string, markdown: string): void {
     const canonicalPath = canonicalDocumentPath(pathname)
+    const links = parseStandardRelativeMarkdownLinks(markdown)
+    const byTarget = new Map<string, MarkdownBacklink[]>()
+    for (const link of links) {
+      const target = resolveMarkdownLinkTarget(canonicalPath, link.path)
+      let backlinks = byTarget.get(target)
+      if (!backlinks) {
+        backlinks = []
+        byTarget.set(target, backlinks)
+      }
+      backlinks.push({
+        sourcePath: canonicalPath,
+        label: link.label,
+        destination: link.destination,
+        fragment: link.fragment,
+        line: link.line,
+        start: link.start,
+        end: link.end
+      })
+    }
+
+    this.removeDocument(canonicalPath)
     this.documents.set(canonicalPath, {
-      pathname: canonicalPath,
-      links: parseStandardRelativeMarkdownLinks(markdown)
+      targets: [...byTarget.keys()]
     })
+    for (const [target, backlinks] of byTarget) {
+      let sources = this.backlinksByTarget.get(target)
+      if (!sources) {
+        sources = new Map()
+        this.backlinksByTarget.set(target, sources)
+      }
+      sources.set(canonicalPath, backlinks)
+    }
   }
 
   removeDocument(pathname: string): void {
-    this.documents.delete(canonicalDocumentPath(pathname))
+    const key = canonicalDocumentPath(pathname)
+    const previous = this.documents.get(key)
+    if (!previous) return
+    this.documents.delete(key)
+    for (const target of previous.targets) {
+      const sources = this.backlinksByTarget.get(target)
+      sources?.delete(key)
+      if (sources?.size === 0) this.backlinksByTarget.delete(target)
+    }
   }
 
   clear(): void {
     this.documents.clear()
+    this.backlinksByTarget.clear()
   }
 
   getBacklinks(targetPath: string): MarkdownBacklink[] {
     const target = canonicalDocumentPath(targetPath)
-    const backlinks: MarkdownBacklink[] = []
-
-    for (const document of this.documents.values()) {
-      for (const link of document.links) {
-        if (resolveMarkdownLinkTarget(document.pathname, link.path) !== target) continue
-        backlinks.push({
-          sourcePath: document.pathname,
-          label: link.label,
-          destination: link.destination,
-          fragment: link.fragment,
-          line: link.line,
-          start: link.start,
-          end: link.end
-        })
-      }
-    }
-
+    const sources = this.backlinksByTarget.get(target)
+    if (!sources) return []
+    const backlinks = [...sources.values()].flat()
     return backlinks.sort(
       (left, right) =>
         comparePathStrings(left.sourcePath, right.sourcePath) || left.start - right.start

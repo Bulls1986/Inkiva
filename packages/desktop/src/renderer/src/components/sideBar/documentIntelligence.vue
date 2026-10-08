@@ -35,6 +35,17 @@
 
     <template v-else>
       <div
+        v-if="workspaceIndex && !workspaceIndex.complete"
+        class="document-intelligence__state"
+        role="status"
+        aria-live="polite"
+      >
+        {{ t('sideBar.documentIntelligence.partialWorkspace', {
+          indexed: workspaceIndex.indexedFiles,
+          skipped: workspaceIndex.skippedFiles
+        }) }}
+      </div>
+      <div
         v-if="error"
         class="document-intelligence__error"
         role="alert"
@@ -68,7 +79,9 @@
           v-else
           class="document-intelligence__empty"
         >
-          {{ t('sideBar.documentIntelligence.noBacklinks') }}
+          {{ t(workspaceIndex && !workspaceIndex.complete
+            ? 'sideBar.documentIntelligence.noBacklinksPartial'
+            : 'sideBar.documentIntelligence.noBacklinks') }}
         </p>
       </section>
 
@@ -227,6 +240,7 @@ const editorStore = useEditorStore()
 const documentIntelligenceStore = useDocumentIntelligenceStore()
 const {
   backlinks,
+  workspaceIndex,
   history,
   loading,
   restoringSnapshotId,
