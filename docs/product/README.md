@@ -8,6 +8,8 @@ This directory contains durable product contracts and resumable implementation r
 
 ## v0.5.0 implementation records
 
+- [v0.5.0 visual baseline adoption record](V0.5-VISUAL-BASELINE.md) — current screenshot inventory, added states, review gates, evidence ledger and outstanding approval.
+
 - [US03 — Untitled Recovery Progress](US03_UNTITLED_RECOVERY_PROGRESS.md)
 - [US05 — Workspace / Session Restore](US05-WORKSPACE-RESTORE.md)
 - [US07 — Restore Editing Continuity](US07-RESTORE-EDITING-CONTINUITY.md)

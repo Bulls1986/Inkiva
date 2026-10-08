@@ -5,6 +5,8 @@ import os from 'node:os'
 import path from 'node:path'
 import {
   clickMenuById,
+  enterSourceMode,
+  exitSourceMode,
   launchElectron,
   launchWithMarkdown,
   sendIpcToRenderer,
@@ -251,6 +253,32 @@ test.describe.serial('UI-14 visual regression baseline', () => {
     await capture(page, 'markdown-kitchen-sink')
   })
 
+  test('captures v0.5 table editing and its primary context menu', async() => {
+    await page.bringToFront()
+    await expect(page.locator('.mu-table-inner').first()).toBeVisible()
+    await capture(page, 'v05-table-editing')
+
+    await page.locator('.mu-table-cell-content').first().click({ button: 'right' })
+    const menu = page.locator('.mu-table-bar-tools [role="menu"]')
+    await expect(menu).toBeVisible()
+    await expect(menu.locator('[role="menuitem"]')).toHaveCount(7)
+    await capture(page, 'v05-table-context-menu')
+    await page.keyboard.press('Escape')
+    await expect(menu).toBeHidden()
+  })
+
+  test('captures v0.5 Source Mode without changing the document', async() => {
+    await page.bringToFront()
+    await enterSourceMode(page, app)
+    await expect(page.locator('.source-code .CodeMirror')).toBeVisible()
+    try {
+      await capture(page, 'v05-source-mode')
+    } finally {
+      await exitSourceMode(page, app)
+    }
+    await expect(page.locator('.mu-table-inner').first()).toBeVisible()
+  })
+
   test('captures the diagram kitchen-sink document', async() => {
     await page.bringToFront()
     await page.evaluate(() => {
@@ -276,6 +304,79 @@ test.describe.serial('UI-14 visual regression baseline', () => {
     } finally {
       await empty.app.close()
       fs.rmSync(emptyDirectory, { recursive: true, force: true })
+    }
+  })
+
+  test('captures v0.5 Recent Documents with a populated workspace', async() => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-visual-recent-'))
+    const recentFile = path.join(directory, 'visual-recent-note.md')
+    fs.writeFileSync(recentFile, '# Recent document\n', 'utf8')
+    const recent = await launchElectron([directory])
+    try {
+      await waitForWorkspaceReady(recent.page)
+      await waitForMenuReady(recent.app)
+      await setWindowSize(recent.app, 1280)
+      const didSeed = await recent.page.evaluate((filePath) => {
+        const root = document.querySelector('#app') as
+          | (Element & { __vue_app__?: { config?: { globalProperties?: Record<string, unknown> } } })
+          | null
+        const pinia = root?.__vue_app__?.config?.globalProperties?.$pinia as
+          | { _s?: Map<string, Record<string, (...args: unknown[]) => unknown>> }
+          | undefined
+        const store = pinia?._s?.get('recentDocuments')
+        if (!store?.CLEAR || !store?.RECORD_FILE) return false
+        store.CLEAR('')
+        store.RECORD_FILE(filePath)
+        return true
+      }, recentFile)
+      expect(didSeed).toBe(true)
+      const items = recent.page.getByTestId('recent-document-item')
+      await expect(items).toHaveCount(1)
+      await expect(items.first()).toContainText('visual-recent-note.md')
+      await capture(recent.page, 'v05-recent-documents')
+    } finally {
+      await recent.app.close()
+      fs.rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
+  test('captures v0.5 recovery decision without mutating the disk document', async() => {
+    const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-visual-recovery-'))
+    const documentsDir = path.join(userDataDir, 'documents')
+    const editorStatesDir = path.join(userDataDir, 'editorStates')
+    fs.mkdirSync(documentsDir, { recursive: true })
+    fs.mkdirSync(editorStatesDir, { recursive: true })
+    const documentPath = path.join(documentsDir, 'recovery-note.md')
+    fs.writeFileSync(documentPath, '# Saved edition\n', 'utf8')
+    fs.writeFileSync(path.join(userDataDir, 'preferences.json'), JSON.stringify({
+      startUpAction: 'restoreAll'
+    }), 'utf8')
+    fs.writeFileSync(path.join(editorStatesDir, 'visual_editor_buffer_store.json'), JSON.stringify({
+      version: 1,
+      currentFileId: 'visual-draft',
+      tabs: [{
+        id: 'visual-draft',
+        filename: 'recovery-note.md',
+        pathname: documentPath,
+        markdown: '# Unsaved edition\n',
+        isSaved: false
+      }],
+      restoreWarnings: []
+    }), 'utf8')
+    const recovery = await launchElectron([], { userDataDir, suppressErrorDialog: true })
+    try {
+      await waitForMenuReady(recovery.app)
+      await setWindowSize(recovery.app, 1280)
+      await expect(recovery.page.getByTestId('recovery-banner')).toBeVisible()
+      await recovery.page.getByRole('button', { name: '查看恢复内容' }).click()
+      await expect(recovery.page.getByTestId('recovery-markdown-preview')).toContainText(
+        'Unsaved edition'
+      )
+      await capture(recovery.page, 'v05-recovery-decision')
+      expect(fs.readFileSync(documentPath, 'utf8')).toBe('# Saved edition\n')
+    } finally {
+      await recovery.app.close()
+      fs.rmSync(userDataDir, { recursive: true, force: true })
     }
   })
 })

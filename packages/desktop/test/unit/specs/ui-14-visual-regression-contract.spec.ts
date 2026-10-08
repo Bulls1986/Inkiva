@@ -13,7 +13,9 @@ describe('UI-14 visual regression contract', () => {
       'light-main-window', 'dark-main-window', 'paper-main-window',
       'sidebar-files', 'sidebar-search', 'sidebar-toc', 'preferences',
       'command-palette', 'dialog', 'toast', 'empty-state',
-      'markdown-kitchen-sink', 'diagram-kitchen-sink'
+      'markdown-kitchen-sink', 'diagram-kitchen-sink',
+      'v05-table-editing', 'v05-table-context-menu', 'v05-source-mode',
+      'v05-recent-documents', 'v05-recovery-decision'
     ]
 
     for (const state of states) expect(source).toContain(state)
@@ -30,5 +32,18 @@ describe('UI-14 visual regression contract', () => {
     expect(source).toMatch(/toHaveScreenshot\(/)
     expect(source).toContain("animations: 'disabled'")
     expect(source).toContain("caret: 'hide'")
+  })
+
+  it('keeps an approved Linux pixel baseline for every captured state', () => {
+    const source = fs.readFileSync(visualSpec, 'utf8')
+    const screenshotNames = [...source.matchAll(/capture\([^,]+, '([^']+)'\)/g)]
+      .map((match) => match[1])
+    const snapshotDir = resolve(here, '../../e2e/visual-regression.spec.ts-snapshots')
+    for (const name of screenshotNames) {
+      expect(
+        fs.existsSync(resolve(snapshotDir, `${name}-linux.png`)),
+        `No approved Linux baseline for ${name}`
+      ).toBe(true)
+    }
   })
 })
