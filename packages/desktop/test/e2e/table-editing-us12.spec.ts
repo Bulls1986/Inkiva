@@ -160,7 +160,18 @@ test.describe('us12 table editing fidelity', () => {
       }
     })
     console.info('ISSUE224_FOCUS_AFTER_ESCAPE', JSON.stringify(focusAfterEscape))
-    await expect(cell).toBeFocused()
+    if (!focusAfterEscape.cellIsActive) {
+      const manual = await cell.evaluate((node) => {
+        node.focus({ preventScroll: true })
+        return {
+          succeeded: document.activeElement === node,
+          connected: node.isConnected,
+          editable: (node as HTMLElement).isContentEditable
+        }
+      })
+      console.info('ISSUE224_MANUAL_FOCUS', JSON.stringify(manual))
+    }
+    expect(focusAfterEscape.cellIsActive).toBe(true)
 
     await cell.click({ button: 'right' })
     await expect(menu).toBeVisible()

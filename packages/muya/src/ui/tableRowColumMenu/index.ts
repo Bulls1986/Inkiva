@@ -169,6 +169,12 @@ export class TableRowColumMenu extends BaseFloat {
             hasBlock: Boolean(this._block),
             hasContent: Boolean(content),
             attached: content?.domNode?.isConnected,
+            targetTag: content?.domNode?.tagName,
+            targetClass: content?.domNode?.className,
+            targetEditable: content?.domNode?.isContentEditable,
+            targetEqualsFirstCell: content?.domNode === document.querySelector('.editor-component .mu-table-cell-content'),
+            targetDisplay: content?.domNode ? getComputedStyle(content.domNode).display : null,
+            targetVisibility: content?.domNode ? getComputedStyle(content.domNode).visibility : null,
             activeTag: document.activeElement?.tagName,
             activeClass: document.activeElement instanceof HTMLElement ? document.activeElement.className : '',
         }));
