@@ -254,19 +254,21 @@ test.describe.serial('UI-14 visual regression baseline', () => {
   })
 
   test('captures v0.5 table editing and its primary context menu', async() => {
-    await page.bringToFront()
-    await expect(page.locator('.mu-table-inner').first()).toBeVisible()
-    await capture(page, 'v05-table-editing')
-
-    await page.locator('.mu-table-cell-content').first().click({ button: 'right' })
-    const menu = page.locator('.mu-table-bar-tools [role="menu"]')
-    await expect(menu).toBeVisible()
-    await expect(menu.locator('[role="menuitem"]')).toHaveCount(7)
-    await capture(page, 'v05-table-context-menu')
-    // Dismiss by clicking outside; keyboard dismissal is a separate
-    // interaction/accessibility contract, not a screenshot precondition.
-    await page.mouse.click(1180, 600)
-    await expect(menu).toBeHidden()
+    // Keep the captured open menu in its own window lifecycle; dismissal is
+    // a separate interaction contract and must not contaminate later captures.
+    const table = await launchWithMarkdown(MARKDOWN_KITCHEN_SINK)
+    try {
+      await setWindowSize(table.app, 1280)
+      await expect(table.page.locator('.mu-table-inner').first()).toBeVisible()
+      await capture(table.page, 'v05-table-editing')
+      await table.page.locator('.mu-table-cell-content').first().click({ button: 'right' })
+      const menu = table.page.locator('.mu-table-bar-tools [role="menu"]')
+      await expect(menu).toBeVisible()
+      await expect(menu.locator('[role="menuitem"]')).toHaveCount(7)
+      await capture(table.page, 'v05-table-context-menu')
+    } finally {
+      await table.app.close()
+    }
   })
 
   test('captures v0.5 Source Mode without changing the document', async() => {
