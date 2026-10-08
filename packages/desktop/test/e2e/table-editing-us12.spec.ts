@@ -120,6 +120,11 @@ test.describe('us12 table editing fidelity', () => {
   })
 
   test('dismisses the cell context menu with Escape and outside click without editing Markdown', async() => {
+    page.on('console', (msg) => {
+      if (msg.text().startsWith('ISSUE224_RESTORE_')) {
+        console.info(msg.text())
+      }
+    })
     const before = await getMarkdownContent(page, app)
     const cell = page.locator('.editor-component .mu-table-cell-content').first()
     const menu = page.locator('.mu-table-bar-tools [role="menu"]')

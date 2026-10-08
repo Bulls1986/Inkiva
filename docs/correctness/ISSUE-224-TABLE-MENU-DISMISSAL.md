@@ -56,8 +56,21 @@ and caret state were actually restored. Before mutating production code,
 instrument the focused case to report `document.activeElement`,
 the original cell's attachment state, and focused-cell count.
 A temporary, branch-scoped pre-full-E2E command runs only this
-diagnostic case; it **must be removed before merging**. All other E2E
-cases stay in the canonical full gate.
+  diagnostic case; it **must be removed before merging**. All other E2E
+  cases stay in the canonical full gate.
+
+### Focus target diagnosis
+
+Focused Linux Electron run
+[37752596787](https://github.com/Bulls1986/Inkiva/actions/runs/37752596787)
+confirmed that after Escape the visible menu was dismissed but the browser's
+`document.activeElement` was still the connected `LI.item.active`
+labelled “上面插入行”; the original cell was connected but not active, and
+no contenteditable table cell had focus. This excludes a stale-cell DOM
+**removal** as the only explanation but does not yet prove whether
+`_restoreCellFocus()` ran. Temporary diagnostic logs inside that method
+will distinguish a missing invocation from a no-op focus call. Remove all
+instrumentation before the final non-debug validation.
 
 ## Stage 2 — Closeout
 

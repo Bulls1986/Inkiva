@@ -165,7 +165,19 @@ export class TableRowColumMenu extends BaseFloat {
 
     private _restoreCellFocus() {
         const content = this._block?.firstContentInDescendant();
+        console.info('ISSUE224_RESTORE_BEFORE', JSON.stringify({
+            hasBlock: Boolean(this._block),
+            hasContent: Boolean(content),
+            attached: content?.domNode?.isConnected,
+            activeTag: document.activeElement?.tagName,
+            activeClass: document.activeElement instanceof HTMLElement ? document.activeElement.className : '',
+        }));
         content?.domNode?.focus({ preventScroll: true });
+        console.info('ISSUE224_RESTORE_AFTER', JSON.stringify({
+            attached: content?.domNode?.isConnected,
+            isActive: document.activeElement === content?.domNode,
+            activeTag: document.activeElement?.tagName,
+        }));
     }
 
     selectItem(event: Event, item: IMenuItem) {
