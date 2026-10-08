@@ -51,7 +51,10 @@ test.describe('V06-03 / Ctrl+K workspace Markdown link completion', () => {
         node.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true })))
       await destinationInput.press('Enter')
       await expect(page.locator('.ag-link-completion-dialog')).toBeVisible()
-      expect((await getMarkdownContent(page, app)).trim()).toBe('Guide')
+      // The modal intentionally blocks Source-mode menu actions. Assert the
+      // active WYSIWYG content stays unchanged *while it is open*, then
+      // verify the canonical Markdown bytes after cancellation below.
+      await expect(page.locator('.mu-paragraph-content').first()).toHaveText('Guide')
       await destinationInput.evaluate((node) =>
         node.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true })))
       await page.locator('.ag-link-completion-input').press('Escape')
@@ -68,6 +71,7 @@ test.describe('V06-03 / Ctrl+K workspace Markdown link completion', () => {
       await page.locator('.ag-link-completion-input').press('ArrowDown')
       await page.locator('.ag-link-completion-input').press('Enter')
       await page.locator('.ag-link-completion-input').press('Enter')
+      await expect(page.locator('.ag-link-completion-dialog')).not.toBeVisible()
       await expect.poll(async() => (await getMarkdownContent(page, app)).trim())
         .toBe('[Guide](./docs/README.md)')
 
