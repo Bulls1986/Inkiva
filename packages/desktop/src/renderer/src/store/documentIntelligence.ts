@@ -44,6 +44,10 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
   let stopWatchingEditor: WatchStopHandle | null = null
   let stopWatchingProject: WatchStopHandle | null = null
   let stopInteractionListeners: (() => void) | null = null
+  let stopWorkspaceEvents: (() => void) | null = null
+  let workspaceEventTimer: ReturnType<typeof setTimeout> | null = null
+  const pendingWorkspaceFiles = new Set<string>()
+  let workspaceDirectoryChanged = false
   let interactionReleaseFrame: number | null = null
 
   const editorStore = useEditorStore()
@@ -112,9 +116,49 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
 
     started.value = true
 
+    const handleProjectTreeChange = ({ type, change }: {
+      type: string
+      change?: unknown
+    }): void => {
+      if (!projectStore.projectTree?.pathname) return
+      if (type === 'addDir' || type === 'unlinkDir') {
+        workspaceDirectoryChanged = true
+      } else if (type === 'add' || type === 'change' || type === 'unlink') {
+        const pathname = (change as { pathname?: unknown } | null)?.pathname
+        if (typeof pathname !== 'string') return
+        pendingWorkspaceFiles.add(pathname)
+        if (pendingWorkspaceFiles.size > 256) workspaceDirectoryChanged = true
+      } else {
+        return
+      }
+      if (workspaceEventTimer) clearTimeout(workspaceEventTimer)
+      workspaceEventTimer = setTimeout(() => {
+        workspaceEventTimer = null
+        const root = projectStore.projectTree?.pathname ?? null
+        if (!root) return
+        const rescan = workspaceDirectoryChanged
+        workspaceDirectoryChanged = false
+        const files = [...pendingWorkspaceFiles]
+        pendingWorkspaceFiles.clear()
+        if (rescan) {
+          void coordinator?.indexWorkspace(root)
+        } else {
+          for (const pathname of files) void coordinator?.refreshWorkspaceFile(pathname)
+        }
+      }, 350)
+    }
+    bus.on('project-tree-changed', handleProjectTreeChange)
+    stopWorkspaceEvents = () => bus.off('project-tree-changed', handleProjectTreeChange)
+
     stopWatchingProject = watch(
       () => projectStore.projectTree?.pathname ?? null,
-      (rootPath) => { void coordinator?.indexWorkspace(rootPath) },
+      (rootPath) => {
+        if (workspaceEventTimer) clearTimeout(workspaceEventTimer)
+        workspaceEventTimer = null
+        pendingWorkspaceFiles.clear()
+        workspaceDirectoryChanged = false
+        void coordinator?.indexWorkspace(rootPath)
+      },
       { immediate: true, flush: 'post' }
     )
 
@@ -129,6 +173,12 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
   }
 
   function STOP(): void {
+    if (workspaceEventTimer) clearTimeout(workspaceEventTimer)
+    workspaceEventTimer = null
+    pendingWorkspaceFiles.clear()
+    workspaceDirectoryChanged = false
+    stopWorkspaceEvents?.()
+    stopWorkspaceEvents = null
     stopInteractionListeners?.()
     stopInteractionListeners = null
     stopWatchingEditor?.()

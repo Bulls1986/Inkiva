@@ -20,6 +20,7 @@ import type {
 
 export interface DocumentIntelligenceHandlerService {
   indexWorkspace(rootPath: string | null, scopeId?: number): Promise<WorkspaceLinkIndexResult>
+  refreshWorkspaceFile(pathname: string, scopeId?: number): Promise<void>
   indexDocument(pathname: string, markdown: string, scopeId?: number): void
   removeDocument(pathname: string, scopeId?: number): void
   getBacklinks(targetPath: string, scopeId?: number): MarkdownBacklink[]
@@ -41,6 +42,7 @@ export interface DocumentIntelligenceHandlerService {
 
 export interface DocumentIntelligenceHandlers {
   indexWorkspace(rootPath: unknown): Promise<WorkspaceLinkIndexResult>
+  refreshWorkspaceFile(pathname: unknown): Promise<void>
   indexDocument(pathname: unknown, markdown: unknown): void
   removeDocument(pathname: unknown): void
   getBacklinks(targetPath: unknown): MarkdownBacklink[]
@@ -287,6 +289,13 @@ export const createDocumentIntelligenceHandlers = (
     return scopeId === undefined
       ? service.indexWorkspace(rootPath)
       : service.indexWorkspace(rootPath, scopeId)
+  },
+  refreshWorkspaceFile(pathname) {
+    const source = requireString(pathname, 'pathname')
+    if (!path.isAbsolute(source)) throw new TypeError('pathname must be absolute')
+    return scopeId === undefined
+      ? service.refreshWorkspaceFile(source)
+      : service.refreshWorkspaceFile(source, scopeId)
   },
   indexDocument(pathname, markdown) {
     const source = requireString(pathname, 'pathname')

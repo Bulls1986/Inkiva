@@ -18,6 +18,17 @@ vi.mock('@/store/editor', async() => {
   }
 })
 
+vi.mock('@/store/project', async() => {
+  const { defineStore } = await import('pinia')
+  return {
+    useProjectStore: defineStore('project', {
+      state: (): { projectTree: { pathname: string } | null } => ({
+        projectTree: null
+      })
+    })
+  }
+})
+
 vi.mock('@/services/performance/runtime', () => ({
   rendererPerformance: {
     recordSample: vi.fn()
@@ -89,6 +100,7 @@ describe('document intelligence store', () => {
         skippedFiles: 0,
         complete: true
       })),
+      refreshWorkspaceFile: vi.fn(async() => undefined),
       indexDocument: vi.fn(async() => undefined),
       removeDocument: vi.fn(async() => undefined),
       getBacklinks: vi.fn(() => backlinks.promise),

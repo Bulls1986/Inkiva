@@ -370,6 +370,8 @@ const uploaderAPI = {
 const documentIntelligenceAPI = {
   indexWorkspace: (rootPath: string | null) =>
     invoke(DOCUMENT_INTELLIGENCE_CHANNELS.indexWorkspace, rootPath),
+  refreshWorkspaceFile: (pathname: string) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.refreshWorkspaceFile, pathname),
   indexDocument: (pathname: string, markdown: string) =>
     invoke(DOCUMENT_INTELLIGENCE_CHANNELS.indexDocument, pathname, markdown),
   removeDocument: (pathname: string) =>

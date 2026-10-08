@@ -1,4 +1,4 @@
-import { readFile, readdir, stat } from 'node:fs/promises'
+import { lstat, readFile, readdir, realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
 import writeFileAtomic from 'write-file-atomic'
 
@@ -52,6 +52,18 @@ interface LinkIndexScope {
   openDocuments: Map<string, string>
   workspaceDocuments: Map<string, string>
   generation: number
+  rootPath: string | null
+  pendingScanUpdates: Map<string, string | null> | null
+  fileRevisions: Map<string, number>
+  nextFileRevision: number
+}
+
+const isWithinDirectory = (root: string, candidate: string): boolean => {
+  const relative = path.relative(root, candidate)
+  return relative !== '' &&
+    relative !== '..' &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
 }
 
 const defaultFiles: DocumentIntelligenceFileAdapter = {
@@ -85,7 +97,11 @@ export class DocumentIntelligenceService {
       linkIndex: this.linkIndex,
       openDocuments: new Map(),
       workspaceDocuments: new Map(),
-      generation: 0
+      generation: 0,
+      rootPath: null,
+      pendingScanUpdates: null,
+      fileRevisions: new Map(),
+      nextFileRevision: 0
     })
     this.localHistory = new LocalHistoryService({
       rootPath: options.historyRootPath,
@@ -101,7 +117,11 @@ export class DocumentIntelligenceService {
         linkIndex: new MarkdownLinkIndex(),
         openDocuments: new Map(),
         workspaceDocuments: new Map(),
-        generation: 0
+        generation: 0,
+        rootPath: null,
+        pendingScanUpdates: null,
+        fileRevisions: new Map(),
+        nextFileRevision: 0
       }
       this.indexScopes.set(scopeId, scope)
     }
@@ -116,6 +136,8 @@ export class DocumentIntelligenceService {
     scope.linkIndex.clear()
     scope.openDocuments.clear()
     scope.workspaceDocuments.clear()
+    scope.pendingScanUpdates = null
+    scope.fileRevisions.clear()
     this.indexScopes.delete(scopeId)
   }
 
@@ -138,13 +160,16 @@ export class DocumentIntelligenceService {
     const scope = this.getScope(scopeId)
     const generation = ++scope.generation
     // Clear the old workspace immediately while retaining live-tab overlays.
+    scope.rootPath = rootPath ? path.resolve(rootPath) : null
     scope.workspaceDocuments.clear()
+    scope.pendingScanUpdates = rootPath ? new Map() : null
+    scope.fileRevisions.clear()
     this.rebuildIndex(scope)
     if (!rootPath) {
       return { rootPath: null, indexedFiles: 0, skippedFiles: 0, complete: true }
     }
 
-    const root = path.resolve(rootPath)
+    const root = scope.rootPath!
     const documents = new Map<string, string>()
     const pendingDirectories = [root]
     let visitedDirectories = 0
@@ -199,6 +224,11 @@ export class DocumentIntelligenceService {
     if (generation !== scope.generation) {
       return { rootPath: root, indexedFiles: 0, skippedFiles: 0, complete: false }
     }
+    for (const [pathname, markdown] of scope.pendingScanUpdates ?? []) {
+      if (markdown === null) documents.delete(pathname)
+      else documents.set(pathname, markdown)
+    }
+    scope.pendingScanUpdates = null
     scope.workspaceDocuments = documents
     this.rebuildIndex(scope)
     return {
@@ -207,6 +237,42 @@ export class DocumentIntelligenceService {
       skippedFiles,
       complete: skippedFiles === 0
     }
+  }
+
+  async refreshWorkspaceFile(pathname: string, scopeId = 0): Promise<void> {
+    const scope = this.getScope(scopeId)
+    const root = scope.rootPath
+    if (!root || !path.isAbsolute(pathname)) return
+    const absolute = path.resolve(pathname)
+    if (!isWithinDirectory(root, absolute) || !isMarkdownPath(absolute)) return
+    if (path.relative(root, absolute).split(path.sep).some((part) =>
+      IGNORED_DIRECTORIES.has(part))) return
+
+    const key = canonicalDocumentPath(absolute)
+    const generation = scope.generation
+    const revision = ++scope.nextFileRevision
+    scope.fileRevisions.set(key, revision)
+    let markdown: string | null
+    try {
+      const info = await lstat(absolute)
+      if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_INDEX_FILE_BYTES) {
+        throw new Error('Workspace file cannot be indexed safely')
+      }
+      const [actualRoot, actualFile] = await Promise.all([realpath(root), realpath(absolute)])
+      if (!isWithinDirectory(actualRoot, actualFile)) return
+      markdown = await this.files.readFile(absolute)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      markdown = null
+    }
+
+    if (scope.generation !== generation || scope.fileRevisions.get(key) !== revision) return
+    if (markdown === null) scope.workspaceDocuments.delete(key)
+    else scope.workspaceDocuments.set(key, markdown)
+    scope.pendingScanUpdates?.set(key, markdown)
+    if (scope.openDocuments.has(key)) return
+    if (markdown === null) scope.linkIndex.removeDocument(absolute)
+    else scope.linkIndex.updateDocument(absolute, markdown)
   }
 
   private rebuildIndex(scope: LinkIndexScope): void {

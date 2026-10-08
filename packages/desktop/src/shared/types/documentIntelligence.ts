@@ -3,6 +3,7 @@ export type RenameRepairPathKind = 'file' | 'directory'
 
 export const DOCUMENT_INTELLIGENCE_CHANNELS = {
   indexWorkspace: 'mt::document-intelligence::index-workspace',
+  refreshWorkspaceFile: 'mt::document-intelligence::refresh-workspace-file',
   indexDocument: 'mt::document-intelligence::index-document',
   removeDocument: 'mt::document-intelligence::remove-document',
   getBacklinks: 'mt::document-intelligence::backlinks',

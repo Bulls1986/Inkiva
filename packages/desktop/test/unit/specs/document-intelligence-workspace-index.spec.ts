@@ -116,4 +116,85 @@ describe('V06-02 workspace Markdown links', () => {
     expect(service.getBacklinks(bTarget, 11)).toHaveLength(0)
     expect(service.getBacklinks(aTarget, 22)).toHaveLength(0)
   })
+
+  it('updates an unopened source for external create, edit, delete without rescanning the workspace', async() => {
+    const root = await createWorkspace()
+    const target = path.join(root, 'target.md')
+    const source = path.join(root, 'unopened.md')
+    await fs.writeFile(target, '# Target')
+    const service = new DocumentIntelligenceService({ historyRootPath: path.join(root, '.history') })
+    await service.indexWorkspace(root)
+
+    await fs.writeFile(source, '[Target](./target.md)')
+    await service.refreshWorkspaceFile(source)
+    expect(service.getBacklinks(target)).toHaveLength(1)
+
+    await fs.writeFile(source, '# Link removed')
+    await service.refreshWorkspaceFile(source)
+    expect(service.getBacklinks(target)).toHaveLength(0)
+
+    await fs.writeFile(source, '[Target](./target.md)')
+    await service.refreshWorkspaceFile(source)
+    expect(service.getBacklinks(target)).toHaveLength(1)
+
+    await fs.unlink(source)
+    await service.refreshWorkspaceFile(source)
+    expect(service.getBacklinks(target)).toHaveLength(0)
+  })
+
+  it('does not let external disk events override a dirty tab or index another workspace', async() => {
+    const root = await createWorkspace()
+    const otherRoot = await createWorkspace()
+    const target = path.join(root, 'target.md')
+    const source = path.join(root, 'source.md')
+    const outside = path.join(otherRoot, 'outside.md')
+    await fs.writeFile(target, '# Target')
+    await fs.writeFile(source, '[Target](./target.md)')
+    await fs.writeFile(outside, `[Target](${source})`)
+    const service = new DocumentIntelligenceService({ historyRootPath: path.join(root, '.history') })
+    await service.indexWorkspace(root)
+    service.indexDocument(source, '# Unsaved changes')
+    await fs.writeFile(source, '[Target](./target.md)')
+    await service.refreshWorkspaceFile(source)
+    expect(service.getBacklinks(target)).toHaveLength(0)
+    await service.refreshWorkspaceFile(outside)
+    expect(service.getBacklinks(target)).toHaveLength(0)
+    service.removeDocument(source)
+    expect(service.getBacklinks(target)).toHaveLength(1)
+  })
+
+  it('preserves an external edit that completes during an older full scan', async() => {
+    const root = await createWorkspace()
+    const target = path.join(root, 'target.md')
+    const source = path.join(root, 'source.md')
+    await fs.writeFile(target, '# target')
+    await fs.writeFile(source, '[Old](./target.md)')
+    let release!: () => void
+    let notify!: () => void
+    const blocked = new Promise<void>((resolve) => { release = resolve })
+    const entered = new Promise<void>((resolve) => { notify = resolve })
+    let sourceReads = 0
+    const service = new DocumentIntelligenceService({
+      historyRootPath: path.join(root, '.history'),
+      files: {
+        readFile: async(pathname) => {
+          if (pathname !== source || sourceReads++ > 0) return fs.readFile(pathname, 'utf8')
+          const original = await fs.readFile(pathname, 'utf8')
+          notify()
+          await blocked
+          return original
+        },
+        writeFile: (pathname, content) => fs.writeFile(pathname, content)
+      }
+    })
+    const scanning = service.indexWorkspace(root)
+    await entered
+    await fs.writeFile(source, '[New](./target.md)')
+    await service.refreshWorkspaceFile(source)
+    release()
+    await scanning
+    expect(service.getBacklinks(target)).toEqual([
+      expect.objectContaining({ label: 'New' })
+    ])
+  })
 })

@@ -42,6 +42,7 @@ export interface DocumentIntelligenceState {
 
 export interface DocumentIntelligenceApi {
   indexWorkspace(rootPath: string | null): Promise<WorkspaceLinkIndexResult>
+  refreshWorkspaceFile(pathname: string): Promise<void>
   indexDocument(pathname: string, markdown: string): Promise<void>
   removeDocument(pathname: string): Promise<void>
   getBacklinks(targetPath: string): Promise<MarkdownBacklink[]>
@@ -109,6 +110,7 @@ export class DocumentIntelligenceCoordinator {
   private workspaceIndexVersion = 0
   private workspaceReady = true
   private workspacePartial = false
+  private readonly pendingWorkspaceFiles = new Set<string>()
   private disposed = false
   private state = initialState()
 
@@ -135,6 +137,7 @@ export class DocumentIntelligenceCoordinator {
   async indexWorkspace(rootPath: string | null): Promise<void> {
     if (this.disposed) return
     const indexVersion = ++this.workspaceIndexVersion
+    this.pendingWorkspaceFiles.clear()
     this.workspaceReady = false
     this.selectionVersion += 1
     this.patchState({ backlinks: [], loading: !!this.state.currentPath, error: null })
@@ -149,11 +152,36 @@ export class DocumentIntelligenceCoordinator {
       this.workspacePartial = !result.complete
       if (this.state.currentPath) await this.refresh()
       else this.patchState({ loading: false, error: this.workspacePartial ? 'sync' : null })
+      const changedFiles = [...this.pendingWorkspaceFiles]
+      this.pendingWorkspaceFiles.clear()
+      for (const pathname of changedFiles) void this.refreshWorkspaceFile(pathname)
     } catch {
       if (indexVersion !== this.workspaceIndexVersion || this.disposed) return
       this.workspaceReady = true
       this.workspacePartial = true
       this.patchState({ loading: false, error: 'sync' })
+    }
+  }
+
+  async refreshWorkspaceFile(pathname: string): Promise<void> {
+    if (this.disposed) return
+    if (!this.workspaceReady) {
+      this.pendingWorkspaceFiles.add(pathname)
+      return
+    }
+    const version = this.workspaceIndexVersion
+    try {
+      await this.runBackground(
+        'workspace-file:' + pathname,
+        BACKGROUND_PRIORITY.backgroundIndexing,
+        () => this.api.refreshWorkspaceFile(pathname)
+      )
+      if (this.disposed || version !== this.workspaceIndexVersion) return
+      if (this.state.currentPath) await this.refreshBacklinks()
+    } catch {
+      if (!this.disposed && version === this.workspaceIndexVersion) {
+        this.patchState({ error: 'sync' })
+      }
     }
   }
 
@@ -314,6 +342,7 @@ export class DocumentIntelligenceCoordinator {
   dispose(): void {
     this.disposed = true
     this.selectionVersion += 1
+    this.pendingWorkspaceFiles.clear()
     if (this.indexTimer) clearTimeout(this.indexTimer)
     if (this.snapshotTimer) clearTimeout(this.snapshotTimer)
     this.indexTimer = null

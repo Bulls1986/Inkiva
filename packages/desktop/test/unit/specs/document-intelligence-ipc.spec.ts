@@ -21,6 +21,7 @@ const createService = (): DocumentIntelligenceHandlerService => ({
     skippedFiles: 0,
     complete: true
   })),
+  refreshWorkspaceFile: vi.fn(async() => undefined),
   indexDocument: vi.fn(),
   removeDocument: vi.fn(),
   getBacklinks: vi.fn(() => []),
@@ -69,6 +70,11 @@ describe('document intelligence IPC handlers', () => {
     )
     expect(service.getBacklinks).toHaveBeenCalledWith(path.join(root, 'target.md'), 11)
     expect(service.getBacklinks).toHaveBeenCalledWith(path.join(root, 'target.md'), 22)
+    await first.refreshWorkspaceFile(path.join(root, 'source.md'))
+    expect(service.refreshWorkspaceFile).toHaveBeenCalledWith(
+      path.join(root, 'source.md'),
+      11
+    )
   })
 
   it('validates untrusted IPC payloads before calling the service', async() => {
