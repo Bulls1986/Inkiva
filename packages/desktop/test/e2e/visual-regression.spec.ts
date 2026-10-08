@@ -302,7 +302,11 @@ test.describe.serial('UI-14 visual regression baseline', () => {
   })
 
   test('captures the empty Welcome surface', async() => {
-    const emptyDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'inkiva-visual-empty-'))
+    // The Welcome surface displays the workspace root (Recent folder).
+    // Fix its directory name just like the populated Recent fixture.
+    const emptyDirectory = path.join(os.tmpdir(), 'inkiva-v05-visual-baseline-empty')
+    fs.rmSync(emptyDirectory, { recursive: true, force: true })
+    fs.mkdirSync(emptyDirectory, { recursive: true })
     const empty = await launchElectron([emptyDirectory])
     try {
       await waitForWorkspaceReady(empty.page)
