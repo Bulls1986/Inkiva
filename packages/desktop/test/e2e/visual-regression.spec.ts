@@ -263,6 +263,9 @@ test.describe.serial('UI-14 visual regression baseline', () => {
     await expect(menu).toBeVisible()
     await expect(menu.locator('[role="menuitem"]')).toHaveCount(7)
     await capture(page, 'v05-table-context-menu')
+    // Screenshot preparation can move the active element away from the
+    // keyboard-owned menu. Restore its documented keyboard focus before Escape.
+    await menu.locator('[role="menuitem"]').first().focus()
     await page.keyboard.press('Escape')
     await expect(menu).toBeHidden()
   })
