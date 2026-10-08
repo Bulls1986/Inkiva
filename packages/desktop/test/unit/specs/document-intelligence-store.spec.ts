@@ -83,6 +83,12 @@ describe('document intelligence store', () => {
     const backlinks = deferred<MarkdownBacklink[]>()
     const history = deferred<LocalHistoryEntry[]>()
     const api = {
+      indexWorkspace: vi.fn(async(rootPath: string | null) => ({
+        rootPath,
+        indexedFiles: 0,
+        skippedFiles: 0,
+        complete: true
+      })),
       indexDocument: vi.fn(async() => undefined),
       removeDocument: vi.fn(async() => undefined),
       getBacklinks: vi.fn(() => backlinks.promise),

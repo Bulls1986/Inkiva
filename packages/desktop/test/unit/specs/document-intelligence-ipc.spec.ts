@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import path from 'node:path'
 
 import {
   createDocumentIntelligenceHandlers,
@@ -14,6 +15,12 @@ const emptyPlan = {
 }
 
 const createService = (): DocumentIntelligenceHandlerService => ({
+  indexWorkspace: vi.fn(async(rootPath) => ({
+    rootPath,
+    indexedFiles: 0,
+    skippedFiles: 0,
+    complete: true
+  })),
   indexDocument: vi.fn(),
   removeDocument: vi.fn(),
   getBacklinks: vi.fn(() => []),
@@ -48,6 +55,8 @@ describe('document intelligence IPC handlers', () => {
     const handlers = createDocumentIntelligenceHandlers(service)
 
     handlers.indexDocument('/docs/note.md', '# Note')
+    const rootPath = path.resolve('docs')
+    await handlers.indexWorkspace(rootPath)
     handlers.getLinkCandidates('/docs/note.md', ['/docs/other.md'])
     handlers.prepareRenameRepair({
       fromPath: '/docs',
@@ -69,6 +78,7 @@ describe('document intelligence IPC handlers', () => {
     })
 
     expect(service.indexDocument).toHaveBeenCalledWith('/docs/note.md', '# Note')
+    expect(service.indexWorkspace).toHaveBeenCalledWith(rootPath)
     expect(service.getLinkCandidates).toHaveBeenCalledWith('/docs/note.md', ['/docs/other.md'])
     expect(service.prepareRenameRepair).toHaveBeenCalledWith({
       fromPath: '/docs',
@@ -90,6 +100,7 @@ describe('document intelligence IPC handlers', () => {
     })
 
     expect(() => handlers.indexDocument('', '# Note')).toThrow(TypeError)
+    expect(() => handlers.indexWorkspace('../relative')).toThrow('rootPath must be absolute')
     expect(() => handlers.getLinkCandidates('/docs/note.md', ['/docs/note.txt'])).not.toThrow()
     expect(() => handlers.applyRenameRepair({ plan: emptyPlan, decision: 'rewrite' })).toThrow(
       'decision must be update, keep, or cancel'

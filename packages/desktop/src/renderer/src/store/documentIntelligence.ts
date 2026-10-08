@@ -15,6 +15,7 @@ import { rendererPerformance } from '@/services/performance/runtime'
 import { BackgroundTaskScheduler } from '@/util/backgroundScheduler'
 import bus from '@/bus'
 import { useEditorStore } from './editor'
+import { useProjectStore } from './project'
 
 const toDocument = (
   tab: ReturnType<typeof useEditorStore>['tabs'][number]
@@ -41,6 +42,7 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
   let coordinator: DocumentIntelligenceCoordinator | null = null
   let scheduler: BackgroundTaskScheduler | null = null
   let stopWatchingEditor: WatchStopHandle | null = null
+  let stopWatchingProject: WatchStopHandle | null = null
   let stopInteractionListeners: (() => void) | null = null
   let interactionReleaseFrame: number | null = null
 
@@ -66,6 +68,7 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
 
   function START(): void {
     if (started.value) return
+    const projectStore = useProjectStore()
     scheduler = new BackgroundTaskScheduler({
       onSlice: (task, durationMs) => {
         rendererPerformance.recordSample('background.taskSlice', 'ms', durationMs, {
@@ -109,6 +112,12 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
 
     started.value = true
 
+    stopWatchingProject = watch(
+      () => projectStore.projectTree?.pathname ?? null,
+      (rootPath) => { void coordinator?.indexWorkspace(rootPath) },
+      { immediate: true, flush: 'post' }
+    )
+
     stopWatchingEditor = watch(
       () => ({
         currentId: editorStore.currentFile?.id ?? null,
@@ -124,6 +133,8 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
     stopInteractionListeners = null
     stopWatchingEditor?.()
     stopWatchingEditor = null
+    stopWatchingProject?.()
+    stopWatchingProject = null
     coordinator?.dispose()
     coordinator = null
     scheduler = null

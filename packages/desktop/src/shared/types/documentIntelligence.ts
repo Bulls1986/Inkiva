@@ -2,6 +2,7 @@ export type RenameRepairDecision = 'update' | 'keep' | 'cancel'
 export type RenameRepairPathKind = 'file' | 'directory'
 
 export const DOCUMENT_INTELLIGENCE_CHANNELS = {
+  indexWorkspace: 'mt::document-intelligence::index-workspace',
   indexDocument: 'mt::document-intelligence::index-document',
   removeDocument: 'mt::document-intelligence::remove-document',
   getBacklinks: 'mt::document-intelligence::backlinks',
@@ -16,6 +17,13 @@ export const DOCUMENT_INTELLIGENCE_CHANNELS = {
   moveHistoryPath: 'mt::document-intelligence::history-move-path',
   pruneHistory: 'mt::document-intelligence::history-prune'
 } as const
+
+export interface WorkspaceLinkIndexResult {
+  rootPath: string | null
+  indexedFiles: number
+  skippedFiles: number
+  complete: boolean
+}
 
 export interface MarkdownLinkOccurrence {
   label: string

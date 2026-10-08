@@ -39,6 +39,12 @@ const snapshot = (filePath = '/docs/note.md'): LocalHistorySnapshot => ({
 })
 
 const createApi = (): DocumentIntelligenceApi => ({
+  indexWorkspace: vi.fn(async(rootPath) => ({
+    rootPath,
+    indexedFiles: 0,
+    skippedFiles: 0,
+    complete: true
+  })),
   indexDocument: vi.fn(async() => undefined),
   removeDocument: vi.fn(async() => undefined),
   getBacklinks: vi.fn(async() => []),

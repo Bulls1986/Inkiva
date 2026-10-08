@@ -9,7 +9,8 @@ import type {
   LocalHistoryRestoreRequest,
   LocalHistorySnapshot,
   MoveHistoryPathRequest,
-  MarkdownBacklink
+  MarkdownBacklink,
+  WorkspaceLinkIndexResult
 } from '@shared/types/documentIntelligence'
 
 export interface DocumentIntelligenceDocument {
@@ -40,6 +41,7 @@ export interface DocumentIntelligenceState {
 }
 
 export interface DocumentIntelligenceApi {
+  indexWorkspace(rootPath: string | null): Promise<WorkspaceLinkIndexResult>
   indexDocument(pathname: string, markdown: string): Promise<void>
   removeDocument(pathname: string): Promise<void>
   getBacklinks(targetPath: string): Promise<MarkdownBacklink[]>
@@ -104,6 +106,9 @@ export class DocumentIntelligenceCoordinator {
   private indexTimer: ReturnType<typeof setTimeout> | null = null
   private snapshotTimer: ReturnType<typeof setTimeout> | null = null
   private selectionVersion = 0
+  private workspaceIndexVersion = 0
+  private workspaceReady = true
+  private workspacePartial = false
   private disposed = false
   private state = initialState()
 
@@ -125,6 +130,31 @@ export class DocumentIntelligenceCoordinator {
 
   setInteractivePending(pending: boolean): void {
     this.scheduler.setInteractivePending(pending)
+  }
+
+  async indexWorkspace(rootPath: string | null): Promise<void> {
+    if (this.disposed) return
+    const indexVersion = ++this.workspaceIndexVersion
+    this.workspaceReady = false
+    this.selectionVersion += 1
+    this.patchState({ backlinks: [], loading: !!this.state.currentPath, error: null })
+    try {
+      const result = await this.runBackground(
+        'workspace-index',
+        BACKGROUND_PRIORITY.backgroundIndexing,
+        () => this.api.indexWorkspace(rootPath)
+      )
+      if (indexVersion !== this.workspaceIndexVersion || this.disposed) return
+      this.workspaceReady = true
+      this.workspacePartial = !result.complete
+      if (this.state.currentPath) await this.refresh()
+      else this.patchState({ loading: false, error: this.workspacePartial ? 'sync' : null })
+    } catch {
+      if (indexVersion !== this.workspaceIndexVersion || this.disposed) return
+      this.workspaceReady = true
+      this.workspacePartial = true
+      this.patchState({ loading: false, error: 'sync' })
+    }
   }
 
   updateDocuments(
@@ -203,12 +233,14 @@ export class DocumentIntelligenceCoordinator {
         restoringSnapshotId: null,
         error: null
       })
-      if (currentPath) void this.loadCurrent(this.selectionVersion, currentPath)
+      if (currentPath && this.workspaceReady) {
+        void this.loadCurrent(this.selectionVersion, currentPath)
+      }
     }
   }
 
   async refresh(): Promise<void> {
-    if (!this.state.currentPath || this.disposed) return
+    if (!this.state.currentPath || this.disposed || !this.workspaceReady) return
     const version = this.selectionVersion
     this.patchState({ loading: true, error: null })
     await this.loadCurrent(version, this.state.currentPath)
@@ -428,7 +460,12 @@ export class DocumentIntelligenceCoordinator {
         )
       ])
       if (version !== this.selectionVersion || this.disposed) return
-      this.patchState({ backlinks, history, loading: false, error: null })
+      this.patchState({
+        backlinks,
+        history,
+        loading: false,
+        error: this.workspacePartial ? 'sync' : null
+      })
     } catch {
       if (version === this.selectionVersion) {
         this.patchState({ loading: false, error: 'load' })

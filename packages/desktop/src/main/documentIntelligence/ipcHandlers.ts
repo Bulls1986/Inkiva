@@ -1,3 +1,5 @@
+import path from 'node:path'
+
 import type {
   ApplyRenameRepairRequest,
   ApplyRenameRepairResult,
@@ -12,10 +14,12 @@ import type {
   MarkdownDocumentInput,
   PrepareRenameRepairRequest,
   RenameRepairPathKind,
-  RenameRepairPlan
+  RenameRepairPlan,
+  WorkspaceLinkIndexResult
 } from '@shared/types/documentIntelligence'
 
 export interface DocumentIntelligenceHandlerService {
+  indexWorkspace(rootPath: string | null): Promise<WorkspaceLinkIndexResult>
   indexDocument(pathname: string, markdown: string): void
   removeDocument(pathname: string): void
   getBacklinks(targetPath: string): MarkdownBacklink[]
@@ -32,6 +36,7 @@ export interface DocumentIntelligenceHandlerService {
 }
 
 export interface DocumentIntelligenceHandlers {
+  indexWorkspace(rootPath: unknown): Promise<WorkspaceLinkIndexResult>
   indexDocument(pathname: unknown, markdown: unknown): void
   removeDocument(pathname: unknown): void
   getBacklinks(targetPath: unknown): MarkdownBacklink[]
@@ -267,6 +272,15 @@ const requireRestoreRequest = (
 export const createDocumentIntelligenceHandlers = (
   service: DocumentIntelligenceHandlerService
 ): DocumentIntelligenceHandlers => ({
+  indexWorkspace(rootPath) {
+    if (rootPath !== null && (typeof rootPath !== 'string' || !rootPath)) {
+      throw new TypeError('rootPath must be an absolute, non-empty string or null')
+    }
+    if (typeof rootPath === 'string' && !path.isAbsolute(rootPath)) {
+      throw new TypeError('rootPath must be absolute')
+    }
+    return service.indexWorkspace(rootPath)
+  },
   indexDocument(pathname, markdown) {
     service.indexDocument(
       requireString(pathname, 'pathname'),

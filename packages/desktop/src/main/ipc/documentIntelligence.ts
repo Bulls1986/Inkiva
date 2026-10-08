@@ -21,6 +21,9 @@ const getHandlers = (): DocumentIntelligenceHandlers => {
 }
 
 export const registerDocumentIntelligenceHandlers = (): void => {
+  ipcMain.handle(DOCUMENT_INTELLIGENCE_CHANNELS.indexWorkspace, (_event, rootPath) =>
+    getHandlers().indexWorkspace(rootPath)
+  )
   ipcMain.handle(DOCUMENT_INTELLIGENCE_CHANNELS.indexDocument, (_event, pathname, markdown) =>
     getHandlers().indexDocument(pathname, markdown)
   )
