@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 
+import type Format from '../format';
 import { describe, expect, it } from 'vitest';
 import { Muya } from '../../../muya';
-import type Format from '../format';
 
-describe('V06-03 transactional Markdown link destination', () => {
+describe('v06-03 transactional Markdown link destination', () => {
     it('edits the destination of an existing link without removing its label or title', () => {
         const host = document.createElement('div');
         document.body.appendChild(host);
@@ -13,7 +13,8 @@ describe('V06-03 transactional Markdown link destination', () => {
         const block = muya.editor.scrollPage!.firstContentInDescendant() as Format;
         muya.editor.activeContentBlock = block;
         (block as unknown as { getCursor: () => unknown }).getCursor = () => ({
-            start: { offset: 3 }, end: { offset: 3 },
+            start: { offset: 3 },
+            end: { offset: 3 },
         });
         muya.editor.history.runUserOperation(() => {
             block.format('link', './docs/new.md');
@@ -33,7 +34,8 @@ describe('V06-03 transactional Markdown link destination', () => {
         // Happy DOM does not round-trip a noncollapsed native selection.
         // Drive the real format mutation with a focused logical range.
         (block as unknown as { getCursor: () => unknown }).getCursor = () => ({
-            start: { offset: 0 }, end: { offset: 4 },
+            start: { offset: 0 },
+            end: { offset: 4 },
         });
         muya.editor.history.runUserOperation(() => {
             block.format('link', './docs/README%20v2.md');

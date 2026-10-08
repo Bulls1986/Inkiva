@@ -1633,10 +1633,10 @@ class Format extends Content {
             if (existingLink?.type === 'link') {
                 // Retarget only the supported inline syntax; preserve label,
                 // optional title and all surrounding source bytes unchanged.
-                const match = /^(\[[^\]\r\n]*\]\()(<[^>\r\n]+>|[^\s()]+)(\s+(?:"[^"]*"|'[^']*'))?(\))$/.exec(existingLink.raw);
+                const match = /^(\[[^\]\r\n]*\]\()(?:<[^>\r\n]+>|[^\s()]+)(\s+(?:"[^"]*"|'[^']*'))?(\))$/.exec(existingLink.raw);
                 if (!match)
                     return;
-                const rewritten = match[1] + linkDestination + (match[3] ?? '') + match[4];
+                const rewritten = match[1] + linkDestination + (match[2] ?? '') + match[3];
                 this.text = this.text.slice(0, existingLink.range.start) + rewritten + this.text.slice(existingLink.range.end);
                 const newOffset = existingLink.range.start + match[1].length + linkDestination.length;
                 this.setCursor(newOffset, newOffset, true);

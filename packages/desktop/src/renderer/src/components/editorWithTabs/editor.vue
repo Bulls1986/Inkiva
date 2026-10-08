@@ -522,7 +522,7 @@ const openLinkCompletion = (): boolean => {
     tabId: tab.id,
     pathname,
     root,
-    markdown: muya.getMarkdown(),
+    markdown: serializeEditorMarkdown(muya),
     editor: muya,
     anchor: selection.anchor,
     focus: selection.focus
@@ -617,7 +617,7 @@ const confirmLinkCompletion = async (): Promise<void> => {
     (currentFile.value?.pathname ?? null) === snapshot.pathname &&
     (projectTree.value?.pathname ?? null) === snapshot.root &&
     editor.value === snapshot.editor &&
-    snapshot.editor.getMarkdown() === snapshot.markdown
+    serializeEditorMarkdown(snapshot.editor) === snapshot.markdown
   if (!isCurrent()) return
   linkCompletionSubmitting.value = true
   try {
