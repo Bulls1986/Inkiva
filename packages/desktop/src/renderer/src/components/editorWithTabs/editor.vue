@@ -3236,7 +3236,15 @@ onMounted(() => {
     })
     Muya.use(ImageResizeBar)
     Muya.use(ImageToolBar)
-    Muya.use(InlineFormatToolbar, { requestLink: openLinkCompletion })
+    // Muya.use registers plugins globally once per renderer process. Route
+    // link requests through the active editor's existing scoped bus listener
+    // rather than capturing the first mounted component's modal controller.
+    Muya.use(InlineFormatToolbar, {
+      requestLink: () => {
+        bus.emit('format', 'link')
+        return true
+      }
+    })
     Muya.use(ParagraphFrontButton)
     Muya.use(ParagraphFrontMenu)
     Muya.use(PreviewToolBar)
