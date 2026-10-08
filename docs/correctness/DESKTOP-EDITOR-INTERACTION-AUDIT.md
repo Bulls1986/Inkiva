@@ -1,8 +1,8 @@
 # DESKTOP-INTERACTION-AUDIT — Desktop Editor Interaction Contract Closure
 
-Status: **Windows implementation and native acceptance complete; macOS platform-specific acceptance remains**
-Base: `develop@66738573c2c2cbaf494b13f3d860035f1fab8c5f`
-Branch: `audit/desktop-editor-interaction-contract`
+Status: **Merged into `develop`; Windows native acceptance complete; macOS titlebar/chrome native acceptance not claimed**
+Original audit base: `develop@66738573c2c2cbaf494b13f3d860035f1fab8c5f`
+Original audit branch: `audit/desktop-editor-interaction-contract` (retired after PR #215)
 Contract: [Desktop Editor Interaction Contract](../product/DESKTOP_EDITOR_INTERACTION_CONTRACT.md)
 
 ## Goal
@@ -489,3 +489,25 @@ Final executable head `58d6e0d3cf3c3922013bb1c0e52b293f407418c2` CI:
 
 Reusable lesson:
 - A shortcut authority change is not closed by updating the application keybinding map alone. Every user-visible shortcut projection and local keyboard dispatch surface (menu accelerator, toolbar hint, toolbar key handler, command palette/help surface) must either derive from the same source or be covered by an authority-consistency test.
+
+## Stage 12 — Post-merge repository closure (2026-09-29)
+
+Status: **merged and cleaned up**
+
+- PR #215 was squash-merged into `develop`.
+- Canonical interaction-contract merge commit: `1b3b0fb490015fd9a9898c6ddaf14f119805f891` (`fix(editor): close desktop interaction contract (#215)`).
+- Post-merge fetch verified `origin/develop` points exactly to that squash commit before this documentation-only follow-up.
+- The main working tree was clean and was fast-forwarded to the canonical merge commit.
+- The merged remote branch `audit/desktop-editor-interaction-contract` no longer exists.
+- The local `audit/desktop-editor-interaction-contract` branch was deleted.
+- The isolated `.worktrees/desktop-editor-interaction-audit` worktree was deregistered and its residual dependency/build directory was removed; `git worktree prune` completed.
+- The executable head `58d6e0d3cf3c3922013bb1c0e52b293f407418c2` remains the authoritative tested code head: 11/11 GitHub workflows Green, including Desktop E2E, performance, Muya gates, Windows x64/macOS ARM64/macOS Intel build + package smoke, and updater artifact smoke.
+- The later `d929a11e5217032a75c5d9c26fe074d8afbba470` commit was documentation-only and intentionally used `[skip ci]`; its only delta from the fully tested executable head was this audit document.
+- macOS build/package correctness is proven by CI on ARM64 and Intel. A manual/native macOS titlebar/chrome interaction assertion is still not claimed.
+- No Linux runtime acceptance is claimed.
+
+Final repository conclusion:
+- The desktop interaction contract audit is closed.
+- TODO-01 through TODO-09 are resolved in the merged implementation.
+- No known architecture-boundary regression or open product correctness defect remains from this audit.
+- Future work should start from current `develop` and use this document as the handoff record rather than reopening the retired audit branch/worktree.
