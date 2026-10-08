@@ -33,6 +33,7 @@ export type DocumentIntelligenceError =
 export interface DocumentIntelligenceState {
   currentDocumentId: string | null
   currentPath: string | null
+  workspaceIndex: WorkspaceLinkIndexResult | null
   backlinks: MarkdownBacklink[]
   history: LocalHistoryEntry[]
   loading: boolean
@@ -72,6 +73,7 @@ const DEFAULT_SNAPSHOT_DELAY_MS = 2_000
 const initialState = (): DocumentIntelligenceState => ({
   currentDocumentId: null,
   currentPath: null,
+  workspaceIndex: null,
   backlinks: [],
   history: [],
   loading: false,
@@ -109,7 +111,6 @@ export class DocumentIntelligenceCoordinator {
   private selectionVersion = 0
   private workspaceIndexVersion = 0
   private workspaceReady = true
-  private workspacePartial = false
   private readonly pendingWorkspaceFiles = new Set<string>()
   private disposed = false
   private state = initialState()
@@ -125,6 +126,7 @@ export class DocumentIntelligenceCoordinator {
   getState(): DocumentIntelligenceState {
     return {
       ...this.state,
+      workspaceIndex: this.state.workspaceIndex ? { ...this.state.workspaceIndex } : null,
       backlinks: [...this.state.backlinks],
       history: [...this.state.history]
     }
@@ -140,7 +142,12 @@ export class DocumentIntelligenceCoordinator {
     this.pendingWorkspaceFiles.clear()
     this.workspaceReady = false
     this.selectionVersion += 1
-    this.patchState({ backlinks: [], loading: !!this.state.currentPath, error: null })
+    this.patchState({
+      workspaceIndex: null,
+      backlinks: [],
+      loading: !!this.state.currentPath,
+      error: null
+    })
     try {
       const result = await this.runBackground(
         'workspace-index',
@@ -149,17 +156,16 @@ export class DocumentIntelligenceCoordinator {
       )
       if (indexVersion !== this.workspaceIndexVersion || this.disposed) return
       this.workspaceReady = true
-      this.workspacePartial = !result.complete
+      this.patchState({ workspaceIndex: result })
       if (this.state.currentPath) await this.refresh()
-      else this.patchState({ loading: false, error: this.workspacePartial ? 'sync' : null })
+      else this.patchState({ loading: false, error: null })
       const changedFiles = [...this.pendingWorkspaceFiles]
       this.pendingWorkspaceFiles.clear()
       for (const pathname of changedFiles) void this.refreshWorkspaceFile(pathname)
     } catch {
       if (indexVersion !== this.workspaceIndexVersion || this.disposed) return
       this.workspaceReady = true
-      this.workspacePartial = true
-      this.patchState({ loading: false, error: 'sync' })
+      this.patchState({ workspaceIndex: null, loading: false, error: 'sync' })
     }
   }
 
@@ -493,7 +499,7 @@ export class DocumentIntelligenceCoordinator {
         backlinks,
         history,
         loading: false,
-        error: this.workspacePartial ? 'sync' : null
+        error: null
       })
     } catch {
       if (version === this.selectionVersion) {

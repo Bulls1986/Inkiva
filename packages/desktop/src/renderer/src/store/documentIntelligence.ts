@@ -3,7 +3,8 @@ import { defineStore } from 'pinia'
 import type {
   LocalHistoryEntry,
   LocalHistorySnapshot,
-  MarkdownBacklink
+  MarkdownBacklink,
+  WorkspaceLinkIndexResult
 } from '@shared/types/documentIntelligence'
 import {
   DocumentIntelligenceCoordinator,
@@ -32,6 +33,7 @@ const toDocument = (
 export const useDocumentIntelligenceStore = defineStore('documentIntelligence', () => {
   const currentDocumentId = ref<string | null>(null)
   const currentPath = ref<string | null>(null)
+  const workspaceIndex = ref<WorkspaceLinkIndexResult | null>(null)
   const backlinks = ref<MarkdownBacklink[]>([])
   const history = ref<LocalHistoryEntry[]>([])
   const loading = ref(false)
@@ -63,6 +65,7 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
   const applyState = (state: DocumentIntelligenceState): void => {
     currentDocumentId.value = state.currentDocumentId
     currentPath.value = state.currentPath
+    workspaceIndex.value = state.workspaceIndex
     backlinks.value = state.backlinks
     history.value = state.history
     loading.value = state.loading
@@ -248,6 +251,7 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
   return {
     currentDocumentId,
     currentPath,
+    workspaceIndex,
     backlinks,
     history,
     loading,
