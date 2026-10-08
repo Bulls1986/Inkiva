@@ -163,6 +163,27 @@ describe('V06-02 workspace Markdown links', () => {
     expect(service.getBacklinks(target)).toHaveLength(1)
   })
 
+  it('drops stale saved backlinks when a directory is replaced by an outside junction', async() => {
+    const root = await createWorkspace()
+    const outside = await createWorkspace()
+    const notes = path.join(root, 'notes')
+    const source = path.join(notes, 'source.md')
+    const target = path.join(root, 'target.md')
+    await fs.mkdir(notes)
+    await fs.writeFile(source, '[Target](../target.md)')
+    await fs.writeFile(target, '# Target')
+    await fs.writeFile(path.join(outside, 'source.md'), '# Outside')
+
+    const service = new DocumentIntelligenceService({ historyRootPath: path.join(root, '.history') })
+    await service.indexWorkspace(root)
+    expect(service.getBacklinks(target)).toHaveLength(1)
+    await fs.rename(notes, path.join(root, 'old-notes'))
+    await fs.symlink(outside, notes, 'junction')
+
+    await service.refreshWorkspaceFile(source)
+    expect(service.getBacklinks(target)).toHaveLength(0)
+  })
+
   it('preserves an external edit that completes during an older full scan', async() => {
     const root = await createWorkspace()
     const target = path.join(root, 'target.md')

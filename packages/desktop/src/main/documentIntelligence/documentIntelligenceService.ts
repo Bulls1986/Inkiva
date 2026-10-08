@@ -255,12 +255,20 @@ export class DocumentIntelligenceService {
     let markdown: string | null
     try {
       const info = await lstat(absolute)
-      if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_INDEX_FILE_BYTES) {
+      if (info.isSymbolicLink()) {
+        // A formerly indexed source can be replaced by a symlink. Stop
+        // contributing its saved backlinks rather than retaining stale data.
+        markdown = null
+      } else if (!info.isFile() || info.size > MAX_INDEX_FILE_BYTES) {
         throw new Error('Workspace file cannot be indexed safely')
+      } else {
+        const [actualRoot, actualFile] = await Promise.all([realpath(root), realpath(absolute)])
+        // Parent directory junctions can replace ordinary directories even
+        // when the Markdown entry itself is still a regular file.
+        markdown = isWithinDirectory(actualRoot, actualFile)
+          ? await this.files.readFile(absolute)
+          : null
       }
-      const [actualRoot, actualFile] = await Promise.all([realpath(root), realpath(absolute)])
-      if (!isWithinDirectory(actualRoot, actualFile)) return
-      markdown = await this.files.readFile(absolute)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       markdown = null
