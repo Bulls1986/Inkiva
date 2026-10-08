@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import type Format from '../format';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Muya } from '../../../muya';
 
 describe('v06-03 transactional Markdown link destination', () => {
@@ -24,7 +24,7 @@ describe('v06-03 transactional Markdown link destination', () => {
         host.remove();
     });
 
-    it('inserts a selected label and encoded destination in one Undo operation', () => {
+    it('inserts a selected label and encoded destination in one Undo operation', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);
         const muya = new Muya(host, { markdown: 'read here' });
@@ -41,6 +41,9 @@ describe('v06-03 transactional Markdown link destination', () => {
             block.format('link', './docs/README%20v2.md');
         });
         expect(block.text).toBe('[read](./docs/README%20v2.md) here');
+        await vi.waitFor(() => {
+            expect(muya.getMarkdown().trim()).toBe('[read](./docs/README%20v2.md) here');
+        });
         muya.undo();
         expect(muya.getMarkdown().trim()).toBe('read here');
         muya.destroy();

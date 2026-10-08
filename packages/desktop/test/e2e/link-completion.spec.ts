@@ -45,6 +45,15 @@ test.describe('V06-03 / Ctrl+K workspace Markdown link completion', () => {
       await expect(page.locator('.ag-link-completion-option')).toContainText([
         './docs/README.md'
       ])
+      // IME confirmation Enter must not select a candidate or mutate Markdown.
+      const destinationInput = page.locator('.ag-link-completion-input')
+      await destinationInput.evaluate((node) =>
+        node.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true })))
+      await destinationInput.press('Enter')
+      await expect(page.locator('.ag-link-completion-dialog')).toBeVisible()
+      expect((await getMarkdownContent(page, app)).trim()).toBe('Guide')
+      await destinationInput.evaluate((node) =>
+        node.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true })))
       await page.locator('.ag-link-completion-input').press('Escape')
       await expect(page.locator('.ag-link-completion-list')).toHaveCount(0)
       await expect(page.locator('.ag-link-completion-dialog')).toBeVisible()
