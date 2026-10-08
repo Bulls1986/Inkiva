@@ -52,6 +52,21 @@ jobs:
       - name: Build app
         run: pnpm build
 
+      # Temporary capture-only path on the v0.5 baseline branch.
+      # Candidate images are uploaded for review, not accepted in the repo.
+      - name: Capture v0.5 visual candidates for review
+        if: github.head_ref == 'chore/v05-visual-baseline'
+        run: |
+          xvfb-run --auto-servernum pnpm --filter inkiva exec playwright test test/e2e/visual-regression.spec.ts --config=test/e2e/playwright.config.ts --update-snapshots
+
+      - name: Upload unapproved v0.5 visual candidates
+        if: always() && github.head_ref == 'chore/v05-visual-baseline'
+        uses: actions/upload-artifact@v4
+        with:
+          name: v05-visual-candidate-snapshots
+          path: packages/desktop/test/e2e/visual-regression.spec.ts-snapshots/*.png
+          if-no-files-found: error
+
       - name: Run E2E Tests
         run: xvfb-run --auto-servernum pnpm test:e2e
 
