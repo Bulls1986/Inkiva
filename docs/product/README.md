@@ -14,6 +14,6 @@ This directory contains durable product contracts and resumable implementation r
 - [US05 — Workspace / Session Restore](US05-WORKSPACE-RESTORE.md)
 - [US07 — Restore Editing Continuity](US07-RESTORE-EDITING-CONTINUITY.md)
 
-## Loading rule
+## v0.6.0 interaction contracts (pending adoption)\n\n- [V06-01 — Link, Path and Navigation Contract](V0.6-LINK-NAVIGATION-CONTRACT.md) — standard relative links, candidate insertion, deliberate navigation, workspace backlinks, broken-link diagnostics and rename/move safety. Proposed normative contract; adopt when its PR merges.\n\n## Loading rule
 
 Open the interaction contract when work changes user-observable desktop editing behavior. Open individual US records only when implementing, auditing, or resuming that story.
