@@ -2,7 +2,7 @@
 
 [Back to Correctness index](README.md) · [Testing contract](../agent/TESTING.md)
 
-Status: **integration in progress on current develop; focused Red → Green verified**
+Status: **US11 acceptance complete on reviewed PR #220; final merge/ref verification recorded separately**
 Original implementation: `feat/us11-structured-block-keyboard@7512c4c`
 Integration branch: `feat/v0.5-us11-integration`
 Integration base: `develop@4e4ae4a7`
@@ -135,4 +135,13 @@ The original US11 branch completed its original focused scope, but commit `7512c
 - Compatibility review targets the already-merged US13 operation-oriented Undo grouping, US08 IME composition, US14 Source/WYSIWYG round-trip, US12/table P1 and the newer caret/selection contracts. The focused Red/Green proves the missing US11 semantics, while the complete integration gates remain necessary before final closeout.
 - Architecture ownership review: document block tree semantics and user-initiated Undo boundaries remain inside Muya; editor runtime, IPC, virtual surface, renderer projection, and shared API boundaries are unchanged. Follow the established `docs/architecture/SELECTION-MAPPING-CONTRACT.md` for any later caret regressions rather than adding ad hoc DOM mapping.
 
-Remaining before closure: the final PR CI including desktop E2E/unit and Windows/macOS package checks, squash merge to `develop`, and verification of the authoritative merged ref. Do not claim unobserved gate results.
+### Final PR acceptance — 2026-10-08
+
+- PR [#220](https://github.com/Bulls1986/Inkiva/pull/220), executable head `0bcb28571535e72ceeb1ca64a1c051ea862080f7`. Full Desktop E2E **passed (12m30s)**, Desktop unit tests and lint **passed**.
+- Muya unit, lint, build, CommonMark/GFM spec, Chromium E2E and circular dependency checks all **passed** on the same executable head.
+- Desktop PR Fast Performance Gate **passed with original thresholds and workload**; it is the required PR smoke gate, not a replacement for the separate v0.5 reference release gate.
+- PR Build Windows x64, macOS x64 and macOS ARM64 **all passed**, followed by **three passing package smoke jobs**, updater artifact smoke and artifact-link output.
+- Initial PR Build failure was a registry.npmjs.org dependency download `ERR_SOCKET_TIMEOUT` on macOS Intel during setup, before compilation. GitHub consequently cancelled Windows build because of the matrix fail-fast strategy. One explicitly controlled whole-workflow rerun (same commit, no changes to source or CI policy) passed all three builds and all downstream artifact gates. This is **CI infrastructure/transient network** evidence, not a product-red signal; failed history remains visible in run [37713634038](https://github.com/Bulls1986/Inkiva/actions/runs/37713634038).
+- Local green integration remains: 7 focused test files / 39 passing tests, 257 package-wide Muya test files / 1731 passing tests, 2/2 new real Electron keyboard cases, 16/16 adjacent Electron tests, root typecheck and desktop build. No acceptance assertions were weakened.
+
+Only the repository merge/remote-ref verification remains. This documentation-only CI evidence update changes no executable or workflow file; its follow-up commit uses the repository-approved `[skip ci]` convention without claiming checks ran on new executable content.
