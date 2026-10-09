@@ -89,3 +89,87 @@ jobs:
             packages/desktop/test-results/perf-results/fast/
           if-no-files-found: error
           retention-days: 14
+
+  issue232-frame-ab:
+    name: 'Issue #232 temporary cold-frame graphics A/B/A'
+    if: github.event_name == 'pull_request' && github.head_ref == 'fix/issue-232-perf-trace-identity'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4.3.1
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libx11-dev libxkbfile-dev libsecret-1-dev libfontconfig-dev \
+            xvfb libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+            libdrm2 libgtk-3-0 libgbm1 libasound2t64
+
+      - uses: ./.github/actions/setup
+
+      - name: Validate fast performance contracts
+        run: pnpm test:perf:fast
+
+      - name: Run postinstall
+        run: pnpm tsx scripts/postinstall.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm_config_user_agent: pnpm
+          USE_ELECTRON_CLANG: '0'
+
+      - name: Build app once for all three variants
+        run: pnpm build
+
+      - name: Serial default / OpenGL / default full 20-sample diagnostics
+        shell: bash
+        run: |
+          failed=0
+          for variant in default-1 opengl default-2; do
+            if [ "$variant" = "opengl" ]; then
+              export INKIVA_PERF_GRAPHICS_BACKEND=opengl
+            else
+              unset INKIVA_PERF_GRAPHICS_BACKEND
+            fi
+            export INKIVA_PERF_REPORT_DIR="${{ github.workspace }}/packages/desktop/test-results/perf-results/issue232-$variant"
+            mkdir -p "$INKIVA_PERF_REPORT_DIR" "perf-results/issue232-$variant"
+            echo "Issue #232 backend variant: $variant"
+            if ! xvfb-run --auto-servernum pnpm test:e2e:perf:fast; then
+              echo "::error::Issue #232 $variant Electron collector failed"
+              failed=1
+            fi
+            if [ -f "$INKIVA_PERF_REPORT_DIR/fast.raw.json" ]; then
+              if ! pnpm exec tsx perf/soak/fast-runner.ts \
+                --input packages/desktop/test-results/perf-results/issue232-$variant/fast.raw.json \
+                --thresholds perf/soak/thresholds-fast.json \
+                --output perf-results/issue232-$variant/fast-evaluation.json \
+                --report-output perf-results/issue232-$variant/fast-report.json; then
+                echo "::error::Issue #232 $variant strict evaluator failed"
+                failed=1
+              fi
+            else
+              echo "::error::Issue #232 $variant raw report missing"
+              failed=1
+            fi
+          done
+          exit "$failed"
+        env:
+          INKIVA_PERF_MODE: 'pr-smoke'
+          INKIVA_RUN_PERF_FAST_GATE: 'true'
+          INKIVA_PERF_CAPTURE: 'true'
+          INKIVA_PERF_OFFLINE: 'true'
+          INKIVA_PERF_RUNNER_LABEL: 'fast-pr-smoke'
+          INKIVA_PERF_SAMPLE_INTERVAL_MS: '250'
+          INKIVA_PERF_MAX_RENDERER_EVENTS: '50000'
+          INKIVA_PERF_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+
+      - name: Upload unpooled issue 232 backend observations
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: issue232-first-frame-backend-aba
+          path: |
+            perf-results/issue232-*/
+            packages/desktop/test-results/perf-results/issue232-*/
+          if-no-files-found: error
+          retention-days: 14
