@@ -400,7 +400,8 @@ class EditorWindow extends BaseWindow {
       if (requestedFragment) {
         this._linkNavigationIntents.request(openingKey, requestedFragment, {
           documentId: options.navigationSourceId as string | undefined,
-          revision: options.navigationSourceRevision as number | undefined
+          revision: options.navigationSourceRevision as number | undefined,
+          interactionRevision: options.navigationSourceInteractionRevision as number | undefined
         })
       } else if (selected) {
         this._linkNavigationIntents.supersede()
@@ -416,7 +417,8 @@ class EditorWindow extends BaseWindow {
           openedPath,
           intent?.fragment,
           intent?.sourceDocumentId,
-          intent?.sourceRevision
+          intent?.sourceRevision,
+          intent?.sourceInteractionRevision
         )
         continue
       }
@@ -446,7 +448,8 @@ class EditorWindow extends BaseWindow {
             ...options,
             navigationFragment: intent?.fragment,
             navigationSourceId: intent?.sourceDocumentId,
-            navigationSourceRevision: intent?.sourceRevision
+            navigationSourceRevision: intent?.sourceRevision,
+            navigationSourceInteractionRevision: intent?.sourceInteractionRevision
           }
           const shouldSelect = selected && !isSupersededLink
           if (this.lifecycle === WindowLifecycle.READY) {

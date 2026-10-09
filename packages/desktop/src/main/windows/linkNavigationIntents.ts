@@ -3,6 +3,7 @@ export interface LinkNavigationRequest {
   fragment: string
   sourceDocumentId?: string
   sourceRevision?: number
+  sourceInteractionRevision?: number
 }
 
 export class LinkNavigationIntents {
@@ -12,13 +13,14 @@ export class LinkNavigationIntents {
   request(
     pathKey: string,
     fragment: string,
-    source?: { documentId?: string; revision?: number }
+    source?: { documentId?: string; revision?: number; interactionRevision?: number }
   ): void {
     this.byPath.set(pathKey, {
       sequence: ++this.sequence,
       fragment,
       sourceDocumentId: source?.documentId,
-      sourceRevision: source?.revision
+      sourceRevision: source?.revision,
+      sourceInteractionRevision: source?.interactionRevision
     })
   }
 
@@ -33,7 +35,9 @@ export class LinkNavigationIntents {
     return {
       fragment: request.fragment,
       ...(request.sourceDocumentId !== undefined ? { sourceDocumentId: request.sourceDocumentId } : {}),
-      ...(request.sourceRevision !== undefined ? { sourceRevision: request.sourceRevision } : {})
+      ...(request.sourceRevision !== undefined ? { sourceRevision: request.sourceRevision } : {}),
+      ...(request.sourceInteractionRevision !== undefined
+        ? { sourceInteractionRevision: request.sourceInteractionRevision } : {})
     }
   }
 

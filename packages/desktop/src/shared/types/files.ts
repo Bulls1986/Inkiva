@@ -122,6 +122,7 @@ export interface TabOptions {
   navigationFragment?: string
   navigationSourceId?: string
   navigationSourceRevision?: number
+  navigationSourceInteractionRevision?: number
   [key: string]: unknown
 }
 

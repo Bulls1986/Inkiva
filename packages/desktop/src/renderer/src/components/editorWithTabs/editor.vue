@@ -299,7 +299,9 @@ import { createInputParseProbe } from '@/services/performance/inputParse'
 import { scheduleEditorPerformanceMilestones } from './editorPerformanceMilestones'
 import {
   getEditorScrollInteractionRevision,
-  markEditorScrollInteraction
+  markEditorScrollInteraction,
+  getExplicitEditorInteractionRevision,
+  markExplicitEditorInteractionRevision
 } from '@/services/editorInteraction'
 import { BACKGROUND_PRIORITY, BackgroundTaskScheduler } from '@/util/backgroundScheduler'
 import { LinkCompletionSession } from '@/services/linkCompletion'
@@ -2535,7 +2537,6 @@ const refreshEditorToc = (force = true): void => {
 // the user has not expressed a newer interaction intent. Document identity alone
 // is insufficient: a slow progressive render can finish after the user already
 // clicked, typed or scrolled somewhere else in the same document.
-let editorInteractionRevision = 0
 // A viewport scroll intentionally decouples the caret from the reading
 // position. Do not let a later engine/init selection-change pull the viewport
 // back to that offscreen caret. Pointer/keyboard caret intent reconnects the
@@ -2545,7 +2546,7 @@ let suppressCaretVisibilityAfterScroll = false
 const editorInteractionEvents = ['pointerdown', 'mousedown', 'touchstart', 'keydown', 'wheel'] as const
 const markExplicitEditorInteraction = (event: Event): void => {
   if (!event.isTrusted) return
-  editorInteractionRevision += 1
+  markExplicitEditorInteractionRevision()
   if (event.type !== 'wheel' && event.type !== 'touchstart') {
     suppressCaretVisibilityAfterScroll = false
   }
@@ -2569,9 +2570,9 @@ const runWhenEditorRenderCompleteUnlessUserMoved = (
   id: string | undefined,
   callback: (instance: MuyaInstance) => void
 ): void => {
-  const interactionRevision = editorInteractionRevision
+  const interactionRevision = getExplicitEditorInteractionRevision()
   runWhenEditorRenderComplete(id, (instance) => {
-    if (editorInteractionRevision !== interactionRevision) return
+    if (getExplicitEditorInteractionRevision() !== interactionRevision) return
     callback(instance)
   })
 }

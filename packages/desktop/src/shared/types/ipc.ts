@@ -270,6 +270,7 @@ export interface IpcSendChannels {
     dirname: string
     sourceDocumentId?: string
     sourceRevision?: number
+    sourceInteractionRevision?: number
   }]
   'mt::get-current-language': []
   'mt::handle-renderer-error': [error: unknown]
@@ -455,7 +456,8 @@ export interface IpcMainEventChannels {
     filePath: string,
     navigationFragment?: string,
     navigationSourceId?: string,
-    navigationSourceRevision?: number
+    navigationSourceRevision?: number,
+    navigationSourceInteractionRevision?: number
   ]
   'mt::switch-tab-by-index': [index: number]
   'mt::tab-save-failure': [tabId: string, message: string, revision?: number]

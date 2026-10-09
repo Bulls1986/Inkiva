@@ -742,9 +742,10 @@ interface FormatLinkPayload {
   dirname?: string
   sourceDocumentId?: string
   sourceRevision?: number
+  sourceInteractionRevision?: number
 }
 
-ipcMain.on('mt::format-link-click', async(e, { data, dirname, sourceDocumentId, sourceRevision }: FormatLinkPayload) => {
+ipcMain.on('mt::format-link-click', async(e, { data, dirname, sourceDocumentId, sourceRevision, sourceInteractionRevision }: FormatLinkPayload) => {
   if (!data || (!data.href && !data.text)) {
     return
   }
@@ -813,7 +814,8 @@ ipcMain.on('mt::format-link-click', async(e, { data, dirname, sourceDocumentId, 
             ? {
               navigationFragment: destination.fragment,
               navigationSourceId: sourceDocumentId,
-              navigationSourceRevision: sourceRevision
+              navigationSourceRevision: sourceRevision,
+              navigationSourceInteractionRevision: sourceInteractionRevision
             }
             : {}
         )

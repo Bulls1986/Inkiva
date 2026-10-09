@@ -46,6 +46,7 @@ import type {
 } from '@shared/types/files'
 import type { RenameRepairPathKind } from '@shared/types/documentIntelligence'
 import { isLinkNavigationOriginCurrent } from '@shared/linkNavigationOrigin'
+import { getExplicitEditorInteractionRevision } from '@/services/editorInteraction'
 
 // ----------------------------------------------------------------------------
 // Local helper types
@@ -782,7 +783,8 @@ export const useEditorStore = defineStore('editor', {
         data,
         dirname,
         sourceDocumentId: this.currentFile?.id,
-        sourceRevision: this.currentFile ? getDocumentRevision(this.currentFile.id) : undefined
+        sourceRevision: this.currentFile ? getDocumentRevision(this.currentFile.id) : undefined,
+        sourceInteractionRevision: getExplicitEditorInteractionRevision()
       })
     },
 
@@ -1701,8 +1703,10 @@ export const useEditorStore = defineStore('editor', {
       })
       window.electron.ipcRenderer.on(
         'mt::switch-tab-by-file_path',
-        (_, filePath, fragment, navigationSourceId, navigationSourceRevision) => {
-          this.SWITCH_TAB_BY_FILEPATH(filePath, fragment, navigationSourceId, navigationSourceRevision)
+        (_, filePath, fragment, navigationSourceId, navigationSourceRevision, navigationSourceInteractionRevision) => {
+          this.SWITCH_TAB_BY_FILEPATH(
+            filePath, fragment, navigationSourceId, navigationSourceRevision, navigationSourceInteractionRevision
+          )
         }
       )
     },
@@ -2004,13 +2008,21 @@ export const useEditorStore = defineStore('editor', {
     },
 
     IS_LINK_NAVIGATION_CURRENT(options: TabOptions): boolean {
-      const { navigationSourceId, navigationSourceRevision } = options
+      const { navigationSourceId, navigationSourceRevision, navigationSourceInteractionRevision } = options
       const expected =
         navigationSourceId && typeof navigationSourceRevision === 'number'
-          ? { documentId: navigationSourceId, revision: navigationSourceRevision }
+          ? {
+            documentId: navigationSourceId,
+            revision: navigationSourceRevision,
+            interactionRevision: navigationSourceInteractionRevision
+          }
           : null
       const active = this.currentFile
-        ? { documentId: this.currentFile.id, revision: getDocumentRevision(this.currentFile.id) }
+        ? {
+          documentId: this.currentFile.id,
+          revision: getDocumentRevision(this.currentFile.id),
+          interactionRevision: getExplicitEditorInteractionRevision()
+        }
         : null
       return isLinkNavigationOriginCurrent(expected, active)
     },
@@ -2019,11 +2031,12 @@ export const useEditorStore = defineStore('editor', {
       filePath: string,
       navigationFragment?: string,
       navigationSourceId?: string,
-      navigationSourceRevision?: number
+      navigationSourceRevision?: number,
+      navigationSourceInteractionRevision?: number
     ): void {
       const { tabs } = this
       if (navigationFragment && !this.IS_LINK_NAVIGATION_CURRENT({
-        navigationSourceId, navigationSourceRevision
+        navigationSourceId, navigationSourceRevision, navigationSourceInteractionRevision
       })) return
 
       if (!filePath) {
@@ -2177,6 +2190,7 @@ export const useEditorStore = defineStore('editor', {
       delete persistentOptions.navigationFragment
       delete persistentOptions.navigationSourceId
       delete persistentOptions.navigationSourceRevision
+      delete persistentOptions.navigationSourceInteractionRevision
       const docState = createDocumentState(
         Object.assign(
           {},

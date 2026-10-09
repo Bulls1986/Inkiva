@@ -22,6 +22,15 @@ test('LINK-AC06: newest click carries its own source revision across in-flight l
   assert.equal(pending.consumeRequest('guide.md'), null)
 })
 
+test('LINK-AC06: latest user gesture token is preserved with the queued link', () => {
+  const pending = new LinkNavigationIntents()
+  pending.request('guide.md', 'old', { documentId: 'source', revision: 1, interactionRevision: 4 })
+  pending.request('guide.md', 'new', { documentId: 'source', revision: 1, interactionRevision: 8 })
+  assert.deepEqual(pending.consumeRequest('guide.md'), {
+    fragment: 'new', sourceDocumentId: 'source', sourceRevision: 1, sourceInteractionRevision: 8
+  })
+})
+
 test('LINK-AC06: later target takes precedence over slow earlier file loading', () => {
   const pending = new LinkNavigationIntents()
   pending.request('a.md', 'old')
