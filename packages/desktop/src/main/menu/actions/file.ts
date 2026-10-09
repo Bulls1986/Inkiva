@@ -13,6 +13,7 @@ import log from 'electron-log'
 import { isDirectory, isFile, exists } from 'common/filesystem'
 import {
   MARKDOWN_EXTENSIONS,
+  hasMarkdownExtension,
   isDangerousExecutableFile,
   isMarkdownFile
 } from 'common/filesystem/paths'
@@ -792,6 +793,16 @@ ipcMain.on('mt::format-link-click', async(e, { data, dirname, sourceDocumentId, 
 
   if (pathname) {
     pathname = path.normalize(pathname)
+    // isMarkdownFile requires an existing file. A missing .md target must not
+    // fall through to shell.openPath (where errors are not surfaced to the editor).
+    if (hasMarkdownExtension(pathname) && !isMarkdownFile(pathname)) {
+      win.webContents.send('mt::show-notification', {
+        title: 'Cannot open linked document',
+        type: 'error',
+        message: `The link target could not be opened: ${path.basename(pathname)}. Your document was not changed.`
+      })
+      return
+    }
     if (isMarkdownFile(pathname)) {
       const innerWin = BrowserWindow.fromWebContents(e.sender)
       if (innerWin) {

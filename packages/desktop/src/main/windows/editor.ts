@@ -398,7 +398,10 @@ class EditorWindow extends BaseWindow {
           ? options.navigationFragment
           : null
       if (requestedFragment) {
-        this._linkNavigationIntents.request(openingKey, requestedFragment)
+        this._linkNavigationIntents.request(openingKey, requestedFragment, {
+          documentId: options.navigationSourceId as string | undefined,
+          revision: options.navigationSourceRevision as number | undefined
+        })
       } else if (selected) {
         this._linkNavigationIntents.supersede()
       }
@@ -407,13 +410,13 @@ class EditorWindow extends BaseWindow {
         (pathname) => this._getOpeningPathKey(pathname) === openingKey
       )
       if (openedPath) {
-        const fragment = this._linkNavigationIntents.consume(openingKey)
+        const intent = this._linkNavigationIntents.consumeRequest(openingKey)
         browserWindow!.webContents.send(
           'mt::switch-tab-by-file_path',
           openedPath,
-          fragment ?? undefined,
-          fragment ? options.navigationSourceId as string | undefined : undefined,
-          fragment ? options.navigationSourceRevision as number | undefined : undefined
+          intent?.fragment,
+          intent?.sourceDocumentId,
+          intent?.sourceRevision
         )
         continue
       }
@@ -437,9 +440,14 @@ class EditorWindow extends BaseWindow {
         autoNormalizeLineEndings
       )
         .then((rawDocument) => {
-          const fragment = this._linkNavigationIntents.consume(openingKey)
-          const isSupersededLink = !!options.navigationFragment && !fragment
-          const nextOptions = { ...options, navigationFragment: fragment ?? undefined }
+          const intent = this._linkNavigationIntents.consumeRequest(openingKey)
+          const isSupersededLink = !!options.navigationFragment && !intent
+          const nextOptions = {
+            ...options,
+            navigationFragment: intent?.fragment,
+            navigationSourceId: intent?.sourceDocumentId,
+            navigationSourceRevision: intent?.sourceRevision
+          }
           const shouldSelect = selected && !isSupersededLink
           if (this.lifecycle === WindowLifecycle.READY) {
             this._doOpenTab(rawDocument, nextOptions, shouldSelect)
