@@ -15,6 +15,7 @@ import type { BufferStoreState } from '../editorBufferStore/restore'
 import { mainPerformance, mainProcessPerformanceMonitor } from '../performance/runtime'
 import { canonicalPathKey } from '../session/pathCanonicalizer'
 import { createBlankRestorePlan, type RestorePlan } from '../session/restorePlan'
+import { LinkNavigationIntents } from './linkNavigationIntents'
 
 type RawMarkdownDocument = Awaited<ReturnType<typeof loadMarkdownFile>>
 
@@ -57,6 +58,7 @@ class EditorWindow extends BaseWindow {
   private _openedRootDirectory: string | null
   private _openedFiles: string[] | null
   private _openingFiles: Set<string>
+  private readonly _linkNavigationIntents = new LinkNavigationIntents()
   private _initialFilePaths: Set<string>
   private _initialRootDirectories: Set<string>
   private _contentDeferred: boolean
@@ -391,12 +393,28 @@ class EditorWindow extends BaseWindow {
 
     for (const { filePath, options, selected } of fileList) {
       const openingKey = this._getOpeningPathKey(filePath)
+      const requestedFragment =
+        selected && typeof options.navigationFragment === 'string'
+          ? options.navigationFragment
+          : null
+      if (requestedFragment) {
+        this._linkNavigationIntents.request(openingKey, requestedFragment)
+      } else if (selected) {
+        this._linkNavigationIntents.supersede()
+      }
       if (allowInitialPaths) this._initialFilePaths.delete(openingKey)
       const openedPath = this._openedFiles!.find(
         (pathname) => this._getOpeningPathKey(pathname) === openingKey
       )
       if (openedPath) {
-        browserWindow!.webContents.send('mt::switch-tab-by-file_path', openedPath)
+        const fragment = this._linkNavigationIntents.consume(openingKey)
+        browserWindow!.webContents.send(
+          'mt::switch-tab-by-file_path',
+          openedPath,
+          fragment ?? undefined,
+          fragment ? options.navigationSourceId as string | undefined : undefined,
+          fragment ? options.navigationSourceRevision as number | undefined : undefined
+        )
         continue
       }
 
@@ -419,16 +437,21 @@ class EditorWindow extends BaseWindow {
         autoNormalizeLineEndings
       )
         .then((rawDocument) => {
+          const fragment = this._linkNavigationIntents.consume(openingKey)
+          const isSupersededLink = !!options.navigationFragment && !fragment
+          const nextOptions = { ...options, navigationFragment: fragment ?? undefined }
+          const shouldSelect = selected && !isSupersededLink
           if (this.lifecycle === WindowLifecycle.READY) {
-            this._doOpenTab(rawDocument, options, selected)
+            this._doOpenTab(rawDocument, nextOptions, shouldSelect)
           } else if (this._filesToOpen) {
-            this._filesToOpen!.push({ doc: rawDocument, options, selected })
+            this._filesToOpen.push({ doc: rawDocument, options: nextOptions, selected: shouldSelect })
           } else {
             this._openingFiles.delete(openingKey)
           }
         })
         .catch((err: Error) => {
           this._openingFiles.delete(openingKey)
+          this._linkNavigationIntents.discard(openingKey)
           const { message, stack } = err
           log.error(`[ERROR] Cannot open file or directory: ${message}\n\n${stack}`)
           browserWindow!.webContents.send('mt::show-notification', {
@@ -534,6 +557,7 @@ class EditorWindow extends BaseWindow {
     this._openedRootDirectory = ''
     this._openedFiles = []
     this._openingFiles.clear()
+    this._linkNavigationIntents.clear()
     this._initialFilePaths.clear()
     this._initialRootDirectories.clear()
     this._contentDeferred = false
@@ -571,6 +595,7 @@ class EditorWindow extends BaseWindow {
     this._openedRootDirectory = null
     this._openedFiles = null
     this._openingFiles.clear()
+    this._linkNavigationIntents.clear()
     this._initialFilePaths.clear()
     this._initialRootDirectories.clear()
     this._contentDeferred = false

@@ -2576,6 +2576,36 @@ const runWhenEditorRenderCompleteUnlessUserMoved = (
   })
 }
 
+// Link navigation is one-shot: another request, tab replacement or user gesture wins.
+let linkNavigationSerial = 0
+const navigateDocumentFragment = ({
+  pathname,
+  documentId,
+  fragment
+}: {
+  pathname: string
+  documentId: string
+  fragment: string
+}): void => {
+  const serial = ++linkNavigationSerial
+  if (currentFile.value?.id !== documentId || currentFile.value.pathname !== pathname) return
+  runWhenEditorRenderCompleteUnlessUserMoved(documentId, (instance) => {
+    if (serial !== linkNavigationSerial || currentFile.value?.id !== documentId || currentFile.value.pathname !== pathname) return
+    editorStore.UPDATE_TOC(instance.getTOC())
+    const heading = editorStore.listToc.find((item) => item.githubSlug === fragment)
+    const customAnchor = document.getElementById(fragment)
+    if (heading || (customAnchor && instance.domNode.contains(customAnchor))) {
+      editorStore.FORMAT_LINK_CLICK({ data: { href: `#${fragment}` }, dirname: window.DIRNAME })
+      return
+    }
+    notice.notify({
+      title: 'Link destination not found',
+      type: 'warning',
+      message: `The document opened, but #${fragment} was not found. No content was changed.`
+    })
+  })
+}
+
 const refreshEditorTocWhenReady = (id?: string): void => {
   // Large documents now mount their block tree progressively. Reading the TOC
   // before that completes would publish a truncated outline and make the
@@ -2887,6 +2917,7 @@ const handleFileChange = (payload: unknown) => {
   } = (payload ?? {}) as FileChangePayload
   if (!editor.value) return
   if (isStaleEditorEvent(id, currentFile.value?.id)) return
+  linkNavigationSerial += 1
   const container = getScrollContainer()
   invalidateEditorCommandContext(id)
   if (!container) return
@@ -3476,6 +3507,7 @@ onMounted(() => {
   registerBusHandler('deleteParagraph', handleParagraph)
   registerBusHandler('insertParagraph', handleInsertParagraph)
   registerBusHandler('scroll-to-header', scrollToHeader)
+  registerBusHandler('navigate-document-fragment', navigateDocumentFragment)
   registerBusHandler('scroll-to-anchor-element', scrollToAnchorElement)
   registerBusHandler('screenshot-captured', handleScreenShot)
   registerBusHandler('show-command-palette', handleModalOpening)

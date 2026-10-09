@@ -265,7 +265,12 @@ export interface IpcSendChannels {
   'mt::cmd-open-folder': []
   'mt::cmd-toggle-autosave': []
   'mt::editor-selection-changed': [windowId: number, state: unknown]
-  'mt::format-link-click': [payload: { data: unknown; dirname: string }]
+  'mt::format-link-click': [payload: {
+    data: unknown
+    dirname: string
+    sourceDocumentId?: string
+    sourceRevision?: number
+  }]
   'mt::get-current-language': []
   'mt::handle-renderer-error': [error: unknown]
   'mt::keybinding-debug-dump-keyboard-info': []
@@ -446,7 +451,12 @@ export interface IpcMainEventChannels {
   'mt::show-notification': [payload: unknown]
   'mt::spelling-replace-misspelling': [payload: unknown]
   'mt::spelling-show-switch-language': []
-  'mt::switch-tab-by-file_path': [filePath: string]
+  'mt::switch-tab-by-file_path': [
+    filePath: string,
+    navigationFragment?: string,
+    navigationSourceId?: string,
+    navigationSourceRevision?: number
+  ]
   'mt::switch-tab-by-index': [index: number]
   'mt::tab-save-failure': [tabId: string, message: string, revision?: number]
   'mt::tab-saved': [tabId: string, revision?: number]

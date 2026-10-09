@@ -158,6 +158,7 @@ export type BusEvents = {
   'insert-image': string
   insertParagraph: string
   'invalidate-image-cache': undefined
+  'navigate-document-fragment': { pathname: string; documentId: string; fragment: string }
   'language-changed': string
   'mt::editor-ask-file-save': undefined
   'mt::editor-ask-file-save-as': undefined

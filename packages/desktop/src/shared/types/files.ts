@@ -118,6 +118,10 @@ export interface FileChangeDetail {
 
 export interface TabOptions {
   selected?: boolean
+  /** Transient navigation intent; not document content or persisted tab state. */
+  navigationFragment?: string
+  navigationSourceId?: string
+  navigationSourceRevision?: number
   [key: string]: unknown
 }
 

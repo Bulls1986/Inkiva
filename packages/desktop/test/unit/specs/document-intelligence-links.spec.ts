@@ -4,6 +4,7 @@ import { performance } from 'node:perf_hooks'
 
 import {
   isStandardRelativeMarkdownDestination,
+  parseNavigableMarkdownDestination,
   parseStandardRelativeMarkdownLinks
 } from 'main_renderer/documentIntelligence/markdownLinks'
 import {
@@ -60,6 +61,13 @@ describe('standard Markdown link parser', () => {
     })
   })
 
+  it('splits encoded and escaped filenames and Unicode fragments', () => {
+    const resolve = parseNavigableMarkdownDestination
+    expect(resolve('./📘%23Notes.md#quick-start')).toEqual({ pathname: './📘#Notes.md', fragment: 'quick-start' })
+    expect(resolve('./Guide\\#Notes.md')).toEqual({ pathname: './Guide#Notes.md', fragment: null })
+    expect(resolve('./broken%ZZ.md#head')).toBeNull()
+    expect(resolve('./valid.md%00')).toBeNull()
+  })
   it('accepts balanced destinations and rejects non-document targets', () => {
     const links = parseStandardRelativeMarkdownLinks(
       '[Nested](./docs/(draft).md)\n[Escaped](./my\\ file.md)\n[Nope](./readme.txt)'

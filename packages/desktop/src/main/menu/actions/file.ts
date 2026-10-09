@@ -27,6 +27,8 @@ import { getPath, getRecommendTitleFromMarkdownString } from '../../utils'
 import pandoc from '../../utils/pandoc'
 import { t } from '../../i18n'
 import type { UnsavedFile } from '@shared/types/files'
+import type { TabOptions } from '@shared/types/files'
+import { parseNavigableMarkdownDestination } from '../../documentIntelligence/markdownLinks'
 import { getReusableExportPath, type LastExportTarget } from '../../utils/exportTarget'
 
 type Win = BrowserWindow | null | undefined
@@ -737,9 +739,11 @@ ipcMain.on('mt::ask-for-open-project-in-sidebar', async(e) => {
 interface FormatLinkPayload {
   data: { href?: string; text?: string }
   dirname?: string
+  sourceDocumentId?: string
+  sourceRevision?: number
 }
 
-ipcMain.on('mt::format-link-click', async(e, { data, dirname }: FormatLinkPayload) => {
+ipcMain.on('mt::format-link-click', async(e, { data, dirname, sourceDocumentId, sourceRevision }: FormatLinkPayload) => {
   if (!data || (!data.href && !data.text)) {
     return
   }
@@ -771,18 +775,37 @@ ipcMain.on('mt::format-link-click', async(e, { data, dirname }: FormatLinkPayloa
     return
   }
 
-  let pathname = urlCandidate
-  if (dirname && !path.isAbsolute(urlCandidate)) {
-    pathname = path.join(dirname, urlCandidate)
+  const destination = parseNavigableMarkdownDestination(urlCandidate)
+  if (!destination) {
+    win.webContents.send('mt::show-notification', {
+      title: 'Cannot follow link',
+      type: 'error',
+      message: 'The link destination has invalid encoding or an empty path.'
+    })
+    return
+  }
+
+  let pathname = destination.pathname
+  if (dirname && !path.isAbsolute(pathname)) {
+    pathname = path.join(dirname, pathname)
   }
 
   if (pathname) {
-    // decodeURIComponent() CommonMark #503, allow percent encoded path names to open files. https://github.com/Bulls1986/Inkiva/issues/57
-    pathname = path.normalize(decodeURIComponent(pathname))
+    pathname = path.normalize(pathname)
     if (isMarkdownFile(pathname)) {
       const innerWin = BrowserWindow.fromWebContents(e.sender)
       if (innerWin) {
-        openFileOrFolder(innerWin, pathname)
+        openFileOrFolder(
+          innerWin,
+          pathname,
+          destination.fragment
+            ? {
+              navigationFragment: destination.fragment,
+              navigationSourceId: sourceDocumentId,
+              navigationSourceRevision: sourceRevision
+            }
+            : {}
+        )
       }
     } else {
       // A link in an untrusted document could point at a co-located script or
@@ -915,14 +938,25 @@ export const openFolder = async(win: BrowserWindow | null): Promise<void> => {
   }
 }
 
-export const openFileOrFolder = (win: BrowserWindow, pathname: string): void => {
+export const openFileOrFolder = (
+  win: BrowserWindow,
+  pathname: string,
+  options: TabOptions = {}
+): void => {
   const resolvedPath = normalizeAndResolvePath(pathname)
   if (isFile(resolvedPath)) {
-    ipcMain.emit('app-open-file-by-id', win.id, resolvedPath)
+    ipcMain.emit('app-open-file-by-id', win.id, resolvedPath, options)
   } else if (isDirectory(resolvedPath)) {
     ipcMain.emit('app-open-directory-by-id', win.id, resolvedPath)
   } else {
     console.error(`[ERROR] Cannot open unknown file: "${resolvedPath}"`)
+    if (options.navigationFragment) {
+      win.webContents.send('mt::show-notification', {
+        title: 'Cannot open linked document',
+        type: 'error',
+        message: `The link target could not be opened: ${path.basename(resolvedPath)}. Your document was not changed.`
+      })
+    }
   }
 }
 
