@@ -91,7 +91,7 @@ jobs:
           retention-days: 14
 
   issue232-frame-ab:
-    name: 'Issue #232 temporary cold-frame graphics A/B/A'
+    name: 'Issue #232 temporary cold-frame graphics B/A/B'
     if: github.event_name == 'pull_request' && github.head_ref == 'fix/issue-232-perf-trace-identity'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -121,12 +121,12 @@ jobs:
       - name: Build app once for all three variants
         run: pnpm build
 
-      - name: Serial default / OpenGL / default full 20-sample diagnostics
+      - name: Serial OpenGL / default / OpenGL full 20-sample diagnostics
         shell: bash
         run: |
           failed=0
-          for variant in default-1 opengl default-2; do
-            if [ "$variant" = "opengl" ]; then
+          for variant in opengl-1 default opengl-2; do
+            if [[ "$variant" == opengl* ]]; then
               export INKIVA_PERF_GRAPHICS_BACKEND=opengl
             else
               unset INKIVA_PERF_GRAPHICS_BACKEND
@@ -139,8 +139,9 @@ jobs:
               failed=1
             fi
             if [ -f "$INKIVA_PERF_REPORT_DIR/fast.raw.json" ]; then
+              cp "$INKIVA_PERF_REPORT_DIR/fast.raw.json" "perf-results/issue232-$variant/fast.raw.json"
               if ! pnpm exec tsx perf/soak/fast-runner.ts \
-                --input packages/desktop/test-results/perf-results/issue232-$variant/fast.raw.json \
+                --input perf-results/issue232-$variant/fast.raw.json \
                 --thresholds perf/soak/thresholds-fast.json \
                 --output perf-results/issue232-$variant/fast-evaluation.json \
                 --report-output perf-results/issue232-$variant/fast-report.json; then
@@ -167,7 +168,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: issue232-first-frame-backend-aba
+          name: issue232-first-frame-backend-bab
           path: |
             perf-results/issue232-*/
             packages/desktop/test-results/perf-results/issue232-*/
