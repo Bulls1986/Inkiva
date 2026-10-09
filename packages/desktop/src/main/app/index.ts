@@ -1098,15 +1098,20 @@ class App {
       this._openSettingsWindow(category)
     })
 
-    onInternalChannel('app-open-file-by-id', (windowId: number, filePath: string) => {
+    onInternalChannel('app-open-file-by-id', (
+      windowId: number,
+      filePath: string,
+      options: Record<string, unknown> = {}
+    ) => {
       const openFilesInNewWindow =
+        !options.navigationFragment &&
         this._accessor.preferences.getItem<boolean>('openFilesInNewWindow')
       if (openFilesInNewWindow) {
         this._createEditorWindow(null, [filePath])
       } else {
         const editor = this._windowManager.get(windowId) as EditorWindow | undefined
         if (editor) {
-          editor.openTab(filePath, {}, true)
+          editor.openTab(filePath, options, true)
         }
       }
     })

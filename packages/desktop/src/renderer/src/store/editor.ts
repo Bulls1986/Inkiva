@@ -45,6 +45,8 @@ import type {
   UnsavedFile
 } from '@shared/types/files'
 import type { RenameRepairPathKind } from '@shared/types/documentIntelligence'
+import { isLinkNavigationOriginCurrent } from '@shared/linkNavigationOrigin'
+import { getExplicitEditorInteractionRevision } from '@/services/editorInteraction'
 
 // ----------------------------------------------------------------------------
 // Local helper types
@@ -777,7 +779,13 @@ export const useEditorStore = defineStore('editor', {
         return
       }
 
-      window.electron.ipcRenderer.send('mt::format-link-click', { data, dirname })
+      window.electron.ipcRenderer.send('mt::format-link-click', {
+        data,
+        dirname,
+        sourceDocumentId: this.currentFile?.id,
+        sourceRevision: this.currentFile ? getDocumentRevision(this.currentFile.id) : undefined,
+        sourceInteractionRevision: getExplicitEditorInteractionRevision()
+      })
     },
 
     LISTEN_SCREEN_SHOT(): void {
@@ -1693,9 +1701,14 @@ export const useEditorStore = defineStore('editor', {
       window.electron.ipcRenderer.on('mt::switch-tab-by-index', (_, index) => {
         this.SWITCH_TAB_BY_INDEX(index)
       })
-      window.electron.ipcRenderer.on('mt::switch-tab-by-file_path', (_, filePath) => {
-        this.SWITCH_TAB_BY_FILEPATH(filePath)
-      })
+      window.electron.ipcRenderer.on(
+        'mt::switch-tab-by-file_path',
+        (_, filePath, fragment, navigationSourceId, navigationSourceRevision, navigationSourceInteractionRevision) => {
+          this.SWITCH_TAB_BY_FILEPATH(
+            filePath, fragment, navigationSourceId, navigationSourceRevision, navigationSourceInteractionRevision
+          )
+        }
+      )
     },
 
     FORCE_CLOSE_TAB(file: IFileState, rememberClosed = true): void {
@@ -1994,8 +2007,37 @@ export const useEditorStore = defineStore('editor', {
       this.UPDATE_CURRENT_FILE(nextTab)
     },
 
-    SWITCH_TAB_BY_FILEPATH(filePath: string): void {
+    IS_LINK_NAVIGATION_CURRENT(options: TabOptions): boolean {
+      const { navigationSourceId, navigationSourceRevision, navigationSourceInteractionRevision } = options
+      const expected =
+        navigationSourceId && typeof navigationSourceRevision === 'number'
+          ? {
+            documentId: navigationSourceId,
+            revision: navigationSourceRevision,
+            interactionRevision: navigationSourceInteractionRevision
+          }
+          : null
+      const active = this.currentFile
+        ? {
+          documentId: this.currentFile.id,
+          revision: getDocumentRevision(this.currentFile.id),
+          interactionRevision: getExplicitEditorInteractionRevision()
+        }
+        : null
+      return isLinkNavigationOriginCurrent(expected, active)
+    },
+
+    SWITCH_TAB_BY_FILEPATH(
+      filePath: string,
+      navigationFragment?: string,
+      navigationSourceId?: string,
+      navigationSourceRevision?: number,
+      navigationSourceInteractionRevision?: number
+    ): void {
       const { tabs } = this
+      if (navigationFragment && !this.IS_LINK_NAVIGATION_CURRENT({
+        navigationSourceId, navigationSourceRevision, navigationSourceInteractionRevision
+      })) return
 
       if (!filePath) {
         console.warn('Invalid file path:', filePath)
@@ -2008,7 +2050,14 @@ export const useEditorStore = defineStore('editor', {
         return
       }
       const next = tabs[nextTabIndex]
-      if (next) this.UPDATE_CURRENT_FILE(next)
+      if (next) {
+        this.UPDATE_CURRENT_FILE(next)
+        if (navigationFragment) {
+          bus.emit('navigate-document-fragment', {
+            pathname: filePath, documentId: next.id, fragment: navigationFragment
+          })
+        }
+      }
     },
 
     SWITCH_TAB_BY_INDEX(nextTabIndex: number): void {
@@ -2104,6 +2153,8 @@ export const useEditorStore = defineStore('editor', {
         selected = true
       }
 
+      const navigationAllowed = this.IS_LINK_NAVIGATION_CURRENT(options)
+      if (options.navigationFragment && !navigationAllowed) selected = false
       const { currentFile, tabs } = this
       const { pathname } = markdownDocument
       if (pathname) useRecentDocumentsStore().RECORD_FILE(pathname)
@@ -2111,12 +2162,17 @@ export const useEditorStore = defineStore('editor', {
         window.fileUtils.isSamePathSync(t.pathname, pathname ?? '')
       )
       if (existingTab) {
-        this.UPDATE_CURRENT_FILE(existingTab)
+        if (selected) this.UPDATE_CURRENT_FILE(existingTab)
+        if (selected && options.navigationFragment && pathname) {
+          bus.emit('navigate-document-fragment', {
+            pathname, documentId: existingTab.id, fragment: options.navigationFragment
+          })
+        }
         return
       }
 
       let keepTabBarState = false
-      if (currentFile) {
+      if (selected && currentFile) {
         const { isSaved, pathname: cfPath } = currentFile
         if (isSaved && !cfPath) {
           keepTabBarState = true
@@ -2129,11 +2185,17 @@ export const useEditorStore = defineStore('editor', {
       }
 
       const { markdown, isMixedLineEndings } = markdownDocument
+      const { navigationFragment } = options
+      const persistentOptions = { ...options }
+      delete persistentOptions.navigationFragment
+      delete persistentOptions.navigationSourceId
+      delete persistentOptions.navigationSourceRevision
+      delete persistentOptions.navigationSourceInteractionRevision
       const docState = createDocumentState(
         Object.assign(
           {},
           markdownDocument as unknown as Record<string, unknown>,
-          options as Record<string, unknown>
+          persistentOptions as Record<string, unknown>
         )
       )
       if (typeof docState.sourceCodeMode !== 'boolean') {
@@ -2148,6 +2210,9 @@ export const useEditorStore = defineStore('editor', {
         // baseline work, but tell the editor not to build the same document a
         // second time.
         bus.emit('file-loaded', { id, markdown, cursor, contentAlreadyLoaded: true })
+        if (navigationFragment && pathname) {
+          bus.emit('navigate-document-fragment', { pathname, documentId: id, fragment: navigationFragment })
+        }
       } else {
         this.tabs.push(docState)
         this.updateTabIdToIndex()

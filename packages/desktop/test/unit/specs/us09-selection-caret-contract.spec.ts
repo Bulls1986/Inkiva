@@ -70,17 +70,19 @@ describe('US09 selection, caret and pointer contract', () => {
 
   it('cancels delayed caret or viewport restoration after a newer trusted user interaction', () => {
     const editor = read('packages/desktop/src/renderer/src/components/editorWithTabs/editor.vue')
+    const interaction = read('packages/desktop/src/renderer/src/services/editorInteraction.ts')
     const interactionHandler = editor.match(
       /const markExplicitEditorInteraction = \(event: Event\): void => \{([\s\S]*?)\n\}/
     )?.[1] ?? ''
 
-    expect(editor).toContain('let editorInteractionRevision = 0')
-    expect(interactionHandler).toContain('editorInteractionRevision += 1')
-    expect(interactionHandler).toMatch(
-      /if \(!event\.isTrusted\) return|if \(event\.isTrusted\) editorInteractionRevision \+= 1/
-    )
+    expect(interaction).toContain('let editorUserInteractionRevision = 0')
+    expect(interaction).toContain('markExplicitEditorInteractionRevision = (): void =>')
+    expect(interaction).toContain('getExplicitEditorInteractionRevision = (): number =>')
+    expect(interactionHandler).toContain('if (!event.isTrusted) return')
+    expect(interactionHandler).toContain('markExplicitEditorInteractionRevision()')
     expect(editor).toContain('runWhenEditorRenderCompleteUnlessUserMoved')
-    expect(editor).toContain('if (editorInteractionRevision !== interactionRevision) return')
+    expect(editor).toContain('const interactionRevision = getExplicitEditorInteractionRevision()')
+    expect(editor).toContain('if (getExplicitEditorInteractionRevision() !== interactionRevision) return')
     expect(editor).toContain('container.addEventListener(eventName, markExplicitEditorInteraction, true)')
     expect(editor).toContain('container.removeEventListener(eventName, markExplicitEditorInteraction, true)')
   })

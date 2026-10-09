@@ -299,7 +299,9 @@ import { createInputParseProbe } from '@/services/performance/inputParse'
 import { scheduleEditorPerformanceMilestones } from './editorPerformanceMilestones'
 import {
   getEditorScrollInteractionRevision,
-  markEditorScrollInteraction
+  markEditorScrollInteraction,
+  getExplicitEditorInteractionRevision,
+  markExplicitEditorInteractionRevision
 } from '@/services/editorInteraction'
 import { BACKGROUND_PRIORITY, BackgroundTaskScheduler } from '@/util/backgroundScheduler'
 import { LinkCompletionSession } from '@/services/linkCompletion'
@@ -2535,7 +2537,6 @@ const refreshEditorToc = (force = true): void => {
 // the user has not expressed a newer interaction intent. Document identity alone
 // is insufficient: a slow progressive render can finish after the user already
 // clicked, typed or scrolled somewhere else in the same document.
-let editorInteractionRevision = 0
 // A viewport scroll intentionally decouples the caret from the reading
 // position. Do not let a later engine/init selection-change pull the viewport
 // back to that offscreen caret. Pointer/keyboard caret intent reconnects the
@@ -2545,7 +2546,7 @@ let suppressCaretVisibilityAfterScroll = false
 const editorInteractionEvents = ['pointerdown', 'mousedown', 'touchstart', 'keydown', 'wheel'] as const
 const markExplicitEditorInteraction = (event: Event): void => {
   if (!event.isTrusted) return
-  editorInteractionRevision += 1
+  markExplicitEditorInteractionRevision()
   if (event.type !== 'wheel' && event.type !== 'touchstart') {
     suppressCaretVisibilityAfterScroll = false
   }
@@ -2569,10 +2570,40 @@ const runWhenEditorRenderCompleteUnlessUserMoved = (
   id: string | undefined,
   callback: (instance: MuyaInstance) => void
 ): void => {
-  const interactionRevision = editorInteractionRevision
+  const interactionRevision = getExplicitEditorInteractionRevision()
   runWhenEditorRenderComplete(id, (instance) => {
-    if (editorInteractionRevision !== interactionRevision) return
+    if (getExplicitEditorInteractionRevision() !== interactionRevision) return
     callback(instance)
+  })
+}
+
+// Link navigation is one-shot: another request, tab replacement or user gesture wins.
+let linkNavigationSerial = 0
+const navigateDocumentFragment = ({
+  pathname,
+  documentId,
+  fragment
+}: {
+  pathname: string
+  documentId: string
+  fragment: string
+}): void => {
+  const serial = ++linkNavigationSerial
+  if (currentFile.value?.id !== documentId || currentFile.value.pathname !== pathname) return
+  runWhenEditorRenderCompleteUnlessUserMoved(documentId, (instance) => {
+    if (serial !== linkNavigationSerial || currentFile.value?.id !== documentId || currentFile.value.pathname !== pathname) return
+    editorStore.UPDATE_TOC(instance.getTOC())
+    const heading = editorStore.listToc.find((item) => item.githubSlug === fragment)
+    const customAnchor = document.getElementById(fragment)
+    if (heading || (customAnchor && instance.domNode.contains(customAnchor))) {
+      editorStore.FORMAT_LINK_CLICK({ data: { href: `#${fragment}` }, dirname: window.DIRNAME })
+      return
+    }
+    notice.notify({
+      title: 'Link destination not found',
+      type: 'warning',
+      message: `The document opened, but #${fragment} was not found. No content was changed.`
+    })
   })
 }
 
@@ -2887,6 +2918,7 @@ const handleFileChange = (payload: unknown) => {
   } = (payload ?? {}) as FileChangePayload
   if (!editor.value) return
   if (isStaleEditorEvent(id, currentFile.value?.id)) return
+  linkNavigationSerial += 1
   const container = getScrollContainer()
   invalidateEditorCommandContext(id)
   if (!container) return
@@ -3476,6 +3508,7 @@ onMounted(() => {
   registerBusHandler('deleteParagraph', handleParagraph)
   registerBusHandler('insertParagraph', handleInsertParagraph)
   registerBusHandler('scroll-to-header', scrollToHeader)
+  registerBusHandler('navigate-document-fragment', navigateDocumentFragment)
   registerBusHandler('scroll-to-anchor-element', scrollToAnchorElement)
   registerBusHandler('screenshot-captured', handleScreenShot)
   registerBusHandler('show-command-palette', handleModalOpening)

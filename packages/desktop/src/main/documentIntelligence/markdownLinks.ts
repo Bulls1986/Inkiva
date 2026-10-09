@@ -205,7 +205,13 @@ const unescapeDestination = (value: string): string => value.replace(/\\([\\()<>
 export const splitMarkdownDestination = (
   destination: string
 ): { path: string; fragment: string } => {
-  const hash = destination.indexOf('#')
+  let hash = -1
+  for (let index = 0; index < destination.length; index += 1) {
+    if (destination[index] === '#' && !isEscaped(destination, index)) {
+      hash = index
+      break
+    }
+  }
   if (hash === -1) return { path: destination, fragment: '' }
   return {
     path: destination.slice(0, hash),
@@ -215,16 +221,35 @@ export const splitMarkdownDestination = (
 
 export const isMarkdownPath = (value: string): boolean => MARKDOWN_PATH_RE.test(value)
 
+/** Split the authored fragment before URI decoding, preserving encoded literal # in filenames. */
+export const parseNavigableMarkdownDestination = (
+  destination: string
+): { pathname: string; fragment: string | null } | null => {
+  const { path: encodedPath, fragment: encodedFragment } = splitMarkdownDestination(destination)
+  if (!encodedPath) return null
+  try {
+    const pathname = decodeURIComponent(unescapeDestination(encodedPath))
+    const fragment = encodedFragment
+      ? decodeURIComponent(unescapeDestination(encodedFragment.slice(1)))
+      : null
+    if (pathname.includes('\0') || fragment?.includes('\0')) return null
+    return { pathname, fragment: fragment || null }
+  } catch {
+    return null
+  }
+}
+
 const isStandardRelativeDestination = (destination: string): boolean => {
-  const { path: linkPath } = splitMarkdownDestination(unescapeDestination(destination))
-  if (!linkPath || linkPath.startsWith('/') || linkPath.startsWith('//')) return false
-  return !URI_SCHEME_RE.test(linkPath)
+  const { path: linkPath } = splitMarkdownDestination(destination)
+  const decodedLinkPath = unescapeDestination(linkPath)
+  if (!decodedLinkPath || decodedLinkPath.startsWith('/') || decodedLinkPath.startsWith('//')) return false
+  return !URI_SCHEME_RE.test(decodedLinkPath)
 }
 
 export const isStandardRelativeMarkdownDestination = (destination: string): boolean => {
   if (!isStandardRelativeDestination(destination)) return false
-  const { path: linkPath } = splitMarkdownDestination(unescapeDestination(destination))
-  return isMarkdownPath(linkPath)
+  const { path: linkPath } = splitMarkdownDestination(destination)
+  return isMarkdownPath(unescapeDestination(linkPath))
 }
 
 export const isStandardRelativeResourceDestination = (destination: string): boolean =>

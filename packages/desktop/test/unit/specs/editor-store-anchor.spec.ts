@@ -32,6 +32,7 @@ vi.mock('@/services/notification', () => ({
 import { useEditorStore } from '@/store/editor'
 import bus from '@/bus'
 import notice from '@/services/notification'
+import { getExplicitEditorInteractionRevision } from '@/services/editorInteraction'
 
 describe('useEditorStore FORMAT_LINK_CLICK (anchor links)', () => {
   beforeEach(() => {
@@ -107,12 +108,16 @@ describe('useEditorStore FORMAT_LINK_CLICK (anchor links)', () => {
     const sendSpy = vi.spyOn(window.electron.ipcRenderer, 'send')
 
     const payload = { data: { href: 'http://x' }, dirname: '/docs' }
+    const interactionRevision = getExplicitEditorInteractionRevision()
     store.FORMAT_LINK_CLICK(payload)
 
     expect(emitSpy).not.toHaveBeenCalledWith('scroll-to-header', expect.anything())
     expect(sendSpy).toHaveBeenCalledWith('mt::format-link-click', {
       data: { href: 'http://x' },
-      dirname: '/docs'
+      dirname: '/docs',
+      sourceDocumentId: undefined,
+      sourceRevision: undefined,
+      sourceInteractionRevision: interactionRevision
     })
   })
 })
