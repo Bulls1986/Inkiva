@@ -28,7 +28,7 @@ This directory contains durable product contracts and resumable implementation r
 
 - [V06-02 — Workspace Link Index / Backlinks](V0.6-WORKSPACE-INDEX-PROGRESS.md) — test-first implementation, index and lifecycle hardening, canonical CI, squash-merge record and deferred V06-13/14 issues.
 - [V06-03 — Link Insertion / Workspace Document Completion](V0.6-LINK-COMPLETION-PROGRESS.md) — accepted stages, Red/Green evidence, typed IPC, UI focus and async-boundary review, and official CI handoff.
-- [V06-04 — Link navigation and target positioning](V0.6-LINK-NAVIGATION-PROGRESS.md) — current branch, Red/Green parsing evidence, provisional file/fragment handoff, open Electron/CI gates and handoff.
+- [V06-04 — Link navigation and target positioning](V0.6-LINK-NAVIGATION-PROGRESS.md) — accepted Red/Green stages, cross-file virtualized heading navigation, stale-intent protections, all latest-head CI gates, and verified PR #235 squash merge.
 
 ## Loading rule
 
