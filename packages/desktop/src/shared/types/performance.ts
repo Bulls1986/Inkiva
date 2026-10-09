@@ -24,6 +24,7 @@ export const PERFORMANCE_EVENT_NAMES = [
   'electron_ready',
   'create_window_start',
   'browser_window_created',
+  'window_shell_visible',
   'load_url_start',
   // Renderer startup
   'renderer_bootstrap_start',

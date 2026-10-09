@@ -14,6 +14,7 @@ describe('performance trace contract', () => {
         'electron_ready',
         'create_window_start',
         'browser_window_created',
+        'window_shell_visible',
         'load_url_start',
         'renderer_bootstrap_start',
         'initial_state_received',

@@ -190,7 +190,16 @@ class EditorWindow extends BaseWindow {
       operationId: performanceOperationId,
       metadata: { windowType: 'editor' }
     })
-    showWindowWhenRendererReady(win, () => this.emit('window-shell-visible'))
+    showWindowWhenRendererReady(win, () => {
+      // Correlate native window mapping with the first browser paint boundary.
+      // A long rAF wait can otherwise be mistaken for slow Muya initialization.
+      mainPerformance.mark('window_shell_visible', {
+        phase: 'startup',
+        operationId: performanceOperationId,
+        metadata: { windowVisible: win?.isVisible() ?? false, windowFocused: win?.isFocused() ?? false }
+      })
+      this.emit('window-shell-visible')
+    })
 
     // Attach load lifecycle handlers before starting navigation, then start the
     // renderer immediately. The lightweight HTML shell can now paint while the
