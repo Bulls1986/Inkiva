@@ -2,6 +2,7 @@ export interface EditorMilestoneTimestamps {
   openStartAt: number
   firstScreenAt: number
   editableAt: number
+  operationId?: string
 }
 
 export interface EditorMilestoneDurations {
@@ -18,11 +19,13 @@ const isFiniteNumber = (value: number): boolean => Number.isFinite(value)
  */
 export const selectEditorMilestoneTimestamps = (
   candidates: readonly EditorMilestoneTimestamps[],
-  minimumOpenStartAt: number
+  minimumOpenStartAt: number,
+  expectedOperationId?: string
 ): EditorMilestoneTimestamps | null => {
   let selected: EditorMilestoneTimestamps | null = null
   for (const candidate of candidates) {
     if (
+      (expectedOperationId !== undefined && candidate.operationId !== expectedOperationId) ||
       !isFiniteNumber(candidate.openStartAt) ||
       !isFiniteNumber(candidate.firstScreenAt) ||
       !isFiniteNumber(candidate.editableAt) ||

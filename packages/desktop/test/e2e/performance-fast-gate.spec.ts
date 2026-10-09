@@ -155,22 +155,23 @@ const recordSample = async(
   metric: string,
   unit: GateUnit,
   value: number,
-  phase: GatePhase = 'editor'
+  phase: GatePhase = 'editor',
+  sampleMetadata?: Record<string, string | number>
 ): Promise<void> => {
   if (!Number.isFinite(value) || value < 0) {
     throw new Error('invalid real performance sample for ' + metric)
   }
   const recorded = await page.evaluate(
-    ({ metricName, metricUnit, metricValue, metricPhase }) => {
+    ({ metricName, metricUnit, metricValue, metricPhase, sampleMetadata }) => {
       const bridge = window.__inkivaPerformanceGate
       if (!bridge) return false
       bridge.recordSample(metricName, metricUnit, metricValue, {
         phase: metricPhase,
-        metadata: { collector: 'fast-real-action' }
+        metadata: { collector: 'fast-real-action', ...(sampleMetadata ?? {}) }
       })
       return true
     },
-    { metricName: metric, metricUnit: unit, metricValue: value, metricPhase: phase }
+    { metricName: metric, metricUnit: unit, metricValue: value, metricPhase: phase, sampleMetadata }
   )
   if (!recorded) throw new Error('renderer performance gate bridge is unavailable')
 }
@@ -658,12 +659,16 @@ const measureElementScrollFps = async(page: Page, selector: string): Promise<num
 const readEditorMilestones = async(
   page: Page,
   minimumOpenStartAt = 0,
+  expectedOperationId?: string,
   timeout = 60_000
 ): Promise<{ timestamps: EditorMilestoneTimestamps; durations: EditorMilestoneDurations }> => {
   try {
     await page.waitForFunction(
-      (minimum) => {
+      ({ minimum, operationId }) => {
         return Array.from(document.querySelectorAll('.editor-component')).some((element) => {
+          if (operationId && element.getAttribute('data-editor-operation-id') !== operationId) {
+            return false
+          }
           const openStartAt = Number(element.getAttribute('data-editor-open-start-at'))
           const firstScreenAt = Number(element.getAttribute('data-editor-first-screen-at'))
           const editableAt = Number(element.getAttribute('data-editor-editable-at'))
@@ -677,7 +682,7 @@ const readEditorMilestones = async(
           )
         })
       },
-      minimumOpenStartAt,
+      { minimum: minimumOpenStartAt, operationId: expectedOperationId },
       { timeout }
     )
   } catch (error) {
@@ -689,6 +694,7 @@ const readEditorMilestones = async(
           editorAttributes: Array.from(document.querySelectorAll('.editor-component')).map(
             (element) => ({
               className: element.className,
+              operationId: element.getAttribute('data-editor-operation-id'),
               openStartAt: element.getAttribute('data-editor-open-start-at'),
               firstScreenAt: element.getAttribute('data-editor-first-screen-at'),
               editableAt: element.getAttribute('data-editor-editable-at')
@@ -712,10 +718,15 @@ const readEditorMilestones = async(
     Array.from(document.querySelectorAll('.editor-component')).map((element) => ({
       openStartAt: Number(element.getAttribute('data-editor-open-start-at')),
       firstScreenAt: Number(element.getAttribute('data-editor-first-screen-at')),
-      editableAt: Number(element.getAttribute('data-editor-editable-at'))
+      editableAt: Number(element.getAttribute('data-editor-editable-at')),
+      operationId: element.getAttribute('data-editor-operation-id') ?? undefined
     }))
   )
-  const timestamps = selectEditorMilestoneTimestamps(candidates, minimumOpenStartAt)
+  const timestamps = selectEditorMilestoneTimestamps(
+    candidates,
+    minimumOpenStartAt,
+    expectedOperationId
+  )
   if (!timestamps) {
     throw new Error('editor milestones no longer match the awaited document-open operation')
   }
@@ -734,19 +745,34 @@ const waitForActiveFile = async(page: Page, filePath: string): Promise<void> => 
   )
 }
 
+const readActiveEditorOperationId = async(page: Page, filePath: string): Promise<string> => {
+  const documentId = await page.evaluate((expectedPath) => {
+    const tab = Array.from(document.querySelectorAll('.tabs-container > li')).find(
+      (element) => element.classList.contains('active') && element.getAttribute('title') === expectedPath
+    )
+    return tab?.getAttribute('data-id')
+  }, filePath)
+  if (!documentId) throw new Error('active benchmark document ID is unavailable: ' + filePath)
+  return 'document-' + documentId
+}
+
 const activateFile = async(
   app: ElectronApplication,
   page: Page,
   filePath: string
-): Promise<EditorMilestoneDurations> => {
+): Promise<{ timestamps: EditorMilestoneTimestamps; durations: EditorMilestoneDurations }> => {
   const startedAt = await page.evaluate(() => performance.now())
   await sendIpcFromRenderer(page, 'mt::open-file', filePath, {})
   await waitForActiveFile(page, filePath)
-  const milestones = await readEditorMilestones(page, startedAt)
+  const milestones = await readEditorMilestones(
+    page,
+    startedAt,
+    await readActiveEditorOperationId(page, filePath)
+  )
   // Keep every sample on the same renderer-owned measurement boundary.
   // startedAt is only a lower bound used to select the new editor instance;
   // the benchmark duration itself starts at the editor's openStartAt milestone.
-  return measureEditorMilestones(milestones.timestamps)
+  return milestones
 }
 
 const readStability = async(
@@ -860,20 +886,36 @@ const collectDocumentSamples = async(
     await installFastGateProbe(page)
     await waitForWorkspaceReady(page)
     await waitForEditor(page, 60_000)
+    await waitForActiveFile(page, fixtures.documents[0] as string)
     await resetFastGateProbe(page)
 
     for (let index = 0; index < fixtures.documents.length; index += 1) {
       const filePath = fixtures.documents[index] as string
-      const milestones = index === 0 ? await readEditorMilestones(page) : undefined
-      const durations = milestones?.durations ?? (await activateFile(app, page, filePath))
+      const milestones = index === 0
+        ? await readEditorMilestones(page, 0, await readActiveEditorOperationId(page, filePath))
+        : await activateFile(app, page, filePath)
+      if (!milestones.timestamps.operationId) {
+        throw new Error('50K sample has no renderer trace operation identity')
+      }
+      const durations = milestones.durations
+      // These DOM timestamps and the operation ID let CI artifacts correlate each
+      // measured sample with the exact renderer trace's document milestones.
+      const sampleIdentity = {
+        operationId: milestones.timestamps.operationId,
+        sampleIndex: index,
+        openStartAtMs: milestones.timestamps.openStartAt,
+        firstScreenAtMs: milestones.timestamps.firstScreenAt,
+        editableAtMs: milestones.timestamps.editableAt
+      }
       await recordSample(
         page,
         'document.50k.firstScreen',
         'ms',
         durations.firstScreenMs,
-        'document-open'
+        'document-open',
+        sampleIdentity
       )
-      await recordSample(page, 'document.50k.editable', 'ms', durations.editableMs, 'document-open')
+      await recordSample(page, 'document.50k.editable', 'ms', durations.editableMs, 'document-open', sampleIdentity)
 
       const inputDuration = await measureInput(page, index)
       await recordSample(page, 'core.input.latency', 'ms', inputDuration, 'editor')

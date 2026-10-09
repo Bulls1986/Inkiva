@@ -247,6 +247,7 @@ const beginDegradedEditorPerformance = (): void => {
   const element = degradedEditorRef.value
   if (!element) return
   const documentId = currentFile.value?.id ?? undefined
+  element.dataset.editorOperationId = degradedOperationId(documentId)
   element.dataset.editorOpenStartAt = String(performance.now())
   delete element.dataset.editorFirstScreenAt
   delete element.dataset.editorInteractiveAt

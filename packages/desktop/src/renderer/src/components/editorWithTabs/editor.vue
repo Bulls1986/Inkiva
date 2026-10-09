@@ -2610,6 +2610,7 @@ const beginEditorPerformanceOperation = (documentId?: string): void => {
   editorUiPluginScheduler.setInteractivePending(true)
   const element = getEditorPerformanceElement()
   if (element) {
+    element.dataset.editorOperationId = editorPerformanceOperationId(documentId)
     element.dataset.editorOpenStartAt = String(performance.now())
     delete element.dataset.editorFirstScreenAt
     delete element.dataset.editorInteractiveAt
