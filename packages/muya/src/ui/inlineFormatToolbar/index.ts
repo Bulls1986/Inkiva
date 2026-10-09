@@ -49,6 +49,10 @@ const NON_EDITING_KEYS = new Set([
     'Tab',
 ]);
 
+interface IInlineFormatToolbarOptions extends IBaseOptions {
+    requestLink?: () => boolean;
+}
+
 /**
  * Inline format toolbar for text formatting
  * Provides quick access to text formatting options like bold, italic, etc.
@@ -70,7 +74,7 @@ export class InlineFormatToolbar extends BaseFloat {
     private _formats: Token[] = [];
 
     /** Toolbar configuration options */
-    public override options: IBaseOptions;
+    public override options: IInlineFormatToolbarOptions;
 
     /** Format tool icons configuration */
     private _icons: FormatToolIcon[] = icons;
@@ -83,7 +87,7 @@ export class InlineFormatToolbar extends BaseFloat {
      * @param muya - Muya editor instance
      * @param options - Toolbar options
      */
-    constructor(muya: Muya, options = {}) {
+    constructor(muya: Muya, options: Partial<IInlineFormatToolbarOptions> = {}) {
         const name = 'mu-format-picker';
         const opts = Object.assign({}, defaultOptions, options);
         super(muya, name, opts);
@@ -190,11 +194,14 @@ export class InlineFormatToolbar extends BaseFloat {
         shiftKey: boolean,
         anchorBlock: Format,
     ) {
-        const shortcuts = shiftKey ? FORMAT_SHORTCUTS_SHIFT : FORMAT_SHORTCUTS;
-        const formatType = shortcuts[key as keyof typeof shortcuts];
+        const formatType = shiftKey
+            ? FORMAT_SHORTCUTS_SHIFT[key as keyof typeof FORMAT_SHORTCUTS_SHIFT]
+            : FORMAT_SHORTCUTS[key as keyof typeof FORMAT_SHORTCUTS];
 
         if (formatType) {
             event.preventDefault();
+            if (formatType === 'link' && this.options.requestLink?.())
+                return;
             anchorBlock.format(formatType);
         }
     }
@@ -277,6 +284,10 @@ export class InlineFormatToolbar extends BaseFloat {
             { offset: focus.offset, block: focusBlock, path: focusPath },
         );
 
+        if (item.type === 'link' && this.options.requestLink?.()) {
+            this.hide();
+            return;
+        }
         this._block!.format(item.type);
 
         // Hide toolbar for link and image, re-render for other formats

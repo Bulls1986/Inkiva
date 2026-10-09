@@ -380,6 +380,8 @@ const documentIntelligenceAPI = {
     invoke(DOCUMENT_INTELLIGENCE_CHANNELS.getBacklinks, targetPath),
   getLinkCandidates: (sourcePath: string, pathnames: string[]) =>
     invoke(DOCUMENT_INTELLIGENCE_CHANNELS.getLinkCandidates, sourcePath, pathnames),
+  searchWorkspaceLinkCandidates: (sourcePath: string, query: string) =>
+    invoke(DOCUMENT_INTELLIGENCE_CHANNELS.searchWorkspaceLinkCandidates, sourcePath, query),
   prepareRenameRepair: (request: PrepareRenameRepairRequest) =>
     invoke(DOCUMENT_INTELLIGENCE_CHANNELS.prepareRenameRepair, request),
   applyRenameRepair: (request: ApplyRenameRepairRequest) =>

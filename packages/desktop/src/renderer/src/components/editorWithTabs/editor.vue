@@ -8,6 +8,82 @@
       ref="editorRef"
       class="editor-component"
     />
+    <el-dialog
+      v-model="linkCompletionVisible"
+      class="ag-link-completion-dialog"
+      :title="t('editor.linkCompletion.title')"
+      :modal="true"
+      :close-on-click-modal="false"
+      width="480px"
+      :close-on-press-escape="false"
+      @close="cancelLinkCompletion"
+    >
+      <label class="ag-link-completion-label" for="ag-link-completion-destination">
+        {{ t('editor.linkCompletion.destination') }}
+      </label>
+      <input
+        id="ag-link-completion-destination"
+        ref="linkCompletionInput"
+        v-model="linkCompletionQuery"
+        class="ag-link-completion-input"
+        :placeholder="t('editor.linkCompletion.placeholder')"
+        autocomplete="off"
+        aria-controls="ag-link-completion-list"
+        :aria-expanded="linkSuggestionsVisible"
+        @input="handleLinkCompletionInput"
+        @keydown="handleLinkCompletionKeydown"
+        @compositionstart="linkSession.setComposing(true)"
+        @compositionend="handleLinkCompositionEnd"
+      />
+      <div
+        v-if="linkSuggestionsVisible"
+        id="ag-link-completion-list"
+        class="ag-link-completion-list"
+        role="listbox"
+        :aria-label="t('editor.linkCompletion.suggestions')"
+      >
+        <p v-if="linkCompletionLoading" role="status">
+          {{ t('editor.linkCompletion.loading') }}
+        </p>
+        <p v-else-if="linkCompletionError" role="status">
+          {{ t('editor.linkCompletion.unavailable') }}
+        </p>
+        <p v-else-if="linkCompletionNeedsSave" role="status">
+          {{ t('editor.linkCompletion.saveAsFirst') }}
+        </p>
+        <p v-else-if="!linkCompletionWorkspaceAvailable" role="status">
+          {{ t('editor.linkCompletion.noWorkspace') }}
+        </p>
+        <p v-else-if="!linkCompletionCandidates.length" role="status">
+          {{ t('editor.linkCompletion.noMatches') }}
+        </p>
+        <button
+          v-for="(candidate, index) in linkCompletionCandidates"
+          :key="candidate.pathname"
+          type="button"
+          class="ag-link-completion-option"
+          role="option"
+          :aria-selected="index === linkCompletionFocusedIndex"
+          :class="{ active: index === linkCompletionFocusedIndex }"
+          @mousedown.prevent
+          @click="selectLinkCompletionCandidate(index)"
+        >
+          {{ candidate.relativePath }}
+        </button>
+      </div>
+      <template #footer>
+        <el-button @click="cancelLinkCompletion">
+          {{ t('common.cancel') }}
+        </el-button>
+        <el-button
+          type="primary"
+          :disabled="!linkCompletionQuery.trim() || linkCompletionSubmitting"
+          @click="confirmLinkCompletion"
+        >
+          {{ t('common.ok') }}
+        </el-button>
+      </template>
+    </el-dialog>
     <div
       v-show="imageViewerVisible"
       class="image-viewer"
@@ -226,6 +302,8 @@ import {
   markEditorScrollInteraction
 } from '@/services/editorInteraction'
 import { BACKGROUND_PRIORITY, BackgroundTaskScheduler } from '@/util/backgroundScheduler'
+import { LinkCompletionSession } from '@/services/linkCompletion'
+import type { MarkdownLinkCandidate } from '@shared/types/documentIntelligence'
 
 // Importing the engine entrypoint auto-injects its editor CSS (the muya.ts
 // module imports its stylesheets at load time). Inkiva owns the application
@@ -370,6 +448,195 @@ const resolveEditorFont = (family: string): string =>
 const resolveCodeFont = (family: string): string => `${family}, ${DEFAULT_CODE_FONT_FAMILY}`
 const selectionChange = ref<unknown>(null)
 const editor = ref<MuyaInstance>(null)
+const linkCompletionVisible = ref(false)
+const linkCompletionQuery = ref('')
+const linkCompletionCandidates = ref<MarkdownLinkCandidate[]>([])
+const linkCompletionFocusedIndex = ref(0)
+const linkCompletionLoading = ref(false)
+const linkCompletionError = ref(false)
+const linkCompletionNeedsSave = ref(false)
+const linkCompletionWorkspaceAvailable = ref(false)
+const linkCompletionSubmitting = ref(false)
+const linkSuggestionsVisible = ref(true)
+const linkCompletionInput = ref<HTMLInputElement | null>(null)
+const linkSession = new LinkCompletionSession((source, query) =>
+  window.documentIntelligence.searchWorkspaceLinkCandidates(source, query))
+interface LinkSelectionSnapshot {
+  tabId: string
+  pathname: string | null
+  root: string | null
+  markdown: string
+  editor: MuyaInstance
+  anchor: { offset: number; block: unknown; path: Array<string | number> }
+  focus: { offset: number; block: unknown; path: Array<string | number> }
+}
+let linkSnapshot: LinkSelectionSnapshot | null = null
+let linkSearchTimer: ReturnType<typeof setTimeout> | null = null
+
+const cancelLinkCompletion = (): void => {
+  if (linkSearchTimer !== null) clearTimeout(linkSearchTimer)
+  linkSearchTimer = null
+  linkSession.cancel()
+  linkSnapshot = null
+  linkCompletionVisible.value = false
+  linkCompletionCandidates.value = []
+  linkCompletionLoading.value = false
+  linkCompletionWorkspaceAvailable.value = false
+  linkCompletionNeedsSave.value = false
+  linkCompletionSubmitting.value = false
+}
+
+const refreshLinkSuggestions = async (): Promise<void> => {
+  if (!linkCompletionWorkspaceAvailable.value) {
+    linkCompletionLoading.value = false
+    linkCompletionCandidates.value = []
+    return
+  }
+  const query = linkCompletionQuery.value
+  linkCompletionLoading.value = true
+  await linkSession.search(query)
+  if (!linkCompletionVisible.value || query !== linkCompletionQuery.value) return
+  linkCompletionCandidates.value = linkSession.candidates
+  linkCompletionLoading.value = linkSession.loading
+  linkCompletionError.value = !!linkSession.error
+  linkCompletionFocusedIndex.value = 0
+}
+
+const openLinkCompletion = (): boolean => {
+  const tab = currentFile.value
+  const pathname = tab?.pathname ?? null
+  const root = projectTree.value?.pathname ?? null
+  const muya = editor.value
+  if (sourceCode.value || !tab?.id || !muya) return false
+  const selection = muya.getSelection()
+  if (!selection?.anchor?.block || !selection?.focus?.block ||
+    !selection.isSelectionInSameBlock) return false
+  const existingLink = selection.anchor.block.getFormatsInRange?.().formats?.find(
+    (format: { type?: string }) => format.type === 'link'
+  )
+  // A blank selection without an existing link keeps the editor's established
+  // empty-link semantics; never invent a guessed label.
+  if (selection.anchor.offset === selection.focus.offset && !existingLink) return false
+  cancelLinkCompletion()
+  linkSnapshot = {
+    tabId: tab.id,
+    pathname,
+    root,
+    markdown: serializeEditorMarkdown(muya),
+    editor: muya,
+    anchor: selection.anchor,
+    focus: selection.focus
+  }
+  const inWorkspace = Boolean(pathname && root &&
+    window.fileUtils.isChildOfDirectory(root, pathname))
+  linkCompletionWorkspaceAvailable.value = inWorkspace
+  if (inWorkspace && pathname) linkSession.open(pathname, tab.id)
+  linkCompletionQuery.value = existingLink?.href ?? ''
+  linkCompletionError.value = false
+  linkSuggestionsVisible.value = true
+  linkCompletionVisible.value = true
+  if (inWorkspace) refreshLinkSuggestions()
+  nextTick(() => linkCompletionInput.value?.focus())
+  return true
+}
+
+const handleLinkCompletionInput = (): void => {
+  if (linkSearchTimer !== null) clearTimeout(linkSearchTimer)
+  if (!linkCompletionWorkspaceAvailable.value) {
+    linkCompletionLoading.value = false
+    linkCompletionCandidates.value = []
+    return
+  }
+  linkSession.invalidate()
+  linkCompletionCandidates.value = []
+  linkCompletionFocusedIndex.value = 0
+  linkSuggestionsVisible.value = true
+  linkCompletionLoading.value = true
+  linkSearchTimer = setTimeout(() => {
+    linkSearchTimer = null
+    refreshLinkSuggestions()
+  }, 120)
+}
+
+watch(() => projectTree.value?.pathname, () => cancelLinkCompletion())
+
+const handleLinkCompositionEnd = (): void => {
+  linkSession.setComposing(false)
+  handleLinkCompletionInput()
+}
+
+const selectLinkCompletionCandidate = (index: number): void => {
+  const snapshot = linkSnapshot
+  if (!snapshot?.pathname) return
+  const candidate = linkSession.choose(index, snapshot.tabId, snapshot.pathname)
+  if (!candidate) return
+  linkCompletionQuery.value = candidate.relativePath
+  linkCompletionFocusedIndex.value = index
+  linkSuggestionsVisible.value = false
+}
+
+const handleLinkCompletionKeydown = (event: KeyboardEvent): void => {
+  if (event.isComposing || event.keyCode === 229 || linkSession.isComposing) return
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    if (!linkSuggestionsVisible.value) return
+    event.preventDefault()
+    const count = linkCompletionCandidates.value.length
+    if (count) {
+      linkCompletionFocusedIndex.value =
+        (linkCompletionFocusedIndex.value + (event.key === 'ArrowDown' ? 1 : -1) + count) % count
+    }
+  } else if (event.key === 'Enter') {
+    event.preventDefault()
+    if (linkSuggestionsVisible.value && linkCompletionCandidates.value.length) {
+      selectLinkCompletionCandidate(linkCompletionFocusedIndex.value)
+    } else {
+      confirmLinkCompletion()
+    }
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    if (linkSuggestionsVisible.value) linkSuggestionsVisible.value = false
+    else cancelLinkCompletion()
+  }
+}
+
+const confirmLinkCompletion = async (): Promise<void> => {
+  const snapshot = linkSnapshot
+  if (!snapshot || linkSession.isComposing || linkCompletionSubmitting.value ||
+    !linkCompletionQuery.value.trim()) return
+  if (linkCompletionLoading.value) return
+  const destination = linkCompletionQuery.value.trim()
+  if (!snapshot.pathname && !/^(?:https?:\/\/|mailto:|#)/i.test(destination)) {
+    // Relative targets from an untitled document require Save As first.
+    linkCompletionNeedsSave.value = true
+    return
+  }
+  const isCurrent = () =>
+    linkSnapshot === snapshot && linkCompletionVisible.value &&
+    currentFile.value?.id === snapshot.tabId &&
+    (currentFile.value?.pathname ?? null) === snapshot.pathname &&
+    (projectTree.value?.pathname ?? null) === snapshot.root &&
+    editor.value === snapshot.editor &&
+    serializeEditorMarkdown(snapshot.editor) === snapshot.markdown
+  if (!isCurrent()) return
+  linkCompletionSubmitting.value = true
+  try {
+    const candidate = linkCompletionCandidates.value.find((entry) =>
+      entry.relativePath === destination)
+    if (candidate && !(await window.fileUtils.pathExists(candidate.pathname))) {
+      linkCompletionError.value = true
+      return
+    }
+    if (!isCurrent()) return
+    const { anchor, focus } = snapshot
+    snapshot.editor.editor.selection.setSelection(anchor, focus)
+    snapshot.editor.format('link', destination)
+    cancelLinkCompletion()
+    snapshot.editor.focus()
+  } finally {
+    linkCompletionSubmitting.value = false
+  }
+}
 const isShowClose = ref(false)
 const dialogTableVisible = ref(false)
 const imageViewerVisible = ref<boolean | null>(null)
@@ -1339,6 +1606,7 @@ watch(spellcheckerLanguage, (value, oldValue) => {
 
 watch(currentFile, (value, oldValue) => {
   if (value && value !== oldValue) {
+    cancelLinkCompletion()
     tocRefreshScheduler.cancel()
     scrollToCursor(0)
     // Hide float tools if needed.
@@ -2215,6 +2483,7 @@ const handleInlineFormat = (type: unknown) => {
   if (sourceCode.value) {
     return
   }
+  if (type === 'link' && openLinkCompletion()) return
   editor.value && editor.value.format(type)
 }
 
@@ -2967,7 +3236,15 @@ onMounted(() => {
     })
     Muya.use(ImageResizeBar)
     Muya.use(ImageToolBar)
-    Muya.use(InlineFormatToolbar)
+    // Muya.use registers plugins globally once per renderer process. Route
+    // link requests through the active editor's existing scoped bus listener
+    // rather than capturing the first mounted component's modal controller.
+    Muya.use(InlineFormatToolbar, {
+      requestLink: () => {
+        bus.emit('format', 'link')
+        return true
+      }
+    })
     Muya.use(ParagraphFrontButton)
     Muya.use(ParagraphFrontMenu)
     Muya.use(PreviewToolBar)
@@ -3346,6 +3623,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  cancelLinkCompletion()
   stopTypewriterScrollAnimation()
   const container = getScrollContainer()
   if (container) {
@@ -3371,6 +3649,60 @@ onBeforeUnmount(() => {
   flex: 1;
   min-width: 0;
   color: var(--editorColor);
+}
+
+.ag-link-completion-dialog {
+  max-width: calc(100vw - 32px);
+}
+
+.ag-link-completion-label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.ag-link-completion-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 10px;
+  background: var(--surface-editor);
+  color: var(--editorColor);
+  border: 1px solid var(--el-border-color);
+  border-radius: 6px;
+}
+
+.ag-link-completion-input:focus-visible,
+.ag-link-completion-option:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+
+.ag-link-completion-list {
+  margin-top: 10px;
+  max-height: 210px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.ag-link-completion-list > p {
+  color: var(--el-text-color-secondary);
+  margin: 12px 0;
+}
+
+.ag-link-completion-option {
+  border: none;
+  border-radius: 4px;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  padding: 8px;
+}
+
+.ag-link-completion-option.active,
+.ag-link-completion-option:hover {
+  background: var(--el-fill-color-light);
 }
 
 .ag-insert-table-dialog {

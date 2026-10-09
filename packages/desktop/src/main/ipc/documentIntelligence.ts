@@ -50,6 +50,10 @@ export const registerDocumentIntelligenceHandlers = (): void => {
     DOCUMENT_INTELLIGENCE_CHANNELS.getLinkCandidates,
     (event, sourcePath, pathnames) => getHandlers(event).getLinkCandidates(sourcePath, pathnames)
   )
+  ipcMain.handle(
+    DOCUMENT_INTELLIGENCE_CHANNELS.searchWorkspaceLinkCandidates,
+    (event, sourcePath, query) => getHandlers(event).searchWorkspaceLinkCandidates(sourcePath, query)
+  )
   ipcMain.handle(DOCUMENT_INTELLIGENCE_CHANNELS.prepareRenameRepair, (event, request) =>
     getHandlers(event).prepareRenameRepair(request)
   )

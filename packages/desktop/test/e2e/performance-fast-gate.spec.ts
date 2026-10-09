@@ -8,6 +8,7 @@ import { performance as hostPerformance } from 'node:perf_hooks'
 import { createMarkdownFixture } from '../../../../perf/gate/fixtures'
 import {
   measureEditorMilestones,
+  selectEditorMilestoneTimestamps,
   type EditorMilestoneDurations,
   type EditorMilestoneTimestamps
 } from '../../../../perf/gate/editorMilestones'
@@ -707,27 +708,17 @@ const readEditorMilestones = async(
     )
   }
 
-  const timestamps = (await page.evaluate(() => {
-    const element = Array.from(document.querySelectorAll('.editor-component')).find((candidate) => {
-      const openStartAt = Number(candidate.getAttribute('data-editor-open-start-at'))
-      const firstScreenAt = Number(candidate.getAttribute('data-editor-first-screen-at'))
-      const editableAt = Number(candidate.getAttribute('data-editor-editable-at'))
-      return (
-        Number.isFinite(openStartAt) &&
-        Number.isFinite(firstScreenAt) &&
-        Number.isFinite(editableAt) &&
-        openStartAt >= 0 &&
-        firstScreenAt >= openStartAt &&
-        editableAt > firstScreenAt
-      )
-    })
-    if (!element) throw new Error('editor component is missing for fast milestones')
-    return {
+  const candidates = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.editor-component')).map((element) => ({
       openStartAt: Number(element.getAttribute('data-editor-open-start-at')),
       firstScreenAt: Number(element.getAttribute('data-editor-first-screen-at')),
       editableAt: Number(element.getAttribute('data-editor-editable-at'))
-    }
-  })) as EditorMilestoneTimestamps
+    }))
+  )
+  const timestamps = selectEditorMilestoneTimestamps(candidates, minimumOpenStartAt)
+  if (!timestamps) {
+    throw new Error('editor milestones no longer match the awaited document-open operation')
+  }
 
   return { timestamps, durations: measureEditorMilestones(timestamps) }
 }

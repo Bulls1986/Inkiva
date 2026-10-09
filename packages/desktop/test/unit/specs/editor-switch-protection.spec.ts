@@ -64,4 +64,10 @@ describe('editor tab switch protection', () => {
 
     expect(directCalls).toEqual(['instance.getMarkdown('])
   })
+
+  it('keeps static Muya hyperlink plugin registration independent from remounted editor components', () => {
+    const source = readEditor()
+    expect(source).not.toContain('requestLink: openLinkCompletion')
+    expect(source).toContain("bus.emit('format', 'link')")
+  })
 })

@@ -27,6 +27,7 @@ This directory contains durable product contracts and resumable implementation r
 ## v0.6.0 implementation records
 
 - [V06-02 — Workspace Link Index / Backlinks](V0.6-WORKSPACE-INDEX-PROGRESS.md) — test-first implementation, index and lifecycle hardening, canonical CI, squash-merge record and deferred V06-13/14 issues.
+- [V06-03 — Link Insertion / Workspace Document Completion](V0.6-LINK-COMPLETION-PROGRESS.md) — accepted stages, Red/Green evidence, typed IPC, UI focus and async-boundary review, and official CI handoff.
 
 ## Loading rule
 

@@ -74,6 +74,23 @@ describe('standard Markdown link parser', () => {
 })
 
 describe('MarkdownLinkIndex', () => {
+  it('ranks fuzzy workspace Markdown suggestions without collapsing equal basenames', () => {
+    const index = new MarkdownLinkIndex()
+    const root = '/virtual/inkiva-docs'
+    const source = path.join(root, 'current.md')
+    const candidates = index.getLinkCandidates(source, [
+      path.join(root, 'manual', 'README.md'),
+      path.join(root, 'docs', 'README.md'),
+      path.join(root, 'docs', 'reference.markdown'),
+      path.join(root, 'docs', 'picture.png')
+    ])
+    expect(index.rankLinkCandidates(candidates, 'read').map(({ relativePath }) => relativePath))
+      .toEqual(['./docs/README.md', './manual/README.md'])
+    expect(index.rankLinkCandidates(candidates, 'dread').map(({ relativePath }) => relativePath))
+      .toEqual(['./docs/README.md'])
+    expect(index.rankLinkCandidates(candidates, 'not-found')).toEqual([])
+  })
+
   it('keeps absent-target lookups bounded for a large workspace', () => {
     const index = new MarkdownLinkIndex()
     const root = '/virtual/inkiva-large-workspace'

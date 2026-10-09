@@ -12,6 +12,32 @@ const createWorkspace = async(): Promise<string> => {
   return root
 }
 
+describe('V06-03 workspace link completion', () => {
+  it('suggests distinct Markdown document paths from only the owning workspace', async() => {
+    const root = await createWorkspace()
+    const other = await createWorkspace()
+    await fs.mkdir(path.join(root, 'docs'))
+    await fs.mkdir(path.join(root, 'manual'))
+    const source = path.join(root, 'current.md')
+    await fs.writeFile(source, '# Current')
+    await fs.writeFile(path.join(root, 'docs', 'README.md'), '# Docs')
+    await fs.writeFile(path.join(root, 'manual', 'README.md'), '# Manual')
+    await fs.writeFile(path.join(root, 'manual', 'unrelated.txt'), 'Not Markdown')
+    await fs.writeFile(path.join(other, 'README.md'), '# External')
+    const service = new DocumentIntelligenceService({ historyRootPath: path.join(root, '.history') })
+    await service.indexWorkspace(root, 11)
+    await service.indexWorkspace(other, 22)
+
+    expect(service.searchWorkspaceLinkCandidates(source, 'read', 11).map(({ relativePath }) => relativePath))
+      .toEqual(['./docs/README.md', './manual/README.md'])
+    expect(service.searchWorkspaceLinkCandidates(source, 'read', 22)).toEqual([])
+    expect(service.searchWorkspaceLinkCandidates(path.join(other, 'README.md'), 'read', 11))
+      .toEqual([])
+    expect(service.searchWorkspaceLinkCandidates(source, '', 11).some(({ pathname }) =>
+      pathname.toLowerCase() === source.toLowerCase())).toBe(false)
+  })
+})
+
 afterEach(async() => {
   await Promise.all(temporaryRoots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true })))
 })

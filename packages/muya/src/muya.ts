@@ -475,7 +475,7 @@ export class Muya {
         this.editor.selection.selectAll();
     }
 
-    format(type: string) {
+    format(type: string, linkDestination?: string) {
         const { selection } = this.editor;
 
         // Cross-leaf selection: apply to each formattable leaf in range. The
@@ -519,7 +519,7 @@ export class Muya {
         );
 
         this.editor.history.runUserOperation(() => {
-            anchorBlock.format(type);
+            anchorBlock.format(type, linkDestination);
         });
     }
 

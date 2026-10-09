@@ -139,6 +139,10 @@ export interface IpcInvokeChannels {
     args: [sourcePath: string, pathnames: string[]]
     ret: MarkdownLinkCandidate[]
   }
+  'mt::document-intelligence::workspace-link-candidates': {
+    args: [sourcePath: string, query: string]
+    ret: MarkdownLinkCandidate[]
+  }
   'mt::document-intelligence::prepare-rename-repair': {
     args: [request: PrepareRenameRepairRequest]
     ret: RenameRepairPlan

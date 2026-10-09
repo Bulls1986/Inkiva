@@ -1048,6 +1048,17 @@
       "errorExporting": "Error exporting {type} file",
       "failed": "{type} export failed"
     },
+    "linkCompletion": {
+      "title": "Insert link",
+      "destination": "Destination",
+      "placeholder": "Search workspace Markdown or enter a URL",
+      "suggestions": "Workspace Markdown documents",
+      "loading": "Searching workspace…",
+      "unavailable": "Suggestions unavailable. You can enter a destination manually.",
+      "noWorkspace": "Open a workspace folder to see document suggestions. You can still enter a URL.",
+      "saveAsFirst": "Save this document first to create a portable relative link.",
+      "noMatches": "No matching workspace documents"
+    },
     "insertTable": {
       "title": "Insert Table",
       "rows": "Rows",
