@@ -756,6 +756,44 @@ const readActiveEditorOperationId = async(page: Page, filePath: string): Promise
   return 'document-' + documentId
 }
 
+const readFirstScreenFrameProbe = async(
+  page: Page,
+  operationId: string
+): Promise<Record<string, string | number>> =>
+  page.evaluate((expectedOperationId) => {
+    const root = Array.from(document.querySelectorAll('.editor-component')).find(
+      (element) => element.getAttribute('data-editor-operation-id') === expectedOperationId
+    )
+    type FrameRecord = {
+      requestedAt: number
+      timerRanAt?: number
+      ranAt?: number
+    }
+    let frames: FrameRecord[] = []
+    try {
+      const raw = root?.getAttribute('data-editor-milestone-frame-timings')
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw)
+        if (Array.isArray(parsed)) frames = parsed as FrameRecord[]
+      }
+    } catch {
+      // Malformed diagnostics stay observable as an empty probe, never fabricated data.
+    }
+    const first = frames[0]
+    const second = frames[1]
+    return {
+      frameProbeCount: frames.length,
+      firstFrameRequestAtMs: first?.requestedAt ?? -1,
+      firstFrameTimerAtMs: first?.timerRanAt ?? -1,
+      firstFrameCallbackAtMs: first?.ranAt ?? -1,
+      secondFrameRequestAtMs: second?.requestedAt ?? -1,
+      secondFrameTimerAtMs: second?.timerRanAt ?? -1,
+      secondFrameCallbackAtMs: second?.ranAt ?? -1,
+      documentVisibility: document.visibilityState,
+      documentHasFocus: document.hasFocus() ? 1 : 0
+    }
+  }, operationId)
+
 const activateFile = async(
   app: ElectronApplication,
   page: Page,
@@ -907,13 +945,22 @@ const collectDocumentSamples = async(
         firstScreenAtMs: milestones.timestamps.firstScreenAt,
         editableAtMs: milestones.timestamps.editableAt
       }
+      const firstFrameEvidence = index === 0
+        ? await readFirstScreenFrameProbe(page, milestones.timestamps.operationId)
+        : undefined
+      if (firstFrameEvidence && Number(firstFrameEvidence.frameProbeCount) < 2) {
+        throw new Error('first cold document lacks the two observed rAF frames')
+      }
+      if (firstFrameEvidence) {
+        console.info('Issue #232 cold first-frame evidence:', JSON.stringify({ ...sampleIdentity, ...firstFrameEvidence }))
+      }
       await recordSample(
         page,
         'document.50k.firstScreen',
         'ms',
         durations.firstScreenMs,
         'document-open',
-        sampleIdentity
+        { ...sampleIdentity, ...(firstFrameEvidence ?? {}) }
       )
       await recordSample(page, 'document.50k.editable', 'ms', durations.editableMs, 'document-open', sampleIdentity)
 
