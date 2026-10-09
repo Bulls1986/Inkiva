@@ -37,7 +37,8 @@ export class LinkNavigationIntents {
       ...(request.sourceDocumentId !== undefined ? { sourceDocumentId: request.sourceDocumentId } : {}),
       ...(request.sourceRevision !== undefined ? { sourceRevision: request.sourceRevision } : {}),
       ...(request.sourceInteractionRevision !== undefined
-        ? { sourceInteractionRevision: request.sourceInteractionRevision } : {})
+        ? { sourceInteractionRevision: request.sourceInteractionRevision }
+        : {})
     }
   }
 

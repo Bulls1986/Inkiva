@@ -13,6 +13,7 @@ export const getEditorScrollInteractionRevision = (): number => editorScrollRevi
 let editorUserInteractionRevision = 0
 export const markExplicitEditorInteractionRevision = (): void => {
   editorUserInteractionRevision = editorUserInteractionRevision >= Number.MAX_SAFE_INTEGER
-    ? 1 : editorUserInteractionRevision + 1
+    ? 1
+    : editorUserInteractionRevision + 1
 }
 export const getExplicitEditorInteractionRevision = (): number => editorUserInteractionRevision
