@@ -2150,7 +2150,7 @@ export const useEditorStore = defineStore('editor', {
       )
       if (existingTab) {
         if (selected) this.UPDATE_CURRENT_FILE(existingTab)
-        if (selected && options.navigationFragment) {
+        if (selected && options.navigationFragment && pathname) {
           bus.emit('navigate-document-fragment', {
             pathname, documentId: existingTab.id, fragment: options.navigationFragment
           })
