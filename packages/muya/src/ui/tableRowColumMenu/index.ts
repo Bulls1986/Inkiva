@@ -165,7 +165,17 @@ export class TableRowColumMenu extends BaseFloat {
 
     private _restoreCellFocus() {
         const content = this._block?.firstContentInDescendant();
-        content?.domNode?.focus({ preventScroll: true });
+        if (!content?.domNode?.isConnected)
+            return;
+
+        // Table cell spans are nested contenteditables and cannot acquire
+        // programmatic DOM focus in Chromium. The outer editor owns focus;
+        // restore its active caret in the original cell after Escape.
+        const selection = this.muya.editor.selection;
+        const start = selection.anchorBlock === content ? (selection.anchor?.offset ?? 0) : 0;
+        const end = selection.focusBlock === content ? (selection.focus?.offset ?? start) : start;
+        this.muya.domNode.focus({ preventScroll: true });
+        content.setCursor(start, end);
     }
 
     selectItem(event: Event, item: IMenuItem) {
