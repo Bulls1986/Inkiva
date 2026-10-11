@@ -32,6 +32,10 @@ vi.hoisted(() => {
   })
 })
 
+vi.mock('element-plus', () => ({
+  ElMessageBox: { confirm: vi.fn().mockResolvedValue('confirm') }
+}))
+
 vi.mock('@/services/notification', () => ({
   default: { notify: vi.fn(), name: 'notify' }
 }))
@@ -40,6 +44,7 @@ vi.mock('@/store/bufferedState', () => ({
   sendBufferedState: vi.fn()
 }))
 
+import { ElMessageBox } from 'element-plus'
 import { useEditorStore } from '@/store/editor'
 import { useRecentDocumentsStore } from '@/store/recentDocuments'
 import { usePreferencesStore } from '@/store/preferences'
@@ -49,6 +54,7 @@ describe('file identity continuity', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    vi.mocked(ElMessageBox.confirm).mockResolvedValue('confirm' as never)
     Object.assign(window, {
       DIRNAME: '',
       path: {
@@ -192,6 +198,56 @@ describe('file identity continuity', () => {
     })
   })
 
+  it('does not rewrite a moved document when user explicitly keeps references unchanged', async() => {
+    const store = useEditorStore()
+    const before = '[Outside](./outside.md)'
+    const after = '[Outside](../notes/outside.md)'
+    const src = '/workspace/notes/moved.md'
+    const dest = '/workspace/archive/moved.md'
+    const tab = {
+      id: 'tab-reviewed',
+      pathname: dest,
+      filename: 'moved.md',
+      markdown: before,
+      isSaved: false,
+      history: { stack: [], lastEditIndex: -1 }
+    }
+    store.tabs = [tab] as unknown as typeof store.tabs
+    store.currentFile = store.tabs[0] ?? null
+    store.tabIdToIndex = { 'tab-reviewed': 0 }
+    const prepareRenameRepair = vi.fn().mockResolvedValue({
+      fromPath: src,
+      toPath: dest,
+      linkCount: 1,
+      affectedFiles: [src],
+      changes: [{
+        sourcePath: src,
+        sourcePathAfter: dest,
+        before,
+        after,
+        edits: [{ start: 11, end: 23, replacement: '../notes/outside.md' }]
+      }]
+    })
+    Object.assign(window, {
+      documentIntelligence: {
+        getBacklinks: vi.fn().mockResolvedValue([]),
+        prepareRenameRepair
+      }
+    })
+    vi.mocked(ElMessageBox.confirm).mockRejectedValueOnce('cancel')
+    const count = await store.REPAIR_MOVED_REFERENCES({ src, dest })
+    expect(count).toBe(0)
+    expect(ElMessageBox.confirm).toHaveBeenCalledOnce()
+    expect(store.currentFile?.markdown).toBe(before)
+    expect(store.currentFile?.pathname).toBe(dest)
+    expect(prepareRenameRepair).toHaveBeenCalledWith({
+      fromPath: src,
+      toPath: dest,
+      pathKind: 'file',
+      includeResources: true,
+      documents: [{ pathname: src, markdown: before }]
+    })
+  })
   it('recalculates the moved document own relative references as a dirty revision', async() => {
     const store = useEditorStore()
     usePreferencesStore().autoSave = false
