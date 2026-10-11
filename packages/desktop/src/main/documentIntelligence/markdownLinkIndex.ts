@@ -95,7 +95,13 @@ export class MarkdownLinkIndex {
     const canonicalPath = canonicalDocumentPath(pathname)
     const links = parseStandardRelativeMarkdownLinks(markdown)
     const byTarget = new Map<string, MarkdownBacklink[]>()
+    let lineStart = 0
+    let nextLineBreak = markdown.indexOf('\n')
     for (const link of links) {
+      while (nextLineBreak !== -1 && nextLineBreak < link.start) {
+        lineStart = nextLineBreak + 1
+        nextLineBreak = markdown.indexOf('\n', lineStart)
+      }
       const target = resolveMarkdownLinkTarget(canonicalPath, link.path)
       let backlinks = byTarget.get(target)
       if (!backlinks) {
@@ -108,6 +114,7 @@ export class MarkdownLinkIndex {
         destination: link.destination,
         fragment: link.fragment,
         line: link.line,
+        column: link.start - lineStart,
         start: link.start,
         end: link.end
       })
