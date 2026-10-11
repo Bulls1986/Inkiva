@@ -1,6 +1,7 @@
 import { computed, ref, watch, type WatchStopHandle } from 'vue'
 import { defineStore } from 'pinia'
 import type {
+  BrokenMarkdownLinksResult,
   LocalHistoryEntry,
   LocalHistorySnapshot,
   MarkdownBacklink,
@@ -35,6 +36,9 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
   const currentPath = ref<string | null>(null)
   const workspaceIndex = ref<WorkspaceLinkIndexResult | null>(null)
   const backlinks = ref<MarkdownBacklink[]>([])
+  const brokenLinks = ref<BrokenMarkdownLinksResult | null>(null)
+  const diagnosticsLoading = ref(false)
+  const diagnosticsError = ref(false)
   const history = ref<LocalHistoryEntry[]>([])
   const loading = ref(false)
   const restoringSnapshotId = ref<string | null>(null)
@@ -67,6 +71,9 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
     currentPath.value = state.currentPath
     workspaceIndex.value = state.workspaceIndex
     backlinks.value = state.backlinks
+    brokenLinks.value = state.brokenLinks
+    diagnosticsLoading.value = state.diagnosticsLoading
+    diagnosticsError.value = state.diagnosticsError
     history.value = state.history
     loading.value = state.loading
     restoringSnapshotId.value = state.restoringSnapshotId
@@ -254,6 +261,9 @@ export const useDocumentIntelligenceStore = defineStore('documentIntelligence', 
     workspaceIndex,
     backlinks,
     history,
+    brokenLinks,
+    diagnosticsLoading,
+    diagnosticsError,
     loading,
     restoringSnapshotId,
     error,

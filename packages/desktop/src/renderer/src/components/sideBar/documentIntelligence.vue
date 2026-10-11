@@ -85,6 +85,67 @@
         </p>
       </section>
 
+      <section class="document-intelligence__section" data-testid="broken-link-section">
+        <h3>{{ t('sideBar.documentIntelligence.brokenLinks') }}</h3>
+        <p v-if="diagnosticsLoading" class="document-intelligence__hint" role="status">
+          {{ t('sideBar.documentIntelligence.checkingLinks') }}
+        </p>
+        <p v-else-if="diagnosticsError" class="document-intelligence__error" role="alert">
+          {{ t('sideBar.documentIntelligence.diagnosticUnavailable') }}
+        </p>
+        <template v-else-if="brokenLinks">
+          <p v-if="!brokenLinks.complete" class="document-intelligence__hint" role="status">
+            {{ t('sideBar.documentIntelligence.brokenPartial') }}
+          </p>
+          <ul v-if="brokenLinks.findings.length">
+            <li
+              v-for="finding in brokenLinks.findings"
+              :key="`${finding.sourcePath}:${finding.start}:${finding.destination}`"
+              class="document-intelligence__history-item"
+              data-testid="broken-link-row"
+            >
+              <button
+                type="button"
+                class="document-intelligence__item document-intelligence__history-copy"
+                data-testid="broken-link-locate"
+                :aria-label="t('sideBar.documentIntelligence.locateBrokenLink')"
+                @click="locateBrokenLink(finding)"
+              >
+                <span class="document-intelligence__item-title">
+                  {{ basename(finding.sourcePath) }} ·
+                  {{ t('sideBar.documentIntelligence.line', { line: finding.line }) }}
+                </span>
+                <span class="document-intelligence__item-detail">
+                  {{ finding.destination }} · {{ t(`sideBar.documentIntelligence.${finding.status === 'unverified' ? 'unverified' : 'missingFile'}`) }}
+                </span>
+              </button>
+              <button
+                v-if="finding.status === 'missing-file'"
+                type="button"
+                class="restore-button"
+                data-testid="broken-link-repair"
+                :disabled="!isActiveSource(finding)"
+                :aria-label="t('sideBar.documentIntelligence.repairBrokenLink')"
+                :title="t(isActiveSource(finding)
+                  ? 'sideBar.documentIntelligence.repairBrokenLink'
+                  : 'sideBar.documentIntelligence.locateFirst')"
+                @click="repairBrokenLink(finding)"
+              >
+                {{ t('sideBar.documentIntelligence.repair') }}
+              </button>
+            </li>
+          </ul>
+          <p v-else class="document-intelligence__empty">
+            {{ t(brokenLinks.complete
+              ? 'sideBar.documentIntelligence.noBrokenLinks'
+              : 'sideBar.documentIntelligence.noBrokenLinksPartial') }}
+          </p>
+        </template>
+        <p v-if="repairError" class="document-intelligence__error" role="alert">
+          {{ t('sideBar.documentIntelligence.repairUnavailable') }}
+        </p>
+      </section>
+
       <section class="document-intelligence__section">
         <h3>{{ t('sideBar.documentIntelligence.localHistory') }}</h3>
         <p
@@ -226,6 +287,7 @@ import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { RefreshRight } from '@element-plus/icons-vue'
 import type {
+  BrokenMarkdownLinkFinding,
   LocalHistoryEntry,
   LocalHistoryReason,
   LocalHistorySnapshot,
@@ -241,6 +303,9 @@ const documentIntelligenceStore = useDocumentIntelligenceStore()
 const {
   backlinks,
   workspaceIndex,
+  brokenLinks,
+  diagnosticsLoading,
+  diagnosticsError,
   history,
   loading,
   restoringSnapshotId,
@@ -253,6 +318,7 @@ const previewLoading = ref(false)
 const selectedEntry = ref<LocalHistoryEntry | null>(null)
 const selectedSnapshot = ref<LocalHistorySnapshot | null>(null)
 const confirmRestore = ref(false)
+const repairError = ref(false)
 
 const errorMessage = computed(() => {
   if (!error.value) return ''
@@ -304,9 +370,31 @@ const restoreSelectedSnapshot = async (): Promise<void> => {
   if (restored) closeHistoryPreview()
 }
 
+const isActiveSource = (finding: BrokenMarkdownLinkFinding): boolean =>
+  Boolean(editorStore.currentFile?.pathname && window.fileUtils.isSamePathSync(
+    editorStore.currentFile.pathname, finding.sourcePath
+  ))
+
+const locateBrokenLink = (finding: BrokenMarkdownLinkFinding): void => {
+  repairError.value = false
+  openBacklink(finding, true)
+}
+
+const repairBrokenLink = (finding: BrokenMarkdownLinkFinding): void => {
+  repairError.value = false
+  if (!isActiveSource(finding) || finding.status !== 'missing-file') {
+    repairError.value = true
+    return
+  }
+  bus.emit('document-intelligence-repair-link', {
+    finding,
+    resolve: (started) => { if (!started) repairError.value = true }
+  })
+}
+
 const basename = (pathname: string): string => window.path.basename(pathname)
 
-const openBacklink = (backlink: MarkdownBacklink): void => {
+const openBacklink = (backlink: MarkdownBacklink, insideLink = false): void => {
   const openedTab = editorStore.tabs.find((tab) =>
     window.fileUtils.isSamePathSync(tab.pathname, backlink.sourcePath)
   )
@@ -317,7 +405,7 @@ const openBacklink = (backlink: MarkdownBacklink): void => {
   const column = backlink.column
   const ch = occurrenceCurrent && typeof column === 'number' &&
     Number.isSafeInteger(column) && column >= 0
-    ? column
+    ? column + (insideLink ? 2 : 0)
     : 0
   const cursor = {
     isCollapsed: true,
@@ -457,6 +545,10 @@ const openBacklink = (backlink: MarkdownBacklink): void => {
 
 .document-intelligence__history-item:hover {
   background: var(--surface-hover);
+}
+.document-intelligence__history-item .document-intelligence__item-detail {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .document-intelligence__history-copy {

@@ -639,6 +639,46 @@ const confirmLinkCompletion = async (): Promise<void> => {
     linkCompletionSubmitting.value = false
   }
 }
+// V06-07 deliberately reuses the established hyperlink dialog/one-Undo Muya
+// command. No sidebar or background service may rewrite Markdown directly.
+const handleBrokenLinkRepair = ({
+  finding, resolve
+}: BusEvents['document-intelligence-repair-link']): void => {
+  const muya = editor.value
+  const tab = currentFile.value
+  if (!muya || !tab?.pathname || sourceCode.value || editorCompositionActive ||
+    !window.fileUtils.isSamePathSync(tab.pathname, finding.sourcePath) ||
+    finding.status !== 'missing-file' || !projectTree.value?.pathname) {
+    resolve(false)
+    return
+  }
+  const markdown = serializeEditorMarkdown(muya)
+  const exact = markdown.slice(finding.start, finding.end)
+  if (!exact.includes(finding.destination) || !Number.isSafeInteger(finding.line) ||
+    finding.line < 1) {
+    resolve(false)
+    return
+  }
+  // The destination modal legitimately releases the native DOM selection.
+  // Re-acquire the source link via Muya's logical cursor mapper on every
+  // explicit Repair, rather than trusting a prior Locate or stale DOM caret.
+  const column = typeof finding.column === 'number' &&
+    Number.isSafeInteger(finding.column) && finding.column >= 0
+    ? finding.column
+    : finding.start - (markdown.lastIndexOf('\n', finding.start - 1) + 1)
+  const position = { line: finding.line - 1, ch: column + 2 }
+  applyCursor(muya, { anchor: position, focus: position })
+  const selection = muya.getSelection()
+  const link = selection?.anchor?.block?.getFormatsInRange?.().formats?.find(
+    (format: { type?: string; href?: string }) =>
+      format.type === 'link' && format.href === finding.destination
+  )
+  if (!link || !openLinkCompletion()) {
+    resolve(false)
+    return
+  }
+  resolve(true)
+}
 const isShowClose = ref(false)
 const dialogTableVisible = ref(false)
 const imageViewerVisible = ref<boolean | null>(null)
@@ -3493,6 +3533,7 @@ onMounted(() => {
   registerBusHandler('insert-image', insertImage)
   registerBusHandler('image-uploaded', handleUploadedImage)
   registerBusHandler('file-changed', handleFileChange)
+  registerBusHandler('document-intelligence-repair-link', handleBrokenLinkRepair)
   registerBusHandler('flush-active-editor', flushActiveEditor)
   registerBusHandler('flush-active-editor-for-save', flushActiveEditorForSave)
   registerBusHandler('flush-active-editor-for-tab-switch', flushActiveEditorForTabSwitch)
