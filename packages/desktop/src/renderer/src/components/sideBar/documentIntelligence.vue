@@ -76,7 +76,7 @@
           </li>
         </ul>
         <p
-          v-else
+          v-else-if="!error"
           class="document-intelligence__empty"
         >
           {{ t(workspaceIndex && !workspaceIndex.complete
@@ -307,15 +307,21 @@ const restoreSelectedSnapshot = async (): Promise<void> => {
 const basename = (pathname: string): string => window.path.basename(pathname)
 
 const openBacklink = (backlink: MarkdownBacklink): void => {
-  const line = Math.max(0, backlink.line - 1)
-  const cursor = {
-    isCollapsed: true,
-    anchor: { line, ch: 0 },
-    focus: { line, ch: 0 }
-  }
   const openedTab = editorStore.tabs.find((tab) =>
     window.fileUtils.isSamePathSync(tab.pathname, backlink.sourcePath)
   )
+  // Prefer the line start if newer draft text displaced the indexed link.
+  const occurrenceCurrent = !openedTab ||
+    openedTab.markdown.slice(backlink.start, backlink.end).includes(backlink.destination)
+  const line = Math.max(0, backlink.line - 1)
+  const column = backlink.column
+  const ch = occurrenceCurrent && typeof column === 'number' &&
+    Number.isSafeInteger(column) && column >= 0 ? column : 0
+  const cursor = {
+    isCollapsed: true,
+    anchor: { line, ch },
+    focus: { line, ch }
+  }
 
   if (!openedTab) {
     window.electron.ipcRenderer.send('mt::open-file', backlink.sourcePath, { cursor })
