@@ -168,6 +168,7 @@ describe('MarkdownLinkIndex', () => {
         destination: './design.md',
         fragment: '',
         line: 1,
+        column: 0,
         start: 0,
         end: '[Design](./design.md)'.length
       },
@@ -177,6 +178,7 @@ describe('MarkdownLinkIndex', () => {
         destination: '../design.md#overview',
         fragment: '#overview',
         line: 1,
+        column: 0,
         start: 0,
         end: '[Design](../design.md#overview)'.length
       }
