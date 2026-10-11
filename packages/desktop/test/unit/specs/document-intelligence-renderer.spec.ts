@@ -49,6 +49,9 @@ const createApi = (): DocumentIntelligenceApi => ({
   indexDocument: vi.fn(async() => undefined),
   removeDocument: vi.fn(async() => undefined),
   getBacklinks: vi.fn(async() => []),
+  getBrokenMarkdownLinks: vi.fn(async() => ({
+    rootPath: '/docs', findings: [], checkedTargets: 0, complete: true, stale: false
+  })),
   createSnapshot: vi.fn(async(request) => ({
     ...historyEntry(request.filePath),
     size: request.content.length,

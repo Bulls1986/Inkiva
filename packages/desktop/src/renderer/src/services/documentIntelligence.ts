@@ -4,6 +4,7 @@ import {
   type BackgroundPriority
 } from '@/util/backgroundScheduler'
 import type {
+  BrokenMarkdownLinksResult,
   LocalHistoryCreateRequest,
   LocalHistoryEntry,
   LocalHistoryRestoreRequest,
@@ -35,6 +36,9 @@ export interface DocumentIntelligenceState {
   currentPath: string | null
   workspaceIndex: WorkspaceLinkIndexResult | null
   backlinks: MarkdownBacklink[]
+  brokenLinks: BrokenMarkdownLinksResult | null
+  diagnosticsLoading: boolean
+  diagnosticsError: boolean
   history: LocalHistoryEntry[]
   loading: boolean
   restoringSnapshotId: string | null
@@ -47,6 +51,7 @@ export interface DocumentIntelligenceApi {
   indexDocument(pathname: string, markdown: string): Promise<void>
   removeDocument(pathname: string): Promise<void>
   getBacklinks(targetPath: string): Promise<MarkdownBacklink[]>
+  getBrokenMarkdownLinks(): Promise<BrokenMarkdownLinksResult>
   createSnapshot(request: LocalHistoryCreateRequest): Promise<LocalHistoryEntry>
   listSnapshots(filePath: string): Promise<LocalHistoryEntry[]>
   getSnapshot(filePath: string, id: string): Promise<LocalHistorySnapshot | null>
@@ -75,6 +80,9 @@ const initialState = (): DocumentIntelligenceState => ({
   currentPath: null,
   workspaceIndex: null,
   backlinks: [],
+  brokenLinks: null,
+  diagnosticsLoading: false,
+  diagnosticsError: false,
   history: [],
   loading: false,
   restoringSnapshotId: null,
@@ -110,6 +118,7 @@ export class DocumentIntelligenceCoordinator {
   private snapshotTimer: ReturnType<typeof setTimeout> | null = null
   private selectionVersion = 0
   private workspaceIndexVersion = 0
+  private diagnosticRequestVersion = 0
   private workspaceReady = true
   private readonly pendingWorkspaceFiles = new Set<string>()
   private disposed = false
@@ -128,6 +137,9 @@ export class DocumentIntelligenceCoordinator {
       ...this.state,
       workspaceIndex: this.state.workspaceIndex ? { ...this.state.workspaceIndex } : null,
       backlinks: [...this.state.backlinks],
+      brokenLinks: this.state.brokenLinks
+        ? { ...this.state.brokenLinks, findings: [...this.state.brokenLinks.findings] }
+        : null,
       history: [...this.state.history]
     }
   }
@@ -139,6 +151,7 @@ export class DocumentIntelligenceCoordinator {
   async indexWorkspace(rootPath: string | null): Promise<void> {
     if (this.disposed) return
     const indexVersion = ++this.workspaceIndexVersion
+    this.diagnosticRequestVersion += 1
     this.pendingWorkspaceFiles.clear()
     this.workspaceReady = false
     this.selectionVersion += 1
@@ -146,6 +159,9 @@ export class DocumentIntelligenceCoordinator {
       workspaceIndex: null,
       backlinks: [],
       loading: !!this.state.currentPath,
+      brokenLinks: null,
+      diagnosticsLoading: Boolean(rootPath),
+      diagnosticsError: false,
       error: null
     })
     try {
@@ -158,14 +174,24 @@ export class DocumentIntelligenceCoordinator {
       this.workspaceReady = true
       this.patchState({ workspaceIndex: result })
       if (this.state.currentPath) await this.refresh()
-      else this.patchState({ loading: false, error: null })
+      else {
+        this.patchState({ loading: false, error: null })
+        await this.refreshDiagnostics()
+      }
       const changedFiles = [...this.pendingWorkspaceFiles]
       this.pendingWorkspaceFiles.clear()
       for (const pathname of changedFiles) void this.refreshWorkspaceFile(pathname)
     } catch {
       if (indexVersion !== this.workspaceIndexVersion || this.disposed) return
       this.workspaceReady = true
-      this.patchState({ workspaceIndex: null, loading: false, error: 'sync' })
+      this.patchState({
+        workspaceIndex: null,
+        brokenLinks: null,
+        diagnosticsLoading: false,
+        diagnosticsError: true,
+        loading: false,
+        error: 'sync'
+      })
     }
   }
 
@@ -184,6 +210,7 @@ export class DocumentIntelligenceCoordinator {
       )
       if (this.disposed || version !== this.workspaceIndexVersion) return
       if (this.state.currentPath) await this.refreshBacklinks()
+      await this.refreshDiagnostics()
     } catch {
       if (!this.disposed && version === this.workspaceIndexVersion) {
         this.patchState({ error: 'sync' })
@@ -248,6 +275,10 @@ export class DocumentIntelligenceCoordinator {
     this.documents.clear()
     for (const [id, document] of nextDocuments) this.documents.set(id, document)
 
+    if (this.pendingIndexes.size || this.pendingRemovals.size) {
+      this.diagnosticRequestVersion += 1
+      this.patchState({ brokenLinks: null, diagnosticsLoading: this.workspaceReady })
+    }
     if (this.pendingIndexes.size || this.pendingRemovals.size) this.scheduleIndexFlush()
 
     const current = currentId ? this.documents.get(currentId) : undefined
@@ -274,10 +305,15 @@ export class DocumentIntelligenceCoordinator {
   }
 
   async refresh(): Promise<void> {
-    if (!this.state.currentPath || this.disposed || !this.workspaceReady) return
+    if (this.disposed || !this.workspaceReady) return
+    if (!this.state.currentPath) {
+      await this.refreshDiagnostics()
+      return
+    }
     const version = this.selectionVersion
     this.patchState({ loading: true, error: null })
     await this.loadCurrent(version, this.state.currentPath)
+    await this.refreshDiagnostics()
   }
 
   async getSnapshot(id: string): Promise<LocalHistorySnapshot | null> {
@@ -349,6 +385,7 @@ export class DocumentIntelligenceCoordinator {
     this.disposed = true
     this.selectionVersion += 1
     this.pendingWorkspaceFiles.clear()
+    this.diagnosticRequestVersion += 1
     if (this.indexTimer) clearTimeout(this.indexTimer)
     if (this.snapshotTimer) clearTimeout(this.snapshotTimer)
     this.indexTimer = null
@@ -439,7 +476,10 @@ export class DocumentIntelligenceCoordinator {
           )
         )
       )
-      if (refreshBacklinks) await this.refreshBacklinks()
+      if (refreshBacklinks) {
+        await this.refreshBacklinks()
+        await this.refreshDiagnostics()
+      }
     } catch {
       this.patchState({ loading: false, error: 'sync' })
     }
@@ -521,6 +561,32 @@ export class DocumentIntelligenceCoordinator {
       if (version === this.selectionVersion && !this.disposed) this.patchState({ backlinks })
     } catch {
       if (version === this.selectionVersion) this.patchState({ error: 'sync' })
+    }
+  }
+
+  private async refreshDiagnostics(): Promise<void> {
+    if (this.disposed || !this.workspaceReady) return
+    const indexVersion = this.workspaceIndexVersion
+    const requestVersion = ++this.diagnosticRequestVersion
+    this.patchState({ diagnosticsLoading: true, diagnosticsError: false })
+    try {
+      const result = await this.runBackground(
+        'workspace-broken-links',
+        BACKGROUND_PRIORITY.backlinkMetadataStatistics,
+        () => this.api.getBrokenMarkdownLinks()
+      )
+      if (this.disposed || indexVersion !== this.workspaceIndexVersion ||
+        requestVersion !== this.diagnosticRequestVersion) return
+      this.patchState({
+        brokenLinks: result.stale ? null : result,
+        diagnosticsLoading: false,
+        diagnosticsError: result.stale
+      })
+    } catch {
+      if (!this.disposed && indexVersion === this.workspaceIndexVersion &&
+        requestVersion === this.diagnosticRequestVersion) {
+        this.patchState({ brokenLinks: null, diagnosticsLoading: false, diagnosticsError: true })
+      }
     }
   }
 

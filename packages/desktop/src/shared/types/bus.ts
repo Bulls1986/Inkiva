@@ -1,4 +1,5 @@
 import type { ExportType } from './files'
+import type { BrokenMarkdownLinkFinding } from './documentIntelligence'
 
 export type ExportDialogType = 'print' | ExportType
 export type SidebarCreateType = 'file' | 'directory'
@@ -139,6 +140,10 @@ export type BusEvents = {
   'editor-blur': undefined
   'editor-focus': undefined
   'editor-command-readiness': EditorCommandReadinessRequest
+  'document-intelligence-repair-link': {
+    finding: BrokenMarkdownLinkFinding
+    resolve: (started: boolean) => void
+  }
   export: object
   'export-again': undefined
   'file-changed': FileChangePayload
