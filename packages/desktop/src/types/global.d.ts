@@ -29,6 +29,7 @@ import type {
   LocalHistoryRestoreRequest,
   LocalHistorySnapshot,
   MoveHistoryPathRequest,
+  BrokenMarkdownLinksResult,
   MarkdownBacklink,
   MarkdownLinkCandidate,
   PrepareRenameRepairRequest,
@@ -227,6 +228,7 @@ declare global {
     indexDocument(pathname: string, markdown: string): Promise<void>
     removeDocument(pathname: string): Promise<void>
     getBacklinks(targetPath: string): Promise<MarkdownBacklink[]>
+    getBrokenMarkdownLinks(): Promise<BrokenMarkdownLinksResult>
     getLinkCandidates(sourcePath: string, pathnames: string[]): Promise<MarkdownLinkCandidate[]>
     searchWorkspaceLinkCandidates(sourcePath: string, query: string): Promise<MarkdownLinkCandidate[]>
     prepareRenameRepair(request: PrepareRenameRepairRequest): Promise<RenameRepairPlan>

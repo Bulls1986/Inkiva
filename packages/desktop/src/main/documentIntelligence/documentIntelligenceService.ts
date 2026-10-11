@@ -1,8 +1,11 @@
-import { lstat, readFile, readdir, realpath, stat } from 'node:fs/promises'
+import { access, lstat, readFile, readdir, realpath, stat } from 'node:fs/promises'
+import { constants, type Stats } from 'node:fs'
 import path from 'node:path'
 import writeFileAtomic from 'write-file-atomic'
 
 import type {
+  BrokenMarkdownLinkFinding,
+  BrokenMarkdownLinksResult,
   ApplyRenameRepairResult,
   ApplyRenameRepairRequest,
   LocalHistoryCreateRequest,
@@ -17,7 +20,7 @@ import type {
   WorkspaceLinkIndexResult
 } from '@shared/types/documentIntelligence'
 import { canonicalDocumentPath, MarkdownLinkIndex } from './markdownLinkIndex'
-import { isMarkdownPath } from './markdownLinks'
+import { isMarkdownPath, parseNavigableMarkdownDestination } from './markdownLinks'
 import {
   applyRenameRepairPlan,
   createRenameRepairPlan,
@@ -39,12 +42,15 @@ export interface DocumentIntelligenceServiceOptions {
   historyRootPath: string
   files?: DocumentIntelligenceFileAdapter
   history?: Omit<LocalHistoryServiceOptions, 'rootPath' | 'files'>
+  /** Filesystem seam for deterministic permission and transient-IO tests. */
+  linkTargetStat?: (pathname: string) => Promise<Stats>
 }
 
 const MAX_WORKSPACE_MARKDOWN_FILES = 20_000
 const MAX_WORKSPACE_DIRECTORIES = 10_000
 const MAX_INDEX_FILE_BYTES = 5 * 1024 * 1024
 const MAX_TOTAL_INDEX_BYTES = 64 * 1024 * 1024
+const MAX_DIAGNOSTIC_TARGETS = 20_000
 const IGNORED_DIRECTORIES = new Set(['.git', 'node_modules'])
 
 interface LinkIndexScope {
@@ -59,6 +65,8 @@ interface LinkIndexScope {
   pendingScanPaths: Map<string, string | null> | null
   fileRevisions: Map<string, number>
   nextFileRevision: number
+  diagnosticsRevision: number
+  scanComplete: boolean
 }
 
 const isWithinDirectory = (root: string, candidate: string): boolean => {
@@ -91,10 +99,12 @@ export class DocumentIntelligenceService {
   readonly linkIndex: MarkdownLinkIndex
   readonly localHistory: LocalHistoryService
   private readonly files: DocumentIntelligenceFileAdapter
+  private readonly linkTargetStat: (pathname: string) => Promise<Stats>
   private readonly indexScopes = new Map<number, LinkIndexScope>()
 
   constructor(options: DocumentIntelligenceServiceOptions) {
     this.files = options.files ?? defaultFiles
+    this.linkTargetStat = options.linkTargetStat ?? stat
     this.linkIndex = new MarkdownLinkIndex()
     this.indexScopes.set(0, {
       linkIndex: this.linkIndex,
@@ -107,7 +117,9 @@ export class DocumentIntelligenceService {
       pendingScanUpdates: null,
       pendingScanPaths: null,
       fileRevisions: new Map(),
-      nextFileRevision: 0
+      nextFileRevision: 0,
+      diagnosticsRevision: 0,
+      scanComplete: false
     })
     this.localHistory = new LocalHistoryService({
       rootPath: options.historyRootPath,
@@ -130,7 +142,9 @@ export class DocumentIntelligenceService {
         pendingScanUpdates: null,
         pendingScanPaths: null,
         fileRevisions: new Map(),
-        nextFileRevision: 0
+        nextFileRevision: 0,
+        diagnosticsRevision: 0,
+        scanComplete: false
       }
       this.indexScopes.set(scopeId, scope)
     }
@@ -143,6 +157,7 @@ export class DocumentIntelligenceService {
     if (!scope) return
     scope.generation += 1
     scope.linkIndex.clear()
+    scope.diagnosticsRevision += 1
     scope.openDocuments.clear()
     scope.workspaceDocuments.clear()
     scope.workspaceDocumentPaths.clear()
@@ -156,6 +171,7 @@ export class DocumentIntelligenceService {
   indexDocument(pathname: string, markdown: string, scopeId = 0): void {
     const scope = this.getScope(scopeId)
     scope.openDocuments.set(canonicalDocumentPath(pathname), markdown)
+    scope.diagnosticsRevision += 1
     scope.openDocumentPaths.set(canonicalDocumentPath(pathname), path.resolve(pathname))
     scope.linkIndex.updateDocument(pathname, markdown)
   }
@@ -164,6 +180,7 @@ export class DocumentIntelligenceService {
     const scope = this.getScope(scopeId)
     const key = canonicalDocumentPath(pathname)
     scope.openDocuments.delete(key)
+    scope.diagnosticsRevision += 1
     scope.openDocumentPaths.delete(key)
     const saved = scope.workspaceDocuments.get(key)
     if (saved === undefined) scope.linkIndex.removeDocument(pathname)
@@ -173,6 +190,8 @@ export class DocumentIntelligenceService {
   async indexWorkspace(rootPath: string | null, scopeId = 0): Promise<WorkspaceLinkIndexResult> {
     const scope = this.getScope(scopeId)
     const generation = ++scope.generation
+    scope.diagnosticsRevision += 1
+    scope.scanComplete = false
     // Clear the old workspace immediately while retaining live-tab overlays.
     scope.rootPath = rootPath ? path.resolve(rootPath) : null
     scope.workspaceDocuments.clear()
@@ -254,6 +273,7 @@ export class DocumentIntelligenceService {
     scope.pendingScanPaths = null
     scope.workspaceDocuments = documents
     scope.workspaceDocumentPaths = documentPaths
+    scope.scanComplete = skippedFiles === 0
     this.rebuildIndex(scope)
     return {
       rootPath: root,
@@ -275,6 +295,7 @@ export class DocumentIntelligenceService {
     const key = canonicalDocumentPath(absolute)
     const generation = scope.generation
     const revision = ++scope.nextFileRevision
+    scope.diagnosticsRevision += 1
     scope.fileRevisions.set(key, revision)
     let markdown: string | null
     try {
@@ -350,6 +371,120 @@ export class DocumentIntelligenceService {
     pathnames.delete(sourceKey)
     const candidates = scope.linkIndex.getLinkCandidates(sourcePath, [...pathnames.values()])
     return scope.linkIndex.rankLinkCandidates(candidates, query)
+  }
+
+  /**
+   * Read-only, workspace-scoped diagnostics over the existing Markdown index.
+   * An in-flight result has no authority after a tab edit, filesystem refresh,
+   * workspace switch, or window close.
+   */
+  async getBrokenMarkdownLinks(scopeId = 0): Promise<BrokenMarkdownLinksResult> {
+    const scope = this.getScope(scopeId)
+    const rootPath = scope.rootPath
+    const revision = scope.diagnosticsRevision
+    const generation = scope.generation
+    const empty = (stale = false): BrokenMarkdownLinksResult => ({
+      rootPath: stale ? null : rootPath,
+      findings: [],
+      checkedTargets: 0,
+      complete: false,
+      stale
+    })
+    if (!rootPath) return empty()
+
+    const current = (): boolean =>
+      this.indexScopes.get(scopeId) === scope &&
+      scope.generation === generation &&
+      scope.diagnosticsRevision === revision
+    const links = scope.linkIndex.getIndexedLinks()
+    const targetChecks = new Map<string, Promise<{
+      status: BrokenMarkdownLinkFinding['status']
+      reason: string
+    } | null>>()
+    let complete = scope.scanComplete
+    let realRoot: string
+    try {
+      realRoot = await realpath(rootPath)
+    } catch {
+      // A missing/offline workspace is not proof that every target was deleted.
+      return empty()
+    }
+    if (!current()) return empty(true)
+
+    const inspect = async(targetPath: string): Promise<{
+      status: BrokenMarkdownLinkFinding['status']
+      reason: string
+    } | null> => {
+      // Resolve the nearest existing ancestor before reporting ENOENT. A parent
+      // junction into another workspace must not become an in-scope "missing" link.
+      let ancestor = targetPath
+      while (true) {
+        try {
+          const resolved = await realpath(ancestor)
+          if (resolved !== realRoot && !isWithinDirectory(realRoot, resolved)) return null
+          break
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code
+          if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+            return { status: 'unverified', reason: code ?? 'UNKNOWN' }
+          }
+          if (ancestor === rootPath) {
+            return { status: 'unverified', reason: code }
+          }
+          ancestor = path.dirname(ancestor)
+        }
+      }
+      try {
+        const info = await this.linkTargetStat(targetPath)
+        if (!info.isFile()) return { status: 'missing-file', reason: 'NOT_FILE' }
+        await access(targetPath, constants.R_OK)
+        return null
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code
+        return code === 'ENOENT' || code === 'ENOTDIR'
+          ? { status: 'missing-file', reason: code }
+          : { status: 'unverified', reason: code ?? 'UNKNOWN' }
+      }
+    }
+
+    const findings: BrokenMarkdownLinkFinding[] = []
+    for (const link of links) {
+      if (!current()) return empty(true)
+      const source = scope.openDocumentPaths.get(link.sourcePath) ??
+        scope.workspaceDocumentPaths.get(link.sourcePath) ?? link.sourcePath
+      if (!isWithinDirectory(rootPath, source)) continue
+      const destination = parseNavigableMarkdownDestination(link.destination)
+      if (!destination) continue
+      const targetPath = path.resolve(path.dirname(source), destination.pathname)
+      if (!isWithinDirectory(rootPath, targetPath)) continue
+      let result = targetChecks.get(targetPath)
+      if (!result) {
+        if (targetChecks.size >= MAX_DIAGNOSTIC_TARGETS) {
+          complete = false
+          break
+        }
+        result = inspect(targetPath)
+        targetChecks.set(targetPath, result)
+      }
+      const finding = await result
+      if (!current()) return empty(true)
+      if (!finding) continue
+      findings.push({
+        ...link,
+        sourcePath: source,
+        targetPath,
+        revision,
+        status: finding.status,
+        reason: finding.reason
+      })
+    }
+    return {
+      rootPath,
+      findings,
+      checkedTargets: targetChecks.size,
+      complete,
+      stale: false
+    }
   }
 
   prepareRenameRepair(request: PrepareRenameRepairRequest): RenameRepairPlan {

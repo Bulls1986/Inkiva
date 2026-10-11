@@ -53,6 +53,7 @@ import type {
   LocalHistoryRestoreRequest,
   LocalHistorySnapshot,
   MoveHistoryPathRequest,
+  BrokenMarkdownLinksResult,
   MarkdownBacklink,
   MarkdownLinkCandidate,
   PrepareRenameRepairRequest,
@@ -134,6 +135,10 @@ export interface IpcInvokeChannels {
   'mt::document-intelligence::backlinks': {
     args: [targetPath: string]
     ret: MarkdownBacklink[]
+  }
+  'mt::document-intelligence::broken-markdown-links': {
+    args: []
+    ret: BrokenMarkdownLinksResult
   }
   'mt::document-intelligence::link-candidates': {
     args: [sourcePath: string, pathnames: string[]]

@@ -46,6 +46,9 @@ export const registerDocumentIntelligenceHandlers = (): void => {
   ipcMain.handle(DOCUMENT_INTELLIGENCE_CHANNELS.getBacklinks, (event, targetPath) =>
     getHandlers(event).getBacklinks(targetPath)
   )
+  ipcMain.handle(DOCUMENT_INTELLIGENCE_CHANNELS.getBrokenMarkdownLinks, (event) =>
+    getHandlers(event).getBrokenMarkdownLinks()
+  )
   ipcMain.handle(
     DOCUMENT_INTELLIGENCE_CHANNELS.getLinkCandidates,
     (event, sourcePath, pathnames) => getHandlers(event).getLinkCandidates(sourcePath, pathnames)

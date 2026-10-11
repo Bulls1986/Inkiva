@@ -151,6 +151,13 @@ export class MarkdownLinkIndex {
     this.backlinksByTarget.clear()
   }
 
+  getIndexedLinks(): MarkdownBacklink[] {
+    return [...this.backlinksByTarget.values()]
+      .flatMap((sources) => [...sources.values()].flat())
+      .sort((left, right) =>
+        comparePathStrings(left.sourcePath, right.sourcePath) || left.start - right.start)
+  }
+
   getBacklinks(targetPath: string): MarkdownBacklink[] {
     const target = canonicalDocumentPath(targetPath)
     const sources = this.backlinksByTarget.get(target)
