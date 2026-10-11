@@ -316,7 +316,9 @@ const openBacklink = (backlink: MarkdownBacklink): void => {
   const line = Math.max(0, backlink.line - 1)
   const column = backlink.column
   const ch = occurrenceCurrent && typeof column === 'number' &&
-    Number.isSafeInteger(column) && column >= 0 ? column : 0
+    Number.isSafeInteger(column) && column >= 0
+    ? column
+    : 0
   const cursor = {
     isCollapsed: true,
     anchor: { line, ch },
