@@ -378,6 +378,7 @@ const documentIntelligenceAPI = {
     invoke(DOCUMENT_INTELLIGENCE_CHANNELS.removeDocument, pathname),
   getBacklinks: (targetPath: string) =>
     invoke(DOCUMENT_INTELLIGENCE_CHANNELS.getBacklinks, targetPath),
+  getBrokenMarkdownLinks: () => invoke(DOCUMENT_INTELLIGENCE_CHANNELS.getBrokenMarkdownLinks),
   getLinkCandidates: (sourcePath: string, pathnames: string[]) =>
     invoke(DOCUMENT_INTELLIGENCE_CHANNELS.getLinkCandidates, sourcePath, pathnames),
   searchWorkspaceLinkCandidates: (sourcePath: string, query: string) =>

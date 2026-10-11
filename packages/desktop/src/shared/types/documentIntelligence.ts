@@ -9,6 +9,7 @@ export const DOCUMENT_INTELLIGENCE_CHANNELS = {
   getBacklinks: 'mt::document-intelligence::backlinks',
   getLinkCandidates: 'mt::document-intelligence::link-candidates',
   searchWorkspaceLinkCandidates: 'mt::document-intelligence::workspace-link-candidates',
+  getBrokenMarkdownLinks: 'mt::document-intelligence::broken-markdown-links',
   prepareRenameRepair: 'mt::document-intelligence::prepare-rename-repair',
   applyRenameRepair: 'mt::document-intelligence::apply-rename-repair',
   createSnapshot: 'mt::document-intelligence::history-create',
@@ -49,6 +50,22 @@ export interface MarkdownBacklink {
   column?: number
   start: number
   end: number
+}
+
+export interface BrokenMarkdownLinkFinding extends MarkdownBacklink {
+  targetPath: string
+  revision: number
+  status: 'missing-file' | 'unverified'
+  reason: string
+}
+
+export interface BrokenMarkdownLinksResult {
+  rootPath: string | null
+  findings: BrokenMarkdownLinkFinding[]
+  checkedTargets: number
+  /** False for incomplete workspace scans, bounded diagnostic scans and stale responses. */
+  complete: boolean
+  stale: boolean
 }
 
 export interface MarkdownLinkCandidate {

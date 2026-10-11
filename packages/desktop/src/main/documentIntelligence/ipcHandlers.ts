@@ -1,6 +1,7 @@
 import path from 'node:path'
 
 import type {
+  BrokenMarkdownLinksResult,
   ApplyRenameRepairRequest,
   ApplyRenameRepairResult,
   LocalHistoryCreateRequest,
@@ -24,6 +25,7 @@ export interface DocumentIntelligenceHandlerService {
   indexDocument(pathname: string, markdown: string, scopeId?: number): void
   removeDocument(pathname: string, scopeId?: number): void
   getBacklinks(targetPath: string, scopeId?: number): MarkdownBacklink[]
+  getBrokenMarkdownLinks(scopeId?: number): Promise<BrokenMarkdownLinksResult>
   getLinkCandidates(
     sourcePath: string,
     pathnames: readonly string[],
@@ -51,6 +53,7 @@ export interface DocumentIntelligenceHandlers {
   indexDocument(pathname: unknown, markdown: unknown): void
   removeDocument(pathname: unknown): void
   getBacklinks(targetPath: unknown): MarkdownBacklink[]
+  getBrokenMarkdownLinks(): Promise<BrokenMarkdownLinksResult>
   getLinkCandidates(sourcePath: unknown, pathnames: unknown): MarkdownLinkCandidate[]
   searchWorkspaceLinkCandidates(sourcePath: unknown, query: unknown): MarkdownLinkCandidate[]
   prepareRenameRepair(request: unknown): RenameRepairPlan
@@ -321,6 +324,12 @@ export const createDocumentIntelligenceHandlers = (
     return scopeId === undefined
       ? service.getBacklinks(target)
       : service.getBacklinks(target, scopeId)
+  },
+
+  getBrokenMarkdownLinks() {
+    return scopeId === undefined
+      ? service.getBrokenMarkdownLinks()
+      : service.getBrokenMarkdownLinks(scopeId)
   },
 
   getLinkCandidates(sourcePath, pathnames) {

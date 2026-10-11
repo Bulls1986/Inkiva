@@ -25,6 +25,7 @@ const createService = (): DocumentIntelligenceHandlerService => ({
   indexDocument: vi.fn(),
   removeDocument: vi.fn(),
   getBacklinks: vi.fn(() => []),
+  getBrokenMarkdownLinks: vi.fn(async() => ({ rootPath: null, findings: [], checkedTargets: 0, complete: false, stale: false })),
   getLinkCandidates: vi.fn(() => []),
   searchWorkspaceLinkCandidates: vi.fn(() => []),
   prepareRenameRepair: vi.fn(() => emptyPlan),
@@ -63,6 +64,10 @@ describe('document intelligence IPC handlers', () => {
     first.getBacklinks(path.join(root, 'target.md'))
     second.getBacklinks(path.join(root, 'target.md'))
     first.searchWorkspaceLinkCandidates(path.join(root, 'source.md'), 'guide')
+    await first.getBrokenMarkdownLinks()
+    await second.getBrokenMarkdownLinks()
+    expect(service.getBrokenMarkdownLinks).toHaveBeenCalledWith(11)
+    expect(service.getBrokenMarkdownLinks).toHaveBeenCalledWith(22)
 
     expect(service.indexWorkspace).toHaveBeenCalledWith(root, 11)
     expect(service.indexDocument).toHaveBeenCalledWith(
@@ -91,6 +96,7 @@ describe('document intelligence IPC handlers', () => {
     await handlers.indexWorkspace(rootPath)
     handlers.getLinkCandidates('/docs/note.md', ['/docs/other.md'])
     handlers.searchWorkspaceLinkCandidates('/docs/note.md', '')
+    await handlers.getBrokenMarkdownLinks()
     handlers.prepareRenameRepair({
       fromPath: '/docs',
       toPath: '/archive/docs',
@@ -114,6 +120,7 @@ describe('document intelligence IPC handlers', () => {
     expect(service.indexWorkspace).toHaveBeenCalledWith(rootPath)
     expect(service.getLinkCandidates).toHaveBeenCalledWith('/docs/note.md', ['/docs/other.md'])
     expect(service.searchWorkspaceLinkCandidates).toHaveBeenCalledWith('/docs/note.md', '')
+    expect(service.getBrokenMarkdownLinks).toHaveBeenCalledWith()
     expect(service.prepareRenameRepair).toHaveBeenCalledWith({
       fromPath: '/docs',
       toPath: '/archive/docs',
