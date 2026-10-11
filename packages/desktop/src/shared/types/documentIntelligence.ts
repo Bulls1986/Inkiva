@@ -45,6 +45,8 @@ export interface MarkdownBacklink {
   destination: string
   fragment: string
   line: number
+  /** UTF-16 Markdown source column of this occurrence; absent in older payloads. */
+  column?: number
   start: number
   end: number
 }
