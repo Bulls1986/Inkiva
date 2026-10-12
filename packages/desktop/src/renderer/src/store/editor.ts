@@ -15,6 +15,8 @@ import {
   TrailingNewlineCommand
 } from '../commands'
 import { defineStore } from 'pinia'
+import { ElMessageBox } from 'element-plus'
+import { h } from 'vue'
 import { usePreferencesStore } from './preferences'
 import { useProjectStore } from './project'
 import { useRecentDocumentsStore } from './recentDocuments'
@@ -1402,6 +1404,56 @@ export const useEditorStore = defineStore('editor', {
           message:
             'The file move succeeded, but relative references could not be recalculated. ' +
             `Review links and images manually. ${error instanceof Error ? error.message : String(error)}`
+        })
+        return 0
+      }
+
+      if (!plan.changes.length) return 0
+
+      // The filesystem move already succeeded. Editing the Markdown in open
+      // tabs is a separate, explicit choice; Escape never rewinds the move.
+      const affectedPreview = h('div', {
+        role: 'region',
+        'aria-label': 'Affected Markdown reference changes',
+        style: { maxHeight: '280px', overflowY: 'auto', overflowWrap: 'anywhere' }
+      }, [
+        h('p',
+          `The file move succeeded. Review ${plan.changes.length} affected open ` +
+          `document(s) and ${plan.linkCount} link/image destination edit(s):`
+        ),
+        h('ul', plan.changes.map((change) => h('li', {
+          key: change.sourcePathAfter
+        }, [
+          h('strong', `${change.sourcePathAfter} (${change.edits.length} edits)`),
+          h('ul', change.edits.map((edit) => h('li',
+            `${change.before.slice(edit.start, edit.end)} → ${edit.replacement}`
+          )))
+        ]))),
+        h('p', 'Update changes only the listed open drafts. Keep unchanged or ' +
+          'Cancel/close to leave Markdown intact. The file move is already complete.')
+      ])
+      const decision = await ElMessageBox.confirm(
+        affectedPreview,
+        'Review moved document references',
+        {
+          type: 'warning',
+          confirmButtonText: 'Update references',
+          cancelButtonText: 'Keep unchanged',
+          distinguishCancelAndClose: true,
+          closeOnClickModal: false,
+          showClose: true
+        }
+      ).then(() => 'update' as const).catch((action: unknown) =>
+        action === 'cancel' ? 'keep' as const : 'cancel' as const
+      )
+
+      if (decision !== 'update') {
+        notice.notify({
+          title: 'File move succeeded; references unchanged',
+          type: 'info',
+          message:
+            `Reference repair was ${decision === 'keep' ? 'kept unchanged' : 'cancelled'}. ` +
+            'The file move remains complete. Links may need manual review.'
         })
         return 0
       }

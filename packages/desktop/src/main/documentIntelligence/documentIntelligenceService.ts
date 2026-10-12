@@ -492,7 +492,25 @@ export class DocumentIntelligenceService {
   }
 
   applyRenameRepair(request: ApplyRenameRepairRequest): Promise<ApplyRenameRepairResult> {
-    return applyRenameRepairPlan(request.plan, request.decision, this.files)
+    // Filesystem identity moves complete before optional link repair. Only
+    // the existing Local History store may own the durable rollback preimages.
+    return applyRenameRepairPlan(request.plan, request.decision, this.files, {
+      afterMove: true,
+      recovery: {
+        create: async(filePath, content) => {
+          const point = await this.localHistory.createSnapshot({
+            filePath,
+            content,
+            reason: 'before-external-change'
+          })
+          return point.id
+        },
+        verify: async(filePath, snapshotId, content) => {
+          const retained = await this.localHistory.getSnapshot(filePath, snapshotId)
+          return retained?.content === content
+        }
+      }
+    })
   }
 
   createSnapshot(request: LocalHistoryCreateRequest): Promise<LocalHistoryEntry> {

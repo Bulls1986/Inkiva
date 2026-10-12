@@ -116,6 +116,13 @@ export interface ApplyRenameRepairRequest {
 export interface ApplyRenameRepairResult {
   decision: RenameRepairDecision
   updatedPaths: string[]
+  /** An absent outcome means that the entire requested action succeeded. */
+  outcome?: 'rolled-back' | 'partial'
+  failedPath?: string
+  rolledBackPaths?: string[]
+  rollbackFailedPaths?: string[]
+  recoveryPoints?: { filePath: string; snapshotId: string }[]
+  error?: string
 }
 
 export interface LocalHistoryRestoreRequest {

@@ -32,6 +32,7 @@ This directory contains durable product contracts and resumable implementation r
 - [V06-05 — Backlinks completeness and UI](V0.6-BACKLINKS-PROGRESS.md) — executed Red/Green, exact source-occurrence positioning, sidebar state correctness, Electron regression and CI/merge handoff (PR #236).
 - [V06-06 — Broken local Markdown link diagnostics](V0.6-BROKEN-LINK-DIAGNOSTICS-PROGRESS.md) — missing/unverified link classification, parser/FS regression, stale-result lifecycle, typed API and closure evidence.
 - [V06-07 — Broken link locate and explicit repair](V0.6-BROKEN-LINK-REPAIR-PROGRESS.md) — scoped sidebar diagnostics, exact-source navigation, existing-link completion, cancel/one-Undo and end-to-end closeout.
+- [V06-08 — Rename/move repair consistency](V0.6-RENAME-REPAIR-PROGRESS.md) — explicit review, source-revision guard, Local History recovery, multi-file partial-failure diagnostics and verification.
 
 ## Loading rule
 

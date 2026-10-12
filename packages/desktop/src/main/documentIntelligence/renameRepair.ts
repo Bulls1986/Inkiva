@@ -158,24 +158,107 @@ export const createRenameRepairPlan = (request: {
   }
 }
 
+export interface RenameRepairRecovery {
+  create(filePath: string, content: string): Promise<string>
+  verify(filePath: string, snapshotId: string, content: string): Promise<boolean>
+}
+
+export interface RenameRepairApplyOptions {
+  /** A successfully moved file must be written at its new location. */
+  afterMove?: boolean
+  /** All original source contents are durably retained before any batch write. */
+  recovery?: RenameRepairRecovery
+}
+
+/**
+ * Multi-file repairs cannot be atomic across the filesystem. Recoverable
+ * partial outcomes must remain explicit and must retain Local History
+ * evidence even if an attempted rollback also fails.
+ */
 export const applyRenameRepairPlan = async(
   plan: RenameRepairPlan,
   decision: RenameRepairDecision,
-  files: RenameRepairFileAdapter
+  files: RenameRepairFileAdapter,
+  options: RenameRepairApplyOptions = {}
 ): Promise<ApplyRenameRepairResult> => {
   if (decision !== 'update') return { decision, updatedPaths: [] }
 
-  for (const change of plan.changes) {
-    const current = await files.readFile(change.sourcePath)
-    if (current !== change.before) throw new StaleRenameRepairPlanError(change.sourcePath)
+  const changes = plan.changes.map((change) => ({
+    change,
+    filePath: options.afterMove ? change.sourcePathAfter : change.sourcePath
+  }))
+  // Preflight the *whole* batch so an already-stale second file cannot be
+  // overwritten (or leave the first file repaired).
+  for (const { change, filePath } of changes) {
+    const current = await files.readFile(filePath)
+    if (current !== change.before) throw new StaleRenameRepairPlanError(filePath)
+  }
+  if (changes.length > 1 && !options.recovery) {
+    throw new Error('Bulk link repair requires a durable Local History recovery owner')
   }
 
-  for (const change of plan.changes) {
-    await files.writeFile(change.sourcePath, change.after)
+  const recoveryPoints: NonNullable<ApplyRenameRepairResult['recoveryPoints']> = []
+  if (options.recovery) {
+    for (const { change, filePath } of changes) {
+      const snapshotId = await options.recovery.create(filePath, change.before)
+      recoveryPoints.push({ filePath, snapshotId })
+    }
+    // A snapshot creation may prune an earlier entry. Verify *all* retained
+    // before bytes still exist before the first disk mutation.
+    for (const { change, filePath } of changes) {
+      const snapshot = recoveryPoints.find((item) => item.filePath === filePath)
+      if (!snapshot || !await options.recovery.verify(
+        filePath, snapshot.snapshotId, change.before
+      )) {
+        throw new Error(`Local History recovery point is unavailable: ${filePath}`)
+      }
+    }
   }
 
-  return {
-    decision,
-    updatedPaths: plan.changes.map((change) => change.sourcePath)
+  const completed: typeof changes = []
+  for (const item of changes) {
+    try {
+      // Re-read immediately before the per-file write; a user/external editor
+      // can change bytes while another file or snapshot is being processed.
+      const current = await files.readFile(item.filePath)
+      if (current !== item.change.before) {
+        throw new StaleRenameRepairPlanError(item.filePath)
+      }
+      await files.writeFile(item.filePath, item.change.after)
+      completed.push(item)
+    } catch (error) {
+      if (!options.recovery) throw error
+      const rolledBackPaths: string[] = []
+      const rollbackFailedPaths: string[] = []
+      const stillChangedPaths: string[] = []
+      for (const applied of [...completed].reverse()) {
+        try {
+          // Never clobber newer user edits made after an earlier batch write.
+          const current = await files.readFile(applied.filePath)
+          if (current !== applied.change.after) {
+            rollbackFailedPaths.push(applied.filePath)
+            stillChangedPaths.push(applied.filePath)
+            continue
+          }
+          await files.writeFile(applied.filePath, applied.change.before)
+          rolledBackPaths.push(applied.filePath)
+        } catch {
+          rollbackFailedPaths.push(applied.filePath)
+          stillChangedPaths.push(applied.filePath)
+        }
+      }
+      return {
+        decision,
+        outcome: stillChangedPaths.length ? 'partial' : 'rolled-back',
+        failedPath: item.filePath,
+        updatedPaths: stillChangedPaths,
+        rolledBackPaths,
+        rollbackFailedPaths,
+        recoveryPoints,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
   }
+
+  return { decision, updatedPaths: changes.map(({ filePath }) => filePath) }
 }
