@@ -16,7 +16,9 @@ test('V06-09: large outline keyboard focus, deep reveal and explicit navigation'
     await showSidebarPanel(app, page, 'toc')
     const outline = page.locator('.toc-virtualized-tree[role="tree"]')
     await expect(outline).toBeVisible()
-    const currentItem = () => page.locator('.toc-virtualized-tree [role="treeitem"]:focus')
+    // The stable tree owns DOM focus across virtual window remounts;
+    // aria-activedescendant identifies the one logical heading in its window.
+    const currentItem = () => page.locator('.toc-virtualized-tree [role="treeitem"][data-focused="true"]')
     const editorScroll = page.locator('.editor-component')
     const before = await editorScroll.evaluate((el) => el.scrollTop)
 
@@ -24,6 +26,7 @@ test('V06-09: large outline keyboard focus, deep reveal and explicit navigation'
     // Playwright's programmatic focus of an otherwise unreachable item.
     await page.locator('[data-testid="toc-collapse-all"]').focus()
     await page.keyboard.press('Tab')
+    await expect(outline).toBeFocused()
     await expect(currentItem()).toHaveAttribute('aria-label', 'Topic 1')
     await page.keyboard.press('ArrowDown')
     await expect(currentItem()).toContainText('Topic 2')
@@ -32,6 +35,9 @@ test('V06-09: large outline keyboard focus, deep reveal and explicit navigation'
     await page.keyboard.press('End')
     await expect(currentItem()).toContainText(`Topic ${HEADING_COUNT}`)
     await expect(currentItem()).toBeInViewport()
+    await expect(outline).toBeFocused()
+    expect(await outline.getAttribute('aria-activedescendant'))
+      .toBe(await currentItem().getAttribute('id'))
     expect(await editorScroll.evaluate((el) => el.scrollTop)).toBe(before)
 
     await page.keyboard.press('Home')
