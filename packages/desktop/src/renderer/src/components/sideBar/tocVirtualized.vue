@@ -2,7 +2,11 @@
   <div
     ref="viewport"
     class="el-tree toc-virtualized-tree"
+    role="tree"
+    aria-label="Document outline"
     @scroll="handleScroll"
+    @keydown="handleKeydown"    @pointerdown="cancelPendingFocus"
+    @wheel.passive="cancelPendingFocus"
   >
     <div
       class="toc-virtual-spacer"
@@ -17,6 +21,13 @@
           :key="row.key"
           class="el-tree-node"
           :data-key="row.key"
+          role="treeitem"
+          :aria-level="row.depth + 1"
+          :aria-expanded="row.hasChildren ? isExpanded(row.key) : undefined"
+          :aria-current="row.slug === activeTocSlug ? 'location' : undefined"
+          :aria-label="String(row.label)"
+          :tabindex="row.key === tabStopKey ? 0 : -1"
+          @focus="focusedKey = row.key"
         >
           <div
             class="el-tree-node__content"
@@ -54,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, onBeforeUnmount } from 'vue'
+import { computed, nextTick, onMounted, ref, onBeforeUnmount, watch } from 'vue'
 import { calculateVirtualWindow } from '@/util/virtualization'
 import { createTocRowModel, type VirtualTocRow } from '@/util/tocVirtualization'
 import type { KeyedTocNode } from '@/util/tocKeys'
@@ -93,6 +104,105 @@ const visibleRows = computed<VirtualTocRow[]>(() =>
   rowModel.value.getRows(windowState.value.startIndex, windowState.value.endIndex)
 )
 
+// Only user keyboard interaction materializes the full logical outline.
+// Muya owns the editor viewport; this component scrolls its own TOC only.
+const keyboardRows = computed(() => {
+  const model = rowModel.value
+  return model.getRows(0, model.totalRows)
+})
+const focusedKey = ref<string | null>(null)
+const tabStopKey = computed(() => focusedKey.value ?? visibleRows.value[0]?.key ?? null)
+const indexOfKey = (key: string): number =>
+  keyboardRows.value.findIndex((row) => row.key === key)
+
+const revealOutlineRow = (index: number): void => {
+  const el = viewport.value
+  if (!el || index < 0) return
+  const height = el.clientHeight || viewportHeight.value
+  const top = index * ROW_HEIGHT
+  const bottom = top + ROW_HEIGHT
+  if (top < el.scrollTop) el.scrollTop = top
+  else if (bottom > el.scrollTop + height) el.scrollTop = bottom - height
+  scrollTop.value = el.scrollTop
+}
+
+// A virtual window can render, then remount once more on the native scroll
+// event. Complete the keyboard focus handoff across two stable paint boundaries
+// rather than relying on one Vue tick that may precede the remount.
+let focusIntent = 0
+const cancelPendingFocus = (): void => { focusIntent += 1 }
+
+const focusRow = async (index: number): Promise<void> => {
+  const row = keyboardRows.value[index]
+  const root = viewport.value
+  if (!row || !root) return
+  const intent = ++focusIntent
+  const previousFocus = document.activeElement
+  focusedKey.value = row.key
+  revealOutlineRow(index)
+
+  for (let paint = 0; paint < 2; paint++) {
+    await nextTick()
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    if (focusIntent !== intent || !root.isConnected) return
+    const active = document.activeElement
+    // A user-initiated focus change outside the outline supersedes the
+    // deferred virtual-window writer. Never steal it back.
+    if (
+      active !== previousFocus &&
+      active !== document.body &&
+      active !== document.documentElement &&
+      !root.contains(active)
+    ) return
+    const target = Array.from(root.querySelectorAll<HTMLElement>('[role="treeitem"]'))
+      .find((item) => item.dataset.key === row.key)
+    target?.focus({ preventScroll: true })
+  }
+}
+
+const handleKeydown = (event: KeyboardEvent): void => {
+  if (!(event.target instanceof HTMLElement) || event.target.closest('button')) return
+  const item = event.target.closest<HTMLElement>('[role="treeitem"]')
+  if (!item) return
+  const index = indexOfKey(item.dataset.key ?? '')
+  const rows = keyboardRows.value
+  const row = rows[index]
+  if (!row) return
+  let next: number | null = null
+
+  if (event.key === 'ArrowDown') next = Math.min(index + 1, rows.length - 1)
+  else if (event.key === 'ArrowUp') next = Math.max(0, index - 1)
+  else if (event.key === 'Home') next = 0
+  else if (event.key === 'End') next = rows.length - 1
+  else if (event.key === 'ArrowLeft') {
+    if (row.hasChildren && isExpanded(row.key)) toggle(row.key)
+    else {
+      for (let i = index - 1; i >= 0; i--) {
+        if (rows[i]!.depth < row.depth) {
+          next = i
+          break
+        }
+      }
+    }
+  } else if (event.key === 'ArrowRight') {
+    if (row.hasChildren && !isExpanded(row.key)) toggle(row.key)
+    else if (rows[index + 1]?.depth > row.depth) next = index + 1
+  } else if (event.key === 'Enter' || event.key === ' ') {
+    emit('node-click', { slug: row.slug })
+  } else return
+
+  event.preventDefault()
+  event.stopPropagation()
+  if (next !== null) focusRow(next)
+}
+
+// Highlight changes reveal only the outline row; never steal editing focus.
+watch(() => props.activeTocSlug, (slug) => {
+  if (typeof slug !== 'string') return
+  const index = keyboardRows.value.findIndex((row) => row.slug === slug)
+  if (index >= 0) revealOutlineRow(index)
+}, { flush: 'post' })
+
 const isExpanded = (key: string): boolean => expanded.value.has(key)
 
 const toggle = (key: string): void => {
@@ -118,6 +228,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  cancelPendingFocus()
   window.removeEventListener('resize', updateViewportHeight)
 })
 </script>
@@ -146,6 +257,11 @@ onBeforeUnmount(() => {
 .toc-virtualized-tree .el-tree-node {
   height: 34px;
   margin-top: 0;
+}
+
+.toc-virtualized-tree .el-tree-node:focus-visible > .el-tree-node__content {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: -2px;
 }
 
 .toc-virtualized-tree .el-tree-node__content {
