@@ -2,7 +2,12 @@
   <div
     ref="viewport"
     class="el-tree toc-virtualized-tree"
+    role="tree"
+    aria-label="Document outline"
+    tabindex="0"
+    :aria-activedescendant="keyboardTargetKey ? `toc-virtual-${keyboardTargetKey}` : undefined"
     @scroll="handleScroll"
+    @keydown="handleKeydown"
   >
     <div
       class="toc-virtual-spacer"
@@ -17,6 +22,14 @@
           :key="row.key"
           class="el-tree-node"
           :data-key="row.key"
+          :id="`toc-virtual-${row.key}`"
+          :data-focused="row.key === keyboardTargetKey"
+          role="treeitem"
+          :aria-level="row.depth + 1"
+          :aria-expanded="row.hasChildren ? isExpanded(row.key) : undefined"
+          :aria-current="row.slug === activeTocSlug ? 'location' : undefined"
+          :aria-label="String(row.label)"
+          tabindex="-1"
         >
           <div
             class="el-tree-node__content"
@@ -26,6 +39,7 @@
             <button
               v-if="row.hasChildren"
               type="button"
+              tabindex="-1"
               class="toc-virtual-toggle"
               :aria-expanded="isExpanded(row.key)"
               :aria-label="isExpanded(row.key) ? 'Collapse heading' : 'Expand heading'"
@@ -54,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, onBeforeUnmount } from 'vue'
+import { computed, onMounted, ref, onBeforeUnmount, watch } from 'vue'
 import { calculateVirtualWindow } from '@/util/virtualization'
 import { createTocRowModel, type VirtualTocRow } from '@/util/tocVirtualization'
 import type { KeyedTocNode } from '@/util/tocKeys'
@@ -92,6 +106,83 @@ const windowState = computed(() =>
 const visibleRows = computed<VirtualTocRow[]>(() =>
   rowModel.value.getRows(windowState.value.startIndex, windowState.value.endIndex)
 )
+
+// Only user keyboard interaction materializes the full logical outline.
+// Muya owns the editor viewport; this component scrolls its own TOC only.
+const keyboardRows = computed(() => {
+  const model = rowModel.value
+  return model.getRows(0, model.totalRows)
+})
+const focusedKey = ref<string | null>(null)
+const keyboardTargetKey = computed(() => focusedKey.value ?? visibleRows.value[0]?.key ?? null)
+const indexOfKey = (key: string): number =>
+  keyboardRows.value.findIndex((row) => row.key === key)
+
+const revealOutlineRow = (index: number): void => {
+  const el = viewport.value
+  if (!el || index < 0) return
+  const height = el.clientHeight || viewportHeight.value
+  const top = index * ROW_HEIGHT
+  const bottom = top + ROW_HEIGHT
+  if (top < el.scrollTop) el.scrollTop = top
+  else if (bottom > el.scrollTop + height) el.scrollTop = bottom - height
+  scrollTop.value = el.scrollTop
+}
+
+// The tree is the stable focus owner; its virtual rows are DOM projections.
+// Keep the logical active descendant even while a distant row is remounted.
+// No deferred focus writer can steal focus from a newer editor/user action.
+const focusRow = (index: number): void => {
+  const row = keyboardRows.value[index]
+  if (!row) return
+  focusedKey.value = row.key
+  revealOutlineRow(index)
+}
+
+const handleKeydown = (event: KeyboardEvent): void => {
+  if (event.target !== viewport.value) return
+  const index = indexOfKey(keyboardTargetKey.value ?? '')
+  const rows = keyboardRows.value
+  const row = rows[index]
+  if (!row) return
+  let next: number | null = null
+
+  if (event.key === 'ArrowDown') next = Math.min(index + 1, rows.length - 1)
+  else if (event.key === 'ArrowUp') next = Math.max(0, index - 1)
+  else if (event.key === 'Home') next = 0
+  else if (event.key === 'End') next = rows.length - 1
+  else if (event.key === 'ArrowLeft') {
+    if (row.hasChildren && isExpanded(row.key)) toggle(row.key)
+    else {
+      for (let i = index - 1; i >= 0; i--) {
+        if (rows[i]!.depth < row.depth) {
+          next = i
+          break
+        }
+      }
+    }
+  } else if (event.key === 'ArrowRight') {
+    if (row.hasChildren && !isExpanded(row.key)) toggle(row.key)
+    else if (rows[index + 1]?.depth > row.depth) next = index + 1
+  } else if (event.key === 'Enter' || event.key === ' ') {
+    emit('node-click', { slug: row.slug })
+  } else return
+
+  event.preventDefault()
+  event.stopPropagation()
+  if (next !== null) focusRow(next)
+}
+
+// Editor heading notifications are asynchronous. They may reveal the active
+// outline row only when the user is NOT navigating this tree by keyboard;
+// otherwise a delayed editor update can scroll the virtual window away from
+// its aria-activedescendant before End/Enter completes.
+watch(() => props.activeTocSlug, (slug) => {
+  if (document.activeElement === viewport.value) return
+  if (typeof slug !== 'string') return
+  const index = keyboardRows.value.findIndex((row) => row.slug === slug)
+  if (index >= 0) revealOutlineRow(index)
+}, { flush: 'post' })
 
 const isExpanded = (key: string): boolean => expanded.value.has(key)
 
@@ -146,6 +237,11 @@ onBeforeUnmount(() => {
 .toc-virtualized-tree .el-tree-node {
   height: 34px;
   margin-top: 0;
+}
+
+.toc-virtualized-tree:focus-visible .el-tree-node[data-focused="true"] > .el-tree-node__content {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: -2px;
 }
 
 .toc-virtualized-tree .el-tree-node__content {
