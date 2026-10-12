@@ -1997,7 +1997,8 @@ export const useEditorStore = defineStore('editor', {
     EXCHANGE_TABS_BY_ID(tabIDs: { fromId: string; toId: string | null }): void {
       const { fromId, toId } = tabIDs
       const { tabs } = this
-      const moveItem = <T>(arr: T[], from: number, to: number): boolean => {        if (from === to) return true
+      const moveItem = <T>(arr: T[], from: number, to: number): boolean => {
+        if (from === to) return true
         const len = arr.length
         const item = arr.splice(from, 1)
         if (item.length === 0) return false
