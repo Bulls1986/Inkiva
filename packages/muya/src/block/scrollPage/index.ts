@@ -1638,6 +1638,13 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             indexes.add(focusIndex);
         if (this._virtualRevealIndex !== null)
             indexes.add(this._virtualRevealIndex);
+        // A TOC jump can first reveal the destination using an estimated
+        // prefix, then correct scrollTop using its real DOM position. If that
+        // correction leaves the estimated window, retain the destination
+        // until the navigation target settles instead of unmounting it and
+        // oscillating between the approximate and exact positions.
+        if (this._virtualNavigationTarget !== null)
+            indexes.add(this._virtualNavigationTarget.index);
         if (
             this._virtualResizeCorrectionTarget !== null
             && this._virtualResizeAnchorIndex !== null

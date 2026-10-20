@@ -1484,6 +1484,38 @@ describe('stage C1 virtualization production contract', () => {
         ]));
     });
 
+    it('keeps a pending outline navigation target mounted when estimated and actual offsets disagree', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const muya = new Muya(host, {
+            markdown: paragraphs(PROGRESSIVE_RENDER_THRESHOLD + 240),
+            virtualizeLargeDocuments: true,
+        });
+        editors.push(muya);
+        muya.init();
+        await muya.whenRenderComplete();
+        const scrollPage = muya.editor.scrollPage!;
+        const targetIndex = 260;
+        const target = scrollPage.find(targetIndex) as Parent;
+        const internals = scrollPage as unknown as {
+            _virtualNavigationTarget: { index: number; viewportOffset: number } | null;
+        };
+
+        expect(scrollPage.revealBlock(targetIndex)).toBe(true);
+        expect(target.domNode?.isConnected).toBe(true);
+
+        // In the reported document, the first exact-DOM adjustment moves the
+        // viewport outside the estimated target's virtual window. Hydration
+        // must retain the target or the next pass reverts to its old estimate.
+        scrollPage.updateVirtualWindowForViewport(0, 600);
+        expect(target.domNode?.isConnected).toBe(true);
+
+        // Retention is tied to the pending navigation, not a permanent pin.
+        internals._virtualNavigationTarget = null;
+        scrollPage.updateVirtualWindowForViewport(0, 600);
+        expect(target.domNode?.isConnected).not.toBe(true);
+    });
+
     it('refreshes the resize correction target from live mounted-anchor geometry on each settle frame', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);
