@@ -191,6 +191,7 @@ export function createTocScrollSync(
   getBlockOffset?: (blockIndex: number) => number | null
 ): TocScrollSync {
   let toc: readonly TocSlugLike[] = []
+  let virtualSlugByBlockIndex = new Map<number, string>()
   let positions: CachedTocPosition[] = []
   let activeSlug: string | null = null
   let rebuildHandle: number | null = null
@@ -228,7 +229,14 @@ export function createTocScrollSync(
     // is not a local correction: letting it win would hide a newer logical
     // heading that is currently virtualized out of the DOM.
     for (const heading of Array.from(container.querySelectorAll(TOP_LEVEL_HEADINGS_SELECTOR))) {
-      const slug = heading.getAttribute(TOC_HEADING_SLUG_ATTRIBUTE)
+      // Virtual hydration may mount a heading after the last anchor-stamping
+      // pass. Resolve its logical index directly from the current TOC rather
+      // than falling back to a stale prefix estimate for an unmarked heading.
+      const rawIndex = heading.getAttribute(VIRTUAL_BLOCK_INDEX_ATTRIBUTE)
+      const index = rawIndex === null ? null : Number(rawIndex)
+      const slug = index !== null && Number.isInteger(index)
+        ? virtualSlugByBlockIndex.get(index)
+        : heading.getAttribute(TOC_HEADING_SLUG_ATTRIBUTE)
       if (!slug) continue
       const top = heading.getBoundingClientRect().top
       if (top >= mountedCorrectionFloor && top <= activationLine && top > bestTop) {
@@ -446,6 +454,13 @@ export function createTocScrollSync(
 
   const update = (nextToc: readonly TocSlugLike[]): void => {
     toc = nextToc.slice()
+    virtualSlugByBlockIndex = new Map(
+      toc.flatMap(({ slug, blockIndex }) =>
+        typeof slug === 'string' && typeof blockIndex === 'number' && Number.isInteger(blockIndex)
+          ? [[blockIndex, slug] as const]
+          : []
+      )
+    )
     if (attached) scheduleRebuild()
   }
 

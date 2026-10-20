@@ -183,6 +183,62 @@ describe('TOC outline utilities', () => {
     container.remove()
   })
 
+  it('recognizes a heading mounted after the last TOC anchor refresh by its virtual block index', async() => {
+    const container = document.createElement('div')
+    const root = document.createElement('div')
+    const segment = document.createElement('div')
+    const previous = document.createElement('h2')
+    root.className = 'mu-container'
+    segment.className = 'mu-virtual-segment'
+    previous.dataset.virtualBlockIndex = '40'
+    segment.append(previous)
+    root.append(segment)
+    container.append(root)
+    document.body.append(container)
+    container.scrollTop = 850
+
+    const rect = (top: number): DOMRect => ({
+      top,
+      bottom: top + 30,
+      height: 30,
+      x: 0,
+      y: top,
+      left: 0,
+      right: 600,
+      width: 600,
+      toJSON: () => ({})
+    } as DOMRect)
+    vi.spyOn(container, 'getBoundingClientRect').mockReturnValue(rect(0))
+    vi.spyOn(previous, 'getBoundingClientRect').mockReturnValue(rect(-450))
+    const onActiveChange = vi.fn()
+    const offsets = new Map([[40, 400], [80, 1600]])
+    const sync = createTocScrollSync(
+      container, onActiveChange, 40, index => offsets.get(index) ?? null
+    )
+    sync.update([
+      { slug: 'uid-previous', blockIndex: 40 },
+      { slug: 'uid-target', blockIndex: 80 }
+    ])
+    sync.attach()
+    sync.refresh()
+    expect(onActiveChange).toHaveBeenLastCalledWith('uid-previous')
+
+    // Virtual hydration adds a heading without rebuilding the TOC. Its
+    // data-virtual-block-index is authoritative even though the old DOM
+    // anchor stamping pass has never seen this element.
+    const target = document.createElement('h2')
+    target.dataset.virtualBlockIndex = '80'
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(rect(8))
+    segment.append(target)
+    expect(target.hasAttribute(TOC_HEADING_SLUG_ATTRIBUTE)).toBe(false)
+    container.dispatchEvent(new Event('scroll'))
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+
+    expect(onActiveChange).toHaveBeenLastCalledWith('uid-target')
+    sync.destroy()
+    container.remove()
+  })
+
   it('tracks active virtualized headings from document-level offsets', () => {
     const container = document.createElement('div')
     container.scrollTop = 850
