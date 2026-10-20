@@ -1,8 +1,9 @@
 # Long-document TOC navigation flicker — investigation record
 
-Status: **product fix verified locally; PR/official CI pending**  
+Status: **CLOSED — squash-merged into `develop`; official PR CI fully green**  
 Date: 2026-10-20  
-Branch: `fix/toc-navigation-jitter`  
+Original task branch: `fix/toc-navigation-jitter`  
+Merged `develop` SHA: `afab3ce0ef652a743419e194b221cec6b9fc40fe`  
 Base: GitHub-verified `develop@5117e1c08c4cfbdbfd1d7e1371f3c5c86a6a46d7`
 
 Public tracking: [Inkiva issue #245](https://github.com/Bulls1986/Inkiva/issues/245). The issue holds a sanitized symptom and recovery description; uploaded private artifacts remain local-only.
@@ -24,7 +25,7 @@ Public tracking: [Inkiva issue #245](https://github.com/Bulls1986/Inkiva/issues/
 - Removed only the worktree root Junction (donor intact) and attempted one isolated `pnpm install --offline --frozen-lockfile --ignore-scripts`. The command progressed to 1181/1851 packages without downloads but timed out at 120 seconds. Inspect the partial state; do not blindly duplicate the Job.
 - **No executed product Red; no production-code edits; no Green or CI proof.**
 
-## Resumable next steps
+## Historical investigation checklist (completed; retained for audit)
 
 1. Inspect previous Job/worktree state and complete environment readiness using the existing `docs/agent/ENVIRONMENT_RECIPES.md` contract, rather than interpreting bootstrap failures as product failure.
 2. Build from this worktree; run a focused Electron reproduction using the locally imported private fixture. Record the scrollTop trajectory, geometry revision, target heading rect and all scroll writers for several seconds after a click. The fixture must remain untracked.
@@ -52,7 +53,7 @@ The offline 1851-package installation finished successfully (pnpm 10.33.4, about
 - Desktop fix: maintain an O(1) `blockIndex -> slug` map from the current TOC, use it to resolve newly mounted headings during the already-deferred settled active-heading pass, and keep normal nonvirtual DOM-anchor fallback.
 - Desktop `node node_modules/vitest/vitest.mjs run test/unit/specs/toc-outline.spec.ts`: **16/16 passed**.
 
-**Still required:** rebuild and rerun the private diagnostic with an explicit target-active assertion; execute the new public-safe synthetic long-report Electron test, full Muya virtual production suite and affected Desktop tests, type/lint/CI checks, no-secret hygiene and diff review. Remove the private diagnostic spec and keep the private Markdown file untracked. No PR/merge/CI claims yet.
+**Historical stage-4 checklist:** the required focused verification, privacy cleanup and PR/CI follow-up were subsequently completed in stages 5–6. The standalone local `vue-tsc` diagnostic remains unproven against an identical-base run and is not claimed to have passed.
 
 ## Stage 5: local verification and privacy closeout (2026-10-20)
 
@@ -65,7 +66,20 @@ The offline 1851-package installation finished successfully (pnpm 10.33.4, about
 - Isolated `vue-tsc --noEmit -p packages/desktop/tsconfig.json`: **failed with existing-looking Muya declaration/type diagnostics** in unchanged source locations (e.g., `__MUYA_BLOCK__` DOM augmentation, `FileIcons`, prism declarations, `loadLanguage`). No new diagnostics were reported against the modified TOC code or added tests. This was not yet verified against a clean identical-base typecheck; **do not claim that the entire typecheck gate passed or that baseline parity is proven**. Do not broaden this focused bug fix to unrelated Muya typing cleanup.
 - Removed the local-only private Electron diagnostic spec and the copied original Markdown report from the worktree after successful validation. Only sanitized stage evidence and a synthetic test remain for the PR.
 
-## Release / merge follow-up
+## Historical release / merge checklist (completed in stage 6)
 
-Review the small scoped source diff, `git diff --check`, and workspace hygiene; commit only the listed product/test/documentation files. Push one task branch and open one PR to `develop`; track every required official CI check to completion. The manually executed Electron/Unit tests do not substitute for Windows/macOS build, package/update or performance gates where required. Do not auto-merge without explicit authorization.
+The scoped diff, privacy review, push, PR validation, platform package/update/performance checks, and explicitly authorized squash merge were completed. This section is retained as an audit checklist, not an outstanding task.
+
+## Stage 6: official CI, authorized squash merge and final verification (2026-10-20)
+
+- Original implementation commit: `92a693b3f4d51ddb601835770cf2d8744cac29ed` on `fix/toc-navigation-jitter`. [PR #246](https://github.com/Bulls1986/Inkiva/pull/246) was **squash-merged** after explicit user authorization and is now closed.
+- Final squash commit in `develop`: **`afab3ce0ef652a743419e194b221cec6b9fc40fe`**, independently verified against GitHub's authoritative remote `develop` branch ref (not just the local tracking branch).
+- [Issue #245](https://github.com/Bulls1986/Inkiva/issues/245) was automatically **closed** by the merge, independently verified via GitHub.
+- Official GitHub Actions for the implementation Head: **11/11 workflows completed successfully**, with zero failures or pending checks. All Desktop/Muya E2E, tests, lint, CommonMark/GFM, circular-dependency, Muya Build, Performance Fast Gate and PR Build jobs passed.
+- The Fast Gate's threshold-evaluation step was **successful**, not merely the benchmark command. Platform PR Build produced Windows x64, macOS Intel x64 and macOS arm64 artifacts; package/install smoke passed on all three, and updater artifact-assembly/contract smoke passed. The [official run](https://github.com/Bulls1986/Inkiva/actions/runs/39357864774) supplies the build evidence.
+- PR was `CLEAN` / `MERGEABLE` before squash; no unresolved review threads were present. The PR's [official CI closeout comment](https://github.com/Bulls1986/Inkiva/pull/246#issuecomment-6282154810) records the pre-merge evidence.
+- **Validation caveat, not an unresolved issue-245 blocker:** an extra local standalone `vue-tsc --noEmit` run produced Muya typing/declaration errors at unchanged locations; baseline parity was not established. No claim is made that this *separate* local check passed. All official required PR checks did pass. Investigate independently only if that gate becomes required or a relevant regression is reported.
+- The supplied private Markdown fixture and the temporary diagnostic E2E were excluded from the PR, and the public synthetic regression remains in the repository. No changes to the root README were needed.
+- **Lesson review:** a virtual-scroll navigation target must remain materialized until exact-geometry settlement, but only for the lifetime of that navigation transaction; newly mounted headings need current logical block-index lookup rather than stale DOM stamping. This is application-specific evidence of the existing [ARCH-03 virtual-surface ownership contract](../architecture/ARCH-03-VIRTUAL-SURFACE-CONTRACT.md), not a new parallel policy. Prior [workflow](../agent/WORKFLOW.md) and [environment recipes](../agent/ENVIRONMENT_RECIPES.md) already govern squash-only merge, CI closeout and isolated Windows dependency recovery, so no duplicate top-level guidance was created.
+- **Task state:** functional fix, tests, official CI, squash merge, remote-ref verification and issue closure completed. No further action is required for Issue #245.
 
