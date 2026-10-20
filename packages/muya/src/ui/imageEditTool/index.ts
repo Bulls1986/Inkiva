@@ -5,10 +5,10 @@ import type { ImageToken } from '../../inlineRenderer/types';
 import type { IImagePathSuggestion } from '../imagePicker';
 import type { IBaseOptions } from '../types';
 import { EVENT_KEYS, isWin, URL_REG } from '../../config';
-import { getUniqueId, isHTMLInputElement, isKeyboardEvent } from '../../utils';
+import { isHTMLInputElement, isKeyboardEvent } from '../../utils';
 
 import { query } from '../../utils/dom';
-import { getImageInfo, getImageSrc } from '../../utils/image';
+import { getImageSrc } from '../../utils/image';
 import { h, patch } from '../../utils/snabbdom';
 import BaseFloat from '../baseFloat';
 import { ImagePathPicker } from '../imagePicker';
@@ -85,6 +85,10 @@ export class ImageEditTool extends BaseFloat {
     /** Monotonic counter used to drop out-of-order imagePathAutoComplete responses */
     private _autoCompleteSeq = 0;
 
+    private _replaceVersion = 0;
+    private _replacePending = false;
+    private _replaceError: string | null = null;
+
     /** Current editing state */
     private _state: IState = {
         alt: '',
@@ -131,6 +135,9 @@ export class ImageEditTool extends BaseFloat {
 
             this._block = block;
             Object.assign(this._state, imageInfo.token.attrs);
+            this._replaceVersion++;
+            this._replacePending = false;
+            this._replaceError = null;
 
             // Remove file protocol prefix for local file paths to enable autocomplete
             this._normalizeFileProtocol();
@@ -365,8 +372,9 @@ export class ImageEditTool extends BaseFloat {
             this.hide();
             return;
         }
-        // Direct replacement: no upload needed
-        if (!this.options.imageAction || URL_REG.test(src)) {
+        // Editing alt/title must not duplicate an already referenced local
+        // asset or silently change its original portable Markdown path.
+        if (!this.options.imageAction || URL_REG.test(src) || src === this._imageInfo?.token.attrs.src) {
             this._replaceImageDirect(alt, src, title);
             return;
         }
@@ -391,47 +399,55 @@ export class ImageEditTool extends BaseFloat {
     }
 
     /**
-     * Replace image with upload flow
-     * Shows loading state, uploads the image, then replaces with uploaded URL
+     * Keep the original Markdown untouched while persisting a replacement.
+     * Source-mode handoff and virtual remount may remove the image's DOM;
+     * only the original document token, not a transient DOM placeholder,
+     * authorizes the final single edit.
      */
     private async _replaceImageWithUpload(alt: string, src: string, title: string) {
-        // Create unique ID for loading state
-        const loadingId = `loading-${getUniqueId()}`;
+        if (this._replacePending)
+            return;
 
-        // Show loading state
-        this._block!.replaceImage(this._imageInfo!, {
-            alt: loadingId,
-            src,
-            title,
-        });
-        this.hide();
+        const block = this._block;
+        const imageInfo = this._imageInfo;
+        if (!block || !imageInfo)
+            return;
 
-        // Upload image and get new URL
-        const uploadedSrc = await this.options.imageAction!({ src, title, alt });
+        const { start, end } = imageInfo.token.range;
+        const oldRaw = imageInfo.token.raw;
+        const version = this._replaceVersion;
+        this._replacePending = true;
+        this._replaceError = null;
 
-        // Store local path mapping if available
-        const { src: localPath } = getImageSrc(src);
-        // A pasted bitmap is already available as a data URL while the
-        // uploader is running. Do not cache that data URL against the returned
-        // remote address, otherwise the document points at PicGo's URL but the
-        // renderer continues displaying the old base64 payload.
-        if (localPath && !/^data:image\//i.test(src) && !URL_REG.test(src)) {
-            this.muya.editor.inlineRenderer.renderer.urlMap.set(uploadedSrc, localPath);
+        try {
+            const uploadedSrc = await this.options.imageAction!({ src, title, alt });
+            if (
+                version !== this._replaceVersion
+                || block.text.slice(start, end) !== oldRaw
+                || !uploadedSrc
+            ) {
+                return;
+            }
+
+            // Keep the existing local-preview mapping behavior, but never
+            // publish it until persistence succeeds and the edit is current.
+            const { src: localPath } = getImageSrc(src);
+            if (localPath && !/^data:image\//i.test(src) && !URL_REG.test(src)) {
+                this.muya.editor.inlineRenderer.renderer.urlMap.set(uploadedSrc, localPath);
+            }
+
+            block.replaceImage(imageInfo, { alt, src: uploadedSrc, title });
+            this.hide();
         }
-
-        // Find and update the image element
-        const imageWrapper = query<HTMLElement>(
-            `span[data-id=${loadingId}]`,
-            this.muya.domNode,
-        );
-
-        if (imageWrapper) {
-            const imageInfo = getImageInfo(imageWrapper);
-            this._block!.replaceImage(imageInfo, {
-                alt,
-                src: uploadedSrc,
-                title,
-            });
+        catch (error) {
+            if (version === this._replaceVersion) {
+                this._replaceError = error instanceof Error ? error.message : String(error);
+                this._render();
+            }
+        }
+        finally {
+            if (version === this._replaceVersion)
+                this._replacePending = false;
         }
     }
 
@@ -571,6 +587,9 @@ export class ImageEditTool extends BaseFloat {
         const vnode = h('div', [
             this._renderHeader(),
             h('div.image-select-body', body),
+            ...(this._replaceError
+                ? [h('span.image-action-error', { attrs: { role: 'alert' } }, this._replaceError)]
+                : []),
         ]);
 
         patch(oldVNode || imageSelectorContainer, vnode);
