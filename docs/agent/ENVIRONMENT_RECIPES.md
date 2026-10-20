@@ -277,6 +277,13 @@ For install/test/E2E/build/performance/release validation:
 | electron-vite boots but cannot resolve `electron/package.json` | add only a version-matching Electron physical/Junction path required by the build/helper | Junction the whole `packages/desktop/node_modules` tree |
 | current-worktree renderer build is healthy but exceeds short shell budget | run one real-Node build process with a long bounded timeout and observe the same Job | reuse donor `out/` / launch duplicate builds |
 
+## GitHub-hosted Ubuntu E2E: Azure apt mirror stalls on Noto CJK
+
+- **Symptom:** the Linux `E2E Test` workflow reaches `Install System Dependencies`, then stalls downloading the `fonts-noto-cjk` archive (~61 MB) from `http://azure.archive.ubuntu.com/ubuntu`. Its existing 15-minute job budget expires before the Electron build/test body. This is **environment/bootstrap failure**, not a discovered product assertion or a valid Red.
+- **Proven diagnosis:** the GitHub run for PR #244 on 2026-10-12 spent the remaining job budget on the Azure download and was cancelled without E2E execution. Related upstream GitHub runner-image reports describe intermittent Azure Ubuntu apt mirror stalls (e.g. `actions/runner-images#12949` and `#14594`).
+- **Canonical repo fix:** in `.github/workflows/e2e.yml`, on a GitHub-hosted Ubuntu runner with `/etc/apt/apt-mirrors.txt`, replace only that mirror's URL with `https://archive.ubuntu.com/ubuntu` **before** `apt-get update/install`. Continue installing the **same** dependencies, including `fonts-noto-cjk`. Keep the 15-minute job timeout, `pnpm build`, full `xvfb-run --auto-servernum pnpm test:e2e` and all artifact/error reporting intact. Never change package lists or test workloads merely to bypass the mirror.
+- **Evidence after fix:** latest HEAD `c907f463` on PR #244 completed the Ubuntu apt step, Electron build, and Linux full Electron E2E **424 passed / 15 skipped / 0 failed (E2E body ~9.2 minutes)**. All 12 official PR checks passed; the feature squash merged as `db52ec4d`. This is a CI-network routing remedy, not a product performance optimization.
+- **Invalid alternatives:** deleting CJK fonts, treating setup cancellation as a passing test, lifting timeouts to hide the download stall, suppressing apt errors, reducing the E2E suite, or treating the stalled install as a product regression.
 ## Learn once
 
 A genuinely new environment problem may be explored once. Once a repeatable solution is verified, update this file immediately with root cause, canonical action, and invalid alternatives. Future sessions follow that path directly.
