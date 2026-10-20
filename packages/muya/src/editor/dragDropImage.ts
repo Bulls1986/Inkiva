@@ -197,6 +197,7 @@ async function persistDroppedImage(
     path: string,
     name: string,
     loadingId: string,
+    insertedBlock: Parent,
 ): Promise<void> {
     const { imageAction } = muya.options;
     if (!imageAction)
@@ -221,6 +222,11 @@ async function persistDroppedImage(
         }
     }
     catch (error) {
+        // The image was never persisted. Remove only the exact, still-pending
+        // block created by this drop; preserve it if the user has since edited
+        // the paragraph while the async copy/upload was in flight.
+        if (insertedBlock.firstContentInDescendant()?.text === `![${loadingId}](${path})`)
+            insertedBlock.remove();
         debug.warn(`Unexpected error on image action: ${String(error)}`);
     }
 }
@@ -257,9 +263,9 @@ function handleFileImage(
     }
 
     const loadingId = `loading-${getUniqueId()}`;
-    insertImageParagraph(muya, target, `![${loadingId}](${path})`);
+    const insertedBlock = insertImageParagraph(muya, target, `![${loadingId}](${path})`);
 
-    void persistDroppedImage(muya, path, name, loadingId);
+    void persistDroppedImage(muya, path, name, loadingId, insertedBlock);
 
     return true;
 }

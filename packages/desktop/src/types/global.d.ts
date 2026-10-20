@@ -155,11 +155,13 @@ declare global {
     isDirectory(p: string): Promise<boolean>
     emptyDir(p: string): Promise<void>
     copy(src: string, dest: string): Promise<void>
+    copyNew(src: string, dest: string): Promise<void>
     ensureDir(p: string): Promise<void>
     outputFile(p: string, data: string | Uint8Array): Promise<void>
     move(src: string, dest: string): Promise<void>
     stat(p: string): Promise<SerializedStat>
     writeFile(p: string, data: string | Uint8Array): Promise<void>
+    writeFileNew(p: string, data: string | Uint8Array): Promise<void>
     readFile(p: string, encoding?: string): Promise<string | Uint8Array>
     pathExists(p: string): Promise<boolean>
     unlink(p: string): Promise<void>

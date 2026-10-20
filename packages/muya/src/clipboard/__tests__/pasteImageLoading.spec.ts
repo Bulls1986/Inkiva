@@ -64,6 +64,17 @@ function makePasteEvent() {
 }
 
 describe('pasteHandler image paste — loading placeholder then replace (sub-item 5)', () => {
+    it('restores the original Markdown when image persistence is rejected', async () => {
+        const anchorBlock = makeAnchorBlock('keep this text', 5);
+        const clipboard = makeClipboard({
+            clipboardFilePath: vi.fn().mockResolvedValue('/abs/photo.png'),
+            imageAction: vi.fn().mockRejectedValue(new Error('EEXIST')),
+        }, anchorBlock);
+
+        await expect(clipboard.pasteHandler(makePasteEvent())).rejects.toThrow('EEXIST');
+        expect(anchorBlock.text).toBe('keep this text');
+    });
+
     it('inserts a placeholder image BEFORE imageAction resolves, then swaps in the final src', async () => {
         let resolveAction: (src: string) => void = () => {};
         const actionPromise = new Promise<string>((resolve) => {

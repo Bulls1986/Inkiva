@@ -42,6 +42,10 @@ export const registerFsHandlers = (): void => {
   ipcMain.handle('mt::fs::is-directory', (_e, p: string) => commonIsDirectory(p))
   ipcMain.handle('mt::fs::empty-dir', (_e, p: string) => fs.emptyDir(p))
   ipcMain.handle('mt::fs::copy', (_e, src: string, dest: string) => fs.copy(src, dest))
+  // Image imports must not replace existing assets, even if two windows race.
+  ipcMain.handle('mt::fs::copy-new', (_e, src: string, dest: string) =>
+    fs.copy(src, dest, { overwrite: false, errorOnExist: true })
+  )
   ipcMain.handle('mt::fs::ensure-dir', (_e, p: string) => fs.ensureDir(p))
 
   ipcMain.handle('mt::fs::output-file', (_e, p: string, data: unknown) =>
@@ -54,6 +58,9 @@ export const registerFsHandlers = (): void => {
 
   ipcMain.handle('mt::fs::write-file', (_e, p: string, data: unknown) =>
     fs.writeFile(p, toBuffer(data) as string | NodeJS.ArrayBufferView)
+  )
+  ipcMain.handle('mt::fs::write-file-new', (_e, p: string, data: unknown) =>
+    fs.writeFile(p, toBuffer(data) as string | NodeJS.ArrayBufferView, { flag: 'wx' })
   )
   ipcMain.handle('mt::fs::read-file', async(_e, p: string, encoding?: BufferEncoding) => {
     const buf = await fs.readFile(p, encoding)
