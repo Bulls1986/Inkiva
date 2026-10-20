@@ -22,7 +22,7 @@ import EventCenter from '../../event';
 
 // Capture the paragraph blocks the handler creates so each test can assert the
 // inserted markdown text and where it landed relative to the anchor.
-const createdBlocks: Array<{ text: string; insertedBefore: boolean; insertedAfter: boolean }> = [];
+const createdBlocks: Array<{ text: string; insertedBefore: boolean; insertedAfter: boolean; removed: boolean }> = [];
 
 vi.mock('../../block/scrollPage', () => ({
     ScrollPage: {
@@ -32,11 +32,13 @@ vi.mock('../../block/scrollPage', () => ({
                     text: state.text,
                     insertedBefore: false,
                     insertedAfter: false,
+                    removed: false,
                 };
                 createdBlocks.push(record);
                 const block = {
                     record,
-                    firstContentInDescendant: () => ({ setCursor: vi.fn() }),
+                    firstContentInDescendant: () => ({ text: record.text, setCursor: vi.fn() }),
+                    remove: () => { record.removed = true; },
                 };
                 return block;
             },
@@ -120,6 +122,22 @@ afterEach(() => {
 });
 
 describe('attachDragDropImageHandlers — local image FILE', () => {
+    it('discards only the failed drop placeholder when the image cannot be persisted', async () => {
+        const imageAction = vi.fn().mockRejectedValue(new Error('EEXIST'));
+        const muya = makeMuya({
+            imageAction,
+            getPathForFile: () => '/abs/shot.png',
+        });
+        const target = makeDropTarget(muya);
+        attachDragDropImageHandlers(muya as unknown as Muya);
+        const transfer = new DataTransfer();
+        transfer.items.add(new File(['x'], 'shot.png', { type: 'image/png' }));
+
+        muya.domNode.dispatchEvent(dropEvent(target, transfer));
+        await vi.waitFor(() => expect(imageAction).toHaveBeenCalledTimes(1));
+        await vi.waitFor(() => expect(createdBlocks[0]?.removed).toBe(true));
+    });
+
     it('inserts a loading placeholder and invokes imageAction with the resolved path', async () => {
         const imageAction = vi.fn().mockResolvedValue('assets/shot.png');
         const getPathForFile = vi.fn().mockReturnValue('/abs/shot.png');

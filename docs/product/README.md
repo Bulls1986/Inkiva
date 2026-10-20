@@ -34,6 +34,7 @@ This directory contains durable product contracts and resumable implementation r
 - [V06-07 — Broken link locate and explicit repair](V0.6-BROKEN-LINK-REPAIR-PROGRESS.md) — scoped sidebar diagnostics, exact-source navigation, existing-link completion, cancel/one-Undo and end-to-end closeout.
 - [V06-08 — Rename/move repair consistency](V0.6-RENAME-REPAIR-PROGRESS.md) — explicit review, source-revision guard, Local History recovery, multi-file partial-failure diagnostics and verification.
 - [V06-09 — Outline UX and correctness](V0.6-OUTLINE-CORRECTNESS-PROGRESS.md) — virtualized keyboard accessibility and outline-only row reveal, existing TOC regressions and verified phase evidence.
+- [V06-10 — Image insertion, paste and path policy](V0.6-IMAGE-PLACEMENT-PROGRESS.md) — isolated image ingestion, non-overwriting file persistence, unsaved-document path safety, failure rollback, Red/Green evidence and release gates.
 
 ## Loading rule
 

@@ -192,6 +192,7 @@ export interface IpcInvokeChannels {
   'mt::fonts::list': { args: []; ret: string[] }
   'mt::fs-trash-item': { args: [pathname: string]; ret: void }
   'mt::fs::copy': { args: [src: string, dest: string]; ret: void }
+  'mt::fs::copy-new': { args: [src: string, dest: string]; ret: void }
   'mt::fs::empty-dir': { args: [path: string]; ret: void }
   'mt::fs::ensure-dir': { args: [path: string]; ret: void }
   'mt::fs::is-directory': { args: [path: string]; ret: boolean }
@@ -205,6 +206,7 @@ export interface IpcInvokeChannels {
   'mt::fs::stat': { args: [path: string]; ret: SerializedStat }
   'mt::fs::unlink': { args: [path: string]; ret: void }
   'mt::fs::write-file': { args: [path: string, data: string | Uint8Array]; ret: void }
+  'mt::fs::write-file-new': { args: [path: string, data: string | Uint8Array]; ret: void }
   'mt::i18n::is-supported': { args: [lang: string]; ret: boolean }
   'mt::i18n::load': { args: [language: string]; ret: Record<string, unknown> }
   'mt::i18n::supported': { args: []; ret: string[] }

@@ -96,6 +96,10 @@ async function insertImageSrc(
 
         return;
     }
+    const cursor = anchorBlock.getCursor();
+    const replacedText = cursor
+        ? anchorBlock.text.slice(cursor.start.offset, cursor.end.offset)
+        : '';
     const id = `loading-${getUniqueId()}`;
     const placeholderText = history
         ? history.runUserOperation(() => insertImageText(anchorBlock, src, id))
@@ -105,7 +109,29 @@ async function insertImageSrc(
         : null;
 
     let finalSrc = src;
-    const resolved = await imageAction({ src, alt: '', title: '' });
+    let resolved: string | undefined;
+    try {
+        resolved = await imageAction({ src, alt: '', title: '' });
+    }
+    catch (error) {
+        // Restore only this still-present placeholder and any selected Markdown.
+        // Never undo a later user edit or replace a different image token.
+        const restore = () => {
+            const index = anchorBlock.text.indexOf(placeholderText);
+            if (index < 0)
+                return;
+            anchorBlock.text = anchorBlock.text.slice(0, index)
+                + replacedText
+                + anchorBlock.text.slice(index + placeholderText.length);
+            const offset = index + replacedText.length;
+            anchorBlock.setCursor(offset, offset, true);
+        };
+        if (history)
+            history.runUserOperationContinuation(continuation, restore);
+        else
+            restore();
+        throw error;
+    }
     if (resolved)
         finalSrc = resolved;
 

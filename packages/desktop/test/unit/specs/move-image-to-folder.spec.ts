@@ -8,6 +8,8 @@ import { moveImageToFolder } from '@/util/fileSystem'
 // used for the content hash).
 const copy = vi.fn((_src: string, _dest: string) => Promise.resolve())
 const writeFile = vi.fn(() => Promise.resolve())
+const copyNew = vi.fn((_src: string, _dest: string) => Promise.resolve())
+const writeFileNew = vi.fn((_dest: string, _data: Uint8Array) => Promise.resolve())
 
 const win = window as unknown as {
   path: typeof path
@@ -17,12 +19,18 @@ const win = window as unknown as {
 beforeEach(() => {
   copy.mockClear()
   writeFile.mockClear()
+  copyNew.mockReset()
+  copyNew.mockResolvedValue(undefined)
+  writeFileNew.mockReset()
+  writeFileNew.mockResolvedValue(undefined)
   win.path = path
   win.fileUtils = {
     ensureDir: vi.fn(() => Promise.resolve()),
     isImageFile: vi.fn(() => Promise.resolve(true)),
     copy,
-    writeFile
+    writeFile,
+    copyNew,
+    writeFileNew
   }
 })
 
@@ -41,8 +49,8 @@ describe('moveImageToFolder relative-directory persistence', () => {
     const source = path.resolve('tmp', 'pictures', 'pic.png')
     const result = await moveImageToFolder(docPath, source, assetsDir, true, docPath)
     // The image must be copied into the assets dir...
-    expect(copy).toHaveBeenCalledTimes(1)
-    expect(copy.mock.calls[0][1].startsWith(assetsDir)).toBe(true)
+    expect(copyNew).toHaveBeenCalledTimes(1)
+    expect(copyNew.mock.calls[0][1].startsWith(assetsDir)).toBe(true)
     // ...and the inserted reference must be the portable relative path.
     expect(path.isAbsolute(result)).toBe(false)
     expect(result.startsWith('assets/')).toBe(true)
@@ -52,12 +60,12 @@ describe('moveImageToFolder relative-directory persistence', () => {
     const source = path.resolve('tmp', 'pictures', 'pic.png')
     const result = await moveImageToFolder(docPath, source, assetsDir, false, docPath)
     // copy still lands inside the assets dir...
-    expect(copy).toHaveBeenCalledTimes(1)
-    expect(copy.mock.calls[0][1].startsWith(assetsDir)).toBe(true)
+    expect(copyNew).toHaveBeenCalledTimes(1)
+    expect(copyNew.mock.calls[0][1].startsWith(assetsDir)).toBe(true)
     // ...and with isRelative=false the returned reference is the absolute
     // hashed destination path (the second arg passed to copy).
     expect(path.isAbsolute(result)).toBe(true)
-    expect(result).toBe(copy.mock.calls[0][1])
+    expect(result).toBe(copyNew.mock.calls[0][1])
     expect(result.startsWith(`${assetsDir}${path.sep}`)).toBe(true)
   })
 
@@ -97,10 +105,10 @@ describe('moveImageToFolder relative-directory persistence', () => {
     )
     // No copy for a binary File — it is written, not copied.
     expect(copy).not.toHaveBeenCalled()
-    expect(writeFile).toHaveBeenCalledTimes(1)
+    expect(writeFileNew).toHaveBeenCalledTimes(1)
     // The written destination is inside the assets dir...
-    expect((writeFile.mock.calls[0] as unknown[])[0] as string).toMatch(/pasted\.png$/)
-    expect(((writeFile.mock.calls[0] as unknown[])[0] as string).startsWith(assetsDir)).toBe(true)
+    expect((writeFileNew.mock.calls[0] as unknown[])[0] as string).toMatch(/pasted\.png$/)
+    expect(((writeFileNew.mock.calls[0] as unknown[])[0] as string).startsWith(assetsDir)).toBe(true)
     // ...and the inserted reference is the portable relative path.
     expect(path.isAbsolute(result)).toBe(false)
     expect(result.startsWith('assets/')).toBe(true)
@@ -117,5 +125,59 @@ describe('moveImageToFolder relative-directory persistence', () => {
     expect(writeFile).not.toHaveBeenCalled()
     expect(result).toBe(local)
     expect(path.isAbsolute(result)).toBe(true)
+  })
+
+  it('uses distinct destinations for rapid clipboard pastes of identically named images', async() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-20T08:00:00Z'))
+    try {
+      const file = new File([new Uint8Array([1, 2, 3])], '同名 (1).png', { type: 'image/png' })
+      const first = await moveImageToFolder(docPath, file, assetsDir, true, docPath)
+      const second = await moveImageToFolder(docPath, file, assetsDir, true, docPath)
+      expect(first).not.toBe(second)
+      expect(first).toContain('同名 (1).png')
+      expect(second).toContain('同名 (1).png')
+      expect(writeFileNew).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('never uses an overwrite-capable copy for an external image', async() => {
+    const source = path.resolve('tmp', 'outside', 'same-name.png')
+    await moveImageToFolder(docPath, source, assetsDir, true, docPath)
+    expect(copy).not.toHaveBeenCalled()
+    expect(copyNew).toHaveBeenCalledOnce()
+  })
+
+  it('rejects an exclusive image copy collision without falling back to an overwrite', async() => {
+    copyNew.mockRejectedValueOnce(new Error('EEXIST'))
+    const source = path.resolve('tmp', 'outside', 'photo.png')
+    await expect(moveImageToFolder(docPath, source, assetsDir, true, docPath)).rejects.toThrow('EEXIST')
+    expect(copy).not.toHaveBeenCalled()
+  })
+
+  it('rejects an exclusive binary write collision without returning a bad link', async() => {
+    writeFileNew.mockRejectedValueOnce(new Error('EEXIST'))
+    const file = new File([new Uint8Array([1])], '同名.png', { type: 'image/png' })
+    await expect(moveImageToFolder(docPath, file, assetsDir, true, docPath)).rejects.toThrow('EEXIST')
+    expect(writeFile).not.toHaveBeenCalled()
+  })
+
+  it('accepts an absolute pasted image path for a document not yet saved', async() => {
+    const source = path.resolve('tmp', 'pictures', '插图 with spaces.png')
+    const result = await moveImageToFolder(
+      null as unknown as string, source, assetsDir, false, null
+    )
+    expect(copyNew).toHaveBeenCalledOnce()
+    expect(copyNew.mock.calls[0][0]).toBe(source)
+    expect(path.isAbsolute(result)).toBe(true)
+  })
+
+  it('rejects an unanchored relative path instead of resolving it against the process directory', async() => {
+    await expect(
+      moveImageToFolder(null as unknown as string, 'relative.png', assetsDir, false, null)
+    ).rejects.toThrow('Save')
+    expect(copyNew).not.toHaveBeenCalled()
   })
 })

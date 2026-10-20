@@ -80,8 +80,15 @@ export const moveImageToFolder = async(
       : absolutePath
   const isPath = typeof image === 'string'
   if (isPath) {
-    const dir = window.path.dirname(pathname)
-    const imagePath = window.path.resolve(dir, image as string)
+    // Unsaved tabs have no filesystem anchor. An absolute image path remains
+    // usable, but resolving a relative one against the process CWD would
+    // silently link the wrong file.
+    if (!window.path.isAbsolute(image) && !pathname) {
+      throw new Error('Save this document before inserting a relative image path.')
+    }
+    const imagePath = window.path.isAbsolute(image)
+      ? window.path.normalize(image)
+      : window.path.resolve(window.path.dirname(pathname), image)
     const isImage = await window.fileUtils.isImageFile(imagePath)
     if (isImage) {
       const filename = window.path.basename(imagePath)
@@ -91,18 +98,18 @@ export const moveImageToFolder = async(
         return toResult(imagePath)
       }
       const hash = await getContentHash(imagePath)
-      const hashFilePath = window.path.join(outputDir, `${hash}${ext}`)
-      await window.fileUtils.copy(imagePath, hashFilePath)
+      const hashFilePath = window.path.join(outputDir, `${hash}-${window.crypto.randomUUID()}${ext}`)
+      await window.fileUtils.copyNew(imagePath, hashFilePath)
       return toResult(hashFilePath)
     } else {
       return image as string
     }
   } else {
     const file = image as File
-    const imagePath = window.path.join(outputDir, `${formatTimestamp()}-${file.name}`)
+    const imagePath = window.path.join(outputDir, `${formatTimestamp()}-${window.crypto.randomUUID()}-${window.path.basename(file.name)}`)
 
     const buffer = new Uint8Array(await file.arrayBuffer())
-    await window.fileUtils.writeFile(imagePath, buffer)
+    await window.fileUtils.writeFileNew(imagePath, buffer)
 
     return toResult(imagePath)
   }
