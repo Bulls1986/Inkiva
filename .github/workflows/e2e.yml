@@ -32,6 +32,12 @@ jobs:
 
       - name: Install System Dependencies
         run: |
+          # Azure's Ubuntu mirror intermittently stalls on the 61 MB Noto CJK
+          # archive, exhausting the unchanged 15-minute E2E job budget.
+          # Prefer Ubuntu's official archive; keep all dependencies intact.
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            sudo sed -i 's#http://azure.archive.ubuntu.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' /etc/apt/apt-mirrors.txt
+          fi
           sudo apt-get update
           sudo apt-get install -y \
             libx11-dev libxkbfile-dev libsecret-1-dev libfontconfig-dev \
