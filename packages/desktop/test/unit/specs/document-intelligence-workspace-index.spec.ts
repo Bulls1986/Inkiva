@@ -123,6 +123,38 @@ describe('V06-02 workspace Markdown links', () => {
     expect(service.getBacklinks(newTarget)).toHaveLength(1)
   })
 
+  it('drops a closed window scope even when a filesystem read settles late', async() => {
+    const root = await createWorkspace()
+    const source = path.join(root, 'source.md')
+    const target = path.join(root, 'target.md')
+    await fs.writeFile(source, '[Target](./target.md)')
+    await fs.writeFile(target, '# Target')
+    let releaseRead!: () => void
+    let readStarted!: () => void
+    const blocked = new Promise<void>((resolve) => { releaseRead = resolve })
+    const entered = new Promise<void>((resolve) => { readStarted = resolve })
+    const service = new DocumentIntelligenceService({
+      historyRootPath: path.join(root, '.history'),
+      files: {
+        readFile: async(pathname) => {
+          if (pathname === source) {
+            readStarted()
+            await blocked
+          }
+          return fs.readFile(pathname, 'utf8')
+        },
+        writeFile: (pathname, content) => fs.writeFile(pathname, content)
+      }
+    })
+
+    const stale = service.indexWorkspace(root, 11)
+    await entered
+    service.closeScope(11)
+    releaseRead()
+    expect((await stale).complete).toBe(false)
+    expect(service.getBacklinks(target, 11)).toEqual([])
+  })
+
   it('keeps two editor windows with different workspace roots isolated', async() => {
     const a = await createWorkspace()
     const b = await createWorkspace()

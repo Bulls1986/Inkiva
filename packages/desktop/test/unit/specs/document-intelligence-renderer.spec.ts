@@ -109,6 +109,51 @@ describe('renderer document intelligence coordinator', () => {
     coordinator.dispose()
   })
 
+  it('coalesces workspace watcher burst metadata refreshes without dropping file updates', async() => {
+    const api = createApi()
+    const coordinator = new DocumentIntelligenceCoordinator({ api })
+    const initial = coordinator.indexWorkspace('/docs')
+    await vi.advanceTimersByTimeAsync(30)
+    await initial
+    vi.mocked(api.getBrokenMarkdownLinks).mockClear()
+
+    const paths = Array.from({ length: 64 }, (_, index) => `/docs/unopened-${index}.md`)
+    const updates = paths.map((pathname) => coordinator.refreshWorkspaceFile(pathname))
+    await vi.advanceTimersByTimeAsync(500)
+    await Promise.all(updates)
+
+    expect(vi.mocked(api.refreshWorkspaceFile).mock.calls.map(([pathname]) => pathname).sort())
+      .toEqual([...paths].sort())
+    expect(api.getBrokenMarkdownLinks).toHaveBeenCalled()
+    expect(vi.mocked(api.getBrokenMarkdownLinks).mock.calls.length).toBeLessThanOrEqual(2)
+    coordinator.dispose()
+  })
+
+  it('starts a new workspace scan before a superseded old root finishes', async() => {
+    const api = createApi()
+    const slow = deferred<Awaited<ReturnType<DocumentIntelligenceApi['indexWorkspace']>>>()
+    vi.mocked(api.indexWorkspace).mockImplementation((rootPath) => rootPath === '/slow'
+      ? slow.promise
+      : Promise.resolve({ rootPath, indexedFiles: 1, skippedFiles: 0, complete: true }))
+    const coordinator = new DocumentIntelligenceCoordinator({ api })
+
+    const stale = coordinator.indexWorkspace('/slow')
+    await vi.advanceTimersByTimeAsync(4)
+    expect(api.indexWorkspace).toHaveBeenCalledWith('/slow')
+
+    const current = coordinator.indexWorkspace('/fast')
+    await vi.advanceTimersByTimeAsync(10)
+    expect(api.indexWorkspace).toHaveBeenCalledWith('/fast')
+    await current
+    expect(coordinator.getState().workspaceIndex?.rootPath).toBe('/fast')
+
+    slow.resolve({ rootPath: '/slow', indexedFiles: 2, skippedFiles: 0, complete: true })
+    await vi.advanceTimersByTimeAsync(10)
+    await stale
+    expect(coordinator.getState().workspaceIndex?.rootPath).toBe('/fast')
+    coordinator.dispose()
+  })
+
   it('reports partial workspace index counts without misreporting document sync failure', async() => {
     const api = createApi()
     vi.mocked(api.indexWorkspace)

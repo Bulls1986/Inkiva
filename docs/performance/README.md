@@ -8,6 +8,7 @@ Use this index for performance baselines, active optimization stages and histori
 
 - [BASELINE-01 — Post architecture-governance baseline](BASELINE-01-POST-ARCH-GOVERNANCE.md)
 - [PERF-01 — Large Document Activation](PERF-01-LARGE-DOCUMENT-ACTIVATION.md)
+- [V06-13 — Workspace index performance and lifecycle qualification](V06-13-PERFORMANCE-LIFECYCLE.md) — workload contract, real-file benchmarks, root-switch Red/Green, resource cleanup and CI evidence.
 
 ## Historical investigations
 
