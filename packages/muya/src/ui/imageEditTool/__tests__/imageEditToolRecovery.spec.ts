@@ -10,7 +10,8 @@ function setup(action: (state: { src: string; alt: string; title: string }) => P
     const editor = document.createElement('div');
     document.body.appendChild(editor);
     const muya = {
-        domNode: editor, eventCenter,
+        domNode: editor,
+        eventCenter,
         i18n: { t: (value: string) => value },
         ui: { shownFloat: new Set() },
         editor: { inlineRenderer: { renderer: { urlMap: new Map() } } },
@@ -18,17 +19,26 @@ function setup(action: (state: { src: string; alt: string; title: string }) => P
     const block = { text: `prefix ${original} suffix`, replaceImage: vi.fn() };
     const reference = document.createElement('span');
     reference.getBoundingClientRect = () => ({
-        top: 0, left: 0, right: 20, bottom: 20, width: 20, height: 20,
-        x: 0, y: 0, toJSON: () => '',
+        top: 0,
+        left: 0,
+        right: 20,
+        bottom: 20,
+        width: 20,
+        height: 20,
+        x: 0,
+        y: 0,
+        toJSON: () => '',
     }) as DOMRect;
     editor.appendChild(reference);
     const tool = new ImageEditTool(muya, { imageAction: action });
     eventCenter.emit('muya-image-selector', {
-        block, reference,
+        block,
+        reference,
         imageInfo: {
             imageId: 'missing-image',
             token: {
-                type: 'image', raw: original,
+                type: 'image',
+                raw: original,
                 range: { start: 7, end: 7 + original.length },
                 attrs: { src: 'assets/missing.png', alt: 'original', title: '' },
             },
@@ -43,9 +53,13 @@ function setup(action: (state: { src: string; alt: string; title: string }) => P
     return { tool, block, confirm, editor };
 }
 const tick = () => new Promise<void>(resolve => setTimeout(resolve, 0));
-describe('ImageEditTool missing-image relink safety', () => {
-    beforeEach(() => { document.body.innerHTML = ''; });
-    afterEach(() => { vi.restoreAllMocks(); });
+describe('imageEditTool missing-image relink safety', () => {
+    beforeEach(() => {
+        document.body.innerHTML = '';
+    });
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
 
     it('preserves original Markdown and offers retry on failed persistence', async () => {
         const action = vi.fn().mockRejectedValue(new Error('EACCES'));
@@ -62,14 +76,18 @@ describe('ImageEditTool missing-image relink safety', () => {
 
     it('commits one replacement without transient loading Markdown', async () => {
         let finish!: (src: string) => void;
-        const { tool, block, confirm } = setup(() => new Promise<string>(resolve => { finish = resolve; }));
+        const { tool, block, confirm } = setup(() => new Promise<string>((resolve) => {
+            finish = resolve;
+        }));
         confirm();
         expect(block.replaceImage).not.toHaveBeenCalled();
         finish('assets/relinked.png');
         await tick();
         expect(block.replaceImage).toHaveBeenCalledTimes(1);
         expect(block.replaceImage.mock.calls[0][1]).toEqual({
-            src: 'assets/relinked.png', alt: 'original', title: '',
+            src: 'assets/relinked.png',
+            alt: 'original',
+            title: '',
         });
         tool.hide();
     });
@@ -85,14 +103,18 @@ describe('ImageEditTool missing-image relink safety', () => {
         await tick();
         expect(action).not.toHaveBeenCalled();
         expect(block.replaceImage).toHaveBeenCalledWith(expect.anything(), {
-            src: 'assets/missing.png', alt: 'new alternative', title: '',
+            src: 'assets/missing.png',
+            alt: 'new alternative',
+            title: '',
         });
         tool.hide();
     });
 
     it('keeps the operation single-flight while persistence is pending', async () => {
         let finish!: (src: string) => void;
-        const action = vi.fn(() => new Promise<string>(resolve => { finish = resolve; }));
+        const action = vi.fn(() => new Promise<string>((resolve) => {
+            finish = resolve;
+        }));
         const { tool, block, confirm } = setup(action);
         confirm();
         confirm();
@@ -106,7 +128,9 @@ describe('ImageEditTool missing-image relink safety', () => {
     it('can commit to the original document token after the image DOM unmounts', async () => {
         let finish!: (src: string) => void;
         const { tool, block, confirm, editor } = setup(() =>
-            new Promise<string>(resolve => { finish = resolve; }));
+            new Promise<string>((resolve) => {
+                finish = resolve;
+            }));
         confirm();
         editor.remove();
         finish('assets/relinked.png');
@@ -118,7 +142,9 @@ describe('ImageEditTool missing-image relink safety', () => {
 
     it('does not overwrite newer image edits after an asynchronous response', async () => {
         let finish!: (src: string) => void;
-        const { tool, block, confirm } = setup(() => new Promise<string>(resolve => { finish = resolve; }));
+        const { tool, block, confirm } = setup(() => new Promise<string>((resolve) => {
+            finish = resolve;
+        }));
         confirm();
         block.text = 'prefix NEW CONTENT suffix';
         finish('assets/relinked.png');
