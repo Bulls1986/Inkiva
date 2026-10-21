@@ -119,6 +119,46 @@ test.describe('us12 table editing fidelity', () => {
     await expectNoRendererErrors(app)
   })
 
+  test('Issue #224: Escape and outside click dismiss the table menu and preserve the editor caret', async() => {
+    const before = await getMarkdownContent(page, app)
+    const cell = page.locator('.editor-component .mu-table-cell-content').first()
+    const menu = page.locator('.mu-table-bar-tools [role="menu"]')
+    const float = page.locator('.mu-float-wrapper.mu-table-bar-tools')
+
+    const expectDismissed = async(): Promise<void> => {
+      await expect.poll(() => float.evaluate(node => {
+        const style = getComputedStyle(node)
+        const bounds = node.getBoundingClientRect()
+        return style.opacity === '0' && bounds.right < 0 && bounds.bottom < 0
+      })).toBe(true)
+    }
+
+    await cell.click({ button: 'right' })
+    await expect(menu).toBeVisible()
+    await expect(menu.locator('[role="menuitem"]')).toHaveCount(7)
+    await expect(menu.locator('[role="menuitem"]').first()).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expectDismissed()
+    await expect(page.locator('.mu-editor.editor-component')).toBeFocused()
+    await expect.poll(() => cell.evaluate(node => {
+      const selection = window.getSelection()
+      const anchor = selection?.anchorNode
+      return Boolean(anchor && (anchor === node || node.contains(anchor)) && selection?.isCollapsed)
+    })).toBe(true)
+
+    await cell.click({ button: 'right' })
+    await expect(menu).toBeVisible()
+    await expect(menu.locator('[role="menuitem"]').first()).toBeFocused()
+    const bounds = await float.boundingBox()
+    expect(bounds).not.toBeNull()
+    expect(bounds!.x + bounds!.width).toBeLessThan(1180)
+    expect(bounds!.y + bounds!.height).toBeLessThan(600)
+    await page.mouse.click(1180, 600)
+    await expectDismissed()
+    expect(await getMarkdownContent(page, app)).toBe(before)
+    await expectNoRendererErrors(app)
+  })
+
   test('confirms non-empty rectangular TSV overwrite, cancels cleanly, and undoes atomically', async() => {
     const before = await getMarkdownContent(page, app)
 
