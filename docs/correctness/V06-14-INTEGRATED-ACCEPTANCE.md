@@ -42,7 +42,11 @@ Pending final unit, typing, build, native-scenario and test discovery results. B
 
 ## Stage 3 — Official PR-head CI & artifact verification
 
-Pending PR, exact head SHA, workflow run links and checks: Lint; Test; full Electron E2E; Fast Hard Gate collector **and evaluator**; Win x64 / macOS x64 / macOS ARM64 builds and package smoke; Updater artifact smoke; artifact-link comment. PR green on historical SHA is insufficient.
+**PR [#256](https://github.com/Bulls1986/Inkiva/pull/256)** opened with initial source/test Head `3a4a9de93c3fe8729150d3768f706ce8ff66f904`. Initial PR Lint, Test, E2E and PR Build were scheduled; do not treat their queued/in-progress results as accepted.
+
+**Release gate discoverability:** the existing Performance Fast Gate workflow runs only for source/performance files listed under `pull_request.paths`; integration test and stage documents alone do not schedule it. Added a manual `workflow_dispatch` entry and a dispatch-compatible source commit fallback to the same existing collector → evaluator workflow, preserving every original PR path, workload, sample count and hard threshold. Changing this workflow file itself also triggers Fast Gate on the updated PR head. This is a CI qualification accessibility change, not an adjustment of gate policy or product performance.
+
+**Pending latest-head results:** Lint; Test; full Electron E2E; Fast Hard Gate collector **and evaluator**; Win x64 / macOS x64 / macOS ARM64 builds and package smoke; Updater artifact smoke; artifact-link comment. Record exact final Head and workflow run links, verify the raw/evaluation artifact chain, and never substitute historical green checks.
 
 ## Stage 4 — Acceptance decision, deferrals, lessons
 
@@ -50,3 +54,4 @@ Pending PR, exact head SHA, workflow run links and checks: Lint; Test; full Elec
 - Native macOS **manual** interactive acceptance, official reference-machine absolute performance qualification, and #230 native watcher-storm workload are separate evidence populations. Never report them as passed merely because Linux Electron snapshots, macOS CI packages or standard PR Fast Gate passed. Record any unexecuted items explicitly in V06-15 release readiness.
 - At closeout, capture commit/PR/squash merge SHA and verify actual `develop` target ref, local worktree hygiene, and learning review; leave V06-15 version/release alone.
 - **Learning so far:** the actual bulk-repair service entry point guarantees a durable Local History preimage; a direct helper call without that recovery owner is not an acceptable integration harness. Correct the test's entry point, not the production safety guard. Also reject donor node_modules realpath leakage rather than enlarging Vite permissions; a lockfile-identical offline, worktree-local dependency install restored valid test discovery.
+- **Qualification trigger lesson:** release acceptance must deliberately run fast-hard-gate even when only contract/test files change. Retain the narrow normal PR path filter for cost control; provide an explicit dispatch path for acceptance rather than weakening test thresholds or inflating every PR's workload.
