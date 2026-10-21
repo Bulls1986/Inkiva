@@ -83,6 +83,40 @@ test('workflow is PR-only and invokes the fast hard gate', () => {
   assert.doesNotMatch(workflow, /::warning::/)
 })
 
+test('V06-14 release integration PR checks the entire fast gate evidence chain', () => {
+  const workflow = readFileSync(
+    new URL('../../.github/workflows/performance-fast-gate.yml', import.meta.url),
+    'utf8'
+  )
+  const pullRequestStart = workflow.indexOf('  pull_request:')
+  const concurrencyStart = workflow.indexOf('\nconcurrency:')
+  assert.ok(
+    pullRequestStart >= 0 && concurrencyStart > pullRequestStart,
+    'PR is the authoritative entry point for performance acceptance'
+  )
+  const pullRequest = workflow.slice(pullRequestStart, concurrencyStart)
+  assert.match(pullRequest, /^ {6}- 'perf\/soak\/\*\*'\r?$/m)
+  assert.match(pullRequest, /^ {6}- '\.github\/workflows\/performance-fast-gate\.yml'\r?$/m)
+
+  const contracts = workflow.indexOf('name: Validate fast performance contracts')
+  const collector = workflow.indexOf('name: Run desktop fast performance gate')
+  const evaluator = workflow.indexOf('name: Evaluate fast hard thresholds')
+  const artifacts = workflow.indexOf('name: Upload fast performance reports')
+  assert.ok(contracts >= 0 && contracts < collector, 'validate contracts before collecting')
+  assert.ok(collector < evaluator, 'collect raw performance evidence before evaluation')
+  assert.ok(evaluator < artifacts, 'publish evaluated performance evidence')
+
+  const evaluationSection = workflow.slice(evaluator, artifacts)
+  const artifactSection = workflow.slice(artifacts)
+  assert.match(evaluationSection, /if: always\(\)/)
+  assert.match(evaluationSection, /--input packages\/desktop\/test-results\/perf-results\/fast\/fast\.raw\.json/)
+  assert.match(evaluationSection, /--thresholds perf\/soak\/thresholds-fast\.json/)
+  assert.match(artifactSection, /if: always\(\)/)
+  assert.match(artifactSection, /if-no-files-found: error/)
+  assert.match(artifactSection, /perf-results\/fast-evaluation\.json/)
+  assert.match(artifactSection, /packages\/desktop\/test-results\/perf-results\/fast\//)
+})
+
 test('legacy reference performance gate is not an automatic PR gate', () => {
   const workflow = readFileSync(
     new URL('../../.github/workflows/performance-gate.yml', import.meta.url),
