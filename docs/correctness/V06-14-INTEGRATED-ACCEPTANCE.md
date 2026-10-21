@@ -1,6 +1,6 @@
 # V06-14 — Integrated correctness and platform acceptance
 
-**Status:** in progress; do not claim closure without latest-head official checks.  
+**Status:** accepted by **12/12 official checks on the latest executable Head**; squash merge / remote `develop` verification is the remaining closeout action.
 **Started:** 2026-10-21  
 **Base:** `origin/develop` `ac5ae594c4d8eb8f38adbb226b3963c0b35e38e0` (V06-13 merged)  
 **Branch:** `test/v06-14-integrated-acceptance`  
@@ -46,7 +46,19 @@ Pending final unit, typing, build, native-scenario and test discovery results. B
 
 **Release gate discoverability and executed Red:** the existing Performance Fast Gate workflow runs only for source/performance files listed under `pull_request.paths`; integration tests and stage documents alone do not schedule it. An initial attempt to add `workflow_dispatch` created a **valid CI contract Red** on head `93c8ed6f`: run [39611388769](https://github.com/Bulls1986/Inkiva/actions/runs/39611388769) failed at `Validate fast performance contracts` (13/14 passed) because the explicitly protected PR-only invariant rejected `workflow_dispatch`. As a consequence collector, evaluator and artifacts were absent; those dependent failures are not product/performance evidence. **Reverted that incompatible workflow change completely**; no test assertion was relaxed. Instead, added one positive `perf/soak/fast-policy.spec.ts` acceptance test on the already-supported PR path, asserting PR-only admission, correct fast contract → collector → evaluator → artifact order, `if: always()` evaluation/upload and fail-closed missing artifacts. This meaningful test change naturally schedules the existing Fast Gate without altering the workflow or thresholds.
 
-**Pending latest-head results:** Lint; Test; full Electron E2E; Fast Hard Gate collector **and evaluator**; Win x64 / macOS x64 / macOS ARM64 builds and package smoke; Updater artifact smoke; artifact-link comment. Record exact final Head and workflow run links, verify the raw/evaluation artifact chain, and never substitute historical green checks.
+**Latest executable Head:** `ebc468f31e4c587acdb5bd5bb26d12c9075ed5fc` (performance contract acceptance test; original Fast Gate workflow exactly restored). All observations below refer to this same Head, not to a canceled or historically green SHA.
+
+| Official workflow | Run | Verified latest-Head jobs |
+| --- | --- | --- |
+| Lint (ESLint + TypeScript) | [39612271811](https://github.com/Bulls1986/Inkiva/actions/runs/39612271811) | **Pass** |
+| Test | [39612271807](https://github.com/Bulls1986/Inkiva/actions/runs/39612271807) | **Pass** |
+| E2E Test (real Electron) | [39612271841](https://github.com/Bulls1986/Inkiva/actions/runs/39612271841) | **Pass** |
+| Performance Fast Hard Gate | [39612271862](https://github.com/Bulls1986/Inkiva/actions/runs/39612271862) | **Pass**: PR-only contracts, app build, Electron raw collector, hard-threshold evaluator and artifact upload. Verified resulting `desktop-performance-fast-gate` artifact (470,116 bytes, not expired) via GitHub Actions API. |
+| PR Build / artifacts | [39612271870](https://github.com/Bulls1986/Inkiva/actions/runs/39612271870) | **Pass**: Windows x64, macOS x64 and ARM64 builds; all three platform **package smoke** jobs; PR artifact-link comment; **Updater artifact smoke**. |
+
+**Gate decision:** `gh pr checks 256 --json name,state,bucket,link,workflow` confirmed **12/12 pass**, zero pending/failed checks, for executable Head `ebc468f3`. All required platform, E2E, collector/evaluator and artifact checks were directly executed; no performance thresholds or production code were changed. The PR-only workflow contract also remains intact.
+
+**Remaining closeout operation:** commit this **docs-only evidence update** with `[skip ci]` per `docs/agent/WORKFLOW.md` (after checking the exact-only-docs delta), squash-merge [PR #256](https://github.com/Bulls1986/Inkiva/pull/256), and inspect the merged PR state plus remote `develop` ref. Documentation-only follow-up is not a substitute for, or a rerun of, the 12 checked executable-Head gates.
 
 **Correction validation:** `pnpm test:perf:fast` on the restored PR-only workflow and added acceptance test passed **15/15 contracts**, exit 0. The original protected PR-only contract remains unchanged, no performance production path changed, and no runtime threshold was adjusted. The local test-harness assertion was also made CRLF-safe for Windows rather than reducing what it checks.
 
@@ -57,3 +69,4 @@ Pending final unit, typing, build, native-scenario and test discovery results. B
 - At closeout, capture commit/PR/squash merge SHA and verify actual `develop` target ref, local worktree hygiene, and learning review; leave V06-15 version/release alone.
 - **Learning so far:** the actual bulk-repair service entry point guarantees a durable Local History preimage; a direct helper call without that recovery owner is not an acceptable integration harness. Correct the test's entry point, not the production safety guard. Also reject donor node_modules realpath leakage rather than enlarging Vite permissions; a lockfile-identical offline, worktree-local dependency install restored valid test discovery.
 - **Qualification trigger lesson:** release acceptance must deliberately run Fast Hard Gate even when only contract/test files change. Its PR-only invariant is enforceable, not an optional convenience. Use an accepted performance contract test under the existing `perf/soak/**` PR filter; never bypass that policy with an unapproved dispatch trigger or relax its regression assertions.
+- **Closure decision:** no newly discovered or unresolved V06-14 product P0; no source, architectural boundary, rendering/editor behavior, version or release packaging policy changed. Dedicated #230 native watcher-storm, manual macOS interactive checks and reference-machine absolute performance remain **separately unqualified** and must be evaluated at V06-15 release readiness rather than described as passing.
