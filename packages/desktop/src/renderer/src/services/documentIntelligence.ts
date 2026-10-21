@@ -166,7 +166,9 @@ export class DocumentIntelligenceCoordinator {
     })
     try {
       const result = await this.runBackground(
-        'workspace-index',
+        // New roots must start before an older filesystem scan finishes so the
+        // main-process generation guard can invalidate that superseded scan.
+        'workspace-index:' + indexVersion,
         BACKGROUND_PRIORITY.backgroundIndexing,
         () => this.api.indexWorkspace(rootPath)
       )

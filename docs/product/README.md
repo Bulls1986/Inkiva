@@ -37,6 +37,7 @@ This directory contains durable product contracts and resumable implementation r
 - [V06-10 — Image insertion, paste and path policy](V0.6-IMAGE-PLACEMENT-PROGRESS.md) — isolated image ingestion, non-overwriting file persistence, unsaved-document path safety, failure rollback, Red/Green evidence and release gates.
 - [V06-11 — Image editing, resize and missing-resource recovery](V0.6-IMAGE-EDIT-PROGRESS.md) — test-first relink safety, existing image-tool UX, virtual-remount and Source mode evidence, CI and merge closeout.
 - [V06-12 — Table correctness carry-over](V0.6-TABLE-CORRECTNESS-PROGRESS.md) — v0.5 table acceptance matrix, Issue #224 real Electron focus diagnosis, regression evidence and CI/merge closeout.
+- [V06-13 — Performance and lifecycle qualification](../performance/V06-13-PERFORMANCE-LIFECYCLE.md) — representative workspace stress, stale-scan lifecycle Red/Green and acceptance ledger.
 
 ## Loading rule
 
