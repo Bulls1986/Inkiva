@@ -97,3 +97,37 @@ Unfinished at this stage: real Electron performance collector, cross-platform of
 - The targeted Windows cross-file link navigation Playwright run started and discovered both tests, but both timed out after 30 seconds before reaching a useful product assertion. This is an unresolved local launch/readiness diagnostic, not a valid product performance failure or successful E2E gate. Official CI still must execute its full real Electron suite.
 - Review verdict: source diff modifies only the renderer document-intelligence scheduling key. The main-process generation and per-window checks remain untouched; no changed release thresholds, workloads, or Markdown semantics.
 - Full desktop unit run: 172 files passed, 1350 tests passed, 1 skipped. CI results and any merger status must be appended to this record after authoritative observation.
+
+## Stage 5 — Official PR CI, squash merge and delivery closure (2026-10-21)
+
+**Verified final delivery:** [PR #254](https://github.com/Bulls1986/Inkiva/pull/254) **MERGED** at `2026-10-21T04:21:16Z` using the required squash strategy. GitHub-reported merge SHA **`05a2ea7e60bd9bb0c2944c0f8fe94adc71c5c741`** exactly matched the authoritative remote `develop` branch SHA after merge. The PR Head checked by CI was `b9bcab2593a391d65c385739e07356dc7fafd6a9`; the origin publication used GitHub Git Data API after a reproducible Git HTTPS connection reset, with all 7 source Blob SHAs and resulting Tree SHA verified against the intended local commit.
+
+**Latest-Head official checks — all 12/12 SUCCESS:**
+
+| Check | Result |
+| --- | --- |
+| Lint | SUCCESS |
+| Test | SUCCESS |
+| Real Electron E2E | SUCCESS |
+| Desktop PR Fast Hard Gate | SUCCESS |
+| Windows x64 PR Build | SUCCESS |
+| macOS x64 PR Build | SUCCESS |
+| macOS ARM64 PR Build | SUCCESS |
+| Windows x64 package smoke | SUCCESS |
+| macOS x64 package smoke | SUCCESS |
+| macOS ARM64 package smoke | SUCCESS |
+| Updater artifact smoke | SUCCESS |
+| Comment artifact links on PR | SUCCESS |
+
+Fast Gate workflow run `39536641736` individually confirmed **Run desktop fast performance gate**, **Evaluate fast hard thresholds**, and **Upload fast performance reports** all succeeded. Canonical E2E workflow run `39536641856` succeeded on the PR Head, superseding the inconclusive local Windows E2E launch timeout as the authoritative PR regression gate. Builds, package smoke and Updater checks passed in official PR Build workflow `39536641797`. The worktree hygiene gate passed with no uncommitted files.
+
+**Scope status:** V06-13's delivered scheduler lifecycle correction, regressions, 1k/5k/20k real-file service characterization, documentation and required PR delivery chain are closed. The supplementary workstation scan measurements are not a reference-low-end performance budget, and no before/after scan speedup is claimed. Separate Issue **#230** remains open for its full **real watcher-storm 1k/5k/20k, 256/257-boundary, native watcher resource/renderer qualification**: do not silently treat passing the Node-only service collector and generic Fast Gate as conclusive acceptance of that distinct workload.
+
+### Closeout learning review
+
+- **Root cause:** sharing the constant scheduler task id `workspace-index` serializes successive workspace generations. A slow old scan delays starting the new root and therefore delays the pre-existing main-process stale generation guard. A generation-scoped scheduler key fixes start ordering without changing any IPC schema or adding another cancellation framework.
+- **Validation discipline:** retain executed Red/Green and a full affected regression set; first diagnose whether environment/bootstrap errors actually reach product assertions. The local Windows Electron navigation timeout remained a local readiness observation, not a product correctness conclusion, and official E2E later passed.
+- **Evidence boundaries:** distinguish a Node service stress population, the standard Electron PR Fast Gate, and the still-unmeasured issue-specific native watcher/renderer stress conditions. Preserve existing sample counts, thresholds and reference-machine policy.
+- **Transferable rule:** for background work whose newer generation makes the older one obsolete, scheduler coalescing keys must not prevent the new generation from reaching the cancellation/stale-result boundary. Same-key single-flight remains appropriate for ordering within a *single document/path*; root-switch generations require different identity. This refines the ARCH-07 background scheduler usage guidance rather than adding a duplicate root-level rule.
+
+**Handoff:** implementation merged; continue subsequent V06-14 work from current `develop`. Treat #230 native watcher-storm qualification as a separately tracked acceptance debt, not a hidden claim of V06-13 success.
