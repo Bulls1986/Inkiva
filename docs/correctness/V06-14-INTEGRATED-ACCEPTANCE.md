@@ -1,6 +1,6 @@
 # V06-14 — Integrated correctness and platform acceptance
 
-**Status:** accepted by **12/12 official checks on the latest executable Head**; squash merge / remote `develop` verification is the remaining closeout action.
+**Status:** **closed and verified merged** — 12/12 official checks passed on executable Head `ebc468f3`; squash-merged [PR #256](https://github.com/Bulls1986/Inkiva/pull/256) into `develop` at `f1d948a9ae0a2b63c5ed44c60911b15c5fe48827` on 2026-10-21.
 **Started:** 2026-10-21  
 **Base:** `origin/develop` `ac5ae594c4d8eb8f38adbb226b3963c0b35e38e0` (V06-13 merged)  
 **Branch:** `test/v06-14-integrated-acceptance`  
@@ -58,7 +58,7 @@ Pending final unit, typing, build, native-scenario and test discovery results. B
 
 **Gate decision:** `gh pr checks 256 --json name,state,bucket,link,workflow` confirmed **12/12 pass**, zero pending/failed checks, for executable Head `ebc468f3`. All required platform, E2E, collector/evaluator and artifact checks were directly executed; no performance thresholds or production code were changed. The PR-only workflow contract also remains intact.
 
-**Remaining closeout operation:** commit this **docs-only evidence update** with `[skip ci]` per `docs/agent/WORKFLOW.md` (after checking the exact-only-docs delta), squash-merge [PR #256](https://github.com/Bulls1986/Inkiva/pull/256), and inspect the merged PR state plus remote `develop` ref. Documentation-only follow-up is not a substitute for, or a rerun of, the 12 checked executable-Head gates.
+**Completed merge verification:** [PR #256](https://github.com/Bulls1986/Inkiva/pull/256) returned `MERGED` at `2026-10-21T14:20:43Z`, squash merge `f1d948a9ae0a2b63c5ed44c60911b15c5fe48827`; the GitHub API separately confirmed `refs/heads/develop` points to that identical SHA. The final evidence-only commit `6ca69940897428a0fa6fc53e33494443db4210dd` had exactly one changed path (`docs/correctness/V06-14-INTEGRATED-ACCEPTANCE.md`) and parent `ebc468f31e4c587acdb5bd5bb26d12c9075ed5fc`, so it did not alter the validated executable tree or rerun CI.
 
 **Correction validation:** `pnpm test:perf:fast` on the restored PR-only workflow and added acceptance test passed **15/15 contracts**, exit 0. The original protected PR-only contract remains unchanged, no performance production path changed, and no runtime threshold was adjusted. The local test-harness assertion was also made CRLF-safe for Windows rather than reducing what it checks.
 
@@ -66,7 +66,7 @@ Pending final unit, typing, build, native-scenario and test discovery results. B
 
 - A true unresolved P0 regression or failed required latest-head gate blocks V06-14.
 - Native macOS **manual** interactive acceptance, official reference-machine absolute performance qualification, and #230 native watcher-storm workload are separate evidence populations. Never report them as passed merely because Linux Electron snapshots, macOS CI packages or standard PR Fast Gate passed. Record any unexecuted items explicitly in V06-15 release readiness.
-- At closeout, capture commit/PR/squash merge SHA and verify actual `develop` target ref, local worktree hygiene, and learning review; leave V06-15 version/release alone.
+- **Closeout completed:** official 12/12 executable-Head checks and 3/3 package smokes + Updater smoke passed, PR #256 squash-merged, remote `develop` SHA verified. Local isolated worktree was clean when checked before the API-only final documentation upload; its local docs-only commit cannot be pushed reliably because of intermittent Git HTTPS TLS disconnects, but the equivalent exact documentation content was uploaded through the GitHub Contents API and appears in the merged PR. V06-15 owns subsequent version/release work.
 - **Learning so far:** the actual bulk-repair service entry point guarantees a durable Local History preimage; a direct helper call without that recovery owner is not an acceptable integration harness. Correct the test's entry point, not the production safety guard. Also reject donor node_modules realpath leakage rather than enlarging Vite permissions; a lockfile-identical offline, worktree-local dependency install restored valid test discovery.
 - **Qualification trigger lesson:** release acceptance must deliberately run Fast Hard Gate even when only contract/test files change. Its PR-only invariant is enforceable, not an optional convenience. Use an accepted performance contract test under the existing `perf/soak/**` PR filter; never bypass that policy with an unapproved dispatch trigger or relax its regression assertions.
 - **Closure decision:** no newly discovered or unresolved V06-14 product P0; no source, architectural boundary, rendering/editor behavior, version or release packaging policy changed. Dedicated #230 native watcher-storm, manual macOS interactive checks and reference-machine absolute performance remain **separately unqualified** and must be evaluated at V06-15 release readiness rather than described as passing.
