@@ -167,3 +167,11 @@
 
     cursor: pointer;
 }
+
+.mu-image-selector .image-action-error {
+    display: block;
+    padding: 0 24px 12px;
+    color: var(--editor-color);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
