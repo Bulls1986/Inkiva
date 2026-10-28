@@ -249,6 +249,9 @@ jobs:
             echo '```'
             echo 'sha256sum -c SHA256SUMS.txt --ignore-missing'
             echo '```'
+            echo ""
+            echo "## macOS installation note"
+            echo "macOS builds are unsigned and not notarized (no Developer ID). Gatekeeper may block opening them. Only install if you trust this release. In Finder, Control-click the app and choose Open, then confirm the prompt; do not disable Gatekeeper globally."
           } > release_body.md
 
       # Immutable-release repos forbid adding assets to an already-published

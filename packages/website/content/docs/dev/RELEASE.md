@@ -74,14 +74,13 @@ gh release view vX.Y.Z-rc.N
 Confirm:
 
 - `Pre-release` badge on the release page (RC only)
-- **15 assets**:
+- **14 assets**:
   - **macOS arm64** (4): `dmg`, `dmg.blockmap`, `zip`, `zip.blockmap`
   - **macOS x64** (4): `dmg`, `dmg.blockmap`, `zip`, `zip.blockmap`
   - **Windows x64** (3): `setup.exe`, `setup.exe.blockmap`, `zip`
-  - **Windows arm64** (3): `setup.exe`, `setup.exe.blockmap`, `zip`
-  - **Auto-updater metadata** (3): `latest.yml`, `latest-mac.yml`, `builder-debug.yml`
+  - **Auto-updater metadata** (2): `latest.yml`, `latest-mac.yml`
   - **Checksums** (1): `SHA256SUMS.txt`
-- Auto-generated release notes list the PRs merged since the previous tag
+- Auto-generated release notes list the PRs merged since the previous tag and include SHA-256 verification plus unsigned macOS installation guidance
 
 ## 8. Post-stable cleanup (after stable `vX.Y.0` ships)
 
