@@ -5,7 +5,7 @@ import test from 'node:test'
 const workflowUrl = new URL('../../../.github/workflows/release.yml', import.meta.url)
 
 test('release job initializes the repository and package manager before artifact verification', async () => {
-  const workflow = await readFile(workflowUrl, 'utf8')
+  const workflow = (await readFile(workflowUrl, 'utf8')).replace(/\r\n/g, '\n')
   const releaseStart = workflow.indexOf('\n  release:\n')
 
   assert.notEqual(releaseStart, -1, 'release job must exist')
@@ -23,4 +23,19 @@ test('release job initializes the repository and package manager before artifact
     setupIndex < verificationIndex,
     'project setup must happen before artifact verification'
   )
+})
+
+test('published release notes disclose unsigned macOS builds and safe Gatekeeper guidance', async () => {
+  const workflow = (await readFile(workflowUrl, 'utf8')).replace(/\r\n/g, '\n')
+  const notesStart = workflow.indexOf('- name: Compose release notes body')
+  const publishIndex = workflow.indexOf('- name: Create draft release with assets')
+
+  assert.notEqual(notesStart, -1, 'release workflow must compose a public release-notes body')
+  assert.notEqual(publishIndex, -1, 'release workflow must publish the composed notes')
+  assert.ok(notesStart < publishIndex, 'release notes must be composed before publication')
+
+  const notesStep = workflow.slice(notesStart, publishIndex)
+  assert.match(notesStep, /macOS builds are unsigned and not notarized \(no Developer ID\)/i)
+  assert.match(notesStep, /Control-click.{0,80}Open/i)
+  assert.match(notesStep, /Do not disable Gatekeeper globally/i)
 })
