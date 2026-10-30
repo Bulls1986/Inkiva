@@ -32,6 +32,12 @@ The editor can close brackets, quotes, and Markdown delimiters as you type. Thes
 
 Use the quick-insert menu or **Paragraph → Table** to create a Markdown table. Edit its cells directly; use the context menu or the table controls for deliberate row/column operations and alignment. Inkiva is a Markdown editor, not a spreadsheet: selecting content and deleting it is not an implicit request to remove rows or columns. The built-in table editing behavior preserves standard Markdown, Undo/Redo and Source/WYSIWYG round-trips. If you need a hard line break inside a cell, use <kbd>Shift</kbd>+<kbd>Enter</kbd>; the saved Markdown uses an HTML `<br>` break.
 
+![Actual Windows v0.6.0 table-cell context menu showing explicit row/column actions](../assets/inkiva-table-context.png)
+
+The following screenshot captures the live editor immediately after a hard break; **it is not evidence of a completed disk save**. Save and verify the file when testing document persistence.
+
+![Actual Windows v0.6.0 table cell immediately after Shift+Enter with an in-editor hard break and visible caret](../assets/inkiva-table-hardbreak.png)
+
 ## Images
 
 Insert standard Markdown images with `![]()`, the image command, drag/drop or paste. Depending on **Preferences → Image**, you can keep a local path, copy assets to a relative folder, or use an optional [PicGo uploader](IMAGE_UPLOADER_CONFIGRATION.md). Existing image controls support replacement/relink, alt/title editing and drag resizing. If an import or replacement fails, the original Markdown should remain available for correction or retry. See [Image support](IMAGES.md) for the complete placement and recovery behavior.
@@ -42,7 +48,7 @@ Insert standard Markdown images with `![]()`, the image command, drag/drop or pa
 
 **Navigate:** an ordinary click in an editable link places the caret; it does not automatically follow the destination. To open the link, use <kbd>Ctrl</kbd>+click on Windows or <kbd>Command</kbd>+click on macOS, or the link tool's explicit jump action. A standard relative `.md` or `.markdown` link may include a heading fragment, for example `[Plan](./plan.md#milestones)`. External URLs retain their separate guarded-open behavior.
 
-**Inspect and repair:** open **More → Document Info** to inspect **Backlinks** and broken local document links. Select a backlink to visit its exact source occurrence. For a missing document target, first choose **Locate** to inspect the source, then **Repair** to select a replacement using the link dialog; **Undo** reverses a completed single-document repair. A cancelled repair, inaccessible file or outdated index result must not silently change a Markdown file.
+**Inspect and repair:** open **More → Document Info** to inspect **Backlinks** and broken local document links. Select a backlink to visit its exact source occurrence. For a missing document target, click its row to **locate the source occurrence** (accessible label **Locate source occurrence**), then click the visible **Repair** button to open the **Insert link** dialog. **Cancel** is non-mutating; **Undo** reverses a completed single-document repair. A cancelled repair, inaccessible file or outdated index result must not silently change a Markdown file.
 
 **Rename or move:** file operations and link repair are separate decisions. If Inkiva offers a preview of affected references, review the listed paths and choose **Update**, **Keep unchanged**, or **Cancel**. Keeping or cancelling link repair does **not** roll back a move that already succeeded. Work across multiple files may produce partial results; inspect any reported recovery/conflict details rather than assuming one editor Undo reverses every disk operation.
 
