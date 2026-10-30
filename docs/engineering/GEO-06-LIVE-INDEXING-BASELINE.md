@@ -274,6 +274,7 @@ Some public search results still display the old `v0.5.0` snippet and have crawl
 - Four independent Markdown directories checked.
 - Ahrefs Site Explorer UI metrics read: DR 0, UR 0, 679 backlinks, 513 referring domains, zero Ahrefs organic keywords/traffic, and zero Brand Radar responses; link attribute distribution and crawl response breakdown recorded.
 - Markdown Guide tool-directory entry submitted as [PR #316](https://github.com/mattcone/markdown-guide/pull/316); Netlify preview deployed successfully and the rendered page/icon were verified.
+- Awesome Markdown curated-list entry submitted as [PR #165](https://github.com/BubuAnabelas/awesome-markdown/pull/165); one alphabetically placed Editors entry, with the official website and Windows/macOS badges.
 - MarkdownList submission content prepared; public form inspected, but automated metadata lookup was rejected by its request-verification gate. No listing was created and no verification challenge was bypassed.
 
 ### Still open
@@ -315,3 +316,18 @@ The public submission page https://markdownlist.com/submit advertises a free lis
 A read-only inspection confirmed the form flow. A direct metadata request from the project Runner to `POST /api/tool-metadata` returned HTTP 403 with `This request could not be verified.` This is a site-side request-verification gate. No submission payload was sent to the listing endpoint and no listing was created.
 
 Owner authorization to publish has been given. The remaining step is to complete the site's own browser verification through the public form. Do not bypass or emulate that verification. Once the owner completes the form, verify the resulting public product page and record its canonical URL.
+
+
+## 16. Awesome Markdown curated-list submission
+
+A second relevant third-party contribution was prepared after verifying that the repository is active, accepts pull requests, has a current Editors category, and explicitly requests one project per PR with concise descriptions and alphabetical placement.
+
+- Fork: https://github.com/Bulls1986/awesome-markdown
+- Branch: `inkiva/add-to-editors`
+- Pull request: https://github.com/BubuAnabelas/awesome-markdown/pull/165
+- Change: one line added under Editors, alphabetically after iA Writer.
+- Description: "A free, open-source, document-first WYSIWYG Markdown editor for Windows and macOS."
+- Platform badges: existing Markdown Guide-style macOS and Windows badges.
+- PR state at submission: open, mergeable; no CI checks were configured or reported.
+
+This is a curated-list PR, not a live listing. Do not claim publication until the maintainer merges it.
