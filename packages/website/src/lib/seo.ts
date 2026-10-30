@@ -1,22 +1,22 @@
 import type { Metadata } from 'next'
 
 export const SITE_URL = 'https://www.inkiva.net'
-export const SITE_NAME = 'Inkiva'
+export const SITE_NAME = 'Inkiva · 墨映 Markdown Editor'
 export const REPOSITORY_URL = 'https://github.com/Bulls1986/Inkiva'
 export const RELEASES_URL = `${REPOSITORY_URL}/releases`
 export const PUBLISHER_NAME = 'Bulls1986'
 
-export const DEFAULT_TITLE = 'Inkiva · 墨映 — document-first Markdown editor'
+export const DEFAULT_TITLE = 'Inkiva Markdown Editor · 墨映 — Free, Open-Source WYSIWYG'
 export const DEFAULT_DESCRIPTION =
-  'Inkiva is a free, open-source, document-first Markdown editor for focused writing on Windows x64 and macOS Intel or Apple silicon.'
+  'Inkiva (墨映) is a free, open-source WYSIWYG Markdown desktop editor for Windows and macOS. Edit ordinary CommonMark/GFM files in place, with local navigation, history and recovery.'
 export const DOCS_DESCRIPTION =
-  'Guides, reference and developer documentation for Inkiva — the document-first Markdown editor.'
+  'User guides, reference and developer documentation for Inkiva (墨映), the free, open-source WYSIWYG Markdown desktop editor.'
 
 export const SOCIAL_IMAGE = {
   url: `${SITE_URL}/assets/inkiva-og.png`,
   width: 1200,
   height: 630,
-  alt: 'Inkiva — a document-first Markdown editor'
+  alt: 'Inkiva Markdown Editor — document-first WYSIWYG Markdown editing'
 } as const
 
 export const SITEMAP_URL = `${SITE_URL}/sitemap.xml`
@@ -34,7 +34,7 @@ export const LANGUAGE_ALTERNATES = {
 export function canonicalPath(path = '/'): string {
   const normalized = path.trim()
   if (!normalized || normalized === '/') return '/'
-  return `/${normalized.replace(/^\/+|\/+$/g, '')}/`
+  return `/${normalized.replace(/^\\/+|\\/+$/g, '')}/`
 }
 
 /** Build a final, absolute URL for an indexable HTML route. */
@@ -44,7 +44,7 @@ export function absoluteUrl(path = '/'): string {
 
 /** Build an absolute URL for a static asset, which must not gain a route slash. */
 export function absoluteAssetUrl(path: string): string {
-  return `${SITE_URL}/${path.replace(/^\/+/, '')}`
+  return `${SITE_URL}/${path.replace(/^\\/+/, '')}`
 }
 
 export function stringifyJsonLd(value: unknown): string {
@@ -112,6 +112,7 @@ export function createSiteJsonLd(softwareVersion: string) {
         '@id': WEBSITE_SCHEMA_ID,
         url: absoluteUrl('/'),
         name: SITE_NAME,
+        alternateName: ['Inkiva', '墨映', 'Inkiva Markdown Editor'],
         description: DEFAULT_DESCRIPTION,
         inLanguage: ['en-US', 'zh-CN'],
         publisher: { '@id': ORGANIZATION_SCHEMA_ID }
@@ -119,9 +120,10 @@ export function createSiteJsonLd(softwareVersion: string) {
       {
         '@type': 'SoftwareApplication',
         '@id': SOFTWARE_SCHEMA_ID,
-        name: SITE_NAME,
+        name: 'Inkiva Markdown Editor',
+        alternateName: ['Inkiva', 'Inkiva · 墨映', '墨映 Markdown 编辑器'],
         applicationCategory: 'DeveloperApplication',
-        operatingSystem: 'Windows x64, macOS Intel, macOS Apple silicon',
+        operatingSystem: 'Windows 10 or 11 x64, macOS Intel, macOS Apple silicon',
         description: DEFAULT_DESCRIPTION,
         url: absoluteUrl('/'),
         image: absoluteAssetUrl('/assets/inkiva-og.png'),
@@ -137,8 +139,13 @@ export function createSiteJsonLd(softwareVersion: string) {
         downloadUrl: `${REPOSITORY_URL}/releases/latest`,
         softwareVersion,
         featureList: [
-          'WYSIWYG Markdown editing',
+          'In-place WYSIWYG Markdown editing',
           'CommonMark and GitHub Flavored Markdown support',
+          'Ordinary local Markdown files and folders',
+          'Tabs, document outline, Quick Open and folder search',
+          'Local history, autosave and crash recovery',
+          'KaTeX mathematics and Mermaid, PlantUML and Vega-Lite diagrams',
+          'HTML and PDF export',
           'Windows x64 and macOS desktop applications'
         ]
       }
