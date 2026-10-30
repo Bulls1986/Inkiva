@@ -463,10 +463,137 @@ The following table records the full visible first page, not a sample. “Dofoll
 | 100 | `fiverr-cost-effective-seo.site` | 48 | 1 | 0 | 9 Sep 2026 |
 
 
-### Continuation checkpoint — API access and page navigation (2026-10-30)
+### Continuation checkpoint — Ahrefs review progress (2026-10-30)
 
-- The currently connected Ahrefs browser tab is still on page 1 with `limit=100&offset=0`; it has not moved to page 2.
-- The Ahrefs API v3 `site-explorer-referring-domains` endpoint was checked for a full export (requested fields: domain, DR, spam flag, target links, dofollow links, traffic, organic positions and first-seen date; limit 1000). The connected Ahrefs account returned **`Insufficient plan`**. No API data was returned and no plan change was made.
-- The Browser connection exposes read-only access to already-open tabs, so it cannot change the current page selector or navigate the authenticated Ahrefs tab on the user's behalf.
-- Next required step: keep page size at 100 and switch the authenticated Ahrefs Referring Domains report to **page 2** (`offset=100`). Then re-read and record rows 101–200. Repeat for pages 3–6 until all 513 domains have been reviewed.
-- Page-2 URL with the current report scope and sort: https://app.ahrefs.com/site-explorer/refdomains?anchorRules=&bestFilter=all&domainNameRules=&followType=all&highlightChanges=none&history=all&historyDateRange=24h&ipRules=&limit=100&mode=subdomains&offset=100&projectId=10617729&refPageAuthorRules=&refPageTitleRules=&refPageUrlRules=&sort=Dr&sortDirection=desc&surroundingRules=&target=inkiva.net%2F&targetUrlRules=
+- Ahrefs API v3 `site-explorer-referring-domains` returned **`Insufficient plan`** for a full export. No API data was returned and no plan change was made.
+- The authenticated browser report is now confirmed on page 2 (`limit=100&offset=100`); rows 101–200 have been captured and recorded in section 18 below.
+- Remaining scope: pages 3–6, **313 referring domains** (rows 201–513).
+- Continue with page size 100, DR descending, same target `inkiva.net/`, Subdomains, all link attributes. The next page is page 3 (`offset=200`).
+
+
+## 18. Ahrefs referring-domain quality review — page 2 (rows 101–200)
+
+Authenticated Ahrefs Site Explorer snapshot inspected on **2026-10-30**. Confirmed report URL includes `limit=100&offset=100`, so this is page 2, not a repeat of page 1.
+
+- Report: https://app.ahrefs.com/site-explorer/refdomains?anchorRules=&bestFilter=all&domainNameRules=&followType=all&highlightChanges=none&history=all&historyDateRange=24h&ipRules=&limit=100&mode=subdomains&offset=100&projectId=10617729&refPageAuthorRules=&refPageTitleRules=&refPageUrlRules=&sort=Dr&sortDirection=desc&surroundingRules=&target=inkiva.net%2F&targetUrlRules=
+- Scope: `inkiva.net/`, Subdomains, all link attributes, sorted by DR descending, 100 results per page.
+- Ahrefs reports **513 referring domains** in total. This capture covers **page 2 only (rows 101–200)**.
+- **100/100 rows carry Ahrefs' explicit `SPAM` label.**
+- DR range: **37–48**.
+- The 100 domains contain **118 links to Inkiva**; **0 dofollow links**.
+- All 100 rows show zero domain traffic and zero organic keywords in this report snapshot.
+- TLD distribution: **87 .xyz**, **9 .store**, **3 .shop**, **1 .agency**.
+- **87 of the 87 `.xyz` domains are numeric-only hostnames** (e.g. `37486xxx.xyz` and `11763xxx.xyz` patterns); these are highly templated rather than recognizable editorial or product sites.
+- First-seen dates range from **8 Sep 2026 to 29 Sep 2026**.
+- The numeric `.xyz` rows also show very high counts of dofollow referring domains and linked domains (often around 2,000 and 1,017 respectively), despite zero organic traffic/keywords and only 1–2 links to Inkiva. This is a strong anomaly signal, not proof of a shared owner/IP/network; IP/ASN and source-page evidence have not yet been inspected.
+
+### Interpretation and safety boundary
+
+Page 2 strengthens the hypothesis that the profile contains a large low-quality, automatically generated link cluster: the first page was dominated by keyword-stuffed `.store` / `.shop` / `.site` names, while this page is dominated by numeric `.xyz` domains. However, Ahrefs' `SPAM` flag is a third-party classification, not a Google verdict. Do not infer a manual action or algorithmic penalty from this report, and do not submit a Disavow file based solely on these two pages.
+
+Next steps: inspect pages 3–6; then review representative backlink source URLs, anchors, source IPs/ASNs and repeated page templates. Compare against Google Search Console Manual actions and Security issues before deciding whether any disavow action is justified.
+
+### Page 2 inventory (100 rows)
+
+| # | Referring domain | DR | Dofollow ref. domains | Dofollow linked domains | Traffic | Keywords | Links to target | Dofollow links | First seen |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 101 | `master-bureau-for-index-rate-and-backlink-pro.store` | 48 | 979 | 716 | 0 | 0 | 1 | 0 | 8 Sep 2026 |
+| 102 | `outrank-hq-dr-90-paramount-system.store` | 48 | 1054 | 1018 | 0 | 0 | 2 | 0 | 9 Sep 2026 |
+| 103 | `seoexpress-verified-high-da-consultants.store` | 48 | 1077 | 716 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 104 | `advanced-search-rank-and-niche-edit-depot.store` | 48 | 980 | 637 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 105 | `seoexpress-backlink-hub.store` | 48 | 1066 | 337 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 106 | `proven-network-for-ranking-signal-and-keyword-rank.store` | 48 | 981 | 716 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 107 | `traffic-surge-and-keyword-rank-premium-alliance.store` | 48 | 972 | 716 | 0 | 0 | 1 | 0 | 16 Sep 2026 |
+| 108 | `link-velocity-tier-one-and-editorial-link-consortium.store` | 48 | 977 | 716 | 0 | 0 | 1 | 0 | 8 Sep 2026 |
+| 109 | `flagship-niche-edit-and-link-building-services.store` | 48 | 977 | 327 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 110 | `37486439.xyz` | 46 | 2146 | 1016 | 0 | 0 | 1 | 0 | 16 Sep 2026 |
+| 111 | `37486137.xyz` | 46 | 2145 | 1016 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 112 | `37486315.xyz` | 46 | 2139 | 1017 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 113 | `37486433.xyz` | 46 | 2125 | 1018 | 0 | 0 | 1 | 0 | 12 Sep 2026 |
+| 114 | `37486319.xyz` | 46 | 2153 | 1017 | 0 | 0 | 2 | 0 | 13 Sep 2026 |
+| 115 | `37486224.xyz` | 46 | 2128 | 1018 | 0 | 0 | 1 | 0 | 25 Sep 2026 |
+| 116 | `37486193.xyz` | 46 | 2154 | 1019 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 117 | `37486422.xyz` | 46 | 2046 | 1018 | 0 | 0 | 1 | 0 | 23 Sep 2026 |
+| 118 | `37486129.xyz` | 46 | 2138 | 1017 | 0 | 0 | 2 | 0 | 16 Sep 2026 |
+| 119 | `37486419.xyz` | 46 | 2047 | 1017 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 120 | `37486173.xyz` | 46 | 2145 | 1017 | 0 | 0 | 2 | 0 | 14 Sep 2026 |
+| 121 | `37486668.xyz` | 46 | 2143 | 1017 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 122 | `37486435.xyz` | 46 | 2107 | 1018 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 123 | `54232754.xyz` | 46 | 2095 | 1017 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 124 | `37486429.xyz` | 46 | 2046 | 1018 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 125 | `37486312.xyz` | 46 | 2146 | 1017 | 0 | 0 | 2 | 0 | 14 Sep 2026 |
+| 126 | `37486488.xyz` | 46 | 2150 | 1018 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 127 | `37486297.xyz` | 46 | 2150 | 1018 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 128 | `37486318.xyz` | 46 | 2153 | 1017 | 0 | 0 | 1 | 0 | 23 Sep 2026 |
+| 129 | `37486131.xyz` | 46 | 2146 | 1017 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 130 | `37486109.xyz` | 46 | 2144 | 1017 | 0 | 0 | 2 | 0 | 14 Sep 2026 |
+| 131 | `37486118.xyz` | 46 | 2059 | 1016 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 132 | `37486619.xyz` | 46 | 2156 | 1018 | 0 | 0 | 1 | 0 | 26 Sep 2026 |
+| 133 | `37486197.xyz` | 46 | 2155 | 1017 | 0 | 0 | 1 | 0 | 23 Sep 2026 |
+| 134 | `37486580.xyz` | 46 | 2154 | 1017 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 135 | `37486306.xyz` | 46 | 2151 | 1017 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 136 | `37486183.xyz` | 46 | 2148 | 1016 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+| 137 | `37486459.xyz` | 46 | 2136 | 1019 | 0 | 0 | 2 | 0 | 16 Sep 2026 |
+| 138 | `37486161.xyz` | 46 | 2139 | 1017 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 139 | `37486125.xyz` | 46 | 2119 | 1017 | 0 | 0 | 2 | 0 | 18 Sep 2026 |
+| 140 | `37486344.xyz` | 46 | 2053 | 1016 | 0 | 0 | 1 | 0 | 16 Sep 2026 |
+| 141 | `37486115.xyz` | 46 | 2095 | 1017 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 142 | `37486321.xyz` | 46 | 2150 | 1018 | 0 | 0 | 2 | 0 | 19 Sep 2026 |
+| 143 | `37486309.xyz` | 46 | 2144 | 717 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 144 | `37486179.xyz` | 46 | 2146 | 1017 | 0 | 0 | 1 | 0 | 22 Sep 2026 |
+| 145 | `37486195.xyz` | 46 | 2153 | 1017 | 0 | 0 | 1 | 0 | 20 Sep 2026 |
+| 146 | `37486143.xyz` | 46 | 2141 | 1017 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 147 | `37486369.xyz` | 46 | 2068 | 1018 | 0 | 0 | 2 | 0 | 17 Sep 2026 |
+| 148 | `37486635.xyz` | 46 | 2146 | 1017 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+| 149 | `37486177.xyz` | 46 | 2136 | 1017 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 150 | `37486277.xyz` | 46 | 2125 | 1017 | 0 | 0 | 1 | 0 | 19 Sep 2026 |
+| 151 | `37486272.xyz` | 46 | 2112 | 1017 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 152 | `37486462.xyz` | 46 | 2132 | 1018 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+| 153 | `37486366.xyz` | 46 | 2070 | 1017 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 154 | `37486170.xyz` | 46 | 2119 | 1017 | 0 | 0 | 1 | 0 | 23 Sep 2026 |
+| 155 | `37486339.xyz` | 46 | 2053 | 1017 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 156 | `37486420.xyz` | 46 | 2044 | 1017 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 157 | `37486303.xyz` | 46 | 2141 | 1016 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 158 | `37486279.xyz` | 46 | 2132 | 1018 | 0 | 0 | 2 | 0 | 19 Sep 2026 |
+| 159 | `37486205.xyz` | 46 | 2140 | 1018 | 0 | 0 | 1 | 0 | 19 Sep 2026 |
+| 160 | `37486266.xyz` | 46 | 2122 | 1018 | 0 | 0 | 1 | 0 | 23 Sep 2026 |
+| 161 | `37486172.xyz` | 46 | 2117 | 1017 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 162 | `37486190.xyz` | 46 | 2143 | 1018 | 0 | 0 | 1 | 0 | 19 Sep 2026 |
+| 163 | `37486267.xyz` | 46 | 2121 | 1017 | 0 | 0 | 1 | 0 | 16 Sep 2026 |
+| 164 | `37486428.xyz` | 46 | 2057 | 1018 | 0 | 0 | 1 | 0 | 29 Sep 2026 |
+| 165 | `54232760.xyz` | 46 | 2114 | 1018 | 0 | 0 | 1 | 0 | 19 Sep 2026 |
+| 166 | `37486222.xyz` | 46 | 2122 | 1017 | 0 | 0 | 1 | 0 | 16 Sep 2026 |
+| 167 | `37486379.xyz` | 46 | 2048 | 1017 | 0 | 0 | 1 | 0 | 23 Sep 2026 |
+| 168 | `37486413.xyz` | 46 | 1911 | 1018 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 169 | `37486290.xyz` | 46 | 2136 | 1018 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 170 | `37486261.xyz` | 46 | 2123 | 1017 | 0 | 0 | 2 | 0 | 17 Sep 2026 |
+| 171 | `37486386.xyz` | 46 | 1909 | 1018 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 172 | `rankio.agency` | 46 | 144 | 3 | 0 | 0 | 2 | 0 | 10 Sep 2026 |
+| 173 | `37486401.xyz` | 46 | 1206 | 1018 | 0 | 0 | 1 | 0 | 22 Sep 2026 |
+| 174 | `37486403.xyz` | 46 | 1202 | 1017 | 0 | 0 | 2 | 0 | 17 Sep 2026 |
+| 175 | `37486396.xyz` | 45 | 1204 | 1018 | 0 | 0 | 1 | 0 | 16 Sep 2026 |
+| 176 | `37486405.xyz` | 45 | 1203 | 1018 | 0 | 0 | 2 | 0 | 17 Sep 2026 |
+| 177 | `37486394.xyz` | 45 | 1200 | 1017 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 178 | `11763731.xyz` | 44 | 2050 | 1018 | 0 | 0 | 1 | 0 | 27 Sep 2026 |
+| 179 | `11763732.xyz` | 44 | 2037 | 1017 | 0 | 0 | 1 | 0 | 20 Sep 2026 |
+| 180 | `11763736.xyz` | 44 | 2036 | 1017 | 0 | 0 | 1 | 0 | 28 Sep 2026 |
+| 181 | `11763952.xyz` | 44 | 2033 | 1017 | 0 | 0 | 1 | 0 | 27 Sep 2026 |
+| 182 | `11763961.xyz` | 44 | 2027 | 1017 | 0 | 0 | 1 | 0 | 26 Sep 2026 |
+| 183 | `11763964.xyz` | 44 | 2025 | 1017 | 0 | 0 | 1 | 0 | 22 Sep 2026 |
+| 184 | `11763925.xyz` | 44 | 2020 | 1018 | 0 | 0 | 1 | 0 | 23 Sep 2026 |
+| 185 | `11764016.xyz` | 44 | 2018 | 1017 | 0 | 0 | 1 | 0 | 20 Sep 2026 |
+| 186 | `11763988.xyz` | 44 | 2021 | 1017 | 0 | 0 | 2 | 0 | 20 Sep 2026 |
+| 187 | `11763896.xyz` | 44 | 1993 | 1017 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 188 | `11763830.xyz` | 44 | 1965 | 1019 | 0 | 0 | 1 | 0 | 25 Sep 2026 |
+| 189 | `11763872.xyz` | 44 | 1972 | 1018 | 0 | 0 | 1 | 0 | 27 Sep 2026 |
+| 190 | `11763797.xyz` | 44 | 2003 | 1017 | 0 | 0 | 1 | 0 | 20 Sep 2026 |
+| 191 | `11763841.xyz` | 44 | 1945 | 1017 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 192 | `11763787.xyz` | 44 | 1999 | 1017 | 0 | 0 | 1 | 0 | 27 Sep 2026 |
+| 193 | `11763994.xyz` | 44 | 2021 | 1017 | 0 | 0 | 1 | 0 | 23 Sep 2026 |
+| 194 | `11764008.xyz` | 44 | 2021 | 1017 | 0 | 0 | 2 | 0 | 22 Sep 2026 |
+| 195 | `11764023.xyz` | 44 | 2012 | 1017 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 196 | `11764017.xyz` | 44 | 2005 | 1018 | 0 | 0 | 2 | 0 | 21 Sep 2026 |
+| 197 | `11763843.xyz` | 44 | 1943 | 1019 | 0 | 0 | 1 | 0 | 24 Sep 2026 |
+| 198 | `searchrankgroup.shop` | 38 | 58 | 1 | 0 | 0 | 1 | 0 | 11 Sep 2026 |
+| 199 | `backlinkbuilders.shop` | 37 | 55 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 200 | `rankseocollective.shop` | 37 | 200 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
