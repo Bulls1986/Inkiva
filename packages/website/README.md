@@ -1,249 +1,70 @@
-# Inkiva Website
+# Inkiva website
 
+The public site for [Inkiva](https://github.com/Bulls1986/Inkiva), a free, open-source, document-first Markdown editor for Windows and macOS.
 
+This package is a **Next.js/React/TypeScript** static website within Inkiva's pnpm monorepo. It is not the Electron desktop application, and it no longer uses the old standalone Vite/React 18 website scaffold.
 
-[![Built with React](https://img.shields.io/badge/React-brightgreen?logo=react&logoColor=white)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-purple?logo=vite&logoColor=white)](https://vitejs.dev/)
+## Requirements
 
-The official website for [Inkiva](https://github.com/Bulls1986/Inkiva) - A simple and elegant markdown editor.
+- Node.js **20.19.0 or newer**.
+- pnpm **10.x**. The repository root `package.json` pins pnpm **10.33.4** using `packageManager`.
+- Install dependencies from the **repository root** so workspace packages resolve correctly.
 
-## ✨ Features
+## Get started
 
-- 🚀 **Modern Stack**: Built with React 18 + TypeScript + Vite
-- 📝 **Live Preview**: Interactive markdown editor with real-time rendering
-- 🎨 **Focused Appearances**: Light, Dark, and Paper — three deliberate surfaces for focused writing
-- 📊 **Diagram Support**: Mermaid diagrams integration for flowcharts, sequence diagrams, and more
-- 🧮 **Math Rendering**: KaTeX support for mathematical formulas
-- 💅 **Syntax Highlighting**: Prism.js integration for code blocks
-- 📱 **Responsive Design**: Works seamlessly on desktop and mobile devices
-
-## 📋 Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-- **Node.js**: >= 16.0.0 (recommended: LTS version)
-- **pnpm**: >= 8.0.0 (recommended package manager)
-
-To install pnpm globally:
-
-```bash
-npm install -g pnpm
-```
-
-## 🚀 Getting Started
-
-### Installation
-
-1. Clone the repository:
-
-```bash
+~~~bash
 git clone https://github.com/Bulls1986/Inkiva.git
-cd Inkiva/packages/website
-```
+cd Inkiva
+corepack enable pnpm
+pnpm install --frozen-lockfile
+pnpm --filter inkiva-website dev
+~~~
 
-2. Install dependencies:
+The development server listens on **http://localhost:3000** by default.
 
-```bash
-pnpm install
-```
+## Scripts
 
-### Development
+Run these commands from the repository root:
 
-Start the development server with hot-reload:
+~~~bash
+pnpm --filter inkiva-website docs:index
+pnpm --filter inkiva-website type-check
+pnpm --filter inkiva-website lint
+pnpm --filter inkiva-website test
+pnpm --filter inkiva-website build:static
+pnpm --filter inkiva-website verify:seo
+~~~
 
-```bash
-pnpm dev
-```
+- `docs:index` regenerates the documentation search index from the Markdown files.
+- `build:static` exports the production site into `packages/website/out/`.
+- `verify:seo` validates the generated static site's search-engine output; run it after a static build.
+- `next.config.ts` sets `output: 'export'` and `trailingSlash: true`. The displayed release version is obtained from the latest published GitHub Release, unless explicitly overridden by the build environment.
 
-The application will be available at `http://localhost:5173` (or the next available port).
+## Where to edit
 
-### Building for Production
+| Purpose | Location |
+|---|---|
+| Website routes and React components | `src/app/`, `src/components/` |
+| Public user and developer guides | `content/docs/` |
+| Documentation route/sidebar registry | `src/lib/docs-nav.ts` |
+| Documentation search index generator | `scripts/build-docs-index.ts` |
+| SEO verification | `scripts/verify-seo-output.ts` |
+| Tests | `test/` |
+| Static assets | `public/` |
+| Production export | `out/` (generated) |
 
-Build the application for production:
+There are 32 registered public documentation pages in the current documentation registry. If you add or rename a public guide, update the route registry, verify its source file and relative links, and regenerate the docs index.
 
-```bash
-pnpm build
-```
+The main product/engineering contracts live under the repository root `docs/`; they are separate from public website manuals.
 
-The optimized files will be generated in the `build/` directory.
+## Publishing
 
-### Preview Production Build
+The [Deploy Inkiva website](https://github.com/Bulls1986/Inkiva/blob/develop/.github/workflows/website-deploy.yml) GitHub Actions workflow builds a static site and publishes `packages/website/out` to `Bulls1986/Bulls1986.github.io` with the configured `www.inkiva.net` CNAME. It runs for relevant `develop` updates, on published releases and through an explicit workflow dispatch.
 
-Preview the production build locally:
+Do not manually publish generated files from a local build without the repository's release/deployment workflow. The workflow's source and trigger filters are authoritative; changing text under `content/docs/` triggers a website deployment after merge.
 
-```bash
-pnpm preview
-```
+For the desktop product architecture, see [Developer documentation](content/docs/dev/README.md) and the repository's [AGENTS.md](../../AGENTS.md).
 
-### Code Quality
+## License
 
-Run TypeScript type checking:
-
-```bash
-pnpm type-check
-```
-
-Run ESLint to check code quality:
-
-```bash
-pnpm lint
-```
-
-## 🚀 Deployment
-
-### Deploy to GitHub Pages
-
-This project is configured to automatically deploy to GitHub Pages using GitHub Actions.
-
-#### Setup
-
-1. Go to your repository **Settings** → **Pages**
-2. Under **Source**, select **GitHub Actions**
-3. Push to the `master` branch or manually trigger the workflow
-
-The site will be available at: `https://github.com/Bulls1986/Inkiva/tree/develop/packages/website`
-
-#### Manual Deployment
-
-You can also trigger the deployment manually:
-
-1. Go to **Actions** tab in your GitHub repository
-2. Select **Deploy to GitHub Pages** workflow
-3. Click **Run workflow**
-
-#### Local Preview of Production Build
-
-To preview the production build locally before deploying:
-
-```bash
-pnpm build
-pnpm preview
-```
-
-## 📁 Project Structure
-
-```
-website/
-├── src/
-│   ├── assets/          # Static assets (images, SVGs)
-│   │   └── sponsor/     # Sponsor logos
-│   ├── components/      # React components
-│   │   ├── Feature.tsx  # Main feature showcase with markdown preview
-│   │   ├── Footer.tsx   # Website footer
-│   │   ├── Sponsor.tsx  # Sponsors section
-│   │   ├── Theme.tsx    # Theme switcher
-│   │   └── TitleBar.tsx # Navigation bar
-│   ├── markdowns/       # Markdown demo files
-│   ├── muya/            # Muya editor library
-│   ├── themes/          # Theme CSS files
-│   ├── types/           # TypeScript type definitions
-│   ├── utils/           # Utility functions
-│   │   ├── markdownToHtml.ts  # Markdown to HTML converter
-│   │   ├── scrollTo.ts        # Smooth scrolling utilities
-│   │   ├── theme.ts           # Theme management
-│   │   └── themeColor.ts      # Theme color definitions
-│   ├── App.tsx          # Root component
-│   ├── main.tsx         # Application entry point
-│   └── app.global.css   # Global styles
-├── public/              # Public static files
-├── build/               # Production build output (generated)
-├── index.html           # HTML template
-├── package.json         # Project dependencies and scripts
-├── tsconfig.json        # TypeScript configuration
-├── vite.config.js       # Vite configuration
-└── README.md           # This file
-```
-
-## 🛠️ Tech Stack
-
-### Core
-
-- **React** - UI library
-- **TypeScript** - Type-safe JavaScript
-- **Vite** - Build tool and dev server
-
-### Libraries
-
-- **Mermaid** - Diagram and flowchart rendering
-- **KaTeX** - Math typesetting
-- **Prism.js** - Syntax highlighting
-- **DOMPurify** - HTML sanitization
-- **Axios** - HTTP client
-- **GitHub Markdown CSS** - Markdown styling
-
-### Development Tools
-
-- **ESLint** - Code linting
-- **TypeScript ESLint** - TypeScript-specific linting rules
-- **Vite Plugin SVGR** - SVG to React component conversion
-
-## 🎨 Appearances
-
-Inkiva keeps the application surface focused on three appearances:
-
-- **Light** - the default bright writing surface
-- **Dark** - a charcoal surface for low-light work
-- **Paper** - a warm reading surface with the same Inkiva blue accent
-
-These appearances share one application design system. Markdown typography,
-controls, sidebar states, and transitions stay consistent across all three.
-
-## 📝 Markdown Features
-
-The editor preview supports:
-
-- ✅ **CommonMark** and **GitHub Flavored Markdown**
-- ✅ Task lists with checkboxes
-- ✅ Tables with alignment
-- ✅ Code blocks with syntax highlighting
-- ✅ Math equations (inline and block)
-- ✅ Mermaid diagrams
-- ✅ HTML sanitization for security
-- ✅ Auto-linking URLs
-- ✅ Emoji support
-
-## 🔧 Configuration
-
-### Vite Configuration
-
-The `vite.config.js` includes:
-
-- Custom markdown plugin for `.md` file imports
-- SVGR plugin for SVG component generation
-- Optimized build settings
-
-### TypeScript Configuration
-
-Two TypeScript configs are used:
-
-- `tsconfig.json` - App source code configuration
-- `tsconfig.node.json` - Build tools configuration
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the GNU GPL-3.0-or-later License - see the [LICENSE](LICENSE) file for details.
-
-## 🔗 Links
-
-- **Main Project**: [Inkiva Editor](https://github.com/Bulls1986/Inkiva)
-- **Website**: [https://github.com/Bulls1986/Inkiva](https://github.com/Bulls1986/Inkiva)
-- **Documentation**: [Inkiva Docs](https://github.com/Bulls1986/Inkiva/tree/develop/packages/website/content/docs)
-
-## 💖 Sponsors
-
-Special thanks to all our sponsors for supporting the Inkiva project!
-
----
-
-Made with ❤️ by the Inkiva Team
+Inkiva is available under [GPL-3.0-or-later](../../LICENSE).

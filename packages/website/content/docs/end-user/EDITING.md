@@ -30,15 +30,23 @@ The editor can close brackets, quotes, and Markdown delimiters as you type. Thes
 
 ## Tables
 
-Use the quick-insert menu or **Paragraph → Table** to create a table. The table controls let you add or remove rows and columns, resize the table, move rows or columns, and align cell content. Inline formatting remains available inside table cells.
+Use the quick-insert menu or **Paragraph → Table** to create a Markdown table. Edit its cells directly; use the context menu or the table controls for deliberate row/column operations and alignment. Inkiva is a Markdown editor, not a spreadsheet: selecting content and deleting it is not an implicit request to remove rows or columns. The built-in table editing behavior preserves standard Markdown, Undo/Redo and Source/WYSIWYG round-trips. If you need a hard line break inside a cell, use <kbd>Shift</kbd>+<kbd>Enter</kbd>; the saved Markdown uses an HTML `<br>` break.
 
 ## Images
 
-Type `![]()` or use the image command to insert an image. Inkiva can select a local file, accept a pasted path or URL, copy an image into a relative directory, or send it to the configured [PicGo uploader](IMAGE_UPLOADER_CONFIGRATION.md). Image behavior is controlled in **Preferences → Image**; see [Image support](IMAGES.md) for path and folder examples.
+Insert standard Markdown images with `![]()`, the image command, drag/drop or paste. Depending on **Preferences → Image**, you can keep a local path, copy assets to a relative folder, or use an optional [PicGo uploader](IMAGE_UPLOADER_CONFIGRATION.md). Existing image controls support replacement/relink, alt/title editing and drag resizing. If an import or replacement fails, the original Markdown should remain available for correction or retry. See [Image support](IMAGES.md) for the complete placement and recovery behavior.
 
 ## Links and emoji
 
-Click a link in the preview to inspect or edit its Markdown target. The inline tools also provide an emoji picker and link actions when the relevant command is available from the editor context menu.
+**Insert or edit:** select link text and use <kbd>CmdOrCtrl</kbd>+<kbd>K</kbd> to open the existing link dialog. When a folder is open, its eligible Markdown files appear as path-disambiguated suggestions. Choose a candidate with the pointer or arrow keys and <kbd>Enter</kbd>, then confirm. <kbd>Escape</kbd> dismisses suggestions or cancels the dialog without a hidden edit. For a new relative document link, save an untitled document first.
+
+**Navigate:** an ordinary click in an editable link places the caret; it does not automatically follow the destination. To open the link, use <kbd>Ctrl</kbd>+click on Windows or <kbd>Command</kbd>+click on macOS, or the link tool's explicit jump action. A standard relative `.md` or `.markdown` link may include a heading fragment, for example `[Plan](./plan.md#milestones)`. External URLs retain their separate guarded-open behavior.
+
+**Inspect and repair:** open **More → Document Info** to inspect **Backlinks** and broken local document links. Select a backlink to visit its exact source occurrence. For a missing document target, first choose **Locate** to inspect the source, then **Repair** to select a replacement using the link dialog; **Undo** reverses a completed single-document repair. A cancelled repair, inaccessible file or outdated index result must not silently change a Markdown file.
+
+**Rename or move:** file operations and link repair are separate decisions. If Inkiva offers a preview of affected references, review the listed paths and choose **Update**, **Keep unchanged**, or **Cancel**. Keeping or cancelling link repair does **not** roll back a move that already succeeded. Work across multiple files may produce partial results; inspect any reported recovery/conflict details rather than assuming one editor Undo reverses every disk operation.
+
+The inline tools also offer emoji picking and link actions when available.
 
 ## Focus and typewriter modes
 
