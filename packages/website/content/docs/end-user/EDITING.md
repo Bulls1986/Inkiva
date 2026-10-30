@@ -6,7 +6,7 @@ Inkiva renders Markdown as you work while keeping the saved document as a normal
 
 ## Text selection and formatting
 
-Select text with the mouse, double-click a word, or use <kbd>Shift</kbd>+<kbd>Arrow Keys</kbd>. Use the **Format** menu or the available keyboard shortcuts to apply bold, italic, underline, strikethrough, inline code, inline math, links, images, and clear formatting. The command launcher provides a searchable route to the same actions.
+Select text with the mouse, double-click a word, or use <kbd>Shift</kbd>+<kbd>Arrow Keys</kbd>. Use the **Format** menu or the available keyboard shortcuts to apply bold, italic, underline, strikethrough, inline code, inline math, links, images, and clear formatting. The editor's **Format** menu provides the supported formatting actions.
 
 Inkiva updates the rendered result as you edit. The active appearance controls the writing surface and syntax colors; editor font, size, line height, and width are configured in **Preferences → Editor**.
 
@@ -14,9 +14,7 @@ Inkiva updates the rendered result as you edit. The active appearance controls t
 
 In an empty paragraph, type `/` to open the quick-insert menu. Search by continuing to type, navigate with the arrow keys, and press <kbd>Enter</kbd> to insert the selected block. The menu can create headings, paragraphs, lists, task lists, quotes, tables, code blocks, front matter, thematic breaks, and supported diagram blocks.
 
-For commands that are not visible in the editor, open the titlebar command launcher:
-
-![Inkiva command launcher for searching documents, headings, and commands](../assets/inkiva-command-palette.png)
+To locate a document, use **Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>). Use the application's **Paragraph**, **Format** and **View** menus for their respective editing commands.
 
 The paragraph menu also exposes actions such as **Turn Into**, duplicate, create paragraph, and delete paragraph. These actions operate on the current block or selection.
 
@@ -56,11 +54,11 @@ The inline tools also offer emoji picking and link actions when available.
 
 ## Focus and typewriter modes
 
-Focus mode fades surrounding paragraphs so the current line remains prominent. Typewriter mode keeps the active line near the center of the editor. In the default Typora shortcut style, use <kbd>F8</kbd> for focus mode and <kbd>F9</kbd> for typewriter mode. Their commands are also available under **View** and in the command launcher.
+Focus mode fades surrounding paragraphs so the current line remains prominent. Typewriter mode keeps the active line near the center of the editor. In the default Typora shortcut style, use <kbd>F8</kbd> for focus mode and <kbd>F9</kbd> for typewriter mode. Their commands are also available under **View**.
 
 ## File encoding and line endings
 
-Inkiva can guess a file's encoding when it opens. UTF-8 is the packaged default; the default encoding and automatic detection can be changed in **Preferences → Editor**. The current encoding and line-ending commands are available through the command launcher.
+Inkiva can guess a file's encoding when it opens. UTF-8 is the packaged default; the default encoding and automatic detection can be changed in **Preferences → Editor**. Use the application menus and editor preferences to inspect the available encoding and line-ending controls.
 
 ## Find and replace
 

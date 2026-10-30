@@ -6,7 +6,7 @@ Inkiva is a document-first Markdown editor. It opens ordinary CommonMark/GFM fil
 
 ![Inkiva welcome surface with Recent Documents, New File, and Open file](../assets/inkiva-default.png)
 
-The titlebar command launcher opens search for documents, headings, and commands. You can click it or press <kbd>CmdOrCtrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>. In an empty paragraph, type `/` to open the quick-insert menu; choose an item to turn that paragraph into a heading, list, quote, table, or another supported block.
+Use **Search** in the sidebar for workspace content, or **Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>) to find documents in the opened folder. In an empty paragraph, type `/` to open the quick-insert menu; choose a heading, list, quote, table, or another supported block.
 
 ## Interface
 
@@ -35,11 +35,9 @@ The Files, Search, and Document Info panels are shown below.
 
 Each open document can appear in a tab. Drag tabs to reorder them, use the tab context menu for file actions, or hide the tab bar and work from the sidebar's **Opened Files** list. **View → Split Editor** opens a second document pane; use the pane controls to choose which pane is the active editor.
 
-### Quick Open and the command launcher
+### Quick Open
 
-**Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>) finds Markdown files in the opened folder and already-open documents. The command launcher searches commands, headings, and documents from one place.
-
-![Inkiva command launcher with document, heading, and command results](../assets/inkiva-command-palette.png)
+**Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>) finds Markdown files in the opened folder and already-open documents. The **Search** sidebar supports in-folder content searching, while **Outline** navigates headings in the active document.
 
 ### Editor modes
 
