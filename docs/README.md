@@ -10,6 +10,7 @@ This directory uses **progressive disclosure**. Put documents where their lifeti
 | [`benchmark/`](benchmark/README.md) | benchmark inventory, trustworthiness and measurement provenance | open when benchmark behavior/evidence is involved |
 | [`correctness/`](correctness/README.md) | correctness/readiness stages and product functional gates | open for the affected correctness domain |
 | [`product/`](product/README.md) | durable product interaction contracts and user-story implementation records | open when work changes user-observable product/editor behavior |
+| [`engineering/`](engineering/README.md) | release audits, version preparation, documentation governance and public-discovery records | open for release/process/documentation-governance work only |
 | [`i18n/`](i18n/) | translated user-facing README documents | not part of agent task startup |
 | [`assets/`](assets/) | documentation assets | load only when referenced |
 

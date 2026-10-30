@@ -39,7 +39,7 @@ This directory contains durable product contracts and resumable implementation r
 - [V06-12 — Table correctness carry-over](V0.6-TABLE-CORRECTNESS-PROGRESS.md) — v0.5 table acceptance matrix, Issue #224 real Electron focus diagnosis, regression evidence and CI/merge closeout.
 - [V06-13 — Performance and lifecycle qualification](../performance/V06-13-PERFORMANCE-LIFECYCLE.md) — representative workspace stress, stale-scan lifecycle Red/Green and acceptance ledger.
 - [V06-14 — Integrated correctness and platform acceptance](../correctness/V06-14-INTEGRATED-ACCEPTANCE.md) — traceable cross-feature correctness matrix, regression evidence, latest-head platform/installer/updater CI and explicit manual/performance qualification boundaries.
-- [V06-15 — Release readiness audit](../engineering/V0.6-RELEASE-READINESS-AUDIT.md) — version candidate, release gate evidence, known qualification gaps, release-notes draft and stable-release Go/No-Go.
+- [V06-15 — Release readiness and publication audit](../engineering/V0.6-RELEASE-READINESS-AUDIT.md) — explicit risk acceptance, verified v0.6.0 tag/release publication, 14-asset inventory, checksum evidence and remaining qualification gaps.
 
 ## Loading rule
 
