@@ -1,72 +1,74 @@
 # Developer Documentation
 
-## 1. Project Setup
+Inkiva is a pnpm monorepo. Run workspace commands from the repository root unless a command explicitly names a package directory.
 
-### 1.1 Pre-Requisites
+## Workspace map
 
-- Python (`>= 3.12`)
+- **packages/desktop/** — Electron desktop application: main process, sandboxed preload, Vue 3 renderer, shared process contracts and desktop tests.
+- **packages/muya/** — active TypeScript Markdown/editor engine published inside the workspace as **@muyajs/core**.
+- **packages/muyajs/** — legacy MarkText-era JavaScript package retained for compatibility/reference; it is not the desktop application's active editor-engine dependency.
+- **packages/website/** — Next.js product website and the source for the public user/developer documentation.
 
-- Node.js (`>=20.19.0`) — the PR build CI uses Node 22.21.1, the release CI uses Node 24.14.1; any version meeting the minimum should work
-  - Using versions significantly newer than the Electron-bundled Node may cause issues compiling native add-ons
+The active desktop editor uses the TypeScript Muya package. Do not use the old single-package src/main, src/renderer or src/muya layout as a description of the repository root.
 
-- A lot of patience
+## Prerequisites
 
-### 1.2 Windows Specific Pre-requisites
+- Node.js **20.19.0 or later**.
+- pnpm **10.x**. The root package manifest pins **10.33.4** through its packageManager field.
+- Python **3.12 or later** for native modules.
+- Windows: Visual Studio 2022 Build Tools with the required MSVC C++ components.
+- macOS: Xcode Command Line Tools.
 
-- You will need [Build Tools for Visual Studio 2022](https://visualstudio.microsoft.com/downloads/) (Scroll all the way to the bottom)
-  - Additionally, you need **spectre-mitigated MSVC**, go to "Individual Components" and select "MSVC ... - VS2022 C++ Spectre-Mitigated Libs"
-  - Many native libraries do not support ClangCL well yet, hence we force it to use MSVC in our `.npmrc` (pnpm respects this file)
+The known-good local Windows baseline recorded by the repository is Node.js 24.21.0, pnpm 10.33.4 and Python 3.12.x. CI pins its own versions: the default setup action uses Node 22.21.1, while the release workflow currently overrides it to Node 24.14.1. Check the workflow files before changing these pins.
 
-### 1.3 Clone and Install
+## Clone and install
 
-```bash
+~~~bash
 git clone https://github.com/Bulls1986/Inkiva.git
-cd inkiva
+cd Inkiva
+corepack enable pnpm
 pnpm install
-```
+~~~
 
-### 1.4 Create minified locale files
+On Windows, install the Visual Studio 2022 C++ build tools before installing dependencies. See the repository [environment guide](https://github.com/Bulls1986/Inkiva/blob/develop/docs/agent/ENVIRONMENT.md) for the exact native-toolchain checklist.
 
-- This is **automatically ran** when building for production, but not for dev for performance
+## Development
 
-```
-pnpm run minify-locales
-```
-
-### 1.5 Run in Development
-
-```bash
+~~~bash
 pnpm run dev
-```
+~~~
 
-#### 1.5.1 Some Points to Note:
+Run the desktop application from the workspace root. The desktop package owns the Electron main/preload/renderer build; the website and Muya engine are separate workspace packages.
 
-- The `main` and `preload` processes are **NOT** automatically hot-loaded on edit, you need to **reload the development process** on each edit unfortunately
-  - The good news is Vite bundles it _really really quickly_ so it shouldnt be too big of a hassle
-- Although the `renderer` process is hot-loaded, loss of states can often lead to **weird errors**. I recommend doing a full reload if this happens
-- Compile targets:
-  - `main` and `preload` still compile to `CommonJS`
-  - `renderer` is `ESModules` only (take note when using any legacy `CommonJS` libraries)
+When locale sources change, regenerate the minified locale bundles with the repository's minify-locales script from the workspace root.
 
-### 1.6 Build for Production
+## Build desktop packages
 
-```bash
-# For windows
-$ pnpm run build:win
+~~~bash
+pnpm run build:win:x64
+pnpm run build:mac:x64
+pnpm run build:mac:arm64
+~~~
 
-# For macOS
-$ pnpm run build:mac
+The supported release targets are Windows x64 and macOS Intel/Apple Silicon. Linux is not a supported release platform.
 
-```
+For prerequisites, artifact layout, checksums and updater behavior, see [Build instructions](BUILD.md) and the [release process](RELEASE.md).
 
-## 2. Sub-sections
+## Quality checks
 
-- [Performance testing](PERFORMANCE.md)
-- [Project architecture](ARCHITECTURE.md)
-- [Build instructions](BUILD.md)
-- [Debugging](DEBUGGING.md)
-- [Inter-process communication (IPC)](IPC.md)
-- [Interface](INTERFACE.md)
-- [Steps to release Inkiva](RELEASE.md)
-- [Prepare a hotfix](RELEASE_HOTFIX.md)
-- [TypeScript layout and conventions](TYPESCRIPT.md)
+~~~bash
+pnpm lint
+pnpm typecheck
+pnpm test:unit
+pnpm test:e2e
+~~~
+
+Use the focused test required by the change before the broader gate. The repository's normative test-first, worktree, CI and architecture rules are in [AGENTS.md](https://github.com/Bulls1986/Inkiva/blob/develop/AGENTS.md), [Testing](https://github.com/Bulls1986/Inkiva/blob/develop/docs/agent/TESTING.md) and [Architecture & release governance](https://github.com/Bulls1986/Inkiva/blob/develop/docs/agent/ARCHITECTURE_RELEASE.md).
+
+## Architecture and implementation references
+
+- [Architecture](ARCHITECTURE.md) — current monorepo and Electron process boundaries.
+- [TypeScript](TYPESCRIPT.md) — package type ownership and checking.
+- [IPC](IPC.md) — renderer/main contract and preload bridge.
+- [Interface](INTERFACE.md) — current desktop shell.
+- [Performance testing](PERFORMANCE.md) — profiling and formal gate entry points.

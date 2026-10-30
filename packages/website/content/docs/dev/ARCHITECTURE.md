@@ -1,71 +1,61 @@
 # Project Architecture
 
-## Overview
+Inkiva is a pnpm monorepo. The desktop product is an Electron application whose editor engine is a separate TypeScript workspace package. The website and the retained legacy editor package are separate from the active desktop runtime.
 
-- `.`: Configuration files
-- `package.json`: Project settings
-- `out/`: Compiled source code (main, preload, renderer bundles)
-- `dist/`: Packaged binaries and installers for distribution
-- `resources/`: Application assets (themes, icons, etc) included in builds
-- `docs/`: Documentation and assets
-- `node_modules/`: Dependencies
-- `src`: Inkiva source code
-  - `common/`: Common source files that only require Node.js APIs. Code from this folder can be used in all other folders except `muya`.
-  - `main/`: Main process source files that require Electron main-process APIs. `main` files can use `common` source code.
-  - `muya/`: Inkivas backend that only uses pure JavaScript, BOM and DOM APIs. Don't use Electron or Node.js APIs.
-  - `renderer`: Frontend that require Electron renderer-process APIs and may use `common` or `muya` source code.
-- `static/`: Application assets (images, themes, etc)
-- `test/`: Contains (unit) tests
+## Workspace layout
 
-## Introduction to Inkiva
+~~~text
+Inkiva/
+├── packages/
+│   ├── desktop/
+│   │   ├── src/common/       # shared non-Electron helpers
+│   │   ├── src/main/         # Electron main process and OS integration
+│   │   ├── src/preload/      # sandboxed contextBridge APIs
+│   │   ├── src/renderer/     # Vue 3 desktop UI and editor integration
+│   │   └── src/shared/       # cross-process contracts and shared types
+│   ├── muya/                 # active TypeScript editor engine (@muyajs/core)
+│   ├── muyajs/               # legacy MarkText-era JavaScript package
+│   └── website/              # Next.js website and documentation
+├── docs/                     # engineering, architecture and product contracts
+└── package.json              # pnpm workspace scripts and toolchain pins
+~~~
 
-Inkiva is a realtime preview (WYSIWYG) editor for markdown with various markdown extensions and our philosophy is to keep things clean, simple and minimal. The application is built with TypeScript, Vue 3 and CSS on top of Electron (Muya, the editor backend, is currently still JavaScript). We use a few native node libraries and Pinia for renderer state. Inkiva can be split in three parts: the core called Muya, the main- and renderer process.
+The active desktop package depends on **@muyajs/core** from packages/muya. The packages/muyajs directory is retained legacy code; it is not the desktop application's active editor-engine dependency. New desktop editor work belongs in the active packages/muya package or the desktop integration layer, according to the ownership boundary.
 
-Muya provides realtime preview and markdown editing via multiple modules based on a block structure. You can imagine it as the editor backend with modules for markdown parsing, data store as block structure, markdown document transformations according CommonMark and GitHub Flavored Markdown specification with some extra specifications, event listeners and an exporter to generate standalone HTML and markdown files but also to generate the WYSIWYG editor. Muya is single threaded as well as Inkiva but use asynchronous functions to boost performance.
+## Electron process model
 
-> NOTE: Inkiva's source-code editor is provided by CodeMirror and not well optimized nor feature rich. It's not part of Muya and an editor (renderer process) feature that load the markdown text from Muya (export), operate on it and re-import the text into Muya when switching to preview mode.
+### Main process
 
-> NOTE: Muya requires a core refactoring to provide better modularization, APIs and plugins. Furthermore, the data structure need improvements for better performance and stability.
+The main process lives under **packages/desktop/src/main/**. It owns Electron application lifecycle, BrowserWindow creation, native menus/dialogs, filesystem operations, updater integration and main-side IPC handlers. Keep long-running CPU or synchronous work off the main event loop.
 
-The editor represents the view and is split into two parts. The first is the main process that have full access to Electron and all OS features. It's mainly used for IO, user interaction with native dialogs and controlls the editor windows. The main process should not (be long) blocked by synchronous operations. The renderer process is the real editor and also a host for Muya. It's responsible for all graphical elements (`src/renderer/components`), data (`src/renderer/store`) and data synchronization. A renderer process is spawned for each window, operates on its own and is controlled by the main process. It contains two text editors: the realtime preview editor provided by Muya and the source-code one by CodeMirror with special features such as tabs, sidebar and editing features.
+### Preload
 
-### Application entry points
+The preload entrypoint is **packages/desktop/src/preload/index.ts**. It runs across the renderer boundary and exposes narrow APIs through contextBridge. It is the supported route from renderer UI to privileged Electron/Node capabilities.
 
-There are two entry points to the application:
+### Renderer
 
-- `src/main/index.ts` for the main process that is executed first and only once per instance. Once the application is initialized, it's safe to access all the environment variables and single-instances and the application (`App`) is started (`src/main/app/index.ts`). You can use the application after `App::init()` is run successfully.
-- `src/renderer/src/main.ts` for each editor window. At the beginning libraries are loaded, the window is initialized and Vue components are mounted.
+The renderer lives under **packages/desktop/src/renderer/** and uses Vue 3 and Pinia for the desktop UI. It owns tabs, sidebar panels, settings and view state. It integrates the formatted WYSIWYG surface with the raw Markdown source editor (CodeMirror).
 
-### How Muya work
+The renderer is sandboxed: context isolation and sandboxing are enabled, and Node integration is disabled. Renderer modules must not import Electron main-process APIs directly.
 
-TBD
+## Editor engine and document ownership
 
-- Overview about Muya components
-- How Muya work internal
-- Data structure
+The active editor engine is **packages/muya/**, exposed as the workspace package **@muyajs/core**. Its TypeScript source owns Markdown parsing/serialization, block/document representation, WYSIWYG editing operations and editor-level behavior.
 
-### Main- and renderer process communication
+The desktop integration owns window/tab lifecycle, file identity, persistence and coordination between the WYSIWYG and Source surfaces. The editor engine remains the authority for Markdown representation semantics; desktop code must not create a second parser or competing document model.
 
-Main- and renderer process communicate asynchronously via [inter-process communication (IPC)](IPC.md) and it's mainly used for IO and user interaction with native dialogs.
+The Source editor is a separate editing surface over the same document revision, not a second document authority. Mode transitions, caret/viewport continuity and lifecycle ownership are governed by the product and architecture contracts.
 
-### Editor window (renderer process)
+## Website
 
-TBD
+**packages/website/** is the Next.js website. Its Markdown documentation source is in **packages/website/content/docs/** and the route/sidebar registry is in **packages/website/src/lib/docs-nav.ts**. Website content is not part of the desktop runtime package.
 
-### Examples
+## Architecture references
 
-#### Opening a markdown document and render it
+The durable package and process boundaries are governed by:
 
-`MarkdownDocument` is a document that represents a markdown file on disk or an untitled document. To get a markdown document you can use the `loadMarkdownFile` function that asynchronously returns a `RawMarkdownDocument` (= `MarkdownDocument` with some additional information) in the main process.
-
-**Overall steps to open a file:**
-
-1. Click `File -> Open File` and a file dialog is shown that emit `app-open-file-by-id` with the editor window id to open the file in and resolved absolute file path.
-2. The application (`App` instance) tries to find the specified editor and call `openTab` on the editor window. A new editor window is created if no editor window exists.
-3. The editor window tries to load the markdown file via `loadMarkdownFile` and send the result via the `mt::open-new-tab` event to the renderer process.
-  - Each opened file is also added to the filesystem watcher and the full path is saved to track opened file in the current editor window.
-4. The event is triggered in `src/renderer/src/store/editor.ts` (renderer process), does some checks and create a new document state that represent a markdown document and tab state.
-5. The new created tab is either opened and the `file-changed` event is emitted or just added to the tab state.
-6. Both Muya and the source-code editor listen on this event and change the markdown document accordingly.
-
-> NOTE: We currently have no high level APIs to make changes to the document text or lines automatically. All modifications need user interaction!
+- [Architecture index](https://github.com/Bulls1986/Inkiva/blob/develop/docs/architecture/README.md)
+- [Editor runtime boundary](https://github.com/Bulls1986/Inkiva/blob/develop/docs/architecture/ARCH-01_EDITOR_RUNTIME_PROGRESS.md)
+- [IPC contract](https://github.com/Bulls1986/Inkiva/blob/develop/docs/architecture/ARCH-02-IPC-CONTRACT.md)
+- [Muya public type boundary](https://github.com/Bulls1986/Inkiva/blob/develop/docs/architecture/ARCH-06-MUYA-PUBLIC-TYPE-BOUNDARY.md)
+- [Architecture and release governance](https://github.com/Bulls1986/Inkiva/blob/develop/docs/agent/ARCHITECTURE_RELEASE.md)

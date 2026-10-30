@@ -1,194 +1,71 @@
 # TypeScript
 
-Inkiva is a TypeScript project. Every file under `src/` (except `src/muya/`),
-the build scripts under `scripts/`, the test specs under `test/`, the
-build config (`electron.vite.config.ts`), and the test configs
-(`vitest.config.ts`, `test/e2e/playwright.config.ts`) are TS.
+Inkiva is a pnpm monorepo. The active desktop application, Muya editor engine and website use TypeScript; the retained packages/muyajs directory is legacy JavaScript and is not the active desktop editor-engine dependency.
 
-The only JavaScript that ships in the source tree is `src/muya/` — the
-legacy editor engine, which will be replaced by the upstream TS muya at
-https://github.com/marktext/muya. The migration's `src/types/muya.d.ts`
-ambient declaration is the bridge; consumers always go through that file,
-never the underlying `src/muya/lib/*.js`.
+## Toolchain
 
-## tsconfig layout
+- Node.js 20.19.0 or later.
+- pnpm 10.x; the root packageManager pin is 10.33.4.
+- TypeScript 6.x in the workspace.
+- Vue 3 single-file components are checked with vue-tsc, not plain tsc alone.
 
-Single root project, no `composite`/`references`:
+The known-good local Windows baseline is Node.js 24.21.0, pnpm 10.33.4 and Python 3.12.x. See the repository environment guide for native build prerequisites.
 
-```
-tsconfig.base.json     # shared compiler options (strict, paths, libs)
-tsconfig.json          # extends base, adds lib/types/jsx + include/exclude
-```
+## Package boundaries
 
-Why a single project: nothing under `src/` needs declaration emission
-(the bundler is electron-vite), and the renderer, preload and main
-processes share enough types that splitting them into project
-references would mostly add ceremony. A single `--noEmit` project keeps
-the wiring minimal without giving up strict mode.
+| Package | Language and responsibility |
+|---|---|
+| packages/desktop | TypeScript and Vue 3; Electron main, preload, renderer, shared contracts and desktop UI |
+| packages/muya | TypeScript; active Markdown/editor engine exported as @muyajs/core |
+| packages/muyajs | Legacy MarkText-era JavaScript package; not the active desktop runtime dependency |
+| packages/website | TypeScript/React and Next.js website, including documentation rendering |
 
-Relevant settings (`tsconfig.base.json`):
+Keep types with the package and domain that owns the behavior. Do not move desktop-specific Electron types into the Muya engine.
 
-- `strict: true` (every strict flag on)
-- `noUncheckedIndexedAccess: false` — too disruptive given existing
-  index-access patterns (tabs, listToc)
-- `exactOptionalPropertyTypes: false` — kept off to keep the buffered-state
-  restore path (which carries optional fields through JSON serialization)
-  tolerant of `undefined` ≡ "key not present"
-- `allowJs: false, checkJs: false` — every directory under `src/` is
-  now `.ts` except `src/muya/`, which the rest of the tree reaches
-  through the ambient declarations in `src/types/muya.d.ts`
-- `noEmit: true` — vue-tsc only type-checks; electron-vite handles the
-  actual bundling
+## Type ownership
 
-## Path aliases
+- **packages/muya/src/** owns the editor engine's public and internal types for Markdown parsing, document/block representation, editor operations and rendering.
+- **packages/desktop/src/shared/types/** owns cross-process IPC contracts and types shared by main, preload and renderer.
+- **packages/desktop/src/** feature modules own their local domain types; keep a type close to its only consumer unless it is genuinely shared.
+- Vue component and renderer state types belong with their renderer feature; main-process filesystem/updater types remain in the main package.
 
-Defined in both `tsconfig.base.json` and `electron.vite.config.ts` (the
-two must stay in sync):
+The editor engine is the authority for Markdown representation semantics. Desktop must not create a parallel parser, duplicate Muya's block model or introduce an ambient declaration that bypasses the public package boundary.
 
-| Alias       | Maps to                |
-|-------------|------------------------|
-| `@/*`       | `src/renderer/src/*`   |
-| `common/*`  | `src/common/*`         |
-| `muya/*`    | `src/muya/*` (legacy)  |
-| `@shared/*` | `src/shared/*`         |
+## Muya public type boundary
 
-`vitest.config.ts` carries the same aliases plus `main_renderer` →
-`src/main` for the few unit specs that reach into main-process code.
+The active package is **@muyajs/core** in **packages/muya/**. Its package exports define the public entrypoint and declaration output. The desktop build resolves the package through the workspace and the Electron/Vite configuration; the renderer must consume the public package surface rather than reaching into arbitrary implementation files.
 
-## Where types live
+The architecture contract is documented in [ARCH-06 — Muya public type boundary](https://github.com/Bulls1986/Inkiva/blob/develop/docs/architecture/ARCH-06-MUYA-PUBLIC-TYPE-BOUNDARY.md). That contract replaces the old src/muya ambient-declaration bridge. Do not recreate the former src/types/muya.d.ts shim or point desktop imports at the retained packages/muyajs legacy package.
 
-- **`src/shared/types/`** — cross-process types (IPC contract, file/tab
-  shapes, preferences, menu, bus, TypedEmitter helper). Pure type
-  artefacts, no runtime. Importable from any process via `@shared/types/*`.
-- **`src/types/`** — ambient declarations (`global.d.ts`, `renderer.d.ts`,
-  `muya.d.ts`, `shims.d.ts`). `.d.ts` only; no runtime.
-- **Co-located** — domain types specific to one feature live next to the
-  code (e.g. `src/main/ipc/ripgrep.ts` defines its own `SearchOptions`).
+## IPC types
 
-## IPC contract
+The IPC channel registry is **packages/desktop/src/shared/types/ipc.ts**. It owns channel names, directions and declared argument/return/event types. Some not-yet-migrated payloads intentionally remain unknown or broad; narrow them incrementally with focused contract tests rather than claiming every existing channel is deeply typed. See [IPC](IPC.md) and [ARCH-02](https://github.com/Bulls1986/Inkiva/blob/develop/docs/architecture/ARCH-02-IPC-CONTRACT.md).
 
-The single source of truth is `src/shared/types/ipc.ts`. Four channel maps:
+## Type checking
 
-- `IpcInvokeChannels` — renderer → main, returns Promise<T>
-- `IpcSendChannels` — renderer → main, fire-and-forget
-- `IpcSyncChannels` — synchronous renderer → main
-- `IpcMainEventChannels` — main → renderer push events
+Run the root typecheck from the repository root:
 
-The preload bridge (`src/preload/index.ts`) consumes these as generics:
+~~~bash
+pnpm typecheck
+~~~
 
-```ts
-const ipcWrapper = {
-  send: <K extends keyof IpcSendChannels>(channel: K, ...args: IpcSendChannels[K]) =>
-    ipcRenderer.send(channel, ...args),
-  invoke: <K extends keyof IpcInvokeChannels>(
-    channel: K,
-    ...args: IpcInvokeChannels[K]['args']
-  ): Promise<IpcInvokeChannels[K]['ret']> =>
-    ipcRenderer.invoke(channel, ...args),
-  // ...
-}
-```
+The root script validates architecture/type-boundary contracts, builds Muya declaration types and runs the desktop Vue/TypeScript check. Use the package-local type command only when changing Muya in isolation:
 
-Every renderer-side `window.electron.ipcRenderer.invoke('mt::fs::stat', p)`
-call is type-checked: wrong channel name, wrong arg arity, wrong arg
-types, all surface at compile time.
+~~~bash
+pnpm --filter @muyajs/core lint:types
+~~~
 
-To add a new channel:
-1. Add an entry to the appropriate interface in `src/shared/types/ipc.ts`.
-2. Wire the handler in `src/main/ipc/*.ts` via `ipcMain.handle`/`ipcMain.on`.
-3. Use it from the renderer via `window.electron.ipcRenderer.{invoke,send,…}`.
+For the complete quality gate, use:
 
-## muya boundary
+~~~bash
+pnpm check
+~~~
 
-`src/muya/` stays JavaScript. The `src/types/muya.d.ts` ambient
-declaration covers the ~21 import paths the rest of the codebase
-actually uses (`muya/lib/utils`, `muya/lib/utils/dompurify`,
-`muya/lib/parser/marked/slugger`, the dozen-plus `muya/lib/ui/*` overlay
-components, etc.). Most entries are `any`-typed shims — good enough for
-the consumer side, and they delete cleanly the day upstream TS muya
-lands.
+## Practical rules
 
-## TypedEmitter
-
-Main-process classes that historically extended `node:events#EventEmitter`
-now extend `TypedEmitter<EventMap>` from `@shared/types/typedEmitter`.
-Event names + listener-argument tuples are typed:
-
-```ts
-interface BaseWindowEvents {
-  'window-ready': []
-  'window-blur': []
-  'will-close': [id: number, opts: { keepInBackground: boolean }]
-}
-
-class BaseWindow extends TypedEmitter<BaseWindowEvents> { ... }
-```
-
-Wrong event names or mismatched listener arities fail at compile time.
-
-## Pinia stores
-
-All 9 active Pinia stores (`src/renderer/src/store/`) are typed. Seven are
-Setup Stores (`defineStore('id', () => { ... return { ...refs, ...computeds,
-...actions } })`); `editor.ts` and `preferences.ts` remain Options Stores
-because Pinia's Options-Store typing is fully inferrable from a typed
-`state: () => State` factory, and converting their ~80 cross-store call
-sites buys no expressiveness over a typed Options Store.
-
-The editor store's `currentFile` sentinel is now `IFileState | null`
-instead of the legacy empty-object placeholder, and consumers do explicit
-null narrowing where they previously checked `!currentFile.id`.
-
-## Strict-mode landmines
-
-- **`strictPropertyInitialization`** — class fields must be initialized
-  in the constructor or marked with `!:` (definite-assignment assertion).
-  Prefer initialization; reach for `!:` only where the runtime guarantees
-  the field is set before any access.
-- **`useUnknownInCatchVariables`** — `catch (err)` gives `err: unknown`.
-  Narrow before using: `err instanceof Error ? err.message : String(err)`.
-- **`noImplicitAny`** — every callback parameter needs a type. For
-  iterators (`tabs.find(t => ...)`), TS infers from the element type.
-- **Event handler unions** — Electron's `BrowserWindow.on` is heavily
-  overloaded; passing a union of event names (`'maximize'|'unmaximize'|...`)
-  can require a cast through `any`.
-
-## Deferred work
-
-All four items from the original deferred-work list landed across
-PRs #4249–#4255:
-
-- editor.ts + preferences.ts Pinia stores (#4249)
-- prefComponents schemas + leaf SFC controls (#4250)
-- Test specs ESM + strict TS (#4251)
-- Sidebar + top-level page SFCs (#4252)
-- Editor + components SFCs (#4253)
-- Preference page SFCs (#4254)
-- `@typescript-eslint/no-explicit-any` flipped from `warn` to `error` (#4255)
-
-The only remaining `any` is the file-level disable in
-`src/types/muya.d.ts` (intentional — bridge to the legacy JS muya tree,
-deleted when upstream TS muya lands) and a single targeted
-`eslint-disable-next-line` in `src/main/filesystem/watcher.ts` for
-chokidar's `ignored` callback options bag whose typed signature varies
-between chokidar versions.
-
-A small number of `: any` annotations remain inside `.vue` `<script
-setup lang="ts">` blocks — mostly for muya / CodeMirror handles
-(`MuyaInstance`, `CMInstance`, etc.) kept as file-local aliases on
-purpose, parallel to `src/types/muya.d.ts`. The rule is currently
-configured on `.ts` files only; extending it to the `.vue` scope is a
-separate cleanup once the upstream TS muya replaces those handles with
-real types.
-
-## Type-checking
-
-```bash
-pnpm typecheck            # vue-tsc --noEmit -p tsconfig.json
-pnpm typecheck:watch      # incremental
-pnpm check                # lint + typecheck
-```
-
-`vue-tsc` is the TS compiler with Vue SFC awareness. Plain `tsc` won't
-type-check `.vue` files. CI runs `pnpm typecheck` as part of the lint
-job (see `.github/workflows/lint.yml`).
+- Use **unknown** at untrusted or not-yet-migrated boundaries, then narrow it at the owning layer.
+- Avoid adding **any** to bypass a missing contract; fix the contract or add a narrow adapter.
+- Use vue-tsc for Vue single-file component checks.
+- Keep shared IPC types in the shared contract package; do not import main-process implementation types into renderer code.
+- Do not edit generated declaration output by hand.
+- When changing a public package export, update the consumer and add a focused boundary test in the same change.

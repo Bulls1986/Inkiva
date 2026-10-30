@@ -2,6 +2,8 @@
 
 Inkiva supports two shortcut presets. New profiles use the `typora` preset. Choose the `marktext` preset in preferences to use the baseline tables in the platform guides, or override individual commands in `keybindings.json`.
 
+Inkiva's supported release platforms are Windows x64 and macOS (Intel and Apple Silicon). Linux is not a supported release platform.
+
 The file is located in the [application data directory](APPLICATION_DATA_DIRECTORY.md). Each entry consists of an `id`/`accelerator` pair in JSON format:
 
 ```json
@@ -13,9 +15,9 @@ The file is located in the [application data directory](APPLICATION_DATA_DIRECTO
 
 ## Default Typora preset
 
-The preset changes the most frequently used commands while leaving the rest of the menu bindings available. These are the current overrides; `Command` means the macOS modifier and `Ctrl` means the Windows/Linux modifier.
+The preset changes the most frequently used commands while leaving the rest of the menu bindings available. These are the current overrides; `Command` means the macOS modifier and `Ctrl` means the Windows modifier.
 
-| Command | Windows/Linux | macOS |
+| Command | Windows | macOS |
 | ------- | ------------- | ----- |
 | New tab | <kbd>Ctrl</kbd>+<kbd>N</kbd> | <kbd>Command</kbd>+<kbd>N</kbd> |
 | New window | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd> | <kbd>Command</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd> |
@@ -34,7 +36,7 @@ The preset changes the most frequently used commands while leaving the rest of t
 | Toggle Outline | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd> | <kbd>Command</kbd>+<kbd>Control</kbd>+<kbd>1</kbd> |
 | Quick Open | <kbd>Ctrl</kbd>+<kbd>P</kbd> | <kbd>Command</kbd>+<kbd>P</kbd> |
 
-The command palette shortcut remains <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> on Windows/Linux and <kbd>Command</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> on macOS. The titlebar launcher is also clickable.
+The command palette shortcut remains <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> on Windows and <kbd>Command</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> on macOS. The titlebar launcher is also clickable.
 
 ## Available modifiers
 
