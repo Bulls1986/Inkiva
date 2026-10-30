@@ -7,7 +7,7 @@
 <h1 align="center">Inkiva</h1>
 
 <p align="center">
-  <strong>Inkiva — A free, open-source, document-first Markdown editor.</strong><br>
+  <strong>Inkiva — A free, open-source WYSIWYG Markdown editor for Windows and macOS.</strong><br>
   Write in Markdown while the document stays visible.
 </p>
 
