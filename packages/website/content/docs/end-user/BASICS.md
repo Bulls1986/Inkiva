@@ -6,7 +6,7 @@ Inkiva is a document-first Markdown editor. It opens ordinary CommonMark/GFM fil
 
 ![Inkiva welcome surface with Recent Documents, New File, and Open file](../assets/inkiva-default.png)
 
-The titlebar command launcher opens search for documents, headings, and commands. You can click it or press <kbd>CmdOrCtrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>. In an empty paragraph, type `/` to open the quick-insert menu; choose an item to turn that paragraph into a heading, list, quote, table, or another supported block.
+Use **Search** in the sidebar for workspace content, or **Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>) to find documents in the opened folder. In an empty paragraph, type `/` to open the quick-insert menu; choose a heading, list, quote, table, or another supported block.
 
 ## Interface
 
@@ -17,11 +17,11 @@ The optional sidebar is organized around the current document and folder:
 - **Files** shows the opened folder tree and its **Opened Files** subsection.
 - **Search** searches the opened folder with filters for the search mode.
 - **Outline** shows headings from the selected document.
-- **More → Document Info** provides **Backlinks** and **Local History**.
+- **More → Document Info** provides **Backlinks**, **Broken Markdown Links**, and **Local History**. The More control is an icon with the accessible name **Backlinks and Local History** on the Windows v0.6.0 UI.
 
 Use the sidebar controls or **View → Toggle Sidebar**. The default Typora shortcut is <kbd>CmdOrCtrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>; custom keybinding styles can change it. The `openedFilesInSidebar` preference controls the Opened Files subsection.
 
-![Inkiva editor with the Outline sidebar, document tab, and writing surface](../assets/inkiva-interface.png)
+![Actual Windows v0.6.0 Inkiva editor with the Outline sidebar, document tab, and Markdown writing surface](../assets/inkiva-interface.png)
 
 The Files, Search, and Document Info panels are shown below.
 
@@ -29,17 +29,15 @@ The Files, Search, and Document Info panels are shown below.
 
 ![Inkiva Search sidebar for searching the opened folder](../assets/inkiva-search.png)
 
-![Inkiva Document Info sidebar with Backlinks and Local History](../assets/inkiva-document-info.png)
+![Actual Windows v0.6.0 Document Info sidebar showing a backlink, a missing Markdown target and Local History](../assets/inkiva-document-info.png)
 
 ### Tabs and split view
 
 Each open document can appear in a tab. Drag tabs to reorder them, use the tab context menu for file actions, or hide the tab bar and work from the sidebar's **Opened Files** list. **View → Split Editor** opens a second document pane; use the pane controls to choose which pane is the active editor.
 
-### Quick Open and the command launcher
+### Quick Open
 
-**Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>) finds Markdown files in the opened folder and already-open documents. The command launcher searches commands, headings, and documents from one place.
-
-![Inkiva command launcher with document, heading, and command results](../assets/inkiva-command-palette.png)
+**Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>) finds Markdown files in the opened folder and already-open documents. The **Search** sidebar supports in-folder content searching, while **Outline** navigates headings in the active document.
 
 ### Editor modes
 
@@ -76,8 +74,10 @@ A regular click within a link keeps you in editing mode. To **follow** it delibe
 Open the **More → Document Info** sidebar for the active document:
 
 - **Backlinks** shows other Markdown documents that link here, including saved workspace files not currently open in tabs. Choosing a backlink goes to its source link occurrence.
-- **Broken local links** reports missing relative `.md`/`.markdown` file targets in the checked workspace scope. A missing file and a file that cannot be verified (for example, due to permissions or partial indexing) are different states.
-- Use **Locate** to inspect the original link in its document; use **Repair** only when you deliberately want to select a replacement through the existing link-editing flow. Cancelling a repair leaves the Markdown unchanged.
+- **Broken Markdown Links** reports missing relative `.md`/`.markdown` file targets in the checked workspace scope. A missing file and a file that cannot be verified (for example, due to permissions or partial indexing) are different states.
+- Click the broken-link entry to locate its source occurrence (accessible name **Locate source occurrence**); this is not a separate text-labeled Locate button. Click the visible **Repair** button to open the standard **Insert link** confirmation dialog. The dialog does not silently replace the target; **Cancel** leaves the Markdown unchanged.
+
+![Actual Windows v0.6.0 Insert link confirmation dialog opened from a broken link's Repair button](../assets/inkiva-broken-link-repair.png)
 
 Results depend on the selected folder and the index's current state. An incomplete/unreadable scan is not proof that there are no links or no problems. External websites, image references, reference-style links, and missing heading fragments are **not** classified as broken files by this workspace report.
 

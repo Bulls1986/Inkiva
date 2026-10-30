@@ -12,6 +12,10 @@ Inkiva 会实时渲染标题、强调、列表、任务列表、表格、代码�
 
 需要单元格内硬换行时使用 **Shift+Enter**，保存的 Markdown 使用 `<br>`。Undo/Redo 与源码往返应保持可预测。
 
+![Windows v0.6.0 英文界面的表格右键菜单实机截图](../assets/inkiva-table-context.png)
+
+![Windows v0.6.0 单元格 Shift+Enter 后的编辑中硬换行和光标截图，尚不能证明文件已保存](../assets/inkiva-table-hardbreak.png)
+
 ## 标准文档链接
 
 选中文字按 `Ctrl+K`（Windows）或 `Command+K`（macOS），在现有链接对话框中输入目标或选择工作区候选文件。候选项通过相对路径区分同名文档；取消不会写入隐藏改动，一次插入对应一次 Undo。
@@ -20,7 +24,7 @@ Inkiva 会实时渲染标题、强调、列表、任务列表、表格、代码�
 
 ## 反向链接、断链和重命名
 
-在 **More → Document Info** 查看反向链接和断链报告。对断链先 **Locate**，明确确认后再 **Repair**；修复通过正常链接编辑与 Undo 完成。外部 URL、图片资源和缺失标题片段不等同于该工作区断链检测范围。
+在 **More → Document Info** 查看反向链接和断链报告。对断链点击条目可定位源文本（辅助功能名 **Locate source occurrence**，不是独立的 Locate 文字按钮），再点击 **Repair** 打开 **Insert link** 对话框；取消不改写原文档，确认后按正常链接编辑和 Undo 处理。外部 URL、图片资源和缺失标题片段不等同于该工作区断链检测范围。
 
 移动或重命名文件后，如果提示更新引用，先查看影响范围，再选择 **Update / Keep unchanged / Cancel**。取消引用修复不代表撤销已完成的文件移动；跨文件操作出现部分成功时，应检查恢复记录。
 
