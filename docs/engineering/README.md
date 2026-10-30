@@ -14,7 +14,8 @@ This directory contains cross-cutting engineering audits and evidence records. O
 - [D01 — Documentation baseline audit](DOCS-01-BASELINE-AUDIT.md) — dated baseline inventory, source-of-truth mapping, stale-doc findings and D02–D06 remediation plan.
 - [D02 — Developer documentation refresh](DOCS-02-DEVELOPER-DOCS.md) — current monorepo architecture, IPC, TypeScript, build/debug and performance manuals.
 - [D03 — Release and process documentation](DOCS-03-RELEASE-PROCESS.md) — verified v0.6.0 publication, release-guide corrections and documentation validation.
-- [D04 — User guide modernization](DOCS-04-USER-GUIDES.md) — source-backed v0.6 links, images, tables and recovery workflows; screenshot review handoff.
+- [D04 — User guide modernization](DOCS-04-USER-GUIDES.md) — merged v0.6 links, images, tables and recovery workflows; screenshot review handoff.
+- [D06 — Public documentation quality gate](DOCS-06-DOCS-QUALITY-GATE.md) — merged and deployed link/anchor/asset verification with 9 targeted tests and 11/11 PR CI.
 - [GEO-01 — Public baseline audit](GEO-01-PUBLIC-BASELINE-AUDIT.md)
 - [GEO-02 — AI discovery baseline](GEO-02-AI-DISCOVERY-BASELINE.md)
 - [GEO-03 — Entity content implementation](GEO-03-ENTITY-CONTENT-IMPLEMENTATION.md)

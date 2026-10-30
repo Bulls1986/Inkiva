@@ -1,7 +1,7 @@
 # D06 — Public documentation quality gate
 
 - Date: 2026-10-30
-- State: **implemented and locally validated; PR/official CI pending**
+- State: **merged in [PR #273](https://github.com/Bulls1986/Inkiva/pull/273), merge commit `92e2ff6399ff4627c8e8db3aae44074d4b64fd36`; website deployment passed.**
 - Repository: https://github.com/Bulls1986/Inkiva
 - Remote target: `develop`, reverify authoritative head before publishing
 - Local source branch: `docs/d06-local-checker`, from a previous D03 worktree with clean tracked status
@@ -45,7 +45,8 @@ The first real execution of the newly implemented checker also exited **1**, fin
 - Focused validator tests: **9/9 passed**, executed with `node --test packages/website/test/docs-links.test.mjs`.
 - Full current local public docs check: **32 registered pages verified**, no broken checked relative links, images or heading anchors, using `node packages/website/scripts/verify-docs-links.mjs`.
 - The originally failing workflow assertion now **passes**, including script entrypoint declarations in `packages/website/package.json`.
-- Git whitespace diff check passed before staging. Recheck staged and remote changes before PR.
+- Git staged whitespace diff check passed. Official PR #273 completed **11/11** CI checks successfully: Test, Lint, E2E, Windows x64, macOS x64 and ARM64 builds, package smoke, updater artifact smoke, and artifact links. [Website deployment 41032626715](https://github.com/Bulls1986/Inkiva/actions/runs/41032626715) passed after the merge.
+- The checker was also executed against the subsequently merged D04 user documentation (four updated pages on top of the D06 candidate) and validated **32 pages with zero errors**.
 - No `node_modules` was available in the isolated local source checkout, so the broader Next.js build and full website TypeScript suite are **not claimed locally**. The authoritative PR CI/deployment evidence must be checked on the final remote commit.
 - The checker deliberately uses a bounded Markdown-source scanner rather than a second document renderer. It covers ordinary inline Markdown links, Markdown reference definitions, local assets and explicit Markdown headings; highly nested Markdown, unusual HTML URL attributes, redirect/network availability and screenshot freshness are **not established** by this gate. Do not describe it as comprehensive SEO or visual testing.
 
@@ -55,7 +56,7 @@ This is build/deployment documentation tooling only. It does not modify desktop 
 
 ## Handoff
 
-- Record the D06 PR link and official CI results after submission.
-- D04 user-guide update is a separate PR; its actual screenshot freshness is still unverified.
+- D06 is published; the release/deploy checks and integration evidence are recorded above.
+- D04 user-guide update is merged in [PR #272](https://github.com/Bulls1986/Inkiva/pull/272), but its actual screenshot freshness remains unverified.
 - D05 still owns Chinese public docs and language/SEO parity. New localized pages must be added to the route registry and covered by this checker when D05 is implemented.
 - If the public documentation parser/router changes, update this scanner's corpus and targeted tests; do not silently broaden its behavior claim without executable examples.
