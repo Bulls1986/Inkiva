@@ -42,3 +42,10 @@ The supported desktop package matrix remains Windows x64 and macOS Intel/Apple S
 A translated root marketing page is not translated user documentation. Localized page sources must be registered explicitly so the existing website search index, sitemap, page renderer and D06 link gate see the same page set. Legacy upstream translated documents must be clearly marked as archives instead of silently retaining unsupported platform and license claims.
 
 After official CI, record exact PR, squash merge SHA, website deployment and updated documentation registry count. Keep English developer reference and screenshots as explicit qualifications rather than falsely claiming full bilingual/visual parity.
+
+## Stage 2 — First official CI and the search-index type boundary
+
+- PR [#275](https://github.com/Bulls1986/Inkiva/pull/275) initial head `99b7e33fe46ee7acb85698802c4f1a7dc5c1d79f` ran 16/16 website tests **PASS**, including four new Chinese navigation, source, sitemap and article language tests.
+- The same head's Test workflow **failed** at the subsequent Next.js static build TypeScript check. The exact diagnostic was `scripts/build-docs-index.ts:76` — `DocTabId` including `zh` was not assignable to `IndexedPage.tab` declared as the older union `'user' | 'dev'`. This is an owned static type contract mismatch, not missing dependencies or a product runtime regression.
+- Reviewed the website source for other stale `'user' | 'dev'` unions: only `src/lib/docs-search.ts` needed a coordinated type update. Changed `IndexedPage.tab` to import the same `DocTabId` type from the canonical docs navigation module (type-only import). No runtime code, index records, performance settings or tests were weakened.
+- Fresh-head CI is mandatory; the initial 16 passing tests cannot be used as a final successful build verdict.
