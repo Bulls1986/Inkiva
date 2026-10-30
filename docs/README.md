@@ -11,6 +11,7 @@ This directory uses **progressive disclosure**. Put documents where their lifeti
 | [`correctness/`](correctness/README.md) | correctness/readiness stages and product functional gates | open for the affected correctness domain |
 | [`product/`](product/README.md) | durable product interaction contracts and user-story implementation records | open when work changes user-observable product/editor behavior |
 | [`engineering/`](engineering/README.md) | release audits, version preparation, documentation governance and public-discovery records | open for release/process/documentation-governance work only |
+| [`stability/`](stability/README.md) | lifecycle, resource ownership, memory and stability stage records | open for stability/lifecycle/memory work |
 | [`i18n/`](i18n/) | translated user-facing README documents | not part of agent task startup |
 | [`assets/`](assets/) | documentation assets | load only when referenced |
 
@@ -18,7 +19,7 @@ This directory uses **progressive disclosure**. Put documents where their lifeti
 
 - **Reusable rule/constraint** → `docs/agent/`.
 - **Low-frequency environment diagnosis/recovery** → `docs/agent/ENVIRONMENT_RECIPES.md`.
-- **Task/stage evidence** → the matching domain directory (`architecture/`, `performance/`, `benchmark/`, `correctness/`, `product/`).
+- **Task/stage evidence** → the matching domain directory (`architecture/`, `performance/`, `benchmark/`, `correctness/`, `product/`, `engineering/` or `stability/`).
 - **Long historical ledger** → a domain-specific `history/` directory, not `docs/` root and not a first-load agent guide.
 - **New domain** → create a domain directory plus a small `README.md` index before adding multiple standalone root files.
 

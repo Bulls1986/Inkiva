@@ -35,6 +35,8 @@ Read only what the task needs.
 | Benchmark inventory/trustworthiness | [Benchmark index](docs/benchmark/README.md) |
 | Correctness/readiness/functional gates | [Correctness index](docs/correctness/README.md) |
 | User-observable desktop/editor interaction behavior | [Product interaction index](docs/product/README.md) |
+| Cross-domain engineering audits, release/version and public discovery | [Engineering index](docs/engineering/README.md) |
+| Lifecycle/resource ownership, memory and stability | [Stability index](docs/stability/README.md) |
 
 For comments, follow [.github/COMMENTING-GUIDELINES.md](.github/COMMENTING-GUIDELINES.md).
 

@@ -11,13 +11,24 @@ Use this index for correctness/readiness contracts and product-functional gates.
 - [US11 — Structured Block Keyboard Editing](US11-STRUCTURED-BLOCK-KEYBOARD.md) — Lists, tasks, headings, quotations, fenced-code keyboard semantics, caret and Undo boundary correctness.
 - [US12 — Table Editing Fidelity](US12-TABLE-EDITING-FIDELITY.md) — GFM-safe cell editing, atomic row/column operations, TSV paste/confirmation, and table round-trip fidelity.
 - [US13 — Operation-based Undo Grouping](US13-OPERATION-UNDO-GROUPING.md) — 750 ms adjacent-input grouping, standalone editing actions, tab isolation, and derived-work exclusion.
+- [US14 — Source / WYSIWYG Continuity](US14-SOURCE-WYSIWYG-CONTINUITY.md) — revision-neutral mode transitions, IME composition handoff and exact source preservation.
 - [US15 — Focus / Typewriter Writing View Stability](US15-FOCUS-TYPEWRITER-STABILITY.md) — Input-intent Typewriter follow, Focus selection/search legibility, window-level mode restore, and async-geometry scroll ownership.
 - [US16 — File Identity & Operation Continuity](US16-FILE-IDENTITY-CONTINUITY.md) — Rename/move identity continuity, dirty-tab preservation, relative-reference repair, Recent/Local History migration, and truthful failure handling.
 - [US17 — Async Content Settlement](US17-ASYNC-CONTENT-SETTLEMENT.md) — Async block geometry continuity, block-local failure/retry behavior, and newest-user-navigation ownership.
+- [V06-14 — Integrated correctness and platform acceptance](V06-14-INTEGRATED-ACCEPTANCE.md) — v0.6 integrated correctness matrix, platform/package/updater evidence and explicit qualification boundaries.
 - [Long-document TOC navigation stability](TOC-NAVIGATION-STABILITY.md) — Confirmed virtual-window scroll oscillation and active-heading root causes, Red/Green evidence, and CI closeout status.
 - [Desktop Editor Interaction Contract Audit](DESKTOP-EDITOR-INTERACTION-AUDIT.md) — v0.5.0 desktop interaction contract matrix, Red/Green evidence, TODO closure, and platform/manual gates.
 - [Settings functional gate](SETTINGS-FUNCTIONAL-GATE.md) — Settings UI → store → live effect → reopen/restart persistence contract.
 - [US06 — Settings Effect Closure](US06-SETTINGS-EFFECT-CLOSURE.md) — acknowledged preference writes, effect timing, retry/rollback, delayed-effect feedback, autosave bounds and Settings search targeting.
 - [v0.5 US01-US10 compliance closure](V0.5-US01-10-COMPLIANCE-CLOSURE.md) — Latest-`develop` re-audit, architecture debt closure, combined-state validation, and final acceptance record.
+
+## Historical implementation records and lessons
+
+- [US02 — Crash Recovery Progress](US02-CRASH-RECOVERY-PROGRESS.md) — historical v0.5 crash-recovery implementation record; read with the later Local History contract.
+- [US02 — Crash Recovery Lessons](US02-CRASH-RECOVERY-LESSONS.md) — durable engineering lessons from recovery ownership, optimistic concurrency and Electron interaction.
+- [US09 — Selection, Caret & Command Predictability](US09-SELECTION-CARET-COMMAND.md) — historical v0.5 selection/caret correctness record.
+- [Table Hard Break Caret Correctness](TABLE-HARD-BREAK-CARET-CORRECTNESS.md) — P0 table-cell hard-break caret regression and acceptance evidence.
+- [Table Interaction Simplification](TABLE-INTERACTION-SIMPLIFICATION.md) — historical Typora-alignment design and implementation record; US12/V06-12 hold the later table acceptance evidence.
+- [CORRECTNESS-02 — Source Mode Readiness](correctness-02-source-mode-progress.md) — earlier source-mode progress record, superseded by the later US14 continuity contract.
 
 Correctness stage records belong here; reusable testing discipline remains in `docs/agent/TESTING.md`.
