@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
+      - name: Validate documentation references
+        run: pnpm --filter inkiva-website test:docs && pnpm --filter inkiva-website verify:docs
+
       - name: Build static website
         env:
           GITHUB_TOKEN: ${{ github.token }}

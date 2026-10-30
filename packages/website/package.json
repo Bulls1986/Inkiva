@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "tsx scripts/build-docs-index.ts --if-missing && next dev --port 3000",
     "docs:index": "tsx scripts/build-docs-index.ts",
+    "verify:docs": "node scripts/verify-docs-links.mjs",
+    "test:docs": "node --test test/docs-links.test.mjs",
     "prebuild": "tsx scripts/build-docs-index.ts",
     "build": "next build",
     "start": "next start",
