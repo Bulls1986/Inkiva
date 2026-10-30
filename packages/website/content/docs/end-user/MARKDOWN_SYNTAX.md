@@ -422,16 +422,16 @@ Renders to:
 **Links in todo lists**
 
 ```markdown
-- [ ] [foo](#bar)
-- [ ] [baz](#qux)
-- [ ] [fez](#faz)
+- [ ] [foo](#tables)
+- [ ] [baz](#code)
+- [ ] [fez](#images)
 ```
 
 Renders to:
 
-- [ ] [foo](#bar)
-- [ ] [baz](#qux)
-- [ ] [fez](#faz)
+- [ ] [foo](#tables)
+- [ ] [baz](#code)
+- [ ] [fez](#images)
 
 <br>
 
