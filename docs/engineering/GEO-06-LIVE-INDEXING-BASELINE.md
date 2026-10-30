@@ -5,7 +5,7 @@
 - Repository: https://github.com/Bulls1986/Inkiva
 - Authoritative source branch: `develop` at `544a9d76894bf49da53d8fa2499bc983f72c8186`
 - Related follow-up: https://github.com/Bulls1986/Inkiva/issues/265
-- Status: **Repository metadata and production endpoint checks complete; Search Console drill-down and direct AI-answer benchmark remain pending.**
+- Status: **Repository metadata and production endpoint checks complete; Search Console generative-AI report now has a measured baseline (12 impressions); Page indexing/Sitemap drill-down and direct AI-answer benchmark remain pending.**
 - Method: GitHub REST API re-read, live HTTP requests from the project Runner, and read-only inspection of the already authenticated Search Console browser tab. No production website or editor files were changed.
 
 ## 1. GitHub repository identity — verified complete
@@ -99,7 +99,7 @@ Observed values on the 2026-10-30 page snapshot:
 
 1. Open the Page indexing report and capture the exact seven (or current) exclusion reasons and affected URLs.
 2. Open the Sitemaps report and verify that `https://www.inkiva.net/sitemap.xml` is submitted, processed successfully, and has the expected discovered URL count.
-3. Open the Generative AI Search performance report and determine whether it has any measurable impressions/clicks or is currently empty/unavailable. The "included" control alone is not a performance metric.
+3. **Completed:** the Generative AI Search performance report was opened on 2026-10-30. The selected three-month range was 2026-09-06 through 2026-10-27 and showed 12 total impressions. Page-level counts are recorded in Section 9; the report does not establish a direct AI model recommendation rate.
 4. Recheck the Links report after its data has refreshed; zero reported external links is a visibility gap, but the report may lag and should not be interpreted as proof that no page on the web links to Inkiva.
 
 Direct report URLs:
@@ -115,7 +115,7 @@ This stage does not claim a direct AI answer benchmark. Public web search, this 
 
 Use the fixed eight prompts already documented in `docs/engineering/GEO-02-AI-DISCOVERY-BASELINE.md`. For every run, preserve the exact prompt, product/model/version, Search mode, locale, timestamp, full answer and citations. Use fresh sessions with no Inkiva conversation history. At least two samples per prompt/provider are preferred. Report brand mention, appropriate recommendation, first-party citation, factual accuracy and unsupported claims separately.
 
-An optional Ahrefs connection has been suggested for AI visibility and backlink research; it is not connected or used in this audit. Do not report its metrics until the account is connected and data is returned.
+The Ahrefs integration is installed and the authenticated Ahrefs dashboard contains an Inkiva project (project ID `10617729`), but the account is on the Free plan. Ahrefs API calls for project listing, Brand Radar reports/prompts, public domain rating and Site Explorer metrics returned `Insufficient plan`. No Ahrefs DR, backlink, referring-domain, keyword or AI-visibility metrics are claimed. See Section 11.
 
 ## 7. Handoff and next actions
 
@@ -144,3 +144,113 @@ The local WebCodex checkout was not current with the authoritative GitHub `devel
 ## 8. Learning review
 
 The GEO work has now separated four different evidence layers: GitHub entity metadata, live production crawlability, search-engine indexing, and direct AI-answer visibility. Passing the first two does not prove the latter two. Keep the metrics separate and use dated evidence rather than one combined GEO score.
+
+
+## 9. Google Generative AI Search — measured baseline
+
+The authenticated Search Console report was read directly on 2026-10-30.
+
+- Report: **Generative AI features** (Beta).
+- Selected period: **2026-09-06 through 2026-10-27** (three months).
+- Last report update shown at read time: approximately 4.5 hours earlier.
+- Site-level total: **12 impressions**.
+- The report defines an impression as a link to the site being shown to a user in a Google Search generative-AI feature.
+- Top pages shown by the report:
+
+| Page | Impressions |
+|---|---:|
+| `/` | 10 |
+| `/docs/installation/` | 2 |
+| `/docs/` | 1 |
+| `/docs/changelog/` | 1 |
+| `/docs/export-themes` | 1 |
+| `/docs/key-bindings/` | 1 |
+
+The six page-level rows sum to 16 while the site-level total is 12. Preserve the report's aggregate and page rows separately; do not add page rows to derive site-level unique impressions. The report page did not expose a direct model answer or recommendation-rate metric.
+
+**Important discovery:** neither `/compare/typora/` nor `/zh-CN/compare/typora/` appeared in the six-page table. These pages are present in the published sitemap and have valid HTTP/SEO metadata, but there is no evidence in this report snapshot that they are being surfaced in Google generative-AI features. Improving discovery of these comparison pages is a more useful next content task than adding more generic homepage copy.
+
+This is evidence of a small amount of Google generative-AI feature visibility, not evidence that ChatGPT, Gemini, Claude or Perplexity recommend Inkiva.
+
+## 10. Public search visibility and independent directory audit
+
+### Search-result observations
+
+Public web searches run on 2026-10-30 for:
+
+- `"Inkiva" Markdown editor`
+- `"Inkiva" "Typora alternative"`
+- `Inkiva vs Typora open source WYSIWYG Markdown editor`
+- `Inkiva best free open source WYSIWYG Markdown editor Windows macOS`
+
+returned Inkiva's own homepage and documentation pages, but no clear independent editorial/review result for Inkiva in the visible result set. This is a bounded search observation, not proof that no third-party mention exists anywhere.
+
+### Directory audit
+
+| Directory | Current listing | Submission path / assessment |
+|---|---|---|
+| [MarkdownList](https://markdownlist.com/) | No Inkiva match | **Best first target.** Free product listing and website backlink; explicit Google/AI discovery positioning; listing submissions are independently verified. Paid homepage slots are labelled Sponsored and do not buy editorial rank. Submit: https://markdownlist.com/submit |
+| [The Markdown Guide tools](https://www.markdownguide.org/tools/) | No Inkiva match | Good editorial target. Maintainer welcomes developer submissions and pull requests. New tool page is a manual contribution; requires an icon, screenshot optional, concise neutral description and syntax/feature verification. Contribution notes: https://github.com/mattcone/markdown-guide/wiki/Markdown-tool-directory |
+| [Markdown.org apps](https://markdown.org/apps/) | No Inkiva match | Relevant curated directory of desktop Markdown apps. No direct submission workflow was visible on the directory page; contact/contribution path needs confirmation. |
+| [Markdown Tools directory](https://www.markdowntools.com/directory) | No Inkiva match | Relevant directory with 21 editor listings, but no public submission path was visible on the inspected page. Do not assume an undocumented submission endpoint. |
+
+### Verified submission copy — MarkdownList draft
+
+- **Name:** Inkiva (墨映)
+- **Website:** https://www.inkiva.net/
+- **Category:** Editor
+- **Surface:** Desktop app
+- **Platforms:** Windows, macOS (Intel and Apple silicon)
+- **Price:** Free
+- **License:** GPL-3.0
+- **Short description:** A free, open-source, document-first WYSIWYG Markdown editor for Windows and macOS. Edit ordinary CommonMark/GFM files in place, with source mode, tabs, outline navigation, local history and recovery.
+- **Product boundaries:** A local document editor, not a hosted writing service, PKM database, collaboration suite or AI writing assistant.
+
+The draft uses product facts already stated in the official website and documentation. Do not claim Linux support, cloud sync, collaboration, AI writing, plugin marketplace or unsupported Markdown extensions.
+
+**No third-party directory submission has been made in this audit.** The listing is prepared, but publishing it is an external public action and should be explicitly approved by the project owner.
+
+## 11. Ahrefs account and API availability
+
+The authenticated Ahrefs dashboard was inspected on 2026-10-30:
+
+- An Inkiva project exists, project ID: `10617729`.
+- The dashboard shows the account on the **Free** plan.
+- Site Explorer and Referring Domains entry points are visible in the dashboard.
+- The dashboard indicates tracked keywords are not available on the Free plan.
+- The installed Ahrefs API integration returned `Insufficient plan` for project listing, Brand Radar report/prompt listing, public domain rating, and Site Explorer metrics/referring-domain/organic-keyword endpoints.
+
+Consequently, this report does **not** claim an Ahrefs Domain Rating, backlink count, referring-domain count, organic keyword count, traffic estimate or Brand Radar AI visibility metric. The connector is present; the limiting factor is the current Ahrefs account/API entitlement, not a missing installation.
+
+If the project owner wants to continue without upgrading, the next practical route is to open the Inkiva Site Explorer project in the authenticated Ahrefs UI and inspect whichever Free-plan panels are available. Direct project URL:
+
+https://app.ahrefs.com/site-explorer/overview?mode=subdomains&projectId=10617729&target=inkiva.net%2F&volume_type=monthly
+
+## 12. Release freshness check
+
+GitHub Releases API confirms that **v0.6.0** was published on **2026-10-29 01:33 UTC**. A fresh production HTTP fetch on 2026-10-30 confirms the live homepage returns HTTP 200 and its HTML contains `v0.6.0` (not `v0.5.0`).
+
+Some public search results still display the old `v0.5.0` snippet and have crawl timestamps from approximately three weeks earlier. This is a stale search-index snapshot, not a live homepage defect. After the Page indexing/Sitemap reports are checked, use Search Console URL Inspection to request a recrawl of the homepage and changelog if they have not yet been refreshed.
+
+## 13. Updated handoff
+
+### Completed
+
+- GitHub Description, Website and 11 Topics verified.
+- Six production endpoints and five redirect variants verified.
+- Canonical, hreflang, JSON-LD, robots, sitemap and `llms.txt` inspected.
+- Google Generative AI Search report read: 12 impressions across the selected three-month period; page-level distribution recorded.
+- Latest GitHub release and live homepage verified as v0.6.0.
+- Four independent Markdown directories checked; two contribution paths identified.
+- Ahrefs project existence and Free-plan/API limitation verified.
+- MarkdownList submission copy prepared; no external submission made.
+
+### Still open
+
+- Search Console Page indexing reasons and affected URLs.
+- Search Console Sitemap processing status and discovered URL count.
+- Fresh-session AI answer benchmark across ChatGPT Search, Gemini, Claude and Perplexity.
+- Owner approval and submission to MarkdownList; possible Markdown Guide pull request.
+- P2 static Chinese `html lang` correction.
+- Ahrefs Site Explorer UI inspection or a plan/API entitlement change if quantitative Ahrefs data is required.
+
