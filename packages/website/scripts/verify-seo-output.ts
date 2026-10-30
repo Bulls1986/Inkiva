@@ -80,6 +80,13 @@ for (const page of ALL_PAGES) {
 const robots = await readOutput('robots.txt')
 assert.match(robots, new RegExp(`Sitemap: ${SITEMAP_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))
 
+const llms = await readOutput('llms.txt')
+assert.ok(llms.includes('Inkiva (墨映) is a free, open-source'))
+assert.ok(llms.includes('https://www.inkiva.net/compare/typora/'))
+assert.ok(llms.includes('https://www.inkiva.net/zh-CN/compare/typora/'))
+assert.ok(llms.includes('Linux is not a current Inkiva release target'))
+assert.ok(llms.includes('MarkText upstream project'))
+
 const sitemap = await readOutput('sitemap.xml')
 const sitemapUrls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1])
 assert.ok(sitemapUrls.length > 0, 'sitemap must contain at least one URL')
