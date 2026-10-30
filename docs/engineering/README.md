@@ -17,6 +17,7 @@ This directory contains cross-cutting engineering audits and evidence records. O
 - [D04 — User guide modernization](DOCS-04-USER-GUIDES.md) — merged v0.6 links, images, tables and recovery workflows; screenshot review handoff.
 - [D06 — Public documentation quality gate](DOCS-06-DOCS-QUALITY-GATE.md) — merged and deployed link/anchor/asset verification with 9 targeted tests and 11/11 PR CI.
 - [D05 — Chinese user documentation](DOCS-05-CHINESE-DOCS.md) — Chinese user routes, source/navigation parity, localization/SEO gates and legacy translation disposition.
+- [D07 — Documentation landing UX](DOCS-07-LANDING-UX.md) — mobile landing redesign, test-first evidence, official site QA and release handoff.
 - [Issue #276 — Windows v0.6.0 screenshot and interaction review](ISSUE-276-DESKTOP-SCREENSHOT-AUDIT.md) — genuine packaged Electron capture evidence, refreshed/stale assets, partial acceptance and remaining visual/manual qualifications.
 - [GEO-01 — Public baseline audit](GEO-01-PUBLIC-BASELINE-AUDIT.md)
 - [GEO-02 — AI discovery baseline](GEO-02-AI-DISCOVERY-BASELINE.md)
