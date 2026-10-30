@@ -61,6 +61,14 @@ await verifyRoute('docs/index.html', {
   title: 'Documentation',
   url: absoluteUrl('/docs/')
 })
+await verifyRoute('compare/typora/index.html', {
+  title: 'Inkiva vs Typora vs MarkText',
+  url: absoluteUrl('/compare/typora/')
+})
+await verifyRoute('zh-CN/compare/typora/index.html', {
+  title: 'Inkiva、Typora 与 MarkText 对比',
+  url: absoluteUrl('/zh-CN/compare/typora/')
+})
 
 for (const page of ALL_PAGES) {
   await verifyRoute(`docs/${page.slug.join('/')}/index.html`, {
@@ -83,5 +91,5 @@ for (const url of sitemapUrls) {
 }
 
 console.log(
-  `[seo] verified ${sitemapUrls.length} sitemap URLs and ${ALL_PAGES.length + 3} HTML routes`
+  `[seo] verified ${sitemapUrls.length} sitemap URLs and ${ALL_PAGES.length + 5} HTML routes`
 )
