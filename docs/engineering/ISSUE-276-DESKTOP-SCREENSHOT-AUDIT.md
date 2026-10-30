@@ -2,7 +2,7 @@
 
 - Audit date: 2026-10-30
 - Issue: [#276](https://github.com/Bulls1986/Inkiva/issues/276)
-- Status: **partial visual verification and proven-stale screenshot repair; DO NOT close issue until the remaining acceptance items pass**
+- Status: **first real-desktop screenshot remediation MERGED and website DEPLOYED; Issue #276 stays OPEN for incomplete visual/manual gates**
 - Target source branch: `develop@d84828bd760b9672c1b85afc39f0887c66456ef7`
 - Reviewed desktop platform: Windows x64, English UI (isolated `preferences.json` language `en-US`), real installed Inkiva **v0.6.0** executable.
 - Installed binary SHA-256: `178e7a4f45f0779c1594c03b12cd3a3905c5b7586c1b2b8406670bbba17386fb`
@@ -56,3 +56,13 @@ Issue #276 **must remain open** until the following are substantiated with real 
 ## Audit and learning notes
 
 Don't infer fidelity from the presence of PNG files or a green build. The old screenshots preserved a now-removed top search field and omitted broken-document-link diagnostics. Always test link/backlink panels with a genuinely opened folder, otherwise partial results can be mistaken for a product defect. The document save-status indicator has independent semantics: **Protected in Inkiva only** is not a disk write. Keep source Markdown, capture conditions, screenshots and exact observed UI labels tied to the installed binary hash. Do not make a mockup or an AI-generated screenshot and call it an Electron capture.
+
+
+## PR and website deployment closeout — 2026-10-30
+
+- **Implementation PR:** [#278](https://github.com/Bulls1986/Inkiva/pull/278), squash merged into `develop` at `807c275279cdc0f90f0440b8b257290d5fcd461a`; both GitHub PR and authoritative branch ref independently verified.
+- **Full PR validation:** original content/capture head `0f45a764e4ed5db0788155b1a7e06892fbf700a5` completed **11/11 CI checks successfully**, including Test, Lint, E2E, Windows x64/macOS x64/macOS ARM64, three package smokes, updater smoke and artifact link check. Subsequent doc-only head `e2b2439b3d2b6bd40f8472074e83a11f064e2099` only removed unsupported titlebar launcher language and added real 340-heading observations; it used the documented docs-only `[skip ci]` policy, not weaker assertions or omitted product tests.
+- **Actual static-site publication:** [Deploy Inkiva website run #41044956993](https://github.com/Bulls1986/Inkiva/actions/runs/41044956993), **workflow_dispatch against exact merge SHA `807c275279cdc0f90f0440b8b257290d5fcd461a`**, completed **SUCCESS**. The job independently passed documentation reference validation, static website build, and GitHub Pages publication.
+- **Workflow lesson:** the squash merge message itself inadvertently repeated the literal `[skip ci]` phrase while describing the follow-up, suppressing the intended push-triggered website deploy. The existing official website workflow was manually dispatched on `develop`, with its full checks intact; do not put CI-skip tokens in the final squash message when public site changes must be deployed.
+- **Open issue confirmation:** [#276](https://github.com/Bulls1986/Inkiva/issues/276) remains **open**, with progress comments recording evidence and remaining gaps. This PR's release does **not** imply full issue acceptance, full macOS visual qualification, confirmed saved/reopened table, completed missing-image recovery, or proven keyboard focus/no-jump in the virtualized outline.
+- **Resume:** complete the still-open real-Electron/visual items in the preceding section; replace additional website PNGs only after directly verifying staleness, and repeat the applicable docs/build/PR gates for any future changes.
