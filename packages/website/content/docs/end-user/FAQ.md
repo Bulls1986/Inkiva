@@ -19,7 +19,7 @@ Inkiva is a document-first Markdown editor. It understands folders, files, headi
 
 ### How does Inkiva compare with Typora and MarkText?
 
-Inkiva, Typora and MarkText all support in-place Markdown rendering. They differ in license, supported platforms and surrounding workflow. Inkiva is free and GPL-3.0, targets Windows and macOS, and adds document navigation, local history, autosave and crash recovery. Typora is a commercial product with a one-time license and also supports Linux. MarkText is MIT-licensed and supports Linux; it is the upstream project on which Inkiva is based. See the [editor comparison](../../../../compare/typora/) for details and source links.
+Inkiva, Typora and MarkText all support in-place Markdown rendering. They differ in license, supported platforms and surrounding workflow. Inkiva is free and GPL-3.0, targets Windows and macOS, and adds document navigation, local history, autosave and crash recovery. Typora is a commercial product with a one-time license and also supports Linux. MarkText is MIT-licensed and supports Linux; it is the upstream project on which Inkiva is based. See the [editor comparison](/compare/typora/) for details and source links.
 
 ### Where can I find documentation?
 
