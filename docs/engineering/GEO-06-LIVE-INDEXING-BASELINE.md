@@ -991,3 +991,45 @@ Authenticated Ahrefs Site Explorer snapshot inspected on **2026-10-30**. Confirm
 | 511 | `rankzaro.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
 | 512 | `quickboosthub.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
 | 513 | `seomexa.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+
+
+## 23. Full referring-domain reconciliation and backlink-level follow-up
+
+### Full inventory reconciliation — 2026-10-30
+
+All six Ahrefs Referring Domains pages were read from the authenticated UI with 100 rows per page (final page 13 rows), DR descending, `inkiva.net/`, Subdomains scope, all link attributes.
+
+| Metric | Verified result |
+|---|---:|
+| Referring domains | 513 |
+| Ahrefs-labelled SPAM | 512 |
+| Not labelled SPAM | 1 (`upstar.dev`, row 435) |
+| Backlinks / links to target in the referring-domain rows | 679 |
+| Dofollow backlinks | 5 |
+| Nofollow backlinks | 674 |
+| Domains with dofollow backlinks | 4 |
+| Domains with zero estimated traffic | 512 |
+| Domains with zero organic keywords | 512 |
+
+The 679 total links and 5 followed links reconcile with the Ahrefs Site Explorer overview snapshot (679 backlinks; 5 followed / 674 nofollow). Referring-domain labels are Ahrefs classifications only; they do not establish a Google manual action or penalty.
+
+### Exceptions requiring page-level inspection
+
+| Referring domain | Dofollow links | Ahrefs DR | Reason to inspect |
+|---|---:|---:|---|
+| `daxsupport.com` | 1 | 25 | Followed backlink; domain reports 12,022,806 dofollow linked domains |
+| `kaila.biz` | 1 | 14 | Followed backlink; domain reports 14,923,738 dofollow linked domains |
+| `link-pen.com` | 2 | 6 | Two followed backlinks; domain reports 12,855,279 dofollow linked domains |
+| `trip-planner.shop` | 1 | 0 | Followed backlink; domain reports 386,596 dofollow linked domains |
+| `upstar.dev` | 0 | 0 | Only referring domain without Ahrefs SPAM label; first seen 2026-10-23 |
+| `digitalboost.site` | 0 | 1.6 | Only domain with non-zero estimated organic traffic/keywords in the 513-row inventory (traffic 2, keywords 1); still Ahrefs-labelled SPAM |
+
+The very large linked-domain figures are anomalous but are not proof of a common owner, shared IP, or link network. Source URLs, anchor text, page context, link status, IP/ASN and whether links are still live must be checked before classifying or acting on these domains.
+
+### API access limitation
+
+The Ahrefs API v3 `site-explorer-referring-domains` export and the `site-explorer-all-backlinks` request filtered to `is_dofollow=true` both returned **`Insufficient plan`**. No API data was returned and no plan change was made. The UI remains the available evidence source.
+
+### Next verification step
+
+Open Ahrefs Site Explorer → Backlinks for `inkiva.net/`, select the **Dofollow** filter, and capture all five followed backlink rows. Record for each: source URL, target URL, anchor, source-page title/snippet, first/last seen, HTTP status, IP/ASN where available, and whether the link is contextual/editorial, directory-generated, sitewide, redirect-based, or otherwise suspicious. Then separately inspect the `upstar.dev` and `digitalboost.site` rows. Do not create or submit a Disavow file until this corroborating evidence and Google Search Console Manual actions/Security issues have been reviewed.
