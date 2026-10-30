@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const SITE_URL = 'https://www.inkiva.net'
-export const SITE_NAME = 'Inkiva · 墨映 Markdown Editor'
+export const SITE_NAME = 'Inkiva · 墨映'
 export const REPOSITORY_URL = 'https://github.com/Bulls1986/Inkiva'
 export const RELEASES_URL = `${REPOSITORY_URL}/releases`
 export const PUBLISHER_NAME = 'Bulls1986'
@@ -34,7 +34,7 @@ export const LANGUAGE_ALTERNATES = {
 export function canonicalPath(path = '/'): string {
   const normalized = path.trim()
   if (!normalized || normalized === '/') return '/'
-  return `/${normalized.replace(/^\\/+|\\/+$/g, '')}/`
+  return `/${normalized.replace(/^\/+|\/+$/g, '')}/`
 }
 
 /** Build a final, absolute URL for an indexable HTML route. */
@@ -44,7 +44,7 @@ export function absoluteUrl(path = '/'): string {
 
 /** Build an absolute URL for a static asset, which must not gain a route slash. */
 export function absoluteAssetUrl(path: string): string {
-  return `${SITE_URL}/${path.replace(/^\\/+/, '')}`
+  return `${SITE_URL}/${path.replace(/^\/+/, '')}`
 }
 
 export function stringifyJsonLd(value: unknown): string {
