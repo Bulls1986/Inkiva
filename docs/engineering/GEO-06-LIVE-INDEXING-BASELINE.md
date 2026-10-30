@@ -331,3 +331,81 @@ A second relevant third-party contribution was prepared after verifying that the
 - PR state at submission: open, mergeable; no CI checks were configured or reported.
 
 This is a curated-list PR, not a live listing. Do not claim publication until the maintainer merges it.
+
+
+## 17. Ahrefs referring-domain quality review — page 1
+
+Authenticated Ahrefs Referring Domains report inspected on 2026-10-30:
+
+- Report: https://app.ahrefs.com/site-explorer/refdomains?mode=subdomains&projectId=10617729&target=inkiva.net%2F
+- Scope: `inkiva.net/`, Subdomains, all link attributes, sorted by DR descending, 50 rows per page.
+- Report total: **513 referring domains**; this review covers **only page 1 (50 domains)**.
+- **50/50 rows carry Ahrefs' explicit `SPAM` label.**
+- DR range: **49–70**.
+- First-seen dates cluster between **2026-09-08 and 2026-09-24**.
+- The 50 domains contain **62 links to Inkiva** in total (each row has 1–2 links to target).
+- **0 dofollow links to Inkiva** among these rows.
+- All 50 rows show zero domain traffic and zero organic keywords in this report snapshot.
+- Domain names are highly templated around SEO services, link building, rankings and backlinks; many use `.shop`, `.store` and `.site`.
+
+### Interpretation and safety boundary
+
+This is strong evidence of a low-quality automated link network in the current Ahrefs backlink profile, not evidence that Google has applied a penalty. Ahrefs' `SPAM` label is a third-party risk indicator, not a Google verdict. The links shown are nofollow, and no disavow action should be taken solely from this first page.
+
+Next steps are to inspect the remaining 463 referring domains (pages 2–11), inspect representative source pages/anchors for this suspicious cluster, and compare the links with Search Console's manual-action/security reports if available. Disavow should be considered only if a broader manual review finds a substantial pattern of manipulative links and there is a reason to believe they are causing a problem; do not disavow automatically.
+
+### Page 1 inventory (50 rows)
+
+| Referring domain | DR | Links to Inkiva | Follow links | First seen |
+|---|---:|---:|---:|---|
+| `itxoft-professional-seo-services.site` | 70 | 1 | 0 | 9 Sep 2026 |
+| `rankgrowth.agency` | 62 | 1 | 0 | 11 Sep 2026 |
+| `itxoft-seo-for-higher-rankings.site` | 61 | 1 | 0 | 9 Sep 2026 |
+| `itxoft-cost-effective-seo-services.site` | 61 | 1 | 0 | 9 Sep 2026 |
+| `fiverr-seo-for-small-businesses.site` | 60 | 1 | 0 | 8 Sep 2026 |
+| `fiverr-quality-seo-at-affordable-rates.site` | 60 | 1 | 0 | 9 Sep 2026 |
+| `rank-optimizer.website` | 57 | 1 | 0 | 16 Sep 2026 |
+| `itxoft-organic-seo-growth.site` | 57 | 1 | 0 | 11 Sep 2026 |
+| `seonix.agency` | 57 | 1 | 0 | 9 Sep 2026 |
+| `itxoft-reliable-seo-services.site` | 55 | 1 | 0 | 9 Sep 2026 |
+| `fiverr-affordable-seo-services.site` | 55 | 1 | 0 | 12 Sep 2026 |
+| `linkrankpro.shop` | 54 | 1 | 0 | 17 Sep 2026 |
+| `ranklinkerpro.shop` | 54 | 1 | 0 | 17 Sep 2026 |
+| `seorankflow.shop` | 54 | 1 | 0 | 17 Sep 2026 |
+| `buyseobacklinks.shop` | 53 | 1 | 0 | 17 Sep 2026 |
+| `rankshiftseo.shop` | 53 | 2 | 0 | 17 Sep 2026 |
+| `rankcoreseo.shop` | 53 | 1 | 0 | 17 Sep 2026 |
+| `rankboostly.shop` | 53 | 1 | 0 | 20 Sep 2026 |
+| `authoritybacklinks.shop` | 53 | 1 | 0 | 17 Sep 2026 |
+| `linkseopro.shop` | 52 | 1 | 0 | 17 Sep 2026 |
+| `seolinkpro.shop` | 52 | 1 | 0 | 16 Sep 2026 |
+| `itxoft-affordable-seo-solutions.site` | 52 | 1 | 0 | 9 Sep 2026 |
+| `ranklinkpro.shop` | 52 | 1 | 0 | 17 Sep 2026 |
+| `linkrankseo.shop` | 52 | 1 | 0 | 17 Sep 2026 |
+| `toplinkranker.shop` | 52 | 1 | 0 | 17 Sep 2026 |
+| `thetoprankingseo.shop` | 49 | 1 | 0 | 22 Sep 2026 |
+| `link-baron-optimal-organic-collective.store` | 49 | 2 | 0 | 8 Sep 2026 |
+| `seoexpress.site` | 49 | 1 | 0 | 9 Sep 2026 |
+| `seohighranking.shop` | 49 | 1 | 0 | 23 Sep 2026 |
+| `theseorankinghigh.shop` | 49 | 2 | 0 | 9 Sep 2026 |
+| `rankingseohigh.shop` | 49 | 2 | 0 | 10 Sep 2026 |
+| `theseomasterhigh.shop` | 49 | 1 | 0 | 23 Sep 2026 |
+| `highseoranking.shop` | 49 | 1 | 0 | 23 Sep 2026 |
+| `mysky-shop.shop` | 49 | 1 | 0 | 9 Sep 2026 |
+| `modern-studio-outrank-hq-blogger.store` | 49 | 2 | 0 | 10 Sep 2026 |
+| `agile-footer-link-system-link-baron.store` | 49 | 2 | 0 | 9 Sep 2026 |
+| `seoexpress-authority-portal.store` | 49 | 1 | 0 | 9 Sep 2026 |
+| `link-baron-agile-on-page-directory.store` | 49 | 2 | 0 | 9 Sep 2026 |
+| `certified-link-building-seoexpress.store` | 49 | 1 | 0 | 9 Sep 2026 |
+| `link-baron-syndicate-equity.store` | 49 | 2 | 0 | 9 Sep 2026 |
+| `ekenkoshop.shop` | 49 | 1 | 0 | 9 Sep 2026 |
+| `forum-provider-link-baron.store` | 49 | 2 | 0 | 11 Sep 2026 |
+| `link-baron-pro-off-page.store` | 49 | 2 | 0 | 9 Sep 2026 |
+| `link-baron-wiki-leading-system.store` | 49 | 2 | 0 | 9 Sep 2026 |
+| `dynamic-cooperative-link-baron-saas-seo.store` | 49 | 1 | 0 | 24 Sep 2026 |
+| `rankinghighseo.shop` | 49 | 1 | 0 | 13 Sep 2026 |
+| `seoexpress-digital-system.store` | 49 | 1 | 0 | 8 Sep 2026 |
+| `exclusive-backlink-seoexpress-firm.store` | 49 | 1 | 0 | 9 Sep 2026 |
+| `professional-seoexpress-marketing-studio.store` | 49 | 1 | 0 | 9 Sep 2026 |
+| `official-on-page-link-baron-division.store` | 49 | 2 | 0 | 10 Sep 2026 |
+
