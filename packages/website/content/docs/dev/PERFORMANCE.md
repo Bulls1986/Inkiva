@@ -1,53 +1,62 @@
 # Performance Testing
 
-- We mainly rely on Chrome's `Performance` tab to analyse and record the performance of Inkiva
+This page covers manual profiling and the entry points for local performance investigation. The normative thresholds, fixtures, Fast Gate policy and release qualification rules live in the [performance contract](https://github.com/Bulls1986/Inkiva/blob/develop/docs/agent/PERFORMANCE.md) and [performance index](https://github.com/Bulls1986/Inkiva/blob/develop/docs/performance/README.md). Read those before changing a performance gate.
 
-- Electron is split into 3 processes: `main`, `preload` and `renderer`. We will be focusing on `main` and `renderer` since these are the heaviest
+## Current gate commands
 
-## 1. Testing `main` process
+Run from the repository root:
 
-```
-pnpm run perf:inspect-brk
-```
+~~~bash
+pnpm test:perf:fast
+pnpm test:e2e:perf:fast
+pnpm test:perf:gate
+pnpm test:e2e:gate
+pnpm test:e2e:gate:large
+~~~
 
-- This launches a **production build** of Inkiva that has a break-point **before** the first line of Javascript is ran
+- **test:perf:fast** runs the fast policy/evaluator unit checks.
+- **test:e2e:perf:fast** runs the Electron performance smoke gate.
+- **test:perf:gate** runs the formal threshold evaluator suite.
+- **test:e2e:gate** runs the standard formal Electron gate.
+- **test:e2e:gate:large** runs the large-document qualification gate.
 
-- A debugger at port `5858` is also attached
+A Fast Gate is a bounded PR signal, not a substitute for the formal release qualification matrix. Preserve fixture identity, environment details, raw measurements and the gate verdict when recording evidence.
 
-## 1.1 Navigate to Chrome Inspect
+## Inspect the main process
 
-- Go to `chrome://inspect`
+Electron has separate main, preload and renderer processes. Use the main-process profiler when investigating startup, filesystem orchestration or main-thread blocking.
 
-- Press `Configure`, and add `localhost:5858`
+~~~bash
+pnpm perf:inspect-brk
+~~~
 
-- Press "Inspect" on the entry that appears below (might take a while)
+This pauses at startup so Chrome DevTools can attach to the main process inspector on port 5858.
 
-## 1.2 Record Performance
+For the same profile without the initial breakpoint:
 
-- When Developers Tools first launches, you will notice the breakpoint that is set
+~~~bash
+pnpm perf:inspect
+~~~
 
-- Simply go to `Performance`, press `Record`, and wait for Inkiva to launch fully, then Stop the recording
+## Inspect the renderer
 
-## 1.3 Alternative: `inspect`
+Launch the development application with **pnpm run dev**, open **View → Toggle Developer Tools**, select the Performance panel and record the interaction under investigation.
 
-- If you do not need the breakpoint to test start-up performance, simply run:
+For a production-like preview, build first and then run:
 
-```
-pnpm run perf:inspect
-```
-
-# 2. Testing `renderer`
-
-```
+~~~bash
+pnpm run build:unpack
 pnpm run start
-```
+~~~
 
-- This previews the most recent `pnpm run build` output via `electron-vite preview` with `PERF_TESTING=true` (so it behaves like a production launch). It does **not** rebuild — re-run `pnpm run build:unpack` first if your sources changed.
+The start command previews the most recent unpacked build with performance-testing behavior enabled; it does not rebuild changed sources. Re-run the build command after source changes.
 
-- Press `F12` to open Dev Tools and press `Reload and Record` to benchmark start-up render performance
+## Measurement discipline
 
+- Use the same fixture, build mode and interaction sequence when comparing commits.
+- Record OS, CPU, memory, display scale, Node/Electron versions and whether the run is cold or warm.
+- Separate main-process, renderer and filesystem costs; do not infer one from another.
+- Report p50/p95/p99 and sample count where the gate defines them; retain raw output.
+- Do not relax a threshold or substitute a smoke run for a formal gate without the required architecture/release approval.
 
-
-
-
-
+See the [performance contract](https://github.com/Bulls1986/Inkiva/blob/develop/docs/agent/PERFORMANCE.md) for current limits and the [benchmark index](https://github.com/Bulls1986/Inkiva/blob/develop/docs/benchmark/README.md) for measurement provenance.

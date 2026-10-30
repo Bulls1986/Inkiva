@@ -1,99 +1,60 @@
 # Inter-Process Communication (IPC)
 
-The renderer runs sandboxed (`contextIsolation: true`, `sandbox: true`,
-`nodeIntegration: false` — see `src/main/config.ts`), so it can't import
-`electron` directly. All renderer↔main traffic goes through the typed
-preload bridge exposed in `src/preload/index.ts` as `window.electron.*`
-and a few sibling globals (`window.fileUtils`, `window.path`,
-`window.uploader`, etc.).
+The desktop renderer is sandboxed. All privileged renderer-to-main operations must cross the typed preload bridge; renderer code must not import Electron main-process APIs directly.
 
-Channel names are typed by the contract in `src/shared/types/ipc.ts` —
-wrong channel, wrong arg arity, or wrong return shape all fail at
-`pnpm typecheck`. See [TYPESCRIPT.md](TYPESCRIPT.md#ipc-contract) for the
-TypeScript-side details.
+## Security boundary
 
-## Channel naming
+The BrowserWindow configuration in **packages/desktop/src/main/config.ts** enables context isolation and sandboxing and disables Node integration. The preload entrypoint is **packages/desktop/src/preload/index.ts** and exposes narrow APIs through contextBridge.
 
-Renderer↔main channels are prefixed with `mt::` (e.g. `mt::fs::stat`,
-`mt::open-new-tab`). A small number of legacy internal channels don't
-follow this convention (e.g. `language-changed`); new channels should
-always use `mt::`.
+Do not weaken these settings to make a feature or test easier. Add the required capability to the preload boundary instead.
 
-## The four channel categories
+## Contract owners
 
-`src/shared/types/ipc.ts` defines four interfaces:
+- **packages/desktop/src/shared/types/ipc.ts** — channel maps and cross-process argument/return contracts.
+- **packages/desktop/src/main/ipc/** — main-process handlers and registration.
+- **packages/desktop/src/preload/index.ts** — renderer-facing bridge and domain facades.
+- **packages/desktop/src/renderer/** — consumers of the exposed APIs.
 
-| Interface              | Direction          | Semantics                                  |
-| ---------------------- | ------------------ | ------------------------------------------ |
-| `IpcInvokeChannels`    | renderer → main    | `Promise<T>` round-trip (`ipcMain.handle`) |
-| `IpcSendChannels`      | renderer → main    | fire-and-forget (`ipcMain.on`)             |
-| `IpcSyncChannels`      | renderer → main    | synchronous reply (`event.returnValue`)    |
-| `IpcMainEventChannels` | main → renderer    | push event (`webContents.send` / on)       |
+## Channel categories
 
-Each entry tells you the args tuple and (for invoke/sync) the return
-type:
+| Type | Direction | Semantics |
+|---|---|---|
+| IpcInvokeChannels | renderer → main | Promise-based request/response through ipcMain.handle |
+| IpcSendChannels | renderer → main | fire-and-forget message through ipcMain.on |
+| IpcSyncChannels | renderer → main | synchronous request; avoid adding new uses |
+| IpcMainEventChannels | main → renderer | main-process event pushed to a renderer |
 
-```ts
-'mt::fs::stat': { args: [path: string]; ret: SerializedStat }
-'mt::format-link-click': [payload: { data: unknown; dirname: string }]   // send shape
-```
+Most channels use the **mt::** prefix. A small number of legacy internal channels retain older names; do not rename them without checking all senders, handlers and listeners.
 
-## Renderer side
+## Renderer-side usage
 
-Use the global `window.electron.ipcRenderer` (the typed wrapper exposed
-by the preload bridge). Don't `import { ipcRenderer } from 'electron'` —
-it isn't available under sandboxing.
+Use the typed wrapper exposed by the preload bridge:
 
-```ts
-// Round-trip
+~~~ts
 const stat = await window.electron.ipcRenderer.invoke('mt::fs::stat', fullPath)
 
-// Fire-and-forget
-window.electron.ipcRenderer.send('mt::format-link-click', { data, dirname })
+window.electron.ipcRenderer.send('mt::format-link-click', {
+  data,
+  dirname
+})
 
-// Subscribe to a main → renderer push event (returns an unsubscribe fn)
 const off = window.electron.ipcRenderer.on('mt::screenshot-captured', () => {
-  // …
+  // Handle the event.
 })
-off()
-```
+~~~
 
-`once()` and `removeAllListeners()` follow the same shape. For
-filesystem and path helpers, prefer the typed convenience APIs already
-exposed via `window.fileUtils.*`, `window.path.*`, `window.uploader.*`,
-etc. — they wrap the underlying `mt::fs::*` / `mt::uploader::*` channels
-and keep call sites short.
+The wrapper checks registered channel names and declared call signatures. Do not assume every legacy payload has a deeply strict type: some channel argument and return values intentionally remain **unknown** or broad while the migration is incomplete. ARCH-02 records the migrated slice and the remaining boundary debt.
 
-## Main side
+## Domain APIs
 
-Channels are wired with `ipcMain.handle` (invoke), `ipcMain.on` (send /
-sync), or `webContents.send` (push):
+Prefer a narrow domain API when preload already exposes one rather than adding raw IPC calls to UI components. Current preload facades include document intelligence, file utilities, path helpers, ripgrep/search, image upload and font access. For example, workspace/document-intelligence operations are exposed through **window.documentIntelligence**.
 
-```ts
-import { ipcMain } from 'electron'
+Keep filesystem and Electron implementation details in the main process. The renderer should request a user-level operation, not construct privileged paths or call Node APIs directly.
 
-ipcMain.handle('mt::fs::stat', async (_event, path: string) => {
-  return await fs.stat(path)
-})
+## Adding a channel
 
-ipcMain.on('mt::format-link-click', (_event, { data, dirname }) => {
-  // …
-})
-
-// Push to a specific renderer window:
-window.webContents.send('mt::open-new-tab', tabPayload, options, selected)
-```
-
-## Adding a new channel
-
-1. Add an entry to the appropriate interface in
-   `src/shared/types/ipc.ts` (pick invoke / send / sync / main-event
-   based on the direction and shape).
-2. Wire the main-process handler in `src/main/ipc/*.ts` (or the relevant
-   feature module).
-3. Call it from the renderer through `window.electron.ipcRenderer.*` or,
-   if it deserves a dedicated facade, expose a method on one of the
-   typed bridges in `src/preload/index.ts`.
-
-After step 1, `pnpm typecheck` flags every existing call site that
-doesn't match the new shape — use that as your migration checklist.
+1. Define the channel name, argument tuple and return/event payload in **packages/desktop/src/shared/types/ipc.ts**.
+2. Implement the main-side handler under **packages/desktop/src/main/ipc/** and register it through the existing IPC registration path.
+3. Expose a narrow method through preload when a domain facade is appropriate; avoid spreading raw IPC calls across components.
+4. Add focused tests for the contract and its failure/cleanup behavior.
+5. Run the relevant typecheck and test gate. See [Testing](https://github.com/Bulls1986/Inkiva/blob/develop/docs/agent/TESTING.md) and [ARCH-02](https://github.com/Bulls1986/Inkiva/blob/develop/docs/architecture/ARCH-02-IPC-CONTRACT.md).

@@ -1,33 +1,43 @@
 # Debugging
 
-## Use Visual Studio Code
+## VS Code
 
-The most simplest way is to debug using the `Debug Inkiva` configuration. You can set breakpoints and use the `debugger` statement.
+Use the repository's **Debug Inkiva** launch configuration. Set breakpoints in the package source under **packages/desktop/src/**; do not look for a repository-root src/main or src/renderer directory.
 
-**Prerequisites:**
+The main process owns Electron windows, native dialogs, filesystem access and updater integration. Renderer breakpoints belong under **packages/desktop/src/renderer/**. Preload bridge code is under **packages/desktop/src/preload/**.
 
-- VS Code's built-in JavaScript debugger (no extension needed — available since VS Code 1.47)
+## Chrome Developer Tools
 
-## Use Chrome Developer Tools
+In development mode, use **View → Toggle Developer Tools** or attach Chrome DevTools to the inspector ports:
 
-You can use the built-in developer tools via `View -> Toggle Developer Tools` in debug mode or connect via `chrome://inspect` using port `5858` for the main process and `8315` for the renderer process when launched via `pnpm run dev`.
+- Main process: **5858**
+- Renderer process: **8315**
 
-### Debug built application
+Start the application from the repository root:
 
-You can use the default Electron command-line parameters to enable debug mode as described above.
+~~~bash
+pnpm run dev
+~~~
 
-```shell
-$ inkiva --inspect=5858 --remote-debugging-port=8315
-```
+The renderer is sandboxed. Do not enable Node integration or import Electron directly from renderer code to make debugging easier; use the preload bridge and its typed APIs.
 
-## Debug slow startup performance
+## Debug a built application
 
-Regardless of whether you are using the built or development version, you can use the [node-profiler](https://github.com/fxha/node-profiler) to analysis startup issues. Please follow the tool description for setup. Afterwards, launch the following commands in parallel (e.g. use three terminal windows and launch Inkiva last).
+Use Electron's standard inspector arguments when launching a packaged/development executable:
 
-```shell
-$ node-profiler main
-$ node-profiler renderer
-$ inkiva --inspect=5858 --remote-debugging-port=8315
-```
+~~~bash
+inkiva --inspect=5858 --remote-debugging-port=8315
+~~~
 
-After the successful launch of Inkiva, press `Ctrl+C` on both `node-profiler` instances. The tools created two files named `main.cpuprofile` and `renderer.cpuprofile`. You can now analyse these files via *Chrome Developer Tools* or *Visual Studio Code*.
+Attach to the main process on port 5858 and the renderer on port 8315.
+
+## Diagnose slow startup
+
+For a main-process startup profile, use the repository scripts:
+
+~~~bash
+pnpm perf:inspect-brk
+pnpm perf:inspect
+~~~
+
+The first command pauses at startup for attachment; the second starts without the initial breakpoint. For renderer typing, scrolling and large-document measurements, use the formal procedures and fixtures in [Performance testing](PERFORMANCE.md) and the canonical [performance contract](https://github.com/Bulls1986/Inkiva/blob/develop/docs/agent/PERFORMANCE.md).
