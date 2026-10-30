@@ -2,7 +2,9 @@
 
 Inkiva can export the current Markdown document as a PDF or HTML file, or send it to the system print dialog. Open **File → Export** and choose the output format.
 
-![Inkiva Export Options dialog with page, style, theme, and header and footer tabs](../assets/inkiva-export.png)
+![Real Windows v0.6.0 PDF Export Options dialog with Info, Page, Style, Theme, Header and Footer, and Table of Contents tabs](../assets/inkiva-export.png)
+
+The Windows v0.6.0 export dialog also includes an **Info** tab and a **Table of Contents** tab. The export options preview is separate from committing the final output-file save dialog.
 
 ## Page options
 

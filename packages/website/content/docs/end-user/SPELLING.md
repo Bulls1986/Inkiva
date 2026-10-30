@@ -2,7 +2,7 @@
 
 Inkiva can check spelling as you type and offer corrections from the active dictionary. Spell checking is disabled by default. Enable it in **Preferences → Spelling**, then choose the default language.
 
-![Inkiva Preferences window on the Spelling page](../assets/inkiva-spelling-settings.png)
+![Real Windows v0.6.0 Preferences window on the Spelling page](../assets/inkiva-spelling-settings.png)
 
 ## Features
 

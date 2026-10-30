@@ -14,7 +14,9 @@ Inkiva 会实时渲染标题、强调、列表、任务列表、表格、代码�
 
 ![Windows v0.6.0 英文界面的表格右键菜单实机截图](../assets/inkiva-table-context.png)
 
-![Windows v0.6.0 单元格 Shift+Enter 后的编辑中硬换行和光标截图，尚不能证明文件已保存](../assets/inkiva-table-hardbreak.png)
+![Windows v0.6.0 表格单元格硬换行保存后重开的实机截图](../assets/inkiva-table-hardbreak.png)
+
+实测文件保存后包含 `Alpha<br>Line 2`，应用关闭并重新打开后仍能正确呈现。
 
 ## 标准文档链接
 
