@@ -1072,6 +1072,12 @@ A non-authenticated HTTP fetch was performed on 2026-10-30 using a normal browse
 - The trip-planner URL currently returns 404, and the link-pen page currently contains no Inkiva mention in the fetched HTML. Daxsupport and kaila could not be inspected because of Cloudflare challenges.
 - The current evidence strongly supports classifying these followed links as **low-quality / likely manipulative SEO artifacts**, not valuable editorial citations. However, it does not prove Google has counted them, penalized Inkiva, or that all five are currently live.
 
+### Live-only filter attempt — 2026-10-30
+
+A direct URL attempt changed `filterLiveOnly=0` to `filterLiveOnly=1` while retaining the Dofollow filter. The authenticated Ahrefs page then displayed **“Something went wrong. Please reload the page to continue.”** and returned no backlink rows. Therefore this attempt does **not** verify or establish that Live-only filtering works. Do not rely on the modified URL as a valid filter state.
+
+The current report state must be recovered by clicking Ahrefs' own **Reload page** control. After the report loads, use an explicitly visible Ahrefs UI control for link status/live state if available; verify the resulting report URL and rows before recording a live-only count. If no such control is visible, capture the report's filter panel rather than guessing parameter names or values.
+
 ### Required next check
 
 Open the same Ahrefs Backlinks report with the **Live only** filter enabled (the current query parameter is `filterLiveOnly=0`; use the UI's Live-only option and verify the resulting URL/state). Reconcile whether any of the five followed links remain live. Then inspect the single non-SPAM referring domain `upstar.dev` and the low-traffic `digitalboost.site`. Review Google Search Console Manual actions and Security issues. Do not create or submit a Disavow file until live status and Google-side evidence have been checked.
