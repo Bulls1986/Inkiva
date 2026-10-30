@@ -1072,11 +1072,20 @@ A non-authenticated HTTP fetch was performed on 2026-10-30 using a normal browse
 - The trip-planner URL currently returns 404, and the link-pen page currently contains no Inkiva mention in the fetched HTML. Daxsupport and kaila could not be inspected because of Cloudflare challenges.
 - The current evidence strongly supports classifying these followed links as **low-quality / likely manipulative SEO artifacts**, not valuable editorial citations. However, it does not prove Google has counted them, penalized Inkiva, or that all five are currently live.
 
-### Live-only filter attempt — 2026-10-30
+### Ahrefs live-backlink view confirmed — 2026-10-30
 
-A direct URL attempt changed `filterLiveOnly=0` to `filterLiveOnly=1` while retaining the Dofollow filter. The authenticated Ahrefs page then displayed **“Something went wrong. Please reload the page to continue.”** and returned no backlink rows. Therefore this attempt does **not** verify or establish that Live-only filtering works. Do not rely on the modified URL as a valid filter state.
+The authenticated report was reloaded and the visible **Dofollow** filter was reapplied. The UI now confirms:
 
-After reload, the report returned to **All** (not Dofollow) while the visible control still read **Show history: Don't show**. This is the relevant Ahrefs live-backlink setting; do not change `filterLiveOnly` by hand. Reapply the visible **Dofollow** button, keep **Show history: Don't show**, and capture the resulting rows. Ahrefs' official guide explicitly recommends this combination for viewing live backlinks: https://ahrefs.com/blog/broken-link-building/.
+- **Dofollow** selected.
+- **Show history: Don't show**.
+- **4 groups of links** returned.
+- Ahrefs' own guide describes the live-backlink review flow as Backlinks → set **Show history** to **Don't show**, with Dofollow as a recommended quality filter: https://ahrefs.com/blog/broken-link-building/ .
+- The report URL still contains `filterLiveOnly=0`; this parameter is not the control to use. A prior manual edit to `filterLiveOnly=1` caused an Ahrefs error and returned no data. Do not manipulate that parameter manually.
+
+The four groups are the same sources previously identified: `daxsupport.com`, `trip-planner.shop`, `link-pen.com`, and `kaila.biz`. The referring-domain inventory separately records 1, 1, 2, and 1 followed links respectively (5 total). `link-pen.com` is a grouped row with `Similar=1`, consistent with the second link.
+
+**Interpretation boundary:** this confirms the rows appear in Ahrefs' current backlink view with history hidden; it is not independent proof that every source page is currently fetchable or that Google counts the links. The independent HTTP checks remain discrepant: `trip-planner.shop` returned 404, `link-pen.com` returned 200 but its fetched HTML had no Inkiva mention, while `daxsupport.com` and `kaila.biz` returned Cloudflare 403 challenges. Preserve this discrepancy rather than declaring all five independently verified live.
+
 
 ### Required next check
 
