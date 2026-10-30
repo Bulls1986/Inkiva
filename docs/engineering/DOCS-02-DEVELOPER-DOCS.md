@@ -1,7 +1,7 @@
 # D02 — Developer documentation refresh
 
 - Date: 2026-10-30
-- Status: **implementation and local documentation validation complete; PR pending**
+- Status: **PR #269 open for review; not merged**
 - Repository: https://github.com/Bulls1986/Inkiva
 - Base: develop at **d334e029463a35cdac73f5b5f0120c6b19fcb9f0**
 - Branch: docs/d02-developer-docs
@@ -47,5 +47,7 @@ The release procedure page remains intentionally assigned to D03.
 - Website build/test and desktop test suites were not run because this worktree has no node_modules. No dependency installation was performed for this docs-only stage.
 
 ## 4. Handoff
+
+Review: [PR #269 — refresh current developer documentation](https://github.com/Bulls1986/Inkiva/pull/269). The PR is open and mergeable; it has not been merged.
 
 D02 updates the public developer guidance only. D03 owns the v0.6 post-publication audit, delivery-plan status, CHANGELOG and release procedure. D04 owns detailed end-user feature procedures and screenshot freshness. D05 owns Chinese documentation parity. D06 owns automated documentation link/anchor/asset validation.
