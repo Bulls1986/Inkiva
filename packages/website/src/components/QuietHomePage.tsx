@@ -741,7 +741,8 @@ export default function QuietHomePage({ locale = 'en' }: { locale?: Locale }) {
             </div>
             <div>
               <strong>{copy.footerResources}</strong>
-              <Link href="/docs/">{copy.docs}</Link>\n              <Link href={isChinese ? "/zh-CN/compare/typora/" : "/compare/typora/"}>{isChinese ? "编辑器对比" : "Compare editors"}</Link>
+              <Link href="/docs/">{copy.docs}</Link>
+              <Link href={isChinese ? "/zh-CN/compare/typora/" : "/compare/typora/"}>{isChinese ? "编辑器对比" : "Compare editors"}</Link>
               <a href={DOWNLOAD.releases} {...EXT_LINK}>
                 Releases
               </a>
