@@ -1,10 +1,14 @@
 # D03 — Release and process documentation
 
 - Date: 2026-10-30
-- Status: **implementation and local documentation validation complete; PR pending**
+- Status: **D03 implementation merged via PR #270; all 11/11 PR checks and post-merge website deployment passed. This record reconciliation is submitted in PR #271.**
 - Repository: https://github.com/Bulls1986/Inkiva
 - Base: remote develop at **3b125f4cd8bcf40719fa93a18fb22aa331d7681d**
 - Branch: docs/d03-release-process
+- PR: [#270 — docs: close v0.6.0 release process documentation](https://github.com/Bulls1986/Inkiva/pull/270)
+- PR head: **7445a60969c2732c882c770bf99dc7bbab317add**
+- Merge commit: **d18a2f5122ab7bb50240dc80382fa3c27654b9c2** (merged 2026-10-30 08:47:29 UTC)
+- Follow-up record reconciliation: [PR #271](https://github.com/Bulls1986/Inkiva/pull/271)
 - Scope: verify v0.6.0 publication, reconcile release audit and delivery status, update public release/changelog instructions, and add an engineering-record index
 - Non-goals: no runtime/product code, CI workflow, package version, Git tag, GitHub Release or release artifact changes
 
@@ -48,14 +52,18 @@ The release-readiness audit and delivery plan now state the published outcome wh
 - PR #258 checks: **13/13 passed**.
 - v0.6.0 tag release workflow: **8/8 jobs passed**.
 - Release asset/checksum verification: **14 assets present; 13/13 checksum entries match GitHub asset digests**.
-- D02 PR #269 passed **11/11 checks**; the later website deployment passed as well. The v0.6.0 release-triggered website deployment also passed.
+- D02 PR #269 passed **11/11 checks**; its website deployment passed.
+- D03 PR #270 passed **11/11 checks**: PR Build **8/8 jobs** (three platform builds, artifact-link publication, three package-smoke jobs and updater artifact smoke), E2E, Test and Lint. The remaining jobs completed successfully after the PR had been merged; future merges should still wait for required checks to finish.
+- Website deployment triggered by the PR #270 merge passed: [workflow 41028832870](https://github.com/Bulls1986/Inkiva/actions/runs/41028832870). The v0.6.0 release-triggered website deployment also passed.
 - Documentation registry: **32/32** pages exist. Link validation checked **78 relative links and 17 image references**; zero broken relative targets, zero missing assets, zero broken internal-document links and no relative heading anchors were present in the checked link set.
 - CRLF-aware `git diff --check` passed with no new whitespace errors. Pre-existing Markdown hard-break whitespace on untouched planning metadata lines was preserved.
 - Website build/test is not claimed locally because root and website node_modules are absent. No dependencies are installed for this documentation-only stage.
 
 ## 5. Workflow/environment note
 
-A newly requested managed worktree bootstrap returned `git_unavailable` / `rules_unavailable` and materialized only a `.git` entry; `git status` consequently showed tracked paths as deleted. No file edits or commits were made in that worktree. D03 continued in the existing clean project after fetching and verifying the authoritative `origin/develop` commit **3b125f4cd8bcf40719fa93a18fb22aa331d7681d**. The empty worktree was treated as bootstrap/environment failure, not repository deletion.
+A newly requested managed worktree bootstrap returned `git_unavailable` / `rules_unavailable` and materialized only a `.git` entry; `git status` consequently showed tracked paths as deleted. No file edits or commits were made in that worktree. D03 continued in the existing project from the verified remote `develop` commit **3b125f4cd8bcf40719fa93a18fb22aa331d7681d**. The empty worktree was treated as bootstrap/environment failure, not repository deletion.
+
+The local HTTPS `git push` timed out after 120 seconds; a follow-up `git ls-remote` also timed out. No stale `git.exe` process remained, and no duplicate push or force update was attempted. GitHub independently confirms PR #270's authoritative head **7445a60969c2732c882c770bf99dc7bbab317add** and merge commit **d18a2f5122ab7bb50240dc80382fa3c27654b9c2**. The local runner commit `ead8e8dcdb075834e79cbbf7ca86c9b44a44c461` is not the remote PR head; do not retry or force-push that stale local branch. A later D01 integration advanced `develop` to **8337000e4c741813b7dd90fd2c1fef7991fab987**; PR #271 is based on that latest ref.
 
 ## 6. Learning review
 
@@ -64,7 +72,8 @@ A newly requested managed worktree bootstrap returned `git_unavailable` / `rules
 - Verify the downloaded checksum manifest against the published asset digests, not merely by counting files or trusting a workflow summary.
 - The documentation navigation/link/asset checks provide useful validation without dependencies; they do not replace a website build. No new agent rule was needed because the existing AGENTS/workflow guidance already covers evidence boundaries, docs-only PRs and merge discipline.
 - A failed managed worktree bootstrap is environment evidence, not a source-tree deletion. Continue only from a separately verified clean worktree/base and preserve the failure classification.
+- PR #270 was merged while PR Build and E2E were still running; the full **11/11** checks subsequently passed. Record the timing accurately, and wait for required checks before future merges even when the PR is documentation-only.
 
 ## 7. Handoff
 
-D03 implementation and local documentation validation are complete; create a reviewable PR and follow its CI/deployment evidence. Do not merge without explicit authorization. D04 should refresh end-user feature procedures, screenshots and the remaining stale package-level website README. D05 should establish Chinese documentation parity. D06 should add automated documentation link/anchor/asset checks without broadening product CI path filters.
+D03's implementation is merged in PR #270 and its 11/11 CI checks plus website deployment are verified. PR #271 carries only this post-merge stage-record reconciliation; do not merge it without explicit authorization. D04 should refresh end-user feature procedures, screenshots and the remaining stale package-level website README. D05 should establish Chinese documentation parity. D06 should add automated documentation link/anchor/asset checks without broadening product CI path filters.
