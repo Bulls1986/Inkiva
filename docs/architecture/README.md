@@ -22,7 +22,7 @@ Open this index only for architecture/governance work. The root agent guide inte
 
 ## Focused follow-up
 
-- [v0.5 architecture TODO](V0.5-ARCHITECTURE-TODO.md) — bounded architecture debt that must be closed inside the v0.5 release line.
+- [v0.5 architecture TODO](V0.5-ARCHITECTURE-TODO.md) — historical v0.5 follow-up; implementation is recorded complete, but canonical CI validation remains pending in that record. Do not treat it as a current v0.5 release gate or mark it closed without updated evidence.
 - [Async geometry invalidation fix](ASYNC_GEOMETRY_INVALIDATION_FIX.md)
 - [Selection mapping contract](SELECTION-MAPPING-CONTRACT.md) — source-offset ↔ DOM-caret rules for hidden syntax and atomic inline tokens.
 

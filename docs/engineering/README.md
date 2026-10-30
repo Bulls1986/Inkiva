@@ -11,6 +11,7 @@ This directory contains cross-cutting engineering audits and evidence records. O
 
 ## Documentation and public discovery
 
+- [D01 — Documentation baseline audit](DOCS-01-BASELINE-AUDIT.md) — dated baseline inventory, source-of-truth mapping, stale-doc findings and D02–D06 remediation plan.
 - [D02 — Developer documentation refresh](DOCS-02-DEVELOPER-DOCS.md) — current monorepo architecture, IPC, TypeScript, build/debug and performance manuals.
 - [D03 — Release and process documentation](DOCS-03-RELEASE-PROCESS.md) — verified v0.6.0 publication, release-guide corrections and documentation validation.
 - [GEO-01 — Public baseline audit](GEO-01-PUBLIC-BASELINE-AUDIT.md)
@@ -19,6 +20,8 @@ This directory contains cross-cutting engineering audits and evidence records. O
 - [GEO-04 — Release verification](GEO-04-RELEASE-VERIFICATION.md)
 - [GEO-05 — External discovery baseline](GEO-05-EXTERNAL-DISCOVERY-BASELINE.md)
 - [GEO-06 — Live indexing baseline](GEO-06-LIVE-INDEXING-BASELINE.md)
+
+Earlier GEO-04/GEO-05 reports reflect their audit dates; GEO-06 supersedes the previous missing GitHub Topics observation. Preserve the historical sources instead of rewriting them.
 
 ## Other engineering records
 

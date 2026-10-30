@@ -33,6 +33,9 @@ Stage records are grouped by domain; use the domain index instead of preloading 
 - [Performance](../performance/README.md)
 - [Benchmark](../benchmark/README.md)
 - [Correctness](../correctness/README.md)
+- [Product](../product/README.md)
+- [Engineering](../engineering/README.md)
+- [Stability](../stability/README.md)
 
 ## End-of-task learning review
 
