@@ -32,6 +32,6 @@ test('site identity metadata describes the Inkiva Markdown editor consistently',
   assert.match(jsonLd, /Inkiva · 墨映/)
   assert.match(jsonLd, /墨映 Markdown 编辑器/)
   assert.match(jsonLd, /Local history, autosave and crash recovery/)
-  assert.match(jsonLd, /Windows x64, macOS Intel, macOS Apple silicon/)
+  assert.match(jsonLd, /Windows 10 or 11 x64, macOS Intel, macOS Apple silicon/)
   assert.doesNotMatch(jsonLd, /Linux/)
 })
