@@ -40,6 +40,8 @@ Inkiva 适合希望兼具 Markdown 可移植性与可视化编辑即时性的用
 - 支持导出 HTML 和 PDF。
 - 提供 Windows 和 macOS 原生桌面安装包。
 
+[阅读 Inkiva 简体中文使用手册](https://www.inkiva.net/docs/zh-CN/introduction/)（安装、编辑、链接、图片、恢复、设置等）
+
 ## 下载
 
 从 [GitHub Releases](https://github.com/Bulls1986/Inkiva/releases) 下载最新版本。

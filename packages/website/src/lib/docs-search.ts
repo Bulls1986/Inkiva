@@ -1,9 +1,11 @@
+import type { DocTabId } from './docs-nav'
+
 export type IndexedHeading = { id: string; text: string; depth: 2 | 3 }
 export type IndexedPage = {
   slug: string
   href: string
   title: string
-  tab: 'user' | 'dev'
+  tab: DocTabId
   tabLabel: string
   group: string
   hint?: string

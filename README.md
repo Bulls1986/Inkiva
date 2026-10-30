@@ -40,6 +40,8 @@ Inkiva is designed for people who want the portability of Markdown with the imme
 - Export to HTML and PDF.
 - Native desktop packages for Windows and macOS.
 
+[简体中文使用手册 / Chinese user guide](https://www.inkiva.net/docs/zh-CN/introduction/)
+
 ## Download
 
 Download the latest builds from [GitHub Releases](https://github.com/Bulls1986/Inkiva/releases).

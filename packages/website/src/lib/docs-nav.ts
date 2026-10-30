@@ -1,4 +1,4 @@
-export type DocTabId = 'user' | 'dev'
+export type DocTabId = 'user' | 'dev' | 'zh'
 
 export type DocPage = {
   /** URL slug, joined with `/` becomes the final path under /docs/ */
@@ -261,10 +261,156 @@ export const DOC_TABS: DocTab[] = [
         ]
       }
     ]
+  },
+  {
+    id: 'zh',
+    label: '中文使用手册',
+    groups: [
+      {
+        label: '入门',
+        pages: [
+          {
+            slug: ['zh-CN', 'introduction'],
+            title: '中文使用手册',
+            file: 'zh-CN/introduction.md',
+            hint: '简介与入门'
+          },
+          {
+            slug: ['zh-CN', 'installation'],
+            title: '安装与升级',
+            file: 'zh-CN/installation.md',
+            hint: 'Windows 与 macOS 安装'
+          },
+          {
+            slug: ['zh-CN', 'basics'],
+            title: '基础操作',
+            file: 'zh-CN/basics.md',
+            hint: '文件、大纲、反向链接和历史'
+          },
+          {
+            slug: ['zh-CN', 'editing'],
+            title: '编辑详解',
+            file: 'zh-CN/editing.md',
+            hint: 'Markdown、表格、链接和恢复'
+          },
+          {
+            slug: ['zh-CN', 'spelling'],
+            title: '拼写检查',
+            file: 'zh-CN/spelling.md',
+            hint: '拼写和词典'
+          },
+          {
+            slug: ['zh-CN', 'markdown-syntax'],
+            title: 'Markdown 语法',
+            file: 'zh-CN/markdown-syntax.md',
+            hint: '常用标准语法'
+          }
+        ]
+      },
+      {
+        label: '配置与快捷键',
+        pages: [
+          {
+            slug: ['zh-CN', 'preferences'],
+            title: '偏好设置',
+            file: 'zh-CN/preferences.md',
+            hint: '编辑器和应用设置'
+          },
+          {
+            slug: ['zh-CN', 'key-bindings'],
+            title: '快捷键',
+            file: 'zh-CN/key-bindings.md',
+            hint: '常用快捷键总览'
+          },
+          {
+            slug: ['zh-CN', 'key-bindings-macos'],
+            title: 'macOS 快捷键',
+            file: 'zh-CN/key-bindings-macos.md',
+            hint: 'macOS 的默认操作'
+          },
+          {
+            slug: ['zh-CN', 'key-bindings-windows'],
+            title: 'Windows 快捷键',
+            file: 'zh-CN/key-bindings-windows.md',
+            hint: 'Windows 的默认操作'
+          },
+          {
+            slug: ['zh-CN', 'application-data-directory'],
+            title: '应用数据目录',
+            file: 'zh-CN/application-data-directory.md',
+            hint: '偏好设置存放位置'
+          },
+          {
+            slug: ['zh-CN', 'environment-variables'],
+            title: '环境变量',
+            file: 'zh-CN/environment-variables.md',
+            hint: '调试与工具覆盖参数'
+          },
+          {
+            slug: ['zh-CN', 'cli'],
+            title: '命令行',
+            file: 'zh-CN/cli.md',
+            hint: '启动参数和帮助'
+          }
+        ]
+      },
+      {
+        label: '导出、外观与图片',
+        pages: [
+          {
+            slug: ['zh-CN', 'export'],
+            title: '导出与打印',
+            file: 'zh-CN/export.md',
+            hint: 'PDF、HTML 与打印'
+          },
+          {
+            slug: ['zh-CN', 'themes'],
+            title: '外观主题',
+            file: 'zh-CN/themes.md',
+            hint: 'Light、Dark、Paper'
+          },
+          {
+            slug: ['zh-CN', 'export-themes'],
+            title: '导出主题',
+            file: 'zh-CN/export-themes.md',
+            hint: '导出 CSS 样式'
+          },
+          {
+            slug: ['zh-CN', 'images'],
+            title: '图片插入与恢复',
+            file: 'zh-CN/images.md',
+            hint: '相对路径、粘贴、缩放、重连'
+          },
+          {
+            slug: ['zh-CN', 'image-uploader'],
+            title: '图片上传器配置',
+            file: 'zh-CN/image-uploader.md',
+            hint: 'PicGo 的可选配置'
+          }
+        ]
+      },
+      {
+        label: '更多',
+        pages: [
+          {
+            slug: ['zh-CN', 'portable'],
+            title: '便携模式',
+            file: 'zh-CN/portable.md',
+            hint: '独立应用数据目录'
+          },
+          {
+            slug: ['zh-CN', 'faq'],
+            title: '常见问题',
+            file: 'zh-CN/faq.md',
+            hint: '常见使用问题'
+          }
+        ]
+      }
+    ]
   }
 ]
 
-/** A flat ordered list of every page across both tabs (for the pager + sitemap). */
+/** A flat ordered list of every page across all tabs (for the pager + sitemap). */
 export type DocPageWithCtx = DocPage & {
   tab: DocTabId
   tabLabel: string

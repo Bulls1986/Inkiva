@@ -32,6 +32,19 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
     description: page.hint ?? `Documentation for ${page.title}.`,
     path: page.href,
     type: 'article',
+    locale: page.tab === 'zh' ? 'zh_CN' : 'en_US',
+    ...(page.tab === 'dev'
+      ? {}
+      : {
+          languages: {
+            'en-US': page.tab === 'zh'
+              ? '/docs/' + page.slug.slice(1).join('/') + '/'
+              : page.href,
+            'zh-CN': page.tab === 'zh'
+              ? page.href
+              : '/docs/zh-CN/' + page.slug.join('/') + '/'
+          }
+        }),
     openGraphTitle: `${page.title} · Inkiva Docs`
   })
 }
@@ -50,7 +63,8 @@ export default async function DocPage({ params }: { params: Promise<Params> }) {
   const documentJsonLd = createDocumentationJsonLd({
     title: documentTitle,
     description: documentDescription,
-    path: page.href
+    path: page.href,
+    inLanguage: page.tab === 'zh' ? 'zh-CN' : 'en-US'
   })
 
   const editHref = DOWNLOAD.repo + '/edit/develop/packages/website/content/docs/' + page.file
@@ -64,7 +78,7 @@ export default async function DocPage({ params }: { params: Promise<Params> }) {
       <DocsSidebar activeTab={page.tab} activeHref={page.href} />
       <main className="doc-main">
         <SidebarToggle />
-        <article className="doc-article">
+        <article className="doc-article" lang={page.tab === 'zh' ? 'zh-CN' : 'en'}>
           <nav className="breadcrumb" aria-label="Breadcrumb">
             <Link href={fallbackTab.href}>{page.tabLabel}</Link>
             <span className="sep">/</span>
@@ -73,7 +87,9 @@ export default async function DocPage({ params }: { params: Promise<Params> }) {
             <span className="cur">{page.title}</span>
           </nav>
           <div className="doc-eyebrow">
-            {page.tab === 'user' ? 'User documentation' : 'Developer documentation'}
+            {page.tab === 'zh'
+              ? '中文使用手册'
+              : page.tab === 'user' ? 'User documentation' : 'Developer documentation'}
           </div>
           <h1 className="art-title">{documentTitle}</h1>
           {lead && <p className="art-lead">{lead}</p>}
@@ -81,7 +97,9 @@ export default async function DocPage({ params }: { params: Promise<Params> }) {
           <Pager prev={prev} next={next} />
           <footer className="doc-footer">
             <span>
-              Last reviewed in the develop branch · open source under the GPL-3.0 license.
+              {page.tab === 'zh'
+                ? '以 develop 分支为准 · GPL-3.0 开源许可证'
+                : 'Last reviewed in the develop branch · open source under the GPL-3.0 license.'}
             </span>
             <a className="edit-link" href={editHref} target="_blank" rel="noopener noreferrer">
               <svg
@@ -96,7 +114,7 @@ export default async function DocPage({ params }: { params: Promise<Params> }) {
                 <path d="M12 20h9" />
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z" />
               </svg>
-              Edit this page on GitHub
+              {page.tab === 'zh' ? '在 GitHub 编辑此页面' : 'Edit this page on GitHub'}
             </a>
           </footer>
         </article>

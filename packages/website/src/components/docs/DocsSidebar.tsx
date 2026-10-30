@@ -41,6 +41,12 @@ export default function DocsSidebar({ activeTab, activeHref }: Props) {
     })
   }
 
+  const alternateHref = activeTab === 'zh'
+    ? activeHref.replace('/docs/zh-CN/', '/docs/')
+    : activeTab === 'user'
+      ? activeHref.replace('/docs/', '/docs/zh-CN/')
+      : '/docs/zh-CN/introduction/'
+
   return (
     <aside className={'doc-side' + (open ? ' open' : '')}>
       <TabPane
@@ -51,13 +57,16 @@ export default function DocsSidebar({ activeTab, activeHref }: Props) {
         onNavigate={() => setOpen(false)}
       />
       <div className="side-foot">
+        <Link href={alternateHref}>
+          {activeTab === 'zh' ? 'English documentation' : '简体中文使用手册'}
+        </Link>
         <a
           href={DOWNLOAD.repo + '/tree/develop/packages/website/content/docs'}
           target="_blank"
           rel="noopener noreferrer"
         >
           <GitHubIcon aria-hidden />
-          Docs on GitHub
+          {activeTab === 'zh' ? 'GitHub 文档源码' : 'Docs on GitHub'}
         </a>
         <a href={DOWNLOAD.issues} target="_blank" rel="noopener noreferrer">
           <svg
@@ -72,7 +81,7 @@ export default function DocsSidebar({ activeTab, activeHref }: Props) {
             <circle cx="12" cy="12" r="9" />
             <path d="M12 8v4M12 16h.01" />
           </svg>
-          Report an issue
+          {activeTab === 'zh' ? '反馈问题' : 'Report an issue'}
         </a>
       </div>
     </aside>

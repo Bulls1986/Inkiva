@@ -8,6 +8,8 @@ The current desktop interface keeps the document at the center: a compact titleb
 
 ![Inkiva desktop interface with the Outline sidebar and Markdown editor](assets/inkiva-interface.png)
 
+[简体中文使用手册](zh-CN/introduction.md) · [English documentation](README.md)
+
 **Quick start:**
 
 - [Basics](end-user/BASICS.md)

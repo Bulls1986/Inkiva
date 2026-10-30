@@ -1,3 +1,5 @@
+> **ARCHIVED UPSTREAM TRANSLATION — NOT CURRENT INKIVA DOCUMENTATION.** This historical MarkText translation contains outdated platform, installation, licensing and product claims. Use the [current Inkiva README](../../README.md), [Chinese README](../../README.zh-CN.md) or [maintained Chinese manual](https://www.inkiva.net/docs/zh-CN/introduction/) instead. Inkiva does not claim Linux release support here.
+
 <p align="center"><img src="../assets/logo-small.png" alt="MarkText" width="100" height="100"></p>
 
 <h1 align="center">MarkText</h1>
