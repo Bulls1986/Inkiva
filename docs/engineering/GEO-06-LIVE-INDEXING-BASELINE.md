@@ -1033,3 +1033,45 @@ The Ahrefs API v3 `site-explorer-referring-domains` export and the `site-explore
 ### Next verification step
 
 Open Ahrefs Site Explorer → Backlinks for `inkiva.net/`, select the **Dofollow** filter, and capture all five followed backlink rows. Record for each: source URL, target URL, anchor, source-page title/snippet, first/last seen, HTTP status, IP/ASN where available, and whether the link is contextual/editorial, directory-generated, sitewide, redirect-based, or otherwise suspicious. Then separately inspect the `upstar.dev` and `digitalboost.site` rows. Do not create or submit a Disavow file until this corroborating evidence and Google Search Console Manual actions/Security issues have been reviewed.
+
+
+## 24. Dofollow backlink source-page inspection — 2026-10-30
+
+### Ahrefs filtered report
+
+Authenticated Ahrefs Backlinks report was opened with `followType=dofollow`, `filterLiveOnly=0`, `grouping=group-similar`, `limit=100`, and `offset=0`.
+
+- Report URL: https://app.ahrefs.com/site-explorer/backlinks?anchorRules=&bestFilter=all&domainNameRules=&filterLiveOnly=0&followType=dofollow&grouping=group-similar&hiddenColumns=&highlightChanges=none&history=all&historyDateRange=24h&ipRules=&limit=100&mode=subdomains&offset=0&projectId=10617729&refPageAuthorRules=&refPageTitleRules=&refPageUrlRules=&sort=Traffic&sortDirection=desc&surroundingRules=&target=inkiva.net%2F&targetUrlRules=
+- Ahrefs shows **4 grouped source rows**, reconciling with **5 followed backlinks** in the referring-domain report. The `link-pen.com` group shows `Similar=1`, consistent with its 2 followed links.
+- Important: `filterLiveOnly=0` means this is **not a live-only report**. The records may be historical/lost; first-seen and last-seen dates are identical for all four groups. Do not call these five links currently active until the Live-only view is checked.
+
+### Four source groups
+
+| Source domain / URL | DR / UR | Source-page traffic / keywords | Ahrefs anchor / target | First seen = last seen | Ahrefs status |
+|---|---:|---:|---|---|---|
+| `daxsupport.com` — https://daxsupport.com/list/2026-09-08-247 | 25 / 0 | 0 / 0 | `inkiva.net` and `https://inkiva.net/` (image/listing-style entry) | 2026-09-09 | SPAM |
+| `trip-planner.shop` — https://trip-planner.shop/da-dr-momentum-shifted-after-steady-sustainable-seo-support-landed-seo-meal-pack-15206/ | 0 / 0 | 0 / 0 | SEO-service promotional prose containing a contextual `inkiva.net` link and raw URL | 2026-09-16 | SPAM |
+| `link-pen.com` — https://link-pen.com/list/2026-09-08-247 | 6 / 0 | 0 / 0 | `inkiva.net` and `https://inkiva.net/` (image/listing-style entry); Similar=1 | 2026-09-17 | SPAM |
+| `kaila.biz` — https://kaila.biz/list/2026-09-08-247 | 14 / 0 | 0 / 0 | `inkiva.net` and `https://inkiva.net/` (image/listing-style entry) | 2026-09-12 | SPAM |
+
+### Independent source-page fetch checks
+
+A non-authenticated HTTP fetch was performed on 2026-10-30 using a normal browser user-agent. This is a current accessibility/content check, not a substitute for Google's crawl state or Ahrefs' historical index.
+
+| Source | Current fetch result | Observation | Interpretation |
+|---|---|---|---|
+| `daxsupport.com` | HTTP 403 | Cloudflare challenge page (`Just a moment...`) with `noindex,nofollow`; source HTML could not be inspected | Inconclusive; challenge blocks this fetch |
+| `trip-planner.shop` | HTTP 404 | Current page title is `Page not found – Compass Journey SEO`; no Inkiva link found in returned HTML | The Ahrefs-observed source URL is currently not found in this fetch; likely stale/lost, but confirm with Live-only Ahrefs |
+| `link-pen.com` | HTTP 200 | Current page title describes a bulk list of domains registered on 2026-09-08; no `inkiva` occurrence or Inkiva link found in returned HTML | The Ahrefs-observed link was not present in the current HTML snapshot; likely stale/lost, but confirm with Live-only Ahrefs |
+| `kaila.biz` | HTTP 403 | Cloudflare challenge page (`Just a moment...`) with `noindex,nofollow`; source HTML could not be inspected | Inconclusive; challenge blocks this fetch |
+
+### Risk assessment
+
+- All four referring domains are explicitly labelled `SPAM` by Ahrefs and have zero reported source-page organic traffic/keywords in the filtered report.
+- Two source pages are bulk domain-list pages, one is SEO-service promotional content, and one is another bulk domain-list page. This is not a credible editorial recommendation pattern for a Markdown editor.
+- The trip-planner URL currently returns 404, and the link-pen page currently contains no Inkiva mention in the fetched HTML. Daxsupport and kaila could not be inspected because of Cloudflare challenges.
+- The current evidence strongly supports classifying these followed links as **low-quality / likely manipulative SEO artifacts**, not valuable editorial citations. However, it does not prove Google has counted them, penalized Inkiva, or that all five are currently live.
+
+### Required next check
+
+Open the same Ahrefs Backlinks report with the **Live only** filter enabled (the current query parameter is `filterLiveOnly=0`; use the UI's Live-only option and verify the resulting URL/state). Reconcile whether any of the five followed links remain live. Then inspect the single non-SPAM referring domain `upstar.dev` and the low-traffic `digitalboost.site`. Review Google Search Console Manual actions and Security issues. Do not create or submit a Disavow file until live status and Google-side evidence have been checked.
