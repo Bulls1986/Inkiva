@@ -28,4 +28,4 @@ Markdown styling and application chrome use separate design layers, so the writi
 
 The Theme preferences page provides a visual preview of the three built-in appearances:
 
-![Inkiva Theme preferences with Light, Dark, and Paper previews](../assets/inkiva-settings-theme.png)
+![Real Windows v0.6.0 Theme preferences with Light, Dark, and Paper previews](../assets/inkiva-settings-theme.png)

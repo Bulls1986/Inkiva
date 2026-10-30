@@ -14,7 +14,7 @@ Inkiva updates the rendered result as you edit. The active appearance controls t
 
 In an empty paragraph, type `/` to open the quick-insert menu. Search by continuing to type, navigate with the arrow keys, and press <kbd>Enter</kbd> to insert the selected block. The menu can create headings, paragraphs, lists, task lists, quotes, tables, code blocks, front matter, thematic breaks, and supported diagram blocks.
 
-To locate a document, use **Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>). Use the application's **Paragraph**, **Format** and **View** menus for their respective editing commands.
+To locate a document, use **Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>). Use **View → Command Palette** to search commands such as **Export File**, **Source Code Mode**, and **Change Encoding**. The application's **Paragraph** and **Format** menus remain direct alternatives.
 
 The paragraph menu also exposes actions such as **Turn Into**, duplicate, create paragraph, and delete paragraph. These actions operate on the current block or selection.
 
@@ -32,9 +32,9 @@ Use the quick-insert menu or **Paragraph → Table** to create a Markdown table.
 
 ![Actual Windows v0.6.0 table-cell context menu showing explicit row/column actions](../assets/inkiva-table-context.png)
 
-The following screenshot captures the live editor immediately after a hard break; **it is not evidence of a completed disk save**. Save and verify the file when testing document persistence.
+The following real Windows v0.6.0 screenshot was captured **after saving, closing and reopening the Markdown file**. The test verified the on-disk cell text `Alpha<br>Line 2` and the reopened rendered table; the earlier in-editor caret assertion separately confirmed a connected text node and a visible caret rectangle.
 
-![Actual Windows v0.6.0 table cell immediately after Shift+Enter with an in-editor hard break and visible caret](../assets/inkiva-table-hardbreak.png)
+![Real Windows v0.6.0 table reopened with a persisted Shift+Enter hard break after verifying saved Markdown on disk](../assets/inkiva-table-hardbreak.png)
 
 ## Images
 

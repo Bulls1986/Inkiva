@@ -8,6 +8,10 @@
 
 ![Windows v0.6.0 英文界面的文档、标签页与大纲侧栏实机截图](../assets/inkiva-interface.png)
 
+命令搜索请使用 **View → Command Palette**；不要寻找旧版顶部搜索框。
+
+![Windows v0.6.0 命令面板实机截图](../assets/inkiva-command-palette.png)
+
 ## 编辑与保存
 
 所见即所得编辑区直接接受文字输入。按 `/` 可在空段落中打开快速插入菜单；**View → Source Code Mode** 用来查看或修改 Markdown 原始文本。普通点击 Markdown 链接只定位光标，不会直接跳转。
@@ -16,13 +20,19 @@ Inkiva 提供自动保存和恢复保护，但退出应用、恢复旧版本或�
 
 ## 标题导航和文档信息
 
-**Outline** 能列出标题并支持键盘定位；大文档的大纲采用虚拟化显示，但逻辑上仍可访问未显示的标题。
+**Outline** 的键盘焦点属于大纲树容器，不是虚拟化的单个标题行。实测 360 个标题时，End 和上方向键只改变大纲焦点，不移动正文；按 Enter 才跳转。
+
+![360 标题大纲定位末尾、正文不跳转](../assets/inkiva-outline-keyboard.png)
+
+![按 Enter 跳转到目标标题](../assets/inkiva-outline-activated.png)
 
 **More → Document Info → Backlinks** 会显示指向当前文档的反向链接，包括已保存、但没有打开为标签页的工作区 Markdown 文件。
 
 同一面板的断链检测可以识别工作区内找不到目标文件的相对 `.md` / `.markdown` 链接。点击断链条目可定位源链接（无独立的 Locate 文字按钮，其辅助功能名称为 **Locate source occurrence**）；点击可见的 **Repair** 按钮后打开 **Insert link** 对话框。确认前不会自动替换，选择 **Cancel** 不修改原文档。
 
-![Windows v0.6.0 英文界面的断链 Repair 对话框实机截图](../assets/inkiva-broken-link-repair.png)无法读取的文件与确定不存在的文件应区别对待。
+![Windows v0.6.0 英文界面的断链 Repair 对话框实机截图](../assets/inkiva-broken-link-repair.png)
+
+无法读取的文件与确定不存在的文件应区别对待。
 
 ## 文件链接
 

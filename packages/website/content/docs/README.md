@@ -4,7 +4,7 @@ Welcome to the end-user documentation of Inkiva, a document-first Markdown edito
 
 Inkiva works with ordinary CommonMark/GFM files and folders. Navigation, backlinks, local history, and recovery are assistance around the document — not a separate workspace format.
 
-The current desktop interface keeps the document at the center: a compact titlebar, optional navigation sidebar, tabs, and a focused writing surface. The screenshot set is being reconciled against real desktop builds in [Issue #276](https://github.com/Bulls1986/Inkiva/issues/276). Screenshots of the editor, Files, Document Info and Settings have been refreshed from a genuine Windows v0.6.0 English interface; other retained images may still reflect an earlier UI. Labels vary by language and operating system.
+The current desktop interface keeps the document at the center: a compact titlebar, optional navigation sidebar, tabs, and a focused writing surface. The user-guide screenshots of the editor, file navigation, Outline, command palette, PDF export, preferences, themes, tables, and image relinking have been captured from a genuine Windows Inkiva v0.6.0 desktop executable. Supporting acceptance evidence is documented under [Issue #276](https://github.com/Bulls1986/Inkiva/issues/276). Legacy decorative images may remain; labels vary with the selected UI language and operating system.
 
 ![Inkiva desktop interface with the Outline sidebar and Markdown editor](assets/inkiva-interface.png)
 

@@ -30,7 +30,13 @@ For imported files, Inkiva uses collision-safe creation so repeated pastes of si
 
 Select an image in the formatted editor to access its existing image controls. Depending on the selected image, you can change its alternative text/title, replace its source using **Choose Image**, or drag the resize control. A missing image can be selected to open the edit/relink tool.
 
-- To **relink** a missing image, select a valid replacement and confirm. A failed import leaves the original Markdown intact and provides feedback so you can retry.
+- To **relink** a missing image, select the failed image. In the tested Windows v0.6.0 interface, click its image placeholder, select **Embed Image**, replace the existing relative path and confirm **Embed Image**. Other insertion modes may expose a **Choose Image** control. A failed import leaves the original Markdown intact and provides feedback so you can retry.
+
+![Real Windows v0.6.0 missing-image state showing the Load image failed placeholder and Embed Image replacement controls](../assets/inkiva-image-failure.png)
+
+![Real Windows v0.6.0 image successfully relinked to an existing local file with the updated relative Markdown path](../assets/inkiva-image-relinked.png)
+
+An isolated real-app test changed `![Broken image](./missing.png)` to `![Broken image](./correct.png)`; the image entered `mu-image-success` state and the new Markdown source was saved to disk without a permanent loading placeholder.
 - Changing only alt text or title does not require re-importing or duplicating an unchanged local file.
 - An in-progress replacement should not overwrite a newer edit made while the image operation was running.
 - Switch to **View → Source Code Mode** to inspect or edit the exact `![alt](path)` syntax if the visual preview does not resolve.

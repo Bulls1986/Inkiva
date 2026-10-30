@@ -4,7 +4,7 @@
 
 Inkiva is a document-first Markdown editor. It opens ordinary CommonMark/GFM files and folders, and its preview editor keeps most Markdown punctuation out of the way while you write. When the application starts without a restored session, the welcome surface offers **Recent Documents**, **New File**, and **Open file**.
 
-![Inkiva welcome surface with Recent Documents, New File, and Open file](../assets/inkiva-default.png)
+![Real Windows Inkiva v0.6.0 welcome surface with the recent-folder and file-opening controls](../assets/inkiva-default.png)
 
 Use **Search** in the sidebar for workspace content, or **Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>) to find documents in the opened folder. In an empty paragraph, type `/` to open the quick-insert menu; choose a heading, list, quote, table, or another supported block.
 
@@ -27,7 +27,7 @@ The Files, Search, and Document Info panels are shown below.
 
 ![Inkiva Files sidebar showing a folder tree and Opened Files](../assets/inkiva-files.png)
 
-![Inkiva Search sidebar for searching the opened folder](../assets/inkiva-search.png)
+![Real Windows Inkiva v0.6.0 Search sidebar with an active Markdown document](../assets/inkiva-search.png)
 
 ![Actual Windows v0.6.0 Document Info sidebar showing a backlink, a missing Markdown target and Local History](../assets/inkiva-document-info.png)
 
@@ -37,7 +37,9 @@ Each open document can appear in a tab. Drag tabs to reorder them, use the tab c
 
 ### Quick Open
 
-**Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>) finds Markdown files in the opened folder and already-open documents. The **Search** sidebar supports in-folder content searching, while **Outline** navigates headings in the active document.
+**Quick Open** (<kbd>CmdOrCtrl</kbd>+<kbd>P</kbd>) finds Markdown files in the opened folder and already-open documents. The **Search** sidebar supports in-folder content searching, while **Outline** navigates headings in the active document. For searchable editor commands, use **View → Command Palette**; the previous titlebar search box is no longer a reliable entry point in the Windows v0.6.0 UI.
+
+![Real Windows v0.6.0 Command Palette opened from View, listing available file and editor commands](../assets/inkiva-command-palette.png)
 
 ### Editor modes
 
@@ -85,7 +87,11 @@ For detailed editing and repair steps, see [Editing in depth](EDITING.md).
 
 ## Outline, document history and recovery
 
-The **Outline** sidebar follows headings in the active document. Click a heading to navigate, or use keyboard focus and arrow-key navigation; press <kbd>Enter</kbd> to activate the focused heading. On long documents, only the relevant outline rows may be mounted at once, but keyboard navigation remains available without moving the document until you choose a heading.
+The **Outline** sidebar follows headings in the active document. Click a heading to navigate, or use keyboard focus and arrow-key navigation; press <kbd>Enter</kbd> to activate the focused heading. On long documents, only the relevant outline rows may be mounted at once. Focus the **Outline tree container** (the keyboard focus owner), then use **Arrow Up/Down**, **Home/End**, and **Enter**. Focusing a virtualized individual heading row is not equivalent to keyboard-focusing the tree itself. In the tested 360-heading document, **End** and **Arrow Up** revealed the final rows while the editor remained at scroll position 0; **Enter** then navigated to the chosen heading.
+
+![Real Windows v0.6.0 outline keyboard focus on a heading near the end of a 360-heading document, while the editor stays at the beginning](../assets/inkiva-outline-keyboard.png)
+
+![Real Windows v0.6.0 document scrolled to a distant heading only after activating it with Enter](../assets/inkiva-outline-activated.png)
 
 **More → Document Info → Local History** lets you inspect earlier local snapshots and recover content using the available preview, copy, or explicitly confirmed restore flow. Unsaved-work and crash-recovery prompts must be reviewed before replacing existing content. Local History and recovery protect local files; they are not cloud backup or multi-device sync.
 
@@ -101,4 +107,4 @@ Inkiva includes **Inkiva Light**, **Inkiva Dark**, and **Inkiva Paper**. Choose 
 
 Open **File → Preferences** or the settings control at the bottom of the sidebar. Preferences can also be edited in `preferences.json` in the [application data directory](APPLICATION_DATA_DIRECTORY.md). The settings window groups general, theme, editor, and spelling options.
 
-![Inkiva Preferences window on the General page](../assets/inkiva-settings.png)
+![Real Windows v0.6.0 Preferences dialog on the General page](../assets/inkiva-settings.png)

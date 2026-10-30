@@ -9,6 +9,8 @@ Inkiva 可以将当前 Markdown 文档导出为 **PDF** 或 **HTML**，也可以
 - **Theme**：导出时的页面主题，与应用界面的 Light/Dark/Paper 外观不同。
 - **Header and Footer**：可选择页眉、页脚布局并输入文字；当前不提供自动页码功能。
 
-![导出选项窗口](../assets/inkiva-export.png)
+实机窗口还包含 Info、Table of Contents 标签页。
+
+![Windows v0.6.0 PDF 导出选项实机截图](../assets/inkiva-export.png)
 
 查看[导出主题](./export-themes.md)和[英文导出说明](https://www.inkiva.net/docs/export/)。

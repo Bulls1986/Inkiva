@@ -20,7 +20,13 @@ Inkiva 的图片地址以普通 Markdown 保存，例如 `![图示](./assets/dia
 
 ## 替换、缩放和缺图处理
 
-选择可视编辑器中的图片，使用已有控件修改替代文字/标题、拖动缩放控制条或通过 **Choose Image** 更换源文件。图片加载失败时，可以重新选择正确的图片地址。
+选择可视编辑器中的图片，使用已有控件修改替代文字/标题、拖动缩放控制条或通过 **Choose Image** 更换源文件。图片加载失败时，可点击失败图片，切换到 **Embed Image** 输入框填写新的本地相对路径并确认。
+
+![Windows v0.6.0 图片加载失败及 Embed Image 重连入口](../assets/inkiva-image-failure.png)
+
+![重新指向有效本地图片后的实机截图](../assets/inkiva-image-relinked.png)
+
+实测将 `./missing.png` 改为 `./correct.png` 后，图片状态变为加载成功，且 Markdown 保存了新路径。
 
 导入失败应保留原始 Markdown，避免留下永久 `loading-*` 占位符；在进行中的替换操作不应覆盖后续用户的编辑。
 

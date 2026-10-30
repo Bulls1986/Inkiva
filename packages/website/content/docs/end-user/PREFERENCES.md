@@ -55,7 +55,7 @@ The shipped default file is `packages/desktop/static/preference.json`. If a sett
 
 The Editor page exposes the writing-surface controls described above:
 
-![Inkiva Preferences window on the Editor page](../assets/inkiva-settings-editor.png)
+![Real Windows v0.6.0 Preferences window on the Editor page](../assets/inkiva-settings-editor.png)
 
 ## Markdown
 
