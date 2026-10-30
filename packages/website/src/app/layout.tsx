@@ -82,7 +82,7 @@ const jsonLd = createSiteJsonLd(INKIVA_VERSION)
 
 // Inline before paint to avoid theme flash.
 const themeBootstrap = `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(!t)t=${JSON.stringify(DEFAULT_THEME)};document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme',${JSON.stringify(DEFAULT_THEME)});}})();`
-const localeBootstrap = `(function(){try{document.documentElement.lang=location.pathname.indexOf('/zh-CN')===0?'zh-CN':'en';}catch(e){}})();`
+const localeBootstrap = `(function(){try{document.documentElement.lang=(location.pathname.indexOf('/zh-CN')===0||location.pathname.indexOf('/docs/zh-CN')===0)?'zh-CN':'en';}catch(e){}})();`
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

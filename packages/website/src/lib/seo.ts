@@ -156,11 +156,13 @@ export function createSiteJsonLd(softwareVersion: string) {
 export function createDocumentationJsonLd({
   title,
   description,
-  path
+  path,
+  inLanguage = 'en-US'
 }: {
   title: string
   description: string
   path: string
+  inLanguage?: 'en-US' | 'zh-CN'
 }) {
   const url = absoluteUrl(path)
 
@@ -173,7 +175,7 @@ export function createDocumentationJsonLd({
         headline: title,
         description,
         url,
-        inLanguage: 'en-US',
+        inLanguage,
         isPartOf: { '@id': WEBSITE_SCHEMA_ID },
         author: { '@id': ORGANIZATION_SCHEMA_ID },
         publisher: { '@id': ORGANIZATION_SCHEMA_ID },

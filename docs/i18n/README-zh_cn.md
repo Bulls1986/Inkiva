@@ -1,3 +1,5 @@
+> **历史译文归档（非当前 Inkiva 使用手册）**：本文保留上游 MarkText 的旧版翻译，包含已过时的 Linux、安装包、许可证和功能描述。**不要把它当作 Inkiva 的现行文档。** 请改用 [Inkiva 中文 README](../../README.zh-CN.md) 和 [Inkiva 中文使用手册](https://www.inkiva.net/docs/zh-CN/introduction/)。
+
 <p align="center"><img src="../assets/logo-small.png" alt="MarkText" width="100" height="100"></p>
 
 <h1 align="center">MarkText</h1>

@@ -16,6 +16,7 @@ This directory contains cross-cutting engineering audits and evidence records. O
 - [D03 — Release and process documentation](DOCS-03-RELEASE-PROCESS.md) — verified v0.6.0 publication, release-guide corrections and documentation validation.
 - [D04 — User guide modernization](DOCS-04-USER-GUIDES.md) — merged v0.6 links, images, tables and recovery workflows; screenshot review handoff.
 - [D06 — Public documentation quality gate](DOCS-06-DOCS-QUALITY-GATE.md) — merged and deployed link/anchor/asset verification with 9 targeted tests and 11/11 PR CI.
+- [D05 — Chinese user documentation](DOCS-05-CHINESE-DOCS.md) — Chinese user routes, source/navigation parity, localization/SEO gates and legacy translation disposition.
 - [GEO-01 — Public baseline audit](GEO-01-PUBLIC-BASELINE-AUDIT.md)
 - [GEO-02 — AI discovery baseline](GEO-02-AI-DISCOVERY-BASELINE.md)
 - [GEO-03 — Entity content implementation](GEO-03-ENTITY-CONTENT-IMPLEMENTATION.md)
