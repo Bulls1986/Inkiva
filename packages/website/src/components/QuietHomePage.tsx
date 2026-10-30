@@ -103,10 +103,10 @@ const COPY: Record<Locale, Copy> = {
     eyebrow: 'A document-first Markdown editor',
     heroTitle: 'A calmer space',
     heroTitleAccent: 'for deeper writing.',
-    heroBody: 'Inkiva is a Markdown editor designed to help you think, write, and stay in flow.',
+    heroBody: 'Inkiva is a free, open-source WYSIWYG Markdown desktop editor for Windows and macOS. Edit ordinary Markdown files directly in the rendered document, with local navigation, history and recovery.',
     heroDownload: 'Download Inkiva',
     heroDocs: 'Read the docs',
-    heroNote: 'Windows 11, 10 · Free',
+    heroNote: 'Windows 10 / 11 · macOS · Free & open source',
     editorTitle: 'The Art of Enough.md',
     editorDocuments: 'Documents',
     editorRecent: 'Recent documents',
@@ -187,10 +187,10 @@ const COPY: Record<Locale, Copy> = {
     eyebrow: '文档优先的 Markdown 编辑器',
     heroTitle: '一个更安静的空间，',
     heroTitleAccent: '写出更深的内容。',
-    heroBody: 'Inkiva 是一款为思考、写作与持续专注而设计的 Markdown 编辑器。',
+    heroBody: 'Inkiva（墨映）是一款免费开源的所见即所得 Markdown 桌面编辑器，支持 Windows 和 macOS。直接在渲染后的文档中编辑普通 Markdown 文件，并提供本地导航、历史记录与恢复能力。',
     heroDownload: '下载 Inkiva',
     heroDocs: '查看文档',
-    heroNote: 'Windows 11、macOS · 免费开源',
+    heroNote: 'Windows 10 / 11 · macOS · 免费开源',
     editorTitle: '恰到好处.md',
     editorDocuments: '文档',
     editorRecent: '最近文档',
@@ -742,6 +742,7 @@ export default function QuietHomePage({ locale = 'en' }: { locale?: Locale }) {
             <div>
               <strong>{copy.footerResources}</strong>
               <Link href="/docs/">{copy.docs}</Link>
+              <Link href={isChinese ? "/zh-CN/compare/typora/" : "/compare/typora/"}>{isChinese ? "编辑器对比" : "Compare editors"}</Link>
               <a href={DOWNLOAD.releases} {...EXT_LINK}>
                 Releases
               </a>

@@ -24,6 +24,18 @@ export function buildSitemapEntries(lastModified = new Date()): MetadataRoute.Si
       changeFrequency: 'weekly',
       priority: 0.9
     },
+    {
+      url: absoluteUrl('/compare/typora/'),
+      lastModified,
+      changeFrequency: 'monthly',
+      priority: 0.8
+    },
+    {
+      url: absoluteUrl('/zh-CN/compare/typora/'),
+      lastModified,
+      changeFrequency: 'monthly',
+      priority: 0.8
+    },
     ...ALL_PAGES.map((page) => ({
       url: absoluteUrl(page.href),
       lastModified,

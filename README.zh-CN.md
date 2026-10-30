@@ -7,7 +7,7 @@
 <h1 align="center">Inkiva · 墨映</h1>
 
 <p align="center">
-  <strong>Inkiva（墨映）—— 一款免费、开源、以文档为中心的 Markdown 编辑器。</strong><br>
+  <strong>Inkiva（墨映）—— 一款免费开源、支持 Windows 和 macOS 的所见即所得 Markdown 编辑器。</strong><br>
   文档始终可见，写作无需离开当前页面。
 </p>
 
