@@ -200,3 +200,17 @@ GEO-03 should start with a narrowly scoped owned-content package:
 5. Validate generated static HTML and run existing website tests before merging.
 
 No product-code changes are justified by GEO-02 alone.
+
+
+## 10. Post-baseline execution update — 2026-10-30
+
+GEO-02 has been merged into `develop` through [PR #260](https://github.com/Bulls1986/Inkiva/pull/260), merge commit `fddfa285b7aeff285a1e80e32396521ea1ad9378`.
+
+The follow-on GEO-03 implementation has also been merged through [PR #261](https://github.com/Bulls1986/Inkiva/pull/261), merge commit `9c2bdf2924953e6d6cc240dec13caedd6ff1ff9c`. Its validated PR head passed Test, Lint, E2E Test and Windows/macOS PR Build workflows.
+
+Still pending by design:
+- Direct interactive answer sampling from ChatGPT Search, Gemini, Claude and Perplexity.
+- Live production verification of the deployed website and indexing endpoints.
+- Search Console/Bing Webmaster inspection where authorized.
+
+Do not report the direct AI-answer benchmark as completed until raw answers, model/version, exact prompts and citations have been captured.
