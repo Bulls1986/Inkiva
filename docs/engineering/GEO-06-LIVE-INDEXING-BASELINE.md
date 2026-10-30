@@ -461,3 +461,12 @@ The following table records the full visible first page, not a sample. “Dofoll
 | 98 | `epic-syndicate-link-baron-keyword.store` | 48 | 2 | 0 | 10 Sep 2026 |
 | 99 | `link-baron-link-juice-optimal-marketplace.store` | 48 | 2 | 0 | 9 Sep 2026 |
 | 100 | `fiverr-cost-effective-seo.site` | 48 | 1 | 0 | 9 Sep 2026 |
+
+
+### Continuation checkpoint — API access and page navigation (2026-10-30)
+
+- The currently connected Ahrefs browser tab is still on page 1 with `limit=100&offset=0`; it has not moved to page 2.
+- The Ahrefs API v3 `site-explorer-referring-domains` endpoint was checked for a full export (requested fields: domain, DR, spam flag, target links, dofollow links, traffic, organic positions and first-seen date; limit 1000). The connected Ahrefs account returned **`Insufficient plan`**. No API data was returned and no plan change was made.
+- The Browser connection exposes read-only access to already-open tabs, so it cannot change the current page selector or navigate the authenticated Ahrefs tab on the user's behalf.
+- Next required step: keep page size at 100 and switch the authenticated Ahrefs Referring Domains report to **page 2** (`offset=100`). Then re-read and record rows 101–200. Repeat for pages 3–6 until all 513 domains have been reviewed.
+- Page-2 URL with the current report scope and sort: https://app.ahrefs.com/site-explorer/refdomains?anchorRules=&bestFilter=all&domainNameRules=&followType=all&highlightChanges=none&history=all&historyDateRange=24h&ipRules=&limit=100&mode=subdomains&offset=100&projectId=10617729&refPageAuthorRules=&refPageTitleRules=&refPageUrlRules=&sort=Dr&sortDirection=desc&surroundingRules=&target=inkiva.net%2F&targetUrlRules=
