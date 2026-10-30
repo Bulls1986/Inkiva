@@ -76,4 +76,4 @@ The local HTTPS `git push` timed out after 120 seconds; a follow-up `git ls-remo
 
 ## 7. Handoff
 
-D03's implementation is merged in PR #270 and its 11/11 CI checks plus website deployment are verified. PR #271 carries only this post-merge stage-record reconciliation; do not merge it without explicit authorization. D04 should refresh end-user feature procedures, screenshots and the remaining stale package-level website README. D05 should establish Chinese documentation parity. D06 should add automated documentation link/anchor/asset checks without broadening product CI path filters.
+D03's implementation is merged in PR #270 and its 11/11 CI checks plus website deployment are verified. PR [#271](https://github.com/Bulls1986/Inkiva/pull/271) was squash-merged as `56cfc6bfe325d8d25a7a0c20b810396b4b4a74af`, closing this record. D04 user documentation merged in [#272](https://github.com/Bulls1986/Inkiva/pull/272); D06 documentation validation gate merged in [#273](https://github.com/Bulls1986/Inkiva/pull/273). D05 Chinese documentation parity remains outstanding; the D04 screenshot recapture/visual proof is not established.
