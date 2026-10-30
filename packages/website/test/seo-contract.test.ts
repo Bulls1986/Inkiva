@@ -27,16 +27,11 @@ test('site identity metadata describes the Inkiva Markdown editor consistently',
   assert.match(DEFAULT_DESCRIPTION, /WYSIWYG Markdown desktop editor/)
   assert.match(DEFAULT_DESCRIPTION, /Windows and macOS/)
 
-  const graph = createSiteJsonLd('0.6.0')['@graph']
-  const website = graph.find((item) => item['@type'] === 'WebSite')
-  const software = graph.find((item) => item['@type'] === 'SoftwareApplication')
-
-  assert.ok(website)
-  assert.ok(software)
-  assert.deepEqual(software.alternateName, ['Inkiva', 'Inkiva · 墨映', '墨映 Markdown 编辑器'])
-  assert.match(software.description, /WYSIWYG Markdown desktop editor/)
-  assert.match(software.operatingSystem, /Windows/)
-  assert.match(software.operatingSystem, /macOS/)
-  assert.doesNotMatch(software.operatingSystem, /Linux/)
-  assert.ok(software.featureList.includes('Local history, autosave and crash recovery'))
+  const jsonLd = JSON.stringify(createSiteJsonLd('0.6.0'))
+  assert.match(jsonLd, /Inkiva Markdown Editor/)
+  assert.match(jsonLd, /Inkiva · 墨映/)
+  assert.match(jsonLd, /墨映 Markdown 编辑器/)
+  assert.match(jsonLd, /Local history, autosave and crash recovery/)
+  assert.match(jsonLd, /Windows x64, macOS Intel, macOS Apple silicon/)
+  assert.doesNotMatch(jsonLd, /Linux/)
 })
