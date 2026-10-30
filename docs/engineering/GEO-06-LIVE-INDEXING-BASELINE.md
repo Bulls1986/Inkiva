@@ -210,19 +210,49 @@ The draft uses product facts already stated in the official website and document
 
 **No third-party directory submission has been made in this audit.** The listing is prepared, but publishing it is an external public action and should be explicitly approved by the project owner.
 
-## 11. Ahrefs account and API availability
+## 11. Ahrefs account and Site Explorer UI baseline
 
-The authenticated Ahrefs dashboard was inspected on 2026-10-30:
+The authenticated Ahrefs Site Explorer page for project `10617729` was read directly on 2026-10-30. This corrects the earlier API-only conclusion: the API endpoints return `Insufficient plan` on the Free plan, but the logged-in web UI still exposes useful overview metrics.
 
-- An Inkiva project exists, project ID: `10617729`.
-- The dashboard shows the account on the **Free** plan.
-- Site Explorer and Referring Domains entry points are visible in the dashboard.
-- The dashboard indicates tracked keywords are not available on the Free plan.
-- The installed Ahrefs API integration returned `Insufficient plan` for project listing, Brand Radar report/prompt listing, public domain rating, and Site Explorer metrics/referring-domain/organic-keyword endpoints.
+### UI snapshot
 
-Consequently, this report does **not** claim an Ahrefs Domain Rating, backlink count, referring-domain count, organic keyword count, traffic estimate or Brand Radar AI visibility metric. The connector is present; the limiting factor is the current Ahrefs account/API entitlement, not a missing installation.
+| Metric | Current snapshot | All-time |
+|---|---:|---:|
+| Domain Rating (DR) | 0 | — |
+| URL Rating (UR) | 0 | — |
+| Ahrefs Rank (AR) | 242,180,065 | — |
+| Backlinks | 679 | 719 |
+| Referring domains | 513 | 546 |
+| Organic keywords | 0 | — |
+| Estimated organic traffic | 0 | — |
+| Paid keywords / traffic | 0 | — |
 
-If the project owner wants to continue without upgrading, the next practical route is to open the Inkiva Site Explorer project in the authenticated Ahrefs UI and inspect whichever Free-plan panels are available. Direct project URL:
+### Link attribute distribution
+
+| Type | Count | Share |
+|---|---:|---:|
+| Follow referring domains | 4 | 0.8% |
+| Nofollow referring domains | 509 | 99.2% |
+| Follow backlinks | 5 | 0.7% |
+| Nofollow backlinks | 674 | 99.3% |
+
+The large referring-domain count is not equivalent to authority: almost all links in this snapshot are nofollow, while DR and UR are both 0. The source domains and anchors still need manual quality review before classifying them as spam, legitimate mentions or scraper-generated links. Do not attempt to manufacture followed links.
+
+### Ahrefs crawler and AI visibility
+
+- Crawled pages: **69**.
+- HTTP 200: **35 (50.7%)**.
+- HTTP 3XX: **34 (49.3%)**.
+- HTTP 404 / other 4XX / 5XX: **0**.
+- Brand Radar overview: **0 AI responses and 0 cited pages** across the displayed AI platform filters.
+
+The 3XX count is a crawler snapshot and needs URL-level inspection before treating it as a defect; redirects may be valid canonical normalization or legacy paths. The absence of Ahrefs organic keywords/traffic does not override Google Search Console's separate observed clicks. Likewise, Ahrefs Brand Radar zero is an index observation, not a direct fresh-session model benchmark.
+
+### API limitation — retained accurately
+
+The installed Ahrefs API integration still returned `Insufficient plan` for project listing, Brand Radar reports/prompts, public Domain Rating and Site Explorer API endpoints. No API metrics are claimed. The web UI overview is available under the current account and supplies the metrics above; upgrading is not required for this basic snapshot.
+
+Direct project URL:
 
 https://app.ahrefs.com/site-explorer/overview?mode=subdomains&projectId=10617729&target=inkiva.net%2F&volume_type=monthly
 
@@ -241,16 +271,47 @@ Some public search results still display the old `v0.5.0` snippet and have crawl
 - Canonical, hreflang, JSON-LD, robots, sitemap and `llms.txt` inspected.
 - Google Generative AI Search report read: 12 impressions across the selected three-month period; page-level distribution recorded.
 - Latest GitHub release and live homepage verified as v0.6.0.
-- Four independent Markdown directories checked; two contribution paths identified.
-- Ahrefs project existence and Free-plan/API limitation verified.
-- MarkdownList submission copy prepared; no external submission made.
+- Four independent Markdown directories checked.
+- Ahrefs Site Explorer UI metrics read: DR 0, UR 0, 679 backlinks, 513 referring domains, zero Ahrefs organic keywords/traffic, and zero Brand Radar responses; link attribute distribution and crawl response breakdown recorded.
+- Markdown Guide tool-directory entry submitted as [PR #316](https://github.com/mattcone/markdown-guide/pull/316); Netlify preview deployed successfully and the rendered page/icon were verified.
+- MarkdownList submission content prepared; public form inspected, but automated metadata lookup was rejected by its request-verification gate. No listing was created and no verification challenge was bypassed.
 
 ### Still open
 
 - Search Console Page indexing reasons and affected URLs.
 - Search Console Sitemap processing status and discovered URL count.
 - Fresh-session AI answer benchmark across ChatGPT Search, Gemini, Claude and Perplexity.
-- Owner approval and submission to MarkdownList; possible Markdown Guide pull request.
+- Markdown Guide PR #316 maintainer review/merge.
+- Complete the MarkdownList submission through its browser-verified form; owner authorization has been granted, but the site-side verification step remains.
 - P2 static Chinese `html lang` correction.
-- Ahrefs Site Explorer UI inspection or a plan/API entitlement change if quantitative Ahrefs data is required.
+- URL-level quality review of Ahrefs referring domains/backlinks and redirect rows.
 
+## 14. Markdown Guide external submission
+
+A public fork and submission branch were created:
+
+- Fork: https://github.com/Bulls1986/markdown-guide
+- Branch: `inkiva/add-markdown-editor-entry`
+- Pull request: https://github.com/mattcone/markdown-guide/pull/316
+- Added `_tools/inkiva.md` and `assets/images/tool-icons/inkiva.svg`.
+
+The PR follows the maintainer's contribution instructions: a concise neutral tool page, required icon, and a Markdown syntax support matrix. The matrix uses Inkiva's published syntax documentation and current implementation evidence; unsupported or undocumented extensions are not presented as supported.
+
+Netlify preview verification on 2026-10-30:
+
+- Preview URL: https://deploy-preview-316--markdown-guide.netlify.app/tools/inkiva/
+- Tool page: HTTP 200.
+- Icon URL: HTTP 200, served as `image/svg+xml`.
+- Rendered page title: `Inkiva Markdown Reference | Markdown Guide`.
+- Syntax table rendered, including Yes/Partial/No states.
+- Netlify deploy status: SUCCESS; header rules: SUCCESS; pages-changed and redirect-rules checks: NEUTRAL (not failures).
+
+The PR is open and mergeable but has not been merged by the upstream maintainer. Do not claim Inkiva is listed in the live directory until PR #316 is merged.
+
+## 15. MarkdownList submission gate
+
+The public submission page https://markdownlist.com/submit advertises a free listing and direct website backlink. Its form supports metadata autofill from the product homepage or manual entry.
+
+A read-only inspection confirmed the form flow. A direct metadata request from the project Runner to `POST /api/tool-metadata` returned HTTP 403 with `This request could not be verified.` This is a site-side request-verification gate. No submission payload was sent to the listing endpoint and no listing was created.
+
+Owner authorization to publish has been given. The remaining step is to complete the site's own browser verification through the public form. Do not bypass or emulate that verification. Once the owner completes the form, verify the resulting public product page and record its canonical URL.
