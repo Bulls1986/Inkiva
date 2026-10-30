@@ -1147,6 +1147,386 @@ table.md td code {
   color: var(--accent);
 }
 
+
+/* ---------- Documentation landing: focused entry points ---------- */
+.docs-home {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 72px 32px 112px;
+  color: var(--text);
+}
+.docs-home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr);
+  align-items: center;
+  gap: clamp(34px, 5vw, 72px);
+  padding-bottom: 86px;
+}
+.docs-home-hero-copy {
+  min-width: 0;
+}
+.docs-home-kicker,
+.docs-home-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+}
+.docs-home-kicker-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 13%, transparent);
+}
+.docs-home-hero h1 {
+  margin-top: 20px;
+  max-width: 590px;
+  font-size: clamp(43px, 4.6vw, 64px);
+  line-height: 1.06;
+  font-weight: 650;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
+}
+.docs-home-lead {
+  max-width: 540px;
+  margin-top: 22px;
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+.docs-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 30px;
+}
+.docs-home-primary,
+.docs-home-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  min-height: 46px;
+  padding: 0 20px;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 620;
+  text-decoration: none;
+  transition: transform .18s var(--ease), background .18s, border-color .18s;
+}
+.docs-home-primary {
+  color: #fff;
+  background: var(--a1);
+  box-shadow: 0 12px 30px -16px var(--a1);
+}
+.docs-home-primary:hover {
+  background: var(--a2);
+  transform: translateY(-2px);
+}
+.docs-home-secondary {
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+  background: var(--panel);
+}
+.docs-home-secondary:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  transform: translateY(-2px);
+}
+.docs-home-preview {
+  min-width: 0;
+  overflow: hidden;
+  padding: 7px;
+  border: 1px solid var(--border-2);
+  border-radius: 18px;
+  background: color-mix(in oklch, var(--panel-2) 80%, var(--bg));
+  box-shadow: 0 30px 100px -50px rgba(31, 99, 208, .55), 0 22px 60px -35px rgba(0, 0, 0, .75);
+  transform: rotate(1.5deg);
+}
+.docs-home-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 13px 13px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .13em;
+}
+.docs-home-preview-dots {
+  display: inline-flex;
+  gap: 6px;
+}
+.docs-home-preview-dots i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-2);
+}
+.docs-home-preview img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top left;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.docs-home-section + .docs-home-section {
+  margin-top: 67px;
+}
+.docs-home-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.docs-home-section-heading h2 {
+  margin-top: 9px;
+  font-size: clamp(25px, 2.5vw, 33px);
+  font-weight: 630;
+  letter-spacing: -.035em;
+  line-height: 1.2;
+}
+.docs-home-section-heading p {
+  padding-bottom: 2px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.docs-home-paths {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.docs-home-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 232px;
+  padding: 26px;
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  color: var(--text);
+  background: linear-gradient(145deg, color-mix(in oklch, var(--panel-2) 80%, transparent), var(--panel));
+  text-decoration: none;
+  transition: transform .2s var(--ease), border-color .2s, background .2s;
+}
+.docs-home-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in oklch, var(--accent) 42%, var(--border));
+  background: var(--panel-2);
+}
+.docs-home-card-overline {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .08em;
+}
+.docs-home-card-title {
+  margin-top: 29px;
+  font-size: 22px;
+  font-weight: 630;
+  line-height: 1.2;
+  letter-spacing: -.025em;
+}
+.docs-home-card-description {
+  margin-top: 10px;
+  color: var(--text-2);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.docs-home-card-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 23px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 620;
+}
+.docs-home-card-cta > span {
+  color: var(--accent);
+  font-size: 17px;
+}
+.docs-home-topics {
+  scroll-margin-top: calc(var(--doc-hdr) + var(--doc-tabs) + 24px);
+}
+.docs-home-topic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.docs-home-topic {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  min-height: 82px;
+  gap: 16px;
+  padding: 16px 19px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  color: var(--text);
+  background: var(--panel);
+  transition: background .2s, border-color .2s;
+}
+.docs-home-topic:hover {
+  background: var(--panel-2);
+  border-color: var(--border-2);
+}
+.docs-home-topic strong,
+.docs-home-topic small {
+  display: block;
+}
+.docs-home-topic strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.docs-home-topic small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.docs-home-topic-arrow {
+  flex: none;
+  color: var(--accent);
+}
+.docs-home-primary:focus-visible,
+.docs-home-secondary:focus-visible,
+.docs-home-card:focus-visible,
+.docs-home-topic:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+@media (max-width: 940px) {
+  .docs-home {
+    padding-top: 52px;
+  }
+  .docs-home-hero {
+    grid-template-columns: 1fr;
+    padding-bottom: 60px;
+  }
+  .docs-home-preview {
+    display: none;
+  }
+  .docs-home-paths {
+    gap: 12px;
+  }
+  .docs-home-card {
+    min-height: 240px;
+    padding: 20px;
+  }
+  .docs-home-card-title {
+    margin-top: 20px;
+    font-size: 20px;
+  }
+}
+@media (max-width: 760px) {
+  .docs-home {
+    padding: 38px 20px 72px;
+  }
+  .docs-home-hero {
+    padding-bottom: 50px;
+  }
+  .docs-home-hero h1 {
+    font-size: clamp(36px, 9vw, 47px);
+    letter-spacing: -.04em;
+  }
+  .docs-home-lead {
+    margin-top: 17px;
+    font-size: 15.5px;
+    line-height: 1.65;
+  }
+  .docs-home-actions {
+    margin-top: 24px;
+  }
+  .docs-home-section-heading {
+    display: block;
+    margin-bottom: 19px;
+  }
+  .docs-home-section-heading p {
+    margin-top: 9px;
+    font-size: 13px;
+  }
+  .docs-home-paths,
+  .docs-home-topic-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .docs-home-card {
+    min-height: 166px;
+    padding: 20px;
+  }
+  .docs-home-card-title {
+    margin-top: 14px;
+  }
+  .docs-home-card-description {
+    font-size: 13px;
+  }
+  .docs-home-card-cta {
+    padding-top: 14px;
+  }
+  .docs-home-section + .docs-home-section {
+    margin-top: 53px;
+  }
+  .docs-home-topic {
+    min-height: 74px;
+  }
+  .dochdr-in,
+  .doctabs-in {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .dochdr-in {
+    gap: 12px;
+  }
+  .dochdr-right {
+    gap: 2px;
+  }
+  .dochdr-right a[aria-label='GitHub repository'] {
+    display: none;
+  }
+  .dochdr-right .doc-cta {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .doctab {
+    gap: 7px;
+    margin-right: 13px;
+    font-size: 12px;
+  }
+  .doctab svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+@media (max-width: 370px) {
+  .dochdr-right .doc-cta {
+    display: none;
+  }
+  .docs-home-actions a {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .docs-home-primary,
+  .docs-home-secondary,
+  .docs-home-card,
+  .docs-home-topic {
+    transition: none;
+  }
+}
+
 @media (max-width: 1180px) {
   .docs-shell {
     grid-template-columns: var(--doc-sidebar-w) minmax(0, 1fr);
