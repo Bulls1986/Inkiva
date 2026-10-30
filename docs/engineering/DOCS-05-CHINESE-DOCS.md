@@ -1,7 +1,7 @@
 # D05 — Chinese public user documentation and legacy translation disposition
 
 - Date: 2026-10-30
-- Status: **implementation delivered to PR for official CI; merge/deployment evidence to be appended**
+- Status: **CLOSED / MERGED / DEPLOYED — PR #275, official 11/11 CI SUCCESS, post-merge website deployment SUCCESS**
 - Base: `develop@5013d536bc3aadcd6adef43dc8c3977830094d3f`, after D04/D06 closeout PR #274
 - Branch: `docs/d05-chinese-user-manual`
 - Scope: 20/20 English user-documentation route counterparts, Chinese content, navigation/language discovery, metadata, sitemap/search-index inclusion, legacy-translation archive labelling
@@ -41,7 +41,7 @@ The supported desktop package matrix remains Windows x64 and macOS Intel/Apple S
 
 A translated root marketing page is not translated user documentation. Localized page sources must be registered explicitly so the existing website search index, sitemap, page renderer and D06 link gate see the same page set. Legacy upstream translated documents must be clearly marked as archives instead of silently retaining unsupported platform and license claims.
 
-After official CI, record exact PR, squash merge SHA, website deployment and updated documentation registry count. Keep English developer reference and screenshots as explicit qualifications rather than falsely claiming full bilingual/visual parity.
+Final integration evidence is recorded in Stage 4 below. Keep English developer references and unverified screenshots as explicit qualifications rather than falsely claiming full word-for-word bilingual or visual parity.
 
 ## Stage 2 — First official CI and the search-index type boundary
 
@@ -56,3 +56,17 @@ After official CI, record exact PR, squash merge SHA, website deployment and upd
 - Added an explicit Chinese documentation tab icon. The existing two icons and layout semantics remain unchanged; do **not** widen the map to `Partial` or replace it with a fallback that hides missing locales. The exact three-key `Record<DocTabId,...>` contract remains strict.
 - A focused repository scan found the existing `DocsChrome.tsx` dynamic activeTab lookup already derives the active tab from the canonical docs registry. This did not require another route/state owner.
 - Fresh final-head website build/Test, E2E, Lint and platform package checks must pass before merging.
+
+
+## Stage 4 — Official latest-head CI, squash merge, website publication (2026-10-30)
+
+- Final executable PR: [#275 — Chinese user-manual routes and archive notices](https://github.com/Bulls1986/Inkiva/pull/275), latest source head `fe1f52c3129d32b7170d22bffe0749361e53c36f`. Earlier heads with two diagnosed TypeScript failures are preserved in Stages 2 and 3; they are **not** counted as passing.
+- **Official final-head CI: all 11/11 checks SUCCESS**: Test (including 16/16 website test assertions and Next.js static build/typecheck), Lint, real Electron E2E, Windows x64 build, macOS Intel x64 build, macOS Apple Silicon arm64 build, three corresponding package/install smoke checks, Updater artifact smoke, and artifact-link comment. No test/CI quality gate was disabled or relaxed.
+- Separate D06 checker validation against the final candidate's Chinese source set returned **52 registered pages, 20 Chinese, zero missing source files, zero broken checked relative links/images/anchors**. Existing English 20-user/12-developer pages and routes are preserved. Do not misrepresent condensed Chinese advanced-reference summaries as exhaustive translations.
+- GitHub confirmed **squash merge**: PR #275 state `closed`, `merged=true`, merge commit `ba0a728fef09d1fe5a834fbe8ff75867566d9217`. The authoritative remote `develop` ref was independently verified at exactly that SHA.
+- Post-merge [Deploy Inkiva website — run 41039427808](https://github.com/Bulls1986/Inkiva/actions/runs/41039427808): **completed / success**, deploying the new docs routes with the same public docs integrity gate. No unsupported platform or outdated license claims were reactivated.
+- **Outstanding visual qualification:** public user-guide screenshot assets were last refreshed 2026-09-17 in PR #134, before v0.6.0. Current desktop capture/visual matching was **not executed**. The complete real-Electron screenshots, UI labels, missing-link/image states, 300+ Outline keyboard and table verification checklist is tracked in [Issue #276](https://github.com/Bulls1986/Inkiva/issues/276). Source asset existence and automated CI do not close this issue.
+
+### Lessons / future handoff
+
+Adding a third public docs tab touches both the search-index tab type and the exhaustive tab-icon map. Preserve strict shared types and focused CI failures to find missing client-contract owners; do not weaken exhaustive maps. Translated route discoverability, sitemap/SEO metadata and search indexing must derive from one canonical docs navigation registry. Retain old upstream translations for attribution only with explicit archival notices. Next work is visual screenshot qualification #276 (requires actual v0.6.0 desktop Electron capture); no D05 page-routing or merge work remains open.
