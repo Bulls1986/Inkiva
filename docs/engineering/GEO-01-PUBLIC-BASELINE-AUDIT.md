@@ -138,9 +138,9 @@ Each comparison must be reviewed against the current released version, cite prim
 
 ### P2 — Earn independent corroboration
 
-- Identify relevant legitimate open-source software directories and Markdown editor lists.
-- Submit accurate product facts to directories that accept submissions.
-- Seek independent reviews or practical tutorials only where there is genuine editorial value.
+- Keep existing third-party listings factually accurate when encountered; do not run an active directory-submission or outreach campaign in this phase.
+- Accept genuine independent reviews or practical tutorials if they arise organically and have real editorial value.
+- Preserve the existing project preference: no sponsorship, community operations, Product Hunt launch, or broad growth-marketing campaign unless separately requested.
 - Encourage authentic user feedback; do not fabricate testimonials, reviews, stars, downloads, community activity or third-party endorsements.
 - No paid link schemes, fake accounts, automated forum posting, keyword spam or undisclosed promotional content.
 
@@ -199,6 +199,7 @@ No numerical GEO score is assigned in this report because direct multi-model sam
 - Do not make unsupported performance, security, privacy, compatibility or competitor claims.
 - Do not equate a generated AI answer with a stable ranking.
 - Do not fabricate external citations, reviews, usage statistics or model visibility measurements.
+- Keep execution focused on owned website, documentation and README assets; no sponsorship, Product Hunt, community-operation or broad outreach campaign without separate approval.
 - GEO content changes must remain consistent with the actual shipped release, not merely unreleased `develop` capabilities.
 
 ## 10. Stage handoff
