@@ -18,7 +18,7 @@ const COPY = {
       ['Desktop platforms', 'Windows x64; macOS Intel and Apple silicon', 'Windows, macOS and Linux', 'Windows, macOS and Linux'],
       ['Local Markdown files', 'Yes · ordinary CommonMark/GFM files and folders', 'Yes · ordinary Markdown files', 'Yes · ordinary Markdown files'],
       ['Navigation', 'Tabs, folder navigation, Quick Open, outline and search', 'File navigation, outline and quick open', 'File navigation and editor modes'],
-      ['Recovery features', 'Autosave, local history and crash recovery', 'Check official docs for current workflow', 'Check official docs for current workflow'],
+      ['Recovery features', 'Autosave, local history and crash recovery', 'Not assessed here; see current official docs', 'Not assessed here; see current official docs'],
       ['Math and diagrams', 'KaTeX, Mermaid, PlantUML, Flowchart and Vega-Lite', 'Math and diagrams', 'KaTeX and supported Markdown extensions'],
       ['Export', 'HTML and PDF', 'HTML, PDF and other documented export paths', 'HTML and PDF']
     ],
@@ -64,7 +64,7 @@ const COPY = {
       ['桌面平台', 'Windows x64；macOS Intel / Apple Silicon', 'Windows、macOS、Linux', 'Windows、macOS、Linux'],
       ['本地 Markdown 文件', '支持普通 CommonMark/GFM 文件和文件夹', '支持普通 Markdown 文件', '支持普通 Markdown 文件'],
       ['导航能力', '标签、文件夹导航、Quick Open、大纲和搜索', '文件导航、大纲和快速打开', '文件导航和编辑模式'],
-      ['恢复能力', '自动保存、本地历史和崩溃恢复', '请以官方文档当前说明为准', '请以官方文档当前说明为准'],
+      ['恢复能力', '自动保存、本地历史和崩溃恢复', '本次不作结论，请查阅当前官方文档', '本次不作结论，请查阅当前官方文档'],
       ['数学与图表', 'KaTeX、Mermaid、PlantUML、Flowchart、Vega-Lite', '数学公式和图表', 'KaTeX 及支持的 Markdown 扩展'],
       ['导出', 'HTML、PDF', 'HTML、PDF 及其他官方文档列出的导出方式', 'HTML、PDF']
     ],
