@@ -77,7 +77,7 @@ The corrected PR head was validated by all four GitHub Actions workflows on 2026
 
 The Test workflow completed website unit tests, website static build, SEO output verification and repository unit tests. The Lint workflow passed. The E2E workflow passed. The PR Build workflow completed Windows x64, macOS Intel x64 and macOS Apple Silicon arm64 build/artifact jobs. Build artifacts were uploaded by the workflow.
 
-PR #261 is mergeable and all observed CI workflows on the validated code head passed. It remains open and has not been merged or deployed. This is not a claim of post-deployment production verification.
+PR #261 was merged into `develop` on 2026-10-30 as merge commit `9c2bdf2924953e6d6cc240dec13caedd6ff1ff9c`. All observed CI workflows on the validated implementation head passed. Production deployment and live-site verification remain separate gates.
 
 ## 5. Acceptance criteria
 
@@ -91,8 +91,8 @@ PR #261 is mergeable and all observed CI workflows on the validated code head pa
 
 ## 6. Handoff and next steps
 
-- GEO-01 and GEO-02 research reports remain in their respective documentation PRs.
-- GEO-03 implementation is isolated in PR #261; all observed Test, Lint, E2E and PR Build workflows passed on the validated implementation head. PR #261 remains open and awaits explicit merge authorization.
-- After explicit merge authorization and website deployment, verify live HTML metadata, JSON-LD, robots.txt, sitemap.xml and the two comparison routes.
+- GEO-01, GEO-02 and GEO-03 are all merged into `develop` (PRs #259, #260 and #261).
+- GEO-03 implementation is merged; all observed Test, Lint, E2E and PR Build workflows passed on the validated implementation head.
+- After website deployment, verify live HTML metadata, JSON-LD, robots.txt, sitemap.xml and the two comparison routes.
 - Submit updated sitemap through authorized search webmaster consoles if configured.
 - Repeat the GEO-02 fixed prompt corpus; direct interactive sampling of ChatGPT Search, Gemini, Claude and Perplexity remains a separate manual benchmark and must not be inferred from public web search rankings.
