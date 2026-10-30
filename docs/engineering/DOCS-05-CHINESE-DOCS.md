@@ -49,3 +49,10 @@ After official CI, record exact PR, squash merge SHA, website deployment and upd
 - The same head's Test workflow **failed** at the subsequent Next.js static build TypeScript check. The exact diagnostic was `scripts/build-docs-index.ts:76` — `DocTabId` including `zh` was not assignable to `IndexedPage.tab` declared as the older union `'user' | 'dev'`. This is an owned static type contract mismatch, not missing dependencies or a product runtime regression.
 - Reviewed the website source for other stale `'user' | 'dev'` unions: only `src/lib/docs-search.ts` needed a coordinated type update. Changed `IndexedPage.tab` to import the same `DocTabId` type from the canonical docs navigation module (type-only import). No runtime code, index records, performance settings or tests were weakened.
 - Fresh-head CI is mandatory; the initial 16 passing tests cannot be used as a final successful build verdict.
+
+## Stage 3 — Second official CI: docs tab exhaustiveness
+
+- PR #275 updated head `a4115e7c3aec6c1318eeb2473501624d204feb38` continued to pass all **16/16** website tests, but the TypeScript/static-build gate identified a second exhaustive type-map gap at `src/components/docs/DocsTabs.tsx:9`: `TAB_ICONS: Record<DocTabId, ReactNode>` still defined only `user` and `dev`.
+- Added an explicit Chinese documentation tab icon. The existing two icons and layout semantics remain unchanged; do **not** widen the map to `Partial` or replace it with a fallback that hides missing locales. The exact three-key `Record<DocTabId,...>` contract remains strict.
+- A focused repository scan found the existing `DocsChrome.tsx` dynamic activeTab lookup already derives the active tab from the canonical docs registry. This did not require another route/state owner.
+- Fresh final-head website build/Test, E2E, Lint and platform package checks must pass before merging.

@@ -31,6 +31,19 @@ const TAB_ICONS: Record<DocTabId, React.ReactNode> = {
     >
       <path d="m8 16-4-4 4-4M16 8l4 4-4 4M14.5 4l-5 16" />
     </svg>
+  ),
+  zh: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 5h12M9 3v2M5 8l6 6M4 14l6-6 2-3" />
+      <path d="m13 21 5-12 5 12M15 17h6" />
+    </svg>
   )
 }
 
