@@ -463,13 +463,14 @@ The following table records the full visible first page, not a sample. “Dofoll
 | 100 | `fiverr-cost-effective-seo.site` | 48 | 1 | 0 | 9 Sep 2026 |
 
 
-### Continuation checkpoint — Ahrefs review progress (2026-10-30)
+### Continuation checkpoint — Ahrefs referring-domain review completed (2026-10-30)
 
-- Ahrefs API v3 `site-explorer-referring-domains` returned **`Insufficient plan`** for a full export. No API data was returned and no plan change was made.
-- The authenticated browser report is now confirmed on page 2 (`limit=100&offset=100`); rows 101–200 have been captured and recorded in section 18 below.
-- Remaining scope: pages 3–6, **313 referring domains** (rows 201–513).
-- Continue with page size 100, DR descending, same target `inkiva.net/`, Subdomains, all link attributes. The next page is page 3 (`offset=200`).
-
+- Ahrefs API v3 `site-explorer-referring-domains` returned **`Insufficient plan`** for bulk export. No API data was returned and no plan change was made.
+- Authenticated Ahrefs UI pages 1–6 have now all been captured at `limit=100`, with offsets `0,100,200,300,400,500`. All **513/513 referring domains** are recorded in sections 17–22.
+- Full inventory reconciliation: **513 referring domains**, **512 Ahrefs-SPAM-labelled domains**, **1 unlabelled domain** (`upstar.dev`, row 435), **679 links to target**, **5 dofollow links**. This reconciles with the Ahrefs overview snapshot of 679 backlinks (5 followed / 674 nofollow).
+- The five dofollow backlinks are from four referring domains: `daxsupport.com` (1), `kaila.biz` (1), `link-pen.com` (2), and `trip-planner.shop` (1). Their source URLs and anchor text still need page-level verification.
+- One domain shows non-zero traffic/keywords in the report: `digitalboost.site` (traffic 2, keywords 1); it is still labelled SPAM by Ahrefs.
+- **Do not submit a Disavow file yet.** Ahrefs' SPAM label is not a Google manual-action verdict. The next evidence step is to inspect the five followed backlinks, the unlabelled `upstar.dev` link and `digitalboost.site`, then check Google Search Console Manual actions and Security issues.
 
 ## 18. Ahrefs referring-domain quality review — page 2 (rows 101–200)
 
@@ -597,3 +598,396 @@ Next steps: inspect pages 3–6; then review representative backlink source URLs
 | 198 | `searchrankgroup.shop` | 38 | 58 | 1 | 0 | 0 | 1 | 0 | 11 Sep 2026 |
 | 199 | `backlinkbuilders.shop` | 37 | 55 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
 | 200 | `rankseocollective.shop` | 37 | 200 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+
+
+## 19. Ahrefs referring-domain quality review — page 3 (rows 201–300)
+
+Authenticated Ahrefs Site Explorer snapshot inspected on **2026-10-30**. Confirmed URL parameters: `limit=100&offset=200`; this is page 3 and contains 100 rows.
+
+- Report: https://app.ahrefs.com/site-explorer/refdomains?anchorRules=&bestFilter=all&domainNameRules=&followType=all&highlightChanges=none&history=all&historyDateRange=24h&ipRules=&limit=100&mode=subdomains&offset=200&projectId=10617729&refPageAuthorRules=&refPageTitleRules=&refPageUrlRules=&sort=Dr&sortDirection=desc&surroundingRules=&target=inkiva.net%2F&targetUrlRules=
+- Scope: `inkiva.net/`, Subdomains, all link attributes, DR descending.
+- Rows: **201–300 (100)**.
+- Ahrefs SPAM labels: **100/100**.
+- DR range: **2.1–37**.
+- Links to Inkiva: **122**; dofollow links: **4**.
+- Zero traffic: **100/100**; zero keywords: **100/100**.
+- TLD distribution: `shop`: 92, `site`: 3, `com`: 2, `biz`: 1, `website`: 1, `agency`: 1.
+
+
+### Page 3 inventory (100 rows)
+
+| # | Referring domain | DR | Dofollow ref. domains | Dofollow linked domains | Traffic | Keywords | Links to target | Dofollow links | First seen |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 201 | `webrankinsights.shop` | 37 | 106 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 202 | `domainrankresults.shop` | 37 | 109 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 203 | `domainrankacademy.shop` | 37 | 119 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 204 | `linkgrowthstudio.shop` | 37 | 57 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 205 | `linkseocollective.shop` | 37 | 61 | 1 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 206 | `siterankbuilders.shop` | 37 | 109 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 207 | `backlinkmasters.shop` | 37 | 55 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 208 | `pageseopartners.shop` | 37 | 55 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 209 | `seolinkcentral.shop` | 37 | 62 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 210 | `seogrowthpipeline.shop` | 37 | 55 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 211 | `linkgrowthsource.shop` | 37 | 66 | 1 | 0 | 0 | 2 | 0 | 17 Sep 2026 |
+| 212 | `organicrankdirect.shop` | 37 | 61 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 213 | `organicranksystems.shop` | 37 | 66 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 214 | `linkcollective.shop` | 37 | 63 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 215 | `rankgrowthgroup.shop` | 37 | 55 | 1 | 0 | 0 | 1 | 0 | 23 Sep 2026 |
+| 216 | `toprankcompany.shop` | 37 | 59 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 217 | `siteranksolutions.shop` | 37 | 57 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 218 | `domainrankpartners.shop` | 37 | 60 | 1 | 0 | 0 | 1 | 0 | 22 Sep 2026 |
+| 219 | `rankseojunction.shop` | 37 | 59 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 220 | `webrankresults.shop` | 37 | 64 | 1 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 221 | `pageseoexpress.shop` | 37 | 65 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 222 | `pageseonetwork.shop` | 37 | 62 | 1 | 0 | 0 | 1 | 0 | 22 Sep 2026 |
+| 223 | `seolinkfactory.shop` | 37 | 63 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 224 | `seoboostsystems.shop` | 37 | 64 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 225 | `seogrowthresults.shop` | 37 | 62 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 226 | `searchrankbuilders.shop` | 37 | 55 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 227 | `seoboostagency.shop` | 37 | 65 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 228 | `rankgrowthpartners.shop` | 37 | 63 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 229 | `siterankacademy.shop` | 37 | 66 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 230 | `toprankacademy.shop` | 37 | 55 | 1 | 0 | 0 | 2 | 0 | 21 Sep 2026 |
+| 231 | `toprankservice.shop` | 37 | 54 | 1 | 0 | 0 | 2 | 0 | 22 Sep 2026 |
+| 232 | `seolinkcompany.shop` | 37 | 62 | 1 | 0 | 0 | 1 | 0 | 22 Sep 2026 |
+| 233 | `pageseoresults.shop` | 37 | 63 | 1 | 0 | 0 | 2 | 0 | 21 Sep 2026 |
+| 234 | `rankgrowthmarket.shop` | 37 | 56 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 235 | `serpcollective.shop` | 37 | 54 | 1 | 0 | 0 | 2 | 0 | 22 Sep 2026 |
+| 236 | `pageseosystems.shop` | 37 | 61 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 237 | `rankseomasters.shop` | 37 | 65 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 238 | `domainrankexpress.shop` | 37 | 64 | 1 | 0 | 0 | 2 | 0 | 21 Sep 2026 |
+| 239 | `backlinkinsights.shop` | 37 | 51 | 1 | 0 | 0 | 2 | 0 | 21 Sep 2026 |
+| 240 | `siterankservice.shop` | 37 | 45 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 241 | `seopxl-ranking-boost-lab.shop` | 32 | 17 | 0 | 0 | 0 | 1 | 0 | 11 Sep 2026 |
+| 242 | `seopxl-organic-boost-lab.shop` | 32 | 39 | 4 | 0 | 0 | 2 | 0 | 18 Sep 2026 |
+| 243 | `seopxl-traffic-growth-lab.shop` | 32 | 35 | 4 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 244 | `seo-growth-authority-boost-hub.shop` | 32 | 25 | 2 | 0 | 0 | 1 | 0 | 10 Sep 2026 |
+| 245 | `seopxl-performance-authority-engine.shop` | 32 | 29 | 4 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 246 | `swiftranklab.shop` | 31 | 37 | 0 | 0 | 0 | 2 | 0 | 20 Sep 2026 |
+| 247 | `grandranklab.shop` | 31 | 37 | 0 | 0 | 0 | 2 | 0 | 27 Sep 2026 |
+| 248 | `brightseohub.shop` | 30 | 36 | 0 | 0 | 0 | 1 | 0 | 20 Sep 2026 |
+| 249 | `freshranklab.shop` | 30 | 34 | 0 | 0 | 0 | 2 | 0 | 27 Sep 2026 |
+| 250 | `brightboosthub.shop` | 30 | 35 | 0 | 0 | 0 | 1 | 0 | 20 Sep 2026 |
+| 251 | `brightseolink.shop` | 30 | 35 | 0 | 0 | 0 | 2 | 0 | 20 Sep 2026 |
+| 252 | `grandlinkpro.shop` | 30 | 34 | 0 | 0 | 0 | 2 | 0 | 27 Sep 2026 |
+| 253 | `swiftseohub.shop` | 30 | 34 | 0 | 0 | 0 | 1 | 0 | 20 Sep 2026 |
+| 254 | `swiftlinkpro.shop` | 30 | 34 | 0 | 0 | 0 | 2 | 0 | 20 Sep 2026 |
+| 255 | `brightlinkpro.shop` | 30 | 35 | 0 | 0 | 0 | 2 | 0 | 20 Sep 2026 |
+| 256 | `freshseohub.shop` | 30 | 35 | 0 | 0 | 0 | 2 | 0 | 27 Sep 2026 |
+| 257 | `authoritypeak.shop` | 30 | 34 | 0 | 0 | 0 | 2 | 0 | 27 Sep 2026 |
+| 258 | `quality-manual-link-building.shop` | 26 | 7 | 0 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 259 | `high-authority-contextual-backlink.shop` | 26 | 8 | 0 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 260 | `authority-manual-seo-backlinks.shop` | 26 | 7 | 0 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 261 | `seo-backlinks-contextual-dofollow.site` | 26 | 8 | 0 | 0 | 0 | 2 | 0 | 18 Sep 2026 |
+| 262 | `daxsupport.com` | 25 | 49 | 12022806 | 0 | 0 | 1 | 1 | 9 Sep 2026 |
+| 263 | `white-hat-high-authority-seo.shop` | 22 | 8 | 0 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 264 | `skyrocket-ranking-with-high-quality-backlinks.site` | 22 | 8 | 0 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 265 | `kaila.biz` | 14 | 1023 | 14923738 | 0 | 0 | 1 | 1 | 12 Sep 2026 |
+| 266 | `trafficspike.shop` | 12 | 76 | 1 | 0 | 0 | 1 | 0 | 22 Sep 2026 |
+| 267 | `rankyour.website` | 10 | 213 | 998 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 268 | `webranky.shop` | 7 | 19 | 0 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+| 269 | `link-pen.com` | 6 | 459 | 12855279 | 0 | 0 | 2 | 2 | 17 Sep 2026 |
+| 270 | `linkly.agency` | 3.6 | 129 | 3 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+| 271 | `siteranker.shop` | 3.1 | 70 | 0 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 272 | `seorankoworld.shop` | 2.9 | 45 | 0 | 0 | 0 | 2 | 0 | 10 Sep 2026 |
+| 273 | `seotrove.shop` | 2.8 | 79 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 274 | `backlinks-agency.shop` | 2.8 | 49 | 0 | 0 | 0 | 1 | 0 | 13 Sep 2026 |
+| 275 | `highqualitybacklink.shop` | 2.8 | 45 | 0 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 276 | `backlinksagency.shop` | 2.8 | 47 | 0 | 0 | 0 | 1 | 0 | 13 Sep 2026 |
+| 277 | `sitebooster.shop` | 2.8 | 47 | 0 | 0 | 0 | 1 | 0 | 13 Sep 2026 |
+| 278 | `websitebooster.shop` | 2.8 | 49 | 0 | 0 | 0 | 1 | 0 | 13 Sep 2026 |
+| 279 | `seolinksagency.shop` | 2.8 | 46 | 0 | 0 | 0 | 1 | 0 | 13 Sep 2026 |
+| 280 | `rankbundle.shop` | 2.7 | 64 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 281 | `seorankoworld.site` | 2.3 | 28 | 0 | 0 | 0 | 2 | 0 | 9 Sep 2026 |
+| 282 | `seo-growth.shop` | 2.1 | 48 | 0 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 283 | `ranking-suite.shop` | 2.1 | 48 | 0 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+| 284 | `seo-rank-pro.shop` | 2.1 | 48 | 0 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+| 285 | `rank-forge.shop` | 2.1 | 48 | 0 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+| 286 | `rank-engine.shop` | 2.1 | 44 | 0 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+| 287 | `seo-boosting.shop` | 2.1 | 47 | 0 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 288 | `fastseogrowth.shop` | 2.1 | 47 | 0 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 289 | `highauthorityseo.shop` | 2.1 | 45 | 0 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 290 | `fastseoranking.shop` | 2.1 | 44 | 0 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 291 | `rank-optimizer.shop` | 2.1 | 47 | 0 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 292 | `seorankingpro.shop` | 2.1 | 46 | 0 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 293 | `rankingexpert.shop` | 2.1 | 45 | 0 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 294 | `seo-boost-hub.shop` | 2.1 | 47 | 0 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+| 295 | `highseogrowth.shop` | 2.1 | 45 | 0 | 0 | 0 | 2 | 0 | 14 Sep 2026 |
+| 296 | `seo-ranking.shop` | 2.1 | 46 | 0 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+| 297 | `site-optimizer.shop` | 2.1 | 44 | 0 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+| 298 | `qualitybacklinks.shop` | 2.1 | 46 | 0 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 299 | `seobacklinkly.shop` | 2.1 | 46 | 0 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+| 300 | `ranking-spot.shop` | 2.1 | 44 | 0 | 0 | 0 | 1 | 0 | 15 Sep 2026 |
+
+
+## 20. Ahrefs referring-domain quality review — page 4 (rows 301–400)
+
+Authenticated Ahrefs Site Explorer snapshot inspected on **2026-10-30**. Confirmed URL parameters: `limit=100&offset=300`; this is page 4 and contains 100 rows.
+
+- Report: https://app.ahrefs.com/site-explorer/refdomains?anchorRules=&bestFilter=all&domainNameRules=&followType=all&highlightChanges=none&history=all&historyDateRange=24h&ipRules=&limit=100&mode=subdomains&offset=300&projectId=10617729&refPageAuthorRules=&refPageTitleRules=&refPageUrlRules=&sort=Dr&sortDirection=desc&surroundingRules=&target=inkiva.net%2F&targetUrlRules=
+- Scope: `inkiva.net/`, Subdomains, all link attributes, DR descending.
+- Rows: **301–400 (100)**.
+- Ahrefs SPAM labels: **100/100**.
+- DR range: **0.1–2.1**.
+- Links to Inkiva: **110**; dofollow links: **0**.
+- Zero traffic: **99/100**; zero keywords: **99/100**.
+- TLD distribution: `shop`: 92, `site`: 7, `agency`: 1.
+- Non-zero traffic/keyword rows: `digitalboost.site` (traffic 2, keywords 1).
+
+### Page 4 inventory (100 rows)
+
+| # | Referring domain | DR | Dofollow ref. domains | Dofollow linked domains | Traffic | Keywords | Links to target | Dofollow links | First seen |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 301 | `seogrowing.shop` | 2.1 | 46 | 0 | 0 | 0 | 1 | 0 | 14 Sep 2026 |
+| 302 | `digitalboost.site` | 1.7 | 19 | 0 | 2 | 1 | 1 | 0 | 9 Sep 2026 |
+| 303 | `nexusnext.agency` | 1.6 | 110 | 998 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 304 | `rankqira.shop` | 1.6 | 2 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 305 | `easylinkpro.shop` | 1.6 | 1 | 0 | 0 | 0 | 2 | 0 | 29 Sep 2026 |
+| 306 | `linkwares.shop` | 1.3 | 132 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 307 | `rankstash.shop` | 1.3 | 60 | 1 | 0 | 0 | 2 | 0 | 17 Sep 2026 |
+| 308 | `rankoutlet.shop` | 1.3 | 113 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 309 | `seostock.shop` | 1.3 | 108 | 1 | 0 | 0 | 2 | 0 | 19 Sep 2026 |
+| 310 | `linkcrate.shop` | 1.3 | 77 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 311 | `linkforgepro.shop` | 1.3 | 72 | 997 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 312 | `seolinkkart.shop` | 1.3 | 77 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 313 | `backlinkorbit.shop` | 1.3 | 79 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 314 | `rankbasket.shop` | 1.3 | 75 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 315 | `backlinkshop.shop` | 1.3 | 74 | 998 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 316 | `linkbundle.shop` | 1.3 | 74 | 1 | 0 | 0 | 2 | 0 | 19 Sep 2026 |
+| 317 | `backlinkvault.shop` | 1.3 | 74 | 997 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 318 | `primebacklinks.shop` | 1.3 | 75 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 319 | `seowagon.shop` | 1.3 | 75 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 320 | `seomart.shop` | 1.3 | 74 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 321 | `linkstock.shop` | 1.3 | 61 | 998 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 322 | `nexabacklinks.shop` | 1.3 | 63 | 1 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 323 | `rankchest.shop` | 1.2 | 75 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 324 | `rankloot.shop` | 1.2 | 60 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 325 | `linkpicks.shop` | 1.2 | 62 | 997 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 326 | `seogear.shop` | 1.2 | 59 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 327 | `seofinds.shop` | 1.2 | 59 | 1 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 328 | `seobundle.shop` | 1.2 | 63 | 1 | 0 | 0 | 1 | 0 | 10 Sep 2026 |
+| 329 | `rankseohub.shop` | 1.2 | 62 | 1 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 330 | `seooutlet.shop` | 1.2 | 57 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 331 | `seocartly.shop` | 1.2 | 62 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 332 | `seowarez.shop` | 1.2 | 60 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 333 | `linkstockly.shop` | 1.2 | 60 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 334 | `seoloot.shop` | 1.2 | 62 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 335 | `seoprime.shop` | 1.2 | 62 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 336 | `rankwares.shop` | 1.2 | 59 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 337 | `rankcart.shop` | 1.2 | 63 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 338 | `rankkit.shop` | 1.2 | 62 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 339 | `seowares.shop` | 1.2 | 60 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 340 | `rankgoods.shop` | 1.2 | 62 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 341 | `rankdepot.shop` | 1.2 | 63 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 342 | `seodepot.shop` | 1.2 | 64 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 343 | `linkdepot.shop` | 1.2 | 60 | 997 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 344 | `ranktrove.shop` | 1.2 | 58 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 345 | `rankstock.shop` | 1.2 | 59 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 346 | `seoedge.shop` | 1.2 | 64 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 347 | `linkstash.shop` | 1.2 | 59 | 998 | 0 | 0 | 2 | 0 | 21 Sep 2026 |
+| 348 | `rankmall.shop` | 1.2 | 59 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 349 | `rankfinds.shop` | 1.2 | 64 | 1 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 350 | `seosupply.shop` | 1.2 | 61 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 351 | `linkbarn.shop` | 1.2 | 62 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 352 | `seocrate.shop` | 1.2 | 62 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 353 | `rankgear.shop` | 1.2 | 62 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 354 | `seostash.shop` | 1.2 | 60 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 355 | `seobits.shop` | 1.2 | 74 | 1 | 0 | 0 | 1 | 0 | 18 Sep 2026 |
+| 356 | `linkchest.shop` | 1.2 | 63 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 357 | `linkwagon.shop` | 1.2 | 59 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 358 | `guestpostlinks.shop` | 1.2 | 58 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 359 | `linkloot.shop` | 1.2 | 75 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 360 | `rankpicks.shop` | 1.2 | 75 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 361 | `seobox.shop` | 1.2 | 60 | 1 | 0 | 0 | 1 | 0 | 20 Sep 2026 |
+| 362 | `seokart.shop` | 1.2 | 60 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 363 | `rankbazaar.shop` | 1.2 | 59 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 364 | `rankbox.shop` | 1.2 | 63 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 365 | `linksnexa.shop` | 1.2 | 56 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 366 | `linkrank.shop` | 1.2 | 58 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 367 | `fastranking.shop` | 0.6 | 15 | 0 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 368 | `winningseo.site` | 0.6 | 13 | 0 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 369 | `growwithseo.shop` | 0.6 | 19 | 0 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 370 | `trafficexperts.site` | 0.6 | 17 | 0 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 371 | `topranking.shop` | 0.6 | 10 | 0 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 372 | `rankfirst.shop` | 0.6 | 18 | 0 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 373 | `eliteseo.site` | 0.6 | 17 | 0 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 374 | `organictraffic.site` | 0.6 | 16 | 0 | 0 | 0 | 1 | 0 | 10 Sep 2026 |
+| 375 | `localranking.site` | 0.6 | 13 | 0 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 376 | `getranked.site` | 0.6 | 12 | 0 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 377 | `searchwins.shop` | 0.6 | 14 | 0 | 0 | 0 | 1 | 0 | 9 Sep 2026 |
+| 378 | `backlink-ranking-agency.shop` | 0.5 | 7 | 0 | 0 | 0 | 1 | 0 | 12 Sep 2026 |
+| 379 | `domainrankexperts.shop` | 0.3 | 25 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 380 | `seomiro.shop` | 0.2 | 160 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 381 | `searchrankexperts.shop` | 0.1 | 22 | 1 | 0 | 0 | 1 | 0 | 24 Sep 2026 |
+| 382 | `rankgrowthinsights.shop` | 0.1 | 19 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 383 | `indexrixa.shop` | 0.1 | 157 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 384 | `googleseoauthority.shop` | 0.1 | 16 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 385 | `toprankalliance.shop` | 0.1 | 22 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 386 | `googleseopoint.shop` | 0.1 | 15 | 1 | 0 | 0 | 1 | 0 | 22 Sep 2026 |
+| 387 | `organicranknetwork.shop` | 0.1 | 25 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 388 | `strongseohub.shop` | 0.1 | 137 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 389 | `rankgrowthsolutions.shop` | 0.1 | 22 | 1 | 0 | 0 | 2 | 0 | 21 Sep 2026 |
+| 390 | `linkgrowthauthority.shop` | 0.1 | 15 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 391 | `searchrankcentral.shop` | 0.1 | 23 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 392 | `siterankprovider.shop` | 0.1 | 16 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 393 | `pageseoservice.shop` | 0.1 | 14 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 394 | `linkseoauthority.shop` | 0.1 | 25 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 395 | `seogrowthalliance.shop` | 0.1 | 14 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 396 | `seolinkexpress.shop` | 0.1 | 14 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 397 | `webranksystems.shop` | 0.1 | 13 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 398 | `seogrowthstudio.shop` | 0.1 | 13 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 399 | `seoboostalliance.shop` | 0.1 | 14 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 400 | `linkseoprovider.shop` | 0.1 | 24 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+
+
+## 21. Ahrefs referring-domain quality review — page 5 (rows 401–500)
+
+Authenticated Ahrefs Site Explorer snapshot inspected on **2026-10-30**. Confirmed URL parameters: `limit=100&offset=400`; this is page 5 and contains 100 rows.
+
+- Report: https://app.ahrefs.com/site-explorer/refdomains?anchorRules=&bestFilter=all&domainNameRules=&followType=all&highlightChanges=none&history=all&historyDateRange=24h&ipRules=&limit=100&mode=subdomains&offset=400&projectId=10617729&refPageAuthorRules=&refPageTitleRules=&refPageUrlRules=&sort=Dr&sortDirection=desc&surroundingRules=&target=inkiva.net%2F&targetUrlRules=
+- Scope: `inkiva.net/`, Subdomains, all link attributes, DR descending.
+- Rows: **401–500 (100)**.
+- Ahrefs SPAM labels: **99/100**.
+- DR range: **0–0.1**.
+- Links to Inkiva: **175**; dofollow links: **1**.
+- Zero traffic: **100/100**; zero keywords: **100/100**.
+- TLD distribution: `shop`: 99, `dev`: 1.
+
+
+### Page 5 inventory (100 rows)
+
+| # | Referring domain | DR | Dofollow ref. domains | Dofollow linked domains | Traffic | Keywords | Links to target | Dofollow links | First seen |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 401 | `googleseoexperts.shop` | 0.1 | 13 | 1 | 0 | 0 | 1 | 0 | 21 Sep 2026 |
+| 402 | `pageseocollective.shop` | 0.1 | 13 | 1 | 0 | 0 | 2 | 0 | 18 Sep 2026 |
+| 403 | `linkseoinsights.shop` | 0.1 | 16 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 404 | `domainrankboost.shop` | 0.1 | 14 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 405 | `googleseocompany.shop` | 0.1 | 13 | 1 | 0 | 0 | 2 | 0 | 21 Sep 2026 |
+| 406 | `toprankmasters.shop` | 0.1 | 20 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 407 | `toprankprovider.shop` | 0.1 | 12 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 408 | `seoboostexchange.shop` | 0.1 | 14 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 409 | `rankgrowthservice.shop` | 0.1 | 14 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 410 | `webrankprovider.shop` | 0.1 | 13 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 411 | `pageseomasters.shop` | 0.1 | 13 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 412 | `toprankpartners.shop` | 0.1 | 12 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 413 | `searchrankpipeline.shop` | 0.1 | 22 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 414 | `rankgrowthboost.shop` | 0.1 | 14 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 415 | `backlinkpartners.shop` | 0.1 | 22 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 416 | `seoboostcompany.shop` | 0.1 | 23 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 417 | `rankseotoolkit.shop` | 0.1 | 22 | 1 | 0 | 0 | 1 | 0 | 8 Sep 2026 |
+| 418 | `domainrankagency.shop` | 0.1 | 14 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 419 | `seogrowthengine.shop` | 0.1 | 13 | 1 | 0 | 0 | 2 | 0 | 19 Sep 2026 |
+| 420 | `rankcollective.shop` | 0.1 | 14 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 421 | `rankseoalliance.shop` | 0.1 | 22 | 4 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 422 | `organicrankservice.shop` | 0.1 | 14 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 423 | `rankseopartners.shop` | 0.1 | 22 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 424 | `searchranksolutions.shop` | 0.1 | 13 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 425 | `rankgrowthagency.shop` | 0.1 | 21 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 426 | `toprankauthority.shop` | 0.1 | 22 | 1 | 0 | 0 | 1 | 0 | 17 Sep 2026 |
+| 427 | `rapidboosthub.shop` | 0.1 | 148 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 428 | `nextseolink.shop` | 0.1 | 131 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 429 | `easyseolink.shop` | 0.1 | 139 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 430 | `steadyranklab.shop` | 0.1 | 139 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 431 | `growthanchor.shop` | 0.1 | 135 | 0 | 0 | 0 | 2 | 0 | 29 Sep 2026 |
+| 432 | `indextera.shop` | 0.1 | 137 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 433 | `trueboosthub.shop` | 0 | 2 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 434 | `boostlinker.shop` | 0 | 7 | 1 | 0 | 0 | 1 | 0 | 23 Sep 2026 |
+| 435 | `upstar.dev` | 0 | 4 | 6 | 0 | 0 | 2 | 0 | 23 Oct 2026 |
+| 436 | `rankqano.shop` | 0 | 14 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 437 | `cleanlinkpro.shop` | 0 | 16 | 1 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 438 | `crawltexa.shop` | 0 | 16 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 439 | `indexqira.shop` | 0 | 10 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 440 | `cleanranklab.shop` | 0 | 6 | 1 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 441 | `sharpranklab.shop` | 0 | 4 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 442 | `sharpseolink.shop` | 0 | 3 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 443 | `serpqaro.shop` | 0 | 3 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 444 | `seotexa.shop` | 0 | 4 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 445 | `steadyboosthub.shop` | 0 | 3 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 446 | `visibilitycraft.shop` | 0 | 2 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 447 | `rankzira.shop` | 0 | 2 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 448 | `organicledgerpro.shop` | 0 | 2 | 0 | 0 | 0 | 2 | 0 | 29 Sep 2026 |
+| 449 | `solidranklab.shop` | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 450 | `serpxaro.shop` | 0 | 2 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 451 | `smartseolink.shop` | 0 | 2 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 452 | `rankingroot.shop` | 0 | 3 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 453 | `crawlvora.shop` | 0 | 2 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 454 | `trip-planner.shop` | 0 | 22 | 386596 | 0 | 0 | 1 | 1 | 16 Sep 2026 |
+| 455 | `indexvora.shop` | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 456 | `contentreach.shop` | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 457 | `crispseohub.shop` | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 458 | `seozaro.shop` | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 459 | `seoqaro.shop` | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 460 | `indexlivo.shop` | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 461 | `solidlinkpro.shop` | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 462 | `linkzaro.shop` | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 463 | `boldboosthub.shop` | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 29 Sep 2026 |
+| 464 | `fastseolink.shop` | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 465 | `smartseohub.shop` | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 29 Sep 2026 |
+| 466 | `indexrivo.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 467 | `linkxaro.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 29 Sep 2026 |
+| 468 | `easyranklab.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 469 | `rapidranklab.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 470 | `cleanseolink.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 471 | `serplivo.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 29 Sep 2026 |
+| 472 | `pureranklab.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 473 | `pureseohub.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 474 | `nextboosthub.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 475 | `cleanseohub.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 476 | `serpqira.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 477 | `seoqano.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 478 | `indexmexa.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 29 Sep 2026 |
+| 479 | `crawlviro.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 480 | `linkvilo.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 481 | `rapidseolink.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 482 | `crawlvexa.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 483 | `indexzira.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 29 Sep 2026 |
+| 484 | `linktexa.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 485 | `seorivo.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 486 | `boldseohub.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 487 | `rankvora.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 488 | `linkviro.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 489 | `crawllivo.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 490 | `crispseolink.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 491 | `solidboosthub.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 492 | `rankqaro.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 493 | `organicreach.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 494 | `fastranklab.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 495 | `serptera.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 496 | `rankmiro.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 497 | `indexnexa.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 498 | `indexnaro.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 499 | `indexvexa.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 500 | `crawllora.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+
+
+## 22. Ahrefs referring-domain quality review — page 6 (rows 501–513)
+
+Authenticated Ahrefs Site Explorer snapshot inspected on **2026-10-30**. Confirmed URL parameters: `limit=100&offset=500`; this is page 6 and contains 13 rows.
+
+- Report: https://app.ahrefs.com/site-explorer/refdomains?anchorRules=&bestFilter=all&domainNameRules=&followType=all&highlightChanges=none&history=all&historyDateRange=24h&ipRules=&limit=100&mode=subdomains&offset=500&projectId=10617729&refPageAuthorRules=&refPageTitleRules=&refPageUrlRules=&sort=Dr&sortDirection=desc&surroundingRules=&target=inkiva.net%2F&targetUrlRules=
+- Scope: `inkiva.net/`, Subdomains, all link attributes, DR descending.
+- Rows: **501–513 (13)**.
+- Ahrefs SPAM labels: **13/13**.
+- DR range: **0–0**.
+- Links to Inkiva: **26**; dofollow links: **0**.
+- Zero traffic: **13/13**; zero keywords: **13/13**.
+- TLD distribution: `shop`: 13.
+
+
+### Page 6 inventory (13 rows)
+
+| # | Referring domain | DR | Dofollow ref. domains | Dofollow linked domains | Traffic | Keywords | Links to target | Dofollow links | First seen |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 501 | `seozira.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 502 | `indexxaro.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 503 | `ranknaro.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 504 | `primeseolink.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 505 | `rankvilo.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 506 | `vividlinkpro.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 507 | `crawlzaro.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 29 Sep 2026 |
+| 508 | `quicklinkpro.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 509 | `serpzira.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 510 | `strongranklab.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 511 | `rankzaro.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 512 | `quickboosthub.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
+| 513 | `seomexa.shop` | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 28 Sep 2026 |
