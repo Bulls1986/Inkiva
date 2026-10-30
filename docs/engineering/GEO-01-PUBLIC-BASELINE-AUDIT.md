@@ -84,7 +84,7 @@ The website's SEO contract is therefore materially implemented, not merely plann
 - Chinese README: https://github.com/Bulls1986/Inkiva/blob/develop/README.zh-CN.md
 - Releases: https://github.com/Bulls1986/Inkiva/releases
 
-The public website currently exposes installation, basics, editing, Markdown syntax, preferences, key bindings, export, appearances and FAQ documentation. The FAQ answers platform, licensing, knowledge-management positioning, documentation, portable mode and issue reporting. It does not yet answer common product-selection questions such as "Inkiva vs Typora", "best free open-source WYSIWYG Markdown editor", or "which Markdown editor keeps ordinary files local".
+The public website currently exposes installation, basics, editing, Markdown syntax, preferences, key bindings, export, appearances and FAQ documentation. The FAQ answers platform, licensing, knowledge-management positioning, documentation, portable mode and issue reporting. It does not yet answer common product-selection questions such as "Inkiva vs Typora", "best free open-source WYSIWYG Markdown editor", or "which Markdown editor keeps ordinary files local". The current GitHub repository description says "free, open-source WYSIWYG Markdown editor" while the README and website lead with "document-first Markdown editor"; the repository currently has no GitHub topics. Aligning the short description and adding a small set of accurate repository topics is a low-effort entity-consistency opportunity.
 
 ### Third-party references observed
 
@@ -92,7 +92,7 @@ The public website currently exposes installation, basics, editing, Markdown syn
 - Enlisted Typora alternatives list: https://enlisted.directory/alternatives/typora
 - Enlisted MarkText profile: https://enlisted.directory/tools/marktext
 
-The RepoRank snapshot identifies the repository and product category but records a small project footprint (snapshot dated 2026-09-26). Enlisted's observed Typora-alternatives page names MarkText as its leading open-source alternative and does not include Inkiva in the visible shortlist. These sources are useful signals, not authoritative product reviews or proof of AI model behavior.
+The RepoRank snapshot identifies the repository and product category but is stale: it records 5 stars and 1 fork as of 2026-09-26, while the GitHub repository API reported 98 stars and 8 forks on 2026-10-30. This discrepancy is a useful reminder to timestamp third-party metrics and prefer the canonical repository for current facts. Enlisted's observed Typora-alternatives page names MarkText as its leading open-source alternative and does not include Inkiva in the visible shortlist. These sources are useful signals, not authoritative product reviews or proof of AI model behavior.
 
 ## 5. Search-intent baseline
 
