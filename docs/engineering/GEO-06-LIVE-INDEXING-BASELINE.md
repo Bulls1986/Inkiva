@@ -1090,3 +1090,40 @@ The four groups are the same sources previously identified: `daxsupport.com`, `t
 ### Required next check
 
 Reopen Ahrefs Backlinks, apply the visible **Dofollow** filter, and leave **Show history: Don't show** selected. This is Ahrefs' documented live-backlink view; do not manipulate `filterLiveOnly` manually. Compare the filtered rows with the four previously observed groups and preserve the discrepancy for `trip-planner.shop` (independent fetch 404) and `link-pen.com` (HTTP 200 but no Inkiva mention in fetched HTML). Then inspect `upstar.dev` and `digitalboost.site`, and review Google Search Console Manual actions and Security issues. Do not create or submit a Disavow file until these checks are complete.
+
+
+## 25. Final backlink risk disposition — 2026-10-30
+
+### Decision
+
+**Do not create or submit a Disavow file at this stage. Close the Ahrefs backlink-quality investigation and return focus to substantive GEO/SEO work.**
+
+### Evidence summary
+
+- Full Ahrefs referring-domain inventory: **513 domains**.
+- Ahrefs `SPAM` label: **512/513**. This is a third-party metric, not a Google verdict.
+- Ahrefs backlinks: **679 total**, comprising **674 nofollow** and **5 dofollow**.
+- The five dofollow backlinks are grouped into four source rows: `daxsupport.com`, `kaila.biz`, `link-pen.com`, and `trip-planner.shop`. All four source domains are labelled SPAM by Ahrefs and show no meaningful organic traffic/keywords in the report.
+- Ahrefs UI showed `Show history: Don't show` alongside the Dofollow filter and four grouped rows. Ahrefs' own guide describes this setting as the way to view live backlinks: https://ahrefs.com/blog/broken-link-building/ . Do not interpret the URL parameter `filterLiveOnly=0` in isolation as the report's effective live/history setting.
+- Independent HTTP checks remain mixed: `trip-planner.shop` returned 404; `link-pen.com` returned 200 but the fetched HTML contained no Inkiva mention; `daxsupport.com` and `kaila.biz` returned Cloudflare 403 challenge pages. These checks do not establish Google's crawl state, and two are inconclusive.
+- `upstar.dev` is the only referring domain without Ahrefs' SPAM label. `digitalboost.site` is the only domain with non-zero estimated traffic/keywords (traffic 2, keywords 1), but is still Ahrefs-labelled SPAM.
+
+### Risk conclusion
+
+The profile is consistent with a large low-quality/automated backlink cluster, likely outside the normal editorial recommendation ecosystem. The four followed-link sources do not provide credible product endorsements. There is no evidence in this review that Inkiva purchased or commissioned these links, that Google has applied a manual action, or that the links caused a ranking loss.
+
+### Action
+
+1. **No Disavow file** and no bulk outreach to the 512 Ahrefs-SPAM domains.
+2. Do not spend more time manually opening these source domains; the current evidence is sufficient for the operational decision.
+3. Keep the inventory as a baseline. Revisit only if Google Search Console reports an Unnatural links manual action, a credible paid-link scheme is discovered, or a material unexplained organic-search decline coincides with new manipulative links.
+4. Continue earning relevant editorial/product citations through genuine Markdown/editor directories, documentation, reviews, tutorials, and technical communities; prioritize product facts and independent references over backlink volume.
+
+### Google guidance
+
+Google says most sites do not need the Disavow tool and recommends using it only when there is a considerable number of spammy/artificial/low-quality links **and** those links have caused or are likely to cause a manual action. It also warns that incorrect use can harm search performance.
+
+- https://support.google.com/webmasters/answer/2648487
+- https://support.google.com/webmasters/answer/9044175
+
+The Google Search Console Manual Actions status was not independently opened/verified during this review. This does not change the present recommendation: absent evidence of a manual action or a link scheme commissioned by Inkiva, do not disavow unsolicited low-quality links.
