@@ -196,6 +196,14 @@ When the Search command is invoked:
 - opening a result moves focus to the document and the matched location;
 - returning to the Search panel restores the prior query/result context.
 
+### 8.4 Outline navigation
+
+- Clicking an outline entry navigates to its corresponding top-level heading in the WYSIWYG editor.
+- The target heading's top edge must align with the first visible content line: **8px below the editor scroll container's top edge**.
+- This positioning applies to ordinary and virtualized WYSIWYG documents, including headings near the document end. Merely making the target visible somewhere in the viewport is insufficient.
+- After navigation settles, the active outline entry must match the heading at that first visible line. Scroll-based active-state synchronization must not replace the requested destination with the preceding heading because its activation threshold disagrees with the navigation position.
+- Outline navigation is a view operation and must not mutate Markdown content.
+
 ## 9. Home / Recent Documents contract
 
 Recent Documents is an actionable desktop list, not static metadata.

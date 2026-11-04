@@ -76,6 +76,14 @@ test('virtualized report TOC jump settles without repeated scroll reversal and h
       return rect.top >= top - 2 && rect.top <= bottom
     })
     expect(headingInViewport).toBe(true)
+    const headingTopOffset = await page.evaluate(() => {
+      const editor = document.querySelector('.editor-component') as HTMLElement
+      const heading = Array.from(document.querySelectorAll('.mu-container h3'))
+        .find(node => node.textContent?.includes('Basis for each cause group and proposed scope'))
+      if (!heading) return Number.POSITIVE_INFINITY
+      return heading.getBoundingClientRect().top - editor.getBoundingClientRect().top
+    })
+    expect(Math.abs(headingTopOffset - 8)).toBeLessThanOrEqual(4)
     await expect(destination).toHaveClass(/is-active/)
   } finally {
     await app.close()

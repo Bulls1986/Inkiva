@@ -58,6 +58,20 @@ const isHeadingInViewport = (page: Page, index: number): Promise<boolean> =>
     return hRect.top >= cRect.top - 1 && hRect.top <= cRect.bottom
   }, index)
 
+// The outline navigation contract places the requested heading on the first
+// visible content line, not merely somewhere inside the viewport.
+const isHeadingAtFirstLine = (page: Page, index: number): Promise<boolean> =>
+  page.evaluate((idx) => {
+    const container = document.querySelector('.editor-component') as HTMLElement | null
+    if (!container) return false
+    const sel = '.mu-container > h1, .mu-container > h2, .mu-container > h3, .mu-container > h4, .mu-container > h5, .mu-container > h6'
+    const headings = Array.from(document.querySelectorAll(sel))
+    const target = headings[idx] as HTMLElement | undefined
+    if (!target) return false
+    const offset = target.getBoundingClientRect().top - container.getBoundingClientRect().top
+    return Math.abs(offset - 8) <= 4
+  }, index)
+
 // Locate a TOC tree node label by its EXACT text. Exact matching avoids the
 // substring trap where "Heading Number 1" also matches "Heading Number 18".
 const tocLabel = (page: Page, text: string) =>
@@ -112,6 +126,9 @@ test.describe('TOC sidebar click scrolls the live editor', () => {
     await expect
       .poll(() => isHeadingInViewport(page, targetIndex), { timeout: 8000 })
       .toBe(true)
+    await expect
+      .poll(() => isHeadingAtFirstLine(page, targetIndex), { timeout: 8000 })
+      .toBe(true)
   })
 
   test('clicking an earlier heading scrolls back up toward it', async() => {
@@ -133,6 +150,9 @@ test.describe('TOC sidebar click scrolls the live editor', () => {
     await expect
       .poll(() => isHeadingInViewport(page, targetIndex), { timeout: 8000 })
       .toBe(true)
+    await expect
+      .poll(() => isHeadingAtFirstLine(page, targetIndex), { timeout: 8000 })
+      .toBe(true)
   })
 
   test('clicking the same heading twice is idempotent (stays at that heading)', async() => {
@@ -145,6 +165,9 @@ test.describe('TOC sidebar click scrolls the live editor', () => {
     await expect
       .poll(() => isHeadingInViewport(page, targetIndex), { timeout: 8000 })
       .toBe(true)
+    await expect
+      .poll(() => isHeadingAtFirstLine(page, targetIndex), { timeout: 8000 })
+      .toBe(true)
     const firstScroll = await getScrollTop(page)
 
     // Click again — should land on (essentially) the same scroll position.
@@ -153,7 +176,41 @@ test.describe('TOC sidebar click scrolls the live editor', () => {
     await expect
       .poll(() => isHeadingInViewport(page, targetIndex), { timeout: 8000 })
       .toBe(true)
+    await expect
+      .poll(() => isHeadingAtFirstLine(page, targetIndex), { timeout: 8000 })
+      .toBe(true)
     const secondScroll = await getScrollTop(page)
     expect(Math.abs(secondScroll - firstScroll)).toBeLessThanOrEqual(5)
   })
+})
+
+test('clicking the final heading in a short document aligns it to the first visible line', async() => {
+  const shortDocument = [
+    '# Workstation architecture',
+    '## MVP 顺序',
+    '1. 先完成 spec 渲染 Dashboard 和一个站点 adapter。',
+    '2. 固化 adapter 动作契约和 skill。',
+    '3. 增加 DAG 引擎与触发器。',
+    '4. 最后再做代码级 widget 和插件分发。',
+    '## 已知要补的缺口',
+    'DSH 已具备双端插件、工具注册表、槽位化 UI、右栏 Tab 和单工具卡片。',
+    '真正需要补齐的是 DAG 引擎与画布、站点适配 SDK、spec 到 UI 的渲染器。',
+    '安全边界需要覆盖读、写、提交和支付等不同级别的授权。'
+  ].join('\n\n') + '\n'
+  const { app: shortApp, page: shortPage } = await launchWithMarkdown(shortDocument)
+  try {
+    await waitForEditor(shortPage)
+    await showSidebarPanel(shortApp, shortPage, 'toc')
+    const targetText = '已知要补的缺口'
+    const targetIndex = await headingIndexByText(shortPage, targetText)
+    expect(targetIndex).toBeGreaterThanOrEqual(0)
+    await expect(tocLabel(shortPage, targetText)).toBeVisible()
+    await tocLabel(shortPage, targetText).click()
+    await expect
+      .poll(() => isHeadingAtFirstLine(shortPage, targetIndex), { timeout: 8000 })
+      .toBe(true)
+    await expect(tocLabel(shortPage, targetText)).toHaveClass(/is-active/)
+  } finally {
+    await shortApp.close()
+  }
 })

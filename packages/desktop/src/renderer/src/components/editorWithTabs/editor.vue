@@ -2233,13 +2233,22 @@ const scrollToCords = (y: number) => {
 }
 
 // Smoothly scroll the editor so `anchor` sits at the standard top offset.
-// Shared by the TOC, search-highlight, and any other "reveal this element"
-// caller so the getBoundingClientRect + animatedScrollTo math lives once.
-const scrollElementIntoView = (anchor: Element | null | undefined, duration = 300) => {
+// A container-relative `viewportOffset` is available for navigation contracts
+// that must align with the visible editor viewport (the TOC uses 8px).
+// Keep the standard offset as the default for search highlights and anchors.
+const scrollElementIntoView = (
+  anchor: Element | null | undefined,
+  duration = 300,
+  viewportOffset?: number
+) => {
   const container = getScrollContainer()
   if (!container || !anchor) return
   const { y } = anchor.getBoundingClientRect()
-  animatedScrollTo(container, container.scrollTop + y - STANDAR_Y, duration)
+  let targetY = STANDAR_Y
+  if (viewportOffset !== undefined) {
+    targetY = container.getBoundingClientRect().top + viewportOffset
+  }
+  animatedScrollTo(container, container.scrollTop + y - targetY, duration)
 }
 
 const scrollToHighlight = () => {
@@ -2264,7 +2273,11 @@ const scrollToHeader = (slug: unknown) => {
   ) {
     return
   }
-  scrollElementIntoView(resolveTocHeadingElement(container, editorStore.listToc, slug))
+  scrollElementIntoView(
+    resolveTocHeadingElement(container, editorStore.listToc, slug),
+    300,
+    8
+  )
 }
 
 // Scrolls to a non-heading in-document anchor target (e.g. a custom
