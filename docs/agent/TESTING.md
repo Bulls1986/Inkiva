@@ -68,7 +68,7 @@ corepack pnpm -C packages/desktop exec playwright test <spec>
 
 For editor correctness, explicitly cover selection/caret, IME, undo/redo, scrolling, outline/TOC, source mode, view modes, images/diagrams, and responsive behavior when affected.
 
-For TOC/navigation assertions, test the contract at the correct layer. The TOC model is authoritative for full logical ordering, while virtualized DOM contains only a mounted window. Normalize rendered heading text when comparing it with clean TOC labels because ATX heading DOM may include Markdown syntax markers. After navigation, assert the requested target is actually revealed/scroll-reachable; do not require the settled viewport-active TOC slug to equal the clicked item at document boundaries where scroll clamping can select an earlier active heading.
+For WYSIWYG TOC/navigation assertions, test the contract at the correct layer. The TOC model is authoritative for full logical ordering, while virtualized DOM contains only a mounted window. Normalize rendered heading text when comparing it with clean TOC labels because ATX heading DOM may include Markdown syntax markers. After a WYSIWYG TOC click, the requested heading must be aligned to the first visible content line (8px from the scroll container's top edge, with a 4px rendering tolerance), and the settled active TOC item must remain the requested heading. This applies at document boundaries too: if the natural scroll range is insufficient, the navigation implementation must provide the required scroll range; do not weaken the assertion to accept an earlier active heading.
 
 ## E2E efficiency and ownership
 

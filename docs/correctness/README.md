@@ -17,6 +17,7 @@ Use this index for correctness/readiness contracts and product-functional gates.
 - [US17 — Async Content Settlement](US17-ASYNC-CONTENT-SETTLEMENT.md) — Async block geometry continuity, block-local failure/retry behavior, and newest-user-navigation ownership.
 - [V06-14 — Integrated correctness and platform acceptance](V06-14-INTEGRATED-ACCEPTANCE.md) — v0.6 integrated correctness matrix, platform/package/updater evidence and explicit qualification boundaries.
 - [Long-document TOC navigation stability](TOC-NAVIGATION-STABILITY.md) — Confirmed virtual-window scroll oscillation and active-heading root causes, Red/Green evidence, and CI closeout status.
+- [TOC heading first-line alignment](TOC-HEADING-FIRST-LINE-ALIGNMENT.md) — Investigation of nonvirtual TOC positioning, active-heading feedback, first-line acceptance criteria and regression evidence.
 - [Desktop Editor Interaction Contract Audit](DESKTOP-EDITOR-INTERACTION-AUDIT.md) — v0.5.0 desktop interaction contract matrix, Red/Green evidence, TODO closure, and platform/manual gates.
 - [Settings functional gate](SETTINGS-FUNCTIONAL-GATE.md) — Settings UI → store → live effect → reopen/restart persistence contract.
 - [US06 — Settings Effect Closure](US06-SETTINGS-EFFECT-CLOSURE.md) — acknowledged preference writes, effect timing, retry/rollback, delayed-effect feedback, autosave bounds and Settings search targeting.
