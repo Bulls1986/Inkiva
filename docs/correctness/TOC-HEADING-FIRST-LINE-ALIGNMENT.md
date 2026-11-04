@@ -1,7 +1,6 @@
 # TOC heading first-line alignment
 
-Status: **Implemented; PR #283 open; GitHub CI in progress**
-
+Status: **Implemented; PR #283 open; required Performance Fast Gate blocked by pre-existing Issue #232**
 Base: `develop@d4d9a8a3c2c0667199d086619cb3e0a40ee5eaea`
 Task branch: `fix/toc-heading-first-line-alignment`
 Pull request: https://github.com/Bulls1986/Inkiva/pull/283
@@ -40,8 +39,34 @@ Clicking an outline entry must place its corresponding heading on the first visi
 | Prettier                                        | Documentation files passed; existing Vue/E2E files were already non-clean on HEAD, so no broad reformat was applied. |
 | EOL-aware whitespace check                      | `git -c core.whitespace=cr-at-eol diff --check` passed for the repository's existing CRLF source files.              |
 
+## GitHub CI follow-up (2026-11-04)
+
+PR #283: https://github.com/Bulls1986/Inkiva/pull/283
+Initial CI source commit: `9a7c2eb86a621b525dda28ea4accb6894697c819` (later documentation-only branch head: `cf520a70cd2708a8c88db4ee7ad0fb798178d3bf`).
+
+| Workflow / job           | Result                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------ | --- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lint (`41765803376`)     | Passed                                                                                           |
+| Test (`41765803642`)     | Passed                                                                                           |
+| E2E Test (`41765803253`) | Passed                                                                                           |
+| PR Build (`41765803348`) | Windows, macOS ARM64, macOS x64 build, all package-smoke jobs and updater artifact smoke passed. |     | Performance Fast Gate (`41765803272`) | Failed only `document.50k.firstScreen` p95 = 202.79ms against `<200ms`; `document.50k.editable` p95 = 227.635ms against `<250ms`; other fast metrics passed |
+
+### Failure evidence and attribution
+
+- Downloaded and inspected the exact `desktop-performance-fast-gate` artifact (`13292054394`). The first cold 50K sample measured first-screen 2703.0ms and editable 2747.7ms; the remaining 19 first-screen samples ranged from 25.9ms to 71.2ms.
+- Same-sample frame probe: rAF requested at 660.7ms, parallel zero-delay timer callback at 732.1ms, first rAF callback at 3246.8ms. Request-to-rAF callback delay = 2586.1ms; document was visible and focused.
+- This matches the known first-scenario Chromium rAF scheduling stall tracked by [Issue #232](https://github.com/Bulls1986/Inkiva/issues/232), not a regression in the TOC navigation code. The TOC change does not modify performance collection, document-open scheduling, frame scheduling, or the benchmark workload.
+- New evidence was added to Issue #232 and the PR #283 conversation. No thresholds, cold samples, sample count, workload, statistic, or retry policy were changed.
+- Historical Issue #232 evidence includes the same class of cold first-sample outlier (including a clean overscan=2 Fast Gate run with first-screen p95 231.245ms). The issue remains open; this CI failure is not treated as resolved or waived.
+
+### Current disposition
+
+- The performance gate remains red and is a required CI blocker. Do not merge PR #283 while it is red unless the user explicitly approves a separate disposition.
+- Do not attempt a TOC-specific performance workaround for this unrelated first-rAF stall. Continue the existing Issue #232 investigation; compare the same workload against a clean base before attributing any regression.
+- The current branch head `cf520a70...` is a documentation-only commit carrying `[skip ci]`, so GitHub has no check runs attached to that SHA. This CI follow-up will be pushed without `[skip ci]` to trigger fresh workflows on the PR's full changed-file set, including the TOC source change.
+
 ## Closeout boundary
 
 - Production behavior and focused regression coverage are implemented and green locally.
-- PR #283 is open against `develop`. At the latest check, Lint, Test, E2E Test, and Performance Fast Gate were in progress; PR Build was queued.
+- Initial CI round: Lint, Test, E2E Test and PR Build all passed; Performance Fast Gate failed on the known Issue #232 first-rAF stall.
 - The PR is not merged. Do not claim CI/release closure until all required workflow runs finish and the merge is explicitly authorized.
