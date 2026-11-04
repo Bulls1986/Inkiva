@@ -27,7 +27,7 @@ test('site identity metadata describes the Inkiva Markdown editor consistently',
   assert.match(DEFAULT_DESCRIPTION, /WYSIWYG Markdown desktop editor/)
   assert.match(DEFAULT_DESCRIPTION, /Windows and macOS/)
 
-  const jsonLd = JSON.stringify(createSiteJsonLd('0.6.0'))
+  const jsonLd = JSON.stringify(createSiteJsonLd('0.6.1'))
   assert.match(jsonLd, /Inkiva Markdown Editor/)
   assert.match(jsonLd, /Inkiva · 墨映/)
   assert.match(jsonLd, /墨映 Markdown 编辑器/)

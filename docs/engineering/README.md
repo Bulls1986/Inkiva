@@ -3,6 +3,7 @@
 This directory contains cross-cutting engineering audits and evidence records. Open the specific record when working on its subject; do not preload the full history for unrelated tasks.
 
 ## Release and version records
+- [v0.6.1 version bump](V0.6.1-VERSION-BUMP.md) — manifest alignment, updated version-bound tests, validation evidence and publication status.
 
 - [v0.6.0 release readiness and publication audit](V0.6-RELEASE-READINESS-AUDIT.md) — accepted qualification risks, final tag/workflow evidence, 14-asset inventory and checksum verification.
 - [v0.5.0 release readiness audit](V0.5-RELEASE-READINESS-AUDIT.md) — historical release qualification, accepted deferrals and AC traceability.
