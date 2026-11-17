@@ -27,9 +27,11 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const { slug } = await params
   const page = findPageBySlug(slug)
   if (!page) return {}
+  const seoTitle = page.seoTitle ?? page.title
+  const seoDescription = page.seoDescription ?? page.hint ?? `Documentation for ${page.title}.`
   return createPageMetadata({
-    title: page.title,
-    description: page.hint ?? `Documentation for ${page.title}.`,
+    title: seoTitle,
+    description: seoDescription,
     path: page.href,
     type: 'article',
     locale: page.tab === 'zh' ? 'zh_CN' : 'en_US',
@@ -45,7 +47,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
               : '/docs/zh-CN/' + page.slug.join('/') + '/'
           }
         }),
-    openGraphTitle: `${page.title} · Inkiva Docs`
+    openGraphTitle: `${seoTitle} · Inkiva Docs`
   })
 }
 

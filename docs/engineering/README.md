@@ -26,6 +26,7 @@ This directory contains cross-cutting engineering audits and evidence records. O
 - [GEO-04 — Release verification](GEO-04-RELEASE-VERIFICATION.md)
 - [GEO-05 — External discovery baseline](GEO-05-EXTERNAL-DISCOVERY-BASELINE.md)
 - [GEO-06 — Live indexing baseline](GEO-06-LIVE-INDEXING-BASELINE.md)
+- [SEO-01 — Targeted comparison and installation page optimization](SEO-01-TARGETED-PAGE-OPTIMIZATION.md) — GSC-backed page-intent baseline, focused metadata/content/link improvements and 2026-11-23 measurement plan.
 
 Earlier GEO-04/GEO-05 reports reflect their audit dates; GEO-06 supersedes the previous missing GitHub Topics observation. Preserve the historical sources instead of rewriting them.
 

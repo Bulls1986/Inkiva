@@ -9,6 +9,10 @@ export type DocPage = {
   file: string
   /** Optional short subtitle (used in the palette) */
   hint?: string
+  /** Optional search title; does not change the visible navigation label. */
+  seoTitle?: string
+  /** Optional search description for pages whose hint is too short for a snippet. */
+  seoDescription?: string
 }
 
 export type DocGroup = {
@@ -40,7 +44,10 @@ export const DOC_TABS: DocTab[] = [
             slug: ['installation'],
             title: 'Installation',
             file: 'end-user/INSTALLATION.md',
-            hint: 'Download & install on Windows or macOS'
+            hint: 'Download & install on Windows or macOS',
+            seoTitle: 'Download Inkiva Markdown Editor for Windows and macOS',
+            seoDescription:
+              'Download the free Inkiva WYSIWYG Markdown editor for Windows 10/11 x64 and macOS Intel/Apple silicon. Choose an installer, portable ZIP or DMG.'
           },
           {
             slug: ['basics'],

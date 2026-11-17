@@ -12,6 +12,10 @@ export const DEFAULT_DESCRIPTION =
 export const DOCS_DESCRIPTION =
   'User guides, reference and developer documentation for Inkiva (墨映), the free, open-source WYSIWYG Markdown desktop editor.'
 
+export const TYPO_COMPARISON_TITLE = 'Typora vs MarkText: Inkiva Markdown Editor Comparison'
+export const TYPO_COMPARISON_DESCRIPTION =
+  'Compare Typora and MarkText with Inkiva: desktop editing, price, licenses, platform support, local Markdown files, navigation, recovery and export.'
+
 export const SOCIAL_IMAGE = {
   url: `${SITE_URL}/assets/inkiva-og.png`,
   width: 1200,
