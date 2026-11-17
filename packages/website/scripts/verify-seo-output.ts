@@ -102,7 +102,7 @@ assert.ok(installationHtml.includes('href="/compare/typora/"'))
 
 for (const page of ALL_PAGES) {
   await verifyRoute(`docs/${page.slug.join('/')}/index.html`, {
-    title: page.title,
+    title: page.seoTitle ?? page.title,
     url: absoluteUrl(page.href)
   })
 }
