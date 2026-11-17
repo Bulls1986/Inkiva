@@ -1,6 +1,6 @@
 # Installation
 
-Inkiva is a free, open-source Markdown editor for Windows x64 and macOS on Intel or Apple silicon. Pre-built binaries are published with every stable release on [GitHub Releases](https://github.com/Bulls1986/Inkiva/releases/latest).
+Inkiva is a free, open-source WYSIWYG Markdown desktop editor for Windows x64 and macOS on Intel or Apple silicon. Pre-built binaries are published with every stable release on [GitHub Releases](https://github.com/Bulls1986/Inkiva/releases/latest).
 
 ## Windows x64
 
@@ -65,3 +65,7 @@ Inkiva checks for updates on launch. When an update is published, the app downlo
 | macOS | Drag **Inkiva.app** to the Trash. Optionally also remove `~/Library/Application Support/inkiva`. |
 
 To remove Inkiva's user data as well, see the [application data directory](APPLICATION_DATA_DIRECTORY.md).
+
+## Compare Inkiva with other Markdown editors
+
+If you are choosing between Inkiva, Typora and MarkText, read the [side-by-side Markdown editor comparison](/compare/typora/) for differences in editing experience, price and license, platform support, local files, navigation and recovery.

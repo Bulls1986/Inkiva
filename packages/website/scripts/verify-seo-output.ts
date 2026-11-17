@@ -3,7 +3,13 @@ import { access, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 import { ALL_PAGES } from '../src/lib/docs-nav'
-import { absoluteUrl, SITEMAP_URL, SOCIAL_IMAGE } from '../src/lib/seo'
+import {
+  absoluteUrl,
+  SITEMAP_URL,
+  SOCIAL_IMAGE,
+  TYPO_COMPARISON_DESCRIPTION,
+  TYPO_COMPARISON_TITLE
+} from '../src/lib/seo'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const OUT = resolve(ROOT, 'out')
@@ -18,7 +24,10 @@ function metadataValue(html: string, pattern: RegExp, label: string): string {
   return match[1]
 }
 
-async function verifyRoute(route: string, expected: { title: string; url: string }) {
+async function verifyRoute(
+  route: string,
+  expected: { title: string; url: string; description?: string }
+) {
   const html = await readOutput(route)
   const canonical = metadataValue(
     html,
@@ -36,6 +45,14 @@ async function verifyRoute(route: string, expected: { title: string; url: string
     `${route} og:image`
   )
   const title = metadataValue(html, /<title>([^<]+)<\/title>/, `${route} title`)
+  if (expected.description) {
+    const description = metadataValue(
+      html,
+      /<meta name="description" content="([^"]+)"\/>/,
+      `${route} description`
+    )
+    assert.equal(description, expected.description, `${route} description must match its search intent`)
+  }
 
   assert.equal(canonical, expected.url, `${route} canonical must be its final URL`)
   assert.equal(openGraphUrl, expected.url, `${route} og:url must match canonical`)
@@ -62,13 +79,26 @@ await verifyRoute('docs/index.html', {
   url: absoluteUrl('/docs/')
 })
 await verifyRoute('compare/typora/index.html', {
-  title: 'Inkiva vs Typora vs MarkText',
-  url: absoluteUrl('/compare/typora/')
+  title: TYPO_COMPARISON_TITLE,
+  url: absoluteUrl('/compare/typora/'),
+  description: TYPO_COMPARISON_DESCRIPTION
 })
 await verifyRoute('zh-CN/compare/typora/index.html', {
   title: 'Inkiva、Typora 与 MarkText 对比',
   url: absoluteUrl('/zh-CN/compare/typora/')
 })
+await verifyRoute('docs/installation/index.html', {
+  title: 'Download Inkiva Markdown Editor for Windows and macOS',
+  url: absoluteUrl('/docs/installation/'),
+  description:
+    'Download the free Inkiva WYSIWYG Markdown editor for Windows 10/11 x64 and macOS Intel/Apple silicon. Choose an installer, portable ZIP or DMG.'
+})
+
+const comparisonHtml = await readOutput('compare/typora/index.html')
+const installationHtml = await readOutput('docs/installation/index.html')
+assert.ok(comparisonHtml.includes('Typora vs MarkText: How Inkiva Compares'))
+assert.ok(comparisonHtml.includes('href="/docs/installation/"'))
+assert.ok(installationHtml.includes('href="/compare/typora/"'))
 
 for (const page of ALL_PAGES) {
   await verifyRoute(`docs/${page.slug.join('/')}/index.html`, {

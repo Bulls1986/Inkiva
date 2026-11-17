@@ -3,26 +3,25 @@ import EditorComparisonPage from '@/components/EditorComparisonPage'
 import {
   ORGANIZATION_SCHEMA_ID,
   WEBSITE_SCHEMA_ID,
+  TYPO_COMPARISON_DESCRIPTION,
+  TYPO_COMPARISON_TITLE,
   absoluteUrl,
   createPageMetadata,
   stringifyJsonLd
 } from '@/lib/seo'
 
-const TITLE = 'Inkiva vs Typora vs MarkText: Markdown Editor Comparison'
-const DESCRIPTION =
-  'Compare Inkiva, Typora and MarkText by editing experience, price, license, desktop platforms, local Markdown files, navigation and recovery features.'
 const PATH = '/compare/typora/'
 
 export const metadata: Metadata = createPageMetadata({
-  title: TITLE,
-  description: DESCRIPTION,
+  title: TYPO_COMPARISON_TITLE,
+  description: TYPO_COMPARISON_DESCRIPTION,
   path: PATH,
   type: 'article',
   languages: {
     'en-US': PATH,
     'zh-CN': '/zh-CN/compare/typora/'
   },
-  openGraphTitle: TITLE
+  openGraphTitle: TYPO_COMPARISON_TITLE
 })
 
 const pageUrl = absoluteUrl(PATH)
@@ -30,8 +29,8 @@ const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'TechArticle',
   '@id': `${pageUrl}#article`,
-  headline: TITLE,
-  description: DESCRIPTION,
+  headline: TYPO_COMPARISON_TITLE,
+  description: TYPO_COMPARISON_DESCRIPTION,
   url: pageUrl,
   inLanguage: 'en-US',
   isPartOf: { '@id': WEBSITE_SCHEMA_ID },

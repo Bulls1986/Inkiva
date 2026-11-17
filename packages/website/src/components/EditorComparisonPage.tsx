@@ -5,9 +5,9 @@ type Locale = 'en' | 'zh-CN'
 const COPY = {
   en: {
     eyebrow: 'Markdown editor comparison',
-    title: 'Inkiva vs Typora vs MarkText',
-    lead: 'A practical comparison of three desktop Markdown editors for people who want to write in a rendered document while keeping their files portable.',
-    updated: 'Facts checked against official product pages and repositories on October 30, 2026. Prices, supported systems and features may change.',
+    title: 'Typora vs MarkText: How Inkiva Compares',
+    lead: 'Comparing Typora and MarkText? See where Inkiva fits in a side-by-side comparison of editing, price, platforms, local files, navigation and recovery.',
+    updated: 'Facts checked against official product pages and repositories on November 17, 2026. Prices, supported systems and features may change.',
     home: 'Inkiva home',
     tableTitle: 'At a glance',
     headers: ['Dimension', 'Inkiva', 'Typora', 'MarkText'],
