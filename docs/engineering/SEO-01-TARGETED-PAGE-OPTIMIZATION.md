@@ -115,3 +115,30 @@ On 2026-11-23, capture GSC's latest complete data date and compare **the latest 
 ## 7. Acceptance and closeout boundary
 
 This stage improves the match between existing content and observed search intent. It does not guarantee ranking, CTR or traffic gains; Google may rewrite titles/snippets and needs time to recrawl. Final implementation acceptance requires PR CI, merge, website deployment and live HTML verification. The first outcome review is the 2026-11-23 GSC comparison above.
+
+
+## 8. First outcome review attempt — 2026-11-23
+
+**Measurement status: blocked by Google Search Console access, not by website/repository access.** The connected browser refused tab access with: `Browser access requires the originating browser context. Open ChatGPT in the browser with the connected extension and try again.` No authenticated GSC performance report or screenshot was available for this review. Consequently, **no new performance numbers, latest complete data date, indexing count, sitemap status, or AI Search numbers are asserted**.
+
+### Comparison ledger (Web Search)
+
+| Scope | Historical reference | Latest 28 days | Previous 28 days | Valid before/after conclusion |
+|---|---|---|---|---|
+| Site | 3 months to Nov 13: 137 impressions, 3 clicks, 2.2% CTR, position 7.6; Nov 17 recent 28d: 57 impressions, 1 click | Not retrieved | Not retrieved | Not measurable; the 3-month and 28-day windows are not directly comparable |
+| `/compare/typora/` | 3 months: 14 impressions, 0 clicks, 0% CTR, position 10.1 | Not retrieved | Not retrieved | Not measurable |
+| `/docs/installation/` | 3 months: 30 impressions, 0 clicks, 0% CTR, position 5.3 | Not retrieved | Not retrieved | Not measurable |
+
+The query-only historical rows were `typora vs marktext` (5 impressions, 0 clicks, position 9.8) and `marktext vs typora` (4 impressions, 0 clicks, position 16.5). **Neither is attributed to a landing page**: combined Page + Query filters have not been observed.
+
+- Latest complete GSC data date: **unavailable**.
+- Page indexing (indexed/non-indexed counts): **unavailable**.
+- Sitemap status and last read: **unavailable**.
+- Generative AI Search report: **availability and metrics unverified**; not included in Web Search.
+- Website changes were merged into `develop` via PR #286 on 2026-11-17 (squash commit `7ec5c2c20279f8c07247bee55e2060f1ed99305e`). This establishes repository integration, **not** production deployment or recrawl.
+
+### Required follow-up evidence
+
+Open the Inkiva property in [Google Search Console](https://search.google.com/search-console) from the originating connected browser and capture: (1) Web Search, Compare: last 28 days vs previous 28 days, all four metrics and the latest complete data date; (2) the same comparison for exact page filters `https://www.inkiva.net/compare/typora/` and `https://www.inkiva.net/docs/installation/`; (3) each of the two target queries with Page and Query filters **simultaneously**; (4) separate Generative AI Search if present; (5) Page indexing and Sitemaps overview. Reconcile URL variants/canonical paths before drawing conclusions.
+
+**Interpretation rule:** SEO-01 was merged only six days before this attempted review; a 28-day period is mostly pre-change and should not be treated as an isolated post-launch effect. Once measurements are accessible, report absolute and percentage changes where denominators are nonzero, and repeat after a full post-deployment 28-day interval. No source code was changed by this review.
