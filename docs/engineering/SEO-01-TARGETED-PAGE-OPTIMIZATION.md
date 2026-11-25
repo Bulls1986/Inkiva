@@ -104,6 +104,69 @@ On 2026-11-23, capture GSC's latest complete data date and compare **the latest 
 - Query report (not page-attributed): `typora vs marktext` 5 impressions / average position 9.8; `marktext vs typora` 4 impressions / average position 16.5.
 - Site-level recent-28-day screenshot on 2026-11-17: 57 impressions / 1 click.
 
+
+
+## 8. First GSC outcome review (2026-11-25)
+
+Live Google Search Console review for property `sc-domain:inkiva.net`. Search type: Web (text). Comparison: latest 28 days vs preceding 28 days. The latest complete date visible in the report chart is **2026-11-22**; the report showed its data was updated approximately 3.5 hours before inspection.
+
+### Site-wide Web Search
+
+| Metric | Preceding 28 days | Latest 28 days | Change |
+|---|---:|---:|---:|
+| Impressions | 37 | 100 | +63 (+170.3%) |
+| Clicks | 0 | 3 | +3 |
+| CTR | 0% | 3.0% | +3.0 percentage points |
+| Average position | 6.3 | 7.0 | 0.7 positions worse |
+
+Exposure expanded substantially and the site generated its first three clicks in this comparison window. Average position moved slightly down; with this small sample, this is directional rather than conclusive.
+
+### Target pages
+
+| Page filter | Metric | Preceding 28 days | Latest 28 days |
+|---|---|---:|---:|
+| `https://www.inkiva.net/compare/typora/` | Clicks | 0 | 0 |
+| | Impressions | 0 | 37 |
+| | CTR | 0% | 0% |
+| | Average position | no data | 8.0 |
+| `https://www.inkiva.net/docs/installation/` | Clicks | 0 | 0 |
+| | Impressions | 14 | 16 |
+| | CTR | 0% | 0% |
+| | Average position | 7.6 | 3.5 |
+
+**URL caveat:** GSC's site-level content panel showed the comparison page click under `https://www.inkiva.net/zh-CN/compare/typora/`, while the page-filter review used the unprefixed `/compare/typora/` URL. Treat the 37-impression result as the exact filtered URL only; verify the canonical/locale URL variant before aggregating it as the intended English comparison page. The installation page gained 2 impressions and improved its average position in the selected period, but still received no clicks.
+
+### Query report and attribution boundary
+
+In the site-wide query table for the latest 28 days:
+- `typora vs marktext`: 12 impressions, 0 clicks, CTR 0%, average position 8.1.
+- `marktext vs typora`: 8 impressions, 0 clicks, CTR 0%, average position 12.0.
+
+These are site-wide query rows. The page+query intersection was **not** captured during this review, so neither query is attributed to either target page. The preceding-period values were 0 impressions for both rows in the current comparison table.
+
+### Generative AI Search
+
+The separate Generative AI report was available. The previously inspected three-month view showed 40 impressions in total, with page-level exposure including homepage 25, comparison page 8, installation page 5, docs landing page 4, and changelog 1. These AI-report values are separate from Web Search and must not be added to the Web Search totals. They indicate report visibility only, not citations, recommendations or visits. The exact AI report date range should be retained with any later export.
+
+### Indexing and sitemap snapshot
+
+- Page indexing: 55 indexed, 12 not indexed (67 reported URLs; approximately 82.1% indexed).
+- Not-indexed reason breakdown: 6 page with redirect, 1 not found (404), 4 discovered - currently not indexed, 1 crawled - currently not indexed.
+- Sitemap `sitemap.xml`: Success; 57 submitted URLs and 57 discovered pages; last read 2026-11-20.
+- Page indexing report last updated: 2026-11-16.
+- These are coverage diagnostics, not direct measures of search traffic.
+
+### Outcome and next actions
+
+1. The strongest confirmed movement is site-wide impressions (+170.3%) and the appearance of 3 clicks; do not attribute all growth to SEO-01 without deployment timing and page-level evidence.
+2. The comparison URL filter has 37 impressions and average position 8.0 but no clicks. Verify the English/Chinese URL variant and then improve the title/snippet only if the live indexed result warrants it.
+3. Installation has 16 impressions, no clicks, and average position 3.5. Its ranking is comparatively strong; prioritize snippet relevance and confirm search intent rather than making broad content changes.
+4. Capture GSC intersections with both Page and Query filters for each target page before claiming either Typora query belongs to that page.
+5. Review the six redirect URLs and the five discovered/crawled-but-not-indexed URLs; prioritize only important canonical content pages.
+6. Repeat the same comparison after another 28 days. Small counts and average positions can fluctuate materially.
+
+This review updates measurement evidence only. No application source code was changed.
+
 ## 6. Sources checked for factual comparison
 
 - Typora official site/pricing: https://typora.io/
