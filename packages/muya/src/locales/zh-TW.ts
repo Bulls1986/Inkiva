@@ -50,7 +50,8 @@ export const zhTW = {
         'Search keyword...': '搜尋關鍵字...',
         'Type / to insert...': '輸入 / 插入段落',
         'Copy anchor link to this heading': '複製此標題的錨點連結',
-        'Click to add an image': '點擊新增圖片',
+        'Collapse section': '摺疊章節',
+        'Expand section': '展開章節',        'Click to add an image': '點擊新增圖片',
         'Load image failed': '圖片載入失敗',
         // formatPicker
         'Emphasize': '粗體',

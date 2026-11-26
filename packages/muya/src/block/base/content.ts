@@ -434,6 +434,11 @@ class Content extends TreeNode {
         this.isComposed = false;
     }
 
+    /** Whether an IME composition currently owns this content block. */
+    get isComposing(): boolean {
+        return this.isComposed;
+    }
+
     getAnchor(): Nullable<Parent> {
         return null;
     }

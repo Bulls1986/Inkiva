@@ -50,7 +50,8 @@ export const tr = {
         'Search keyword...': 'Anahtar sözcük ara...',
         'Type / to insert...': 'Eklemek için / yazın...',
         'Copy anchor link to this heading': 'Bu başlığın çapa bağlantısını kopyala',
-        'Click to add an image': 'Görsel eklemek için tıklayın',
+        'Collapse section': 'Bölümü daralt',
+        'Expand section': 'Bölümü genişlet',        'Click to add an image': 'Görsel eklemek için tıklayın',
         'Load image failed': 'Görsel yüklenemedi',
         // formatPicker
         'Emphasize': 'Kalın',

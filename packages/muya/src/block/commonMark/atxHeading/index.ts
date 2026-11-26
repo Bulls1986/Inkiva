@@ -18,6 +18,7 @@ class AtxHeading extends Parent {
 
         heading.appendAttachment(
             ScrollPage.loadBlock('heading-copy-link').create(muya, null),
+            ScrollPage.loadBlock('heading-collapse-toggle').create(muya, null),
         );
 
         heading.append(

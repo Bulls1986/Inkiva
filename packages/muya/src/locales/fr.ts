@@ -50,7 +50,8 @@ export const fr = {
         'Search keyword...': 'Rechercher un mot-clé...',
         'Type / to insert...': 'Tapez / pour insérer...',
         'Copy anchor link to this heading': 'Copier le lien d\'ancrage vers ce titre',
-        'Click to add an image': 'Cliquez pour ajouter une image',
+        'Collapse section': 'Réduire la section',
+        'Expand section': 'Développer la section',        'Click to add an image': 'Cliquez pour ajouter une image',
         'Load image failed': 'Échec du chargement de l\'image',
         // formatPicker
         'Emphasize': 'Gras',
