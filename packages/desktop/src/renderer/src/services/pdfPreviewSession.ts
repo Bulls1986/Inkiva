@@ -42,8 +42,12 @@ export interface PdfDocumentLike {
 /** A local resource the generated PDF depends on, captured at generation time. */
 export interface PdfResourceSnapshot {
   path: string
-  mtimeMs: number
-  size: number
+  /**
+   * SHA-256 of the file bytes at generation time, or `null` when the file could
+   * not be read (missing/unreadable). Size and mtime are NOT identity: a
+   * replacement can keep both and still change the rendered pages.
+   */
+  hash: string | null
 }
 
 export interface PdfPreviewSessionDeps {
@@ -54,10 +58,14 @@ export interface PdfPreviewSessionDeps {
   release(previewId: string): void
   openDocument(bytes: Uint8Array): Promise<PdfDocumentLike>
   /**
-   * Re-read one resource's identity. Returning null means the file is gone.
-   * When omitted, only document/settings changes can invalidate a preview.
+   * Re-read one resource's content identity. `null` means the file is gone or
+   * unreadable, which is itself a change from a recorded hash.
    */
-  statResource?(path: string): Promise<{ mtimeMs: number, size: number } | null>
+  readResource?(path: string): Promise<{ hash: string } | null>
+  /** Native target prompt; separated so the dialog pause can be revalidated. */
+  showSaveDialog?(request: {
+    defaultPath: string
+  }): Promise<{ canceled: boolean, filePath?: string }>
 }
 
 export interface PdfPreviewState {
@@ -69,6 +77,8 @@ export interface PdfPreviewState {
   message: string | null
   versions: PdfPreviewVersionSnapshot | null
   resources: PdfResourceSnapshot[]
+  /** Referenced images that could not be read when the preview was generated. */
+  missingResources: string[]
   /** Test-mode status trail; surfaced in the DOM so E2E failures are diagnosable. */
   events: string[]
 }
@@ -100,6 +110,7 @@ export class PdfPreviewSession {
       message: null,
       versions: null,
       resources: [],
+      missingResources: [],
       events: []
     })
   }
@@ -118,6 +129,9 @@ export class PdfPreviewSession {
     this.state.currentPage = 1
     this.state.versions = input.versions
     this.state.resources = input.resources ?? []
+    this.state.missingResources = this.state.resources
+      .filter((resource) => resource.hash === null)
+      .map((resource) => resource.path)
 
     const request: PdfPreviewGenerateRequest = {
       ...input.versions,
@@ -204,12 +218,36 @@ export class PdfPreviewSession {
 
     this.setStatus('saving')
     this.state.error = null
+
+    // The native target prompt is a long user pause: re-read the resources after
+    // it returns and before main writes the artifact.
+    const showSaveDialog = this.deps.showSaveDialog
+    let target: { canceled: boolean, filePath?: string } | null = null
+    if (showSaveDialog) {
+      target = await showSaveDialog({ defaultPath: request.defaultPath })
+      if (sequence !== this.sequence) return 'blocked'
+      if (target.canceled || !target.filePath) {
+        this.setStatus('ready')
+        return 'canceled'
+      }
+      if (await this.resourcesChanged()) {
+        if (sequence !== this.sequence) return 'blocked'
+        // `invalidate` only reacts to a ready/saved preview; this session is
+        // mid-save, so mark it stale explicitly.
+        this.setStatus('stale')
+        this.state.message = null
+        this.state.error = 'A referenced image changed on disk. Generate the preview again.'
+        return 'blocked'
+      }
+      if (sequence !== this.sequence) return 'blocked'
+    }
+
     const result = await this.deps.save({
       previewId: this.state.previewId,
       documentVersion: versions.documentVersion,
       settingsVersion: versions.settingsVersion,
       resourceVersion: versions.resourceVersion,
-      defaultPath: request.defaultPath,
+      defaultPath: target?.filePath ?? request.defaultPath,
       reuseLastPath: request.reuseLastPath
     })
     // The dialog may have been closed or a new export started while the native
@@ -270,7 +308,7 @@ export class PdfPreviewSession {
 
   private logTransition(next: string): void {
     if (window.electron?.process?.env?.PERF_TESTING !== 'true') return
-    // eslint-disable-next-line no-console
+
     console.log('[pdf-status]', this.state.status, '->', next, 'seq=' + this.sequence)
   }
 
@@ -281,16 +319,19 @@ export class PdfPreviewSession {
     this.state.status = next
   }
 
+  /**
+   * Compare each recorded resource against the file on disk. A changed hash, a
+   * file that disappeared and a file that appeared where none was readable all
+   * invalidate the artifact (P2/P7).
+   */
   private async resourcesChanged(): Promise<boolean> {
-    const stat = this.deps.statResource
+    const read = this.deps.readResource
     const resources = this.state.resources
-    if (!stat || resources.length === 0) return false
+    if (!read || resources.length === 0) return false
     for (const resource of resources) {
-      const current = await stat(resource.path)
-      if (!current) return true
-      if (current.mtimeMs !== resource.mtimeMs || current.size !== resource.size) {
-        return true
-      }
+      const current = await read(resource.path)
+      const currentHash = current?.hash ?? null
+      if (currentHash !== resource.hash) return true
     }
     return false
   }
@@ -304,6 +345,7 @@ export class PdfPreviewSession {
     this.state.message = null
     this.state.versions = null
     this.state.resources = []
+    this.state.missingResources = []
   }
 
   private dropDocumentInBackground(): void {

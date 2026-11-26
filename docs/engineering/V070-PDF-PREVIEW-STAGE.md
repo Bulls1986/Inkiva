@@ -37,11 +37,17 @@ PRs and must not be mixed into this change.
    bounded so a page that never reports destruction cannot stall the queue, and
    an awaited teardown that finishes late never resets a newer generation
    (the renderer session re-checks its sequence before resetting).
-7. **Referenced images are part of the artifact identity.** The preview
-   records `mtimeMs`/`size` for every local `file://` image it embeds and re-reads
-   them before saving; a changed or vanished file marks the preview stale and
-   blocks the write (P2/P7). Images the renderer never embeds (remote, `data:`)
-   are out of scope by construction.
+7. **Referenced images are part of the artifact identity — by content.**
+   The preview records the SHA-256 of every local `file://` image it embeds and
+   re-reads it before saving and again after the native dialog returns. A changed
+   hash, a file that disappeared, or a file that appears where none was readable
+   at generation time all mark the preview stale and block the write (P2/P7).
+   Size and mtime are explicitly NOT identity: the independent review showed a
+   replacement can keep both and still change the pages. Remote (`http(s):`) and
+   `data:` sources have no local file to hash and stay outside the identity; an
+   unreadable local image is recorded as `hash: null` rather than dropped, so the
+   later appearance of that file invalidates the old preview instead of silently
+   producing a PDF laid out without it.
 8. **A save result never repaints a replaced session.** The native dialog can
    outlive the export dialog that opened it; the session re-checks its sequence
    before applying the outcome.
@@ -83,7 +89,8 @@ message alone.
 | Green | the PDF preview specs | 35 passed (31 + 4 resource-identity assertions). |
 | Regression | `vitest run test/unit` (desktop) | 177 files passed; 1388 passed, 1 skipped. |
 | Type check | `vue-tsc --noEmit -p tsconfig.json` | No errors in the changed files. |
-| Electron E2E | `playwright test test/e2e/export-pdf.spec.ts test/e2e/export-pdf-resources.spec.ts` | 5/5 passed on repeated runs on Windows x64: SHA-256 equality between the preview artifact and the saved file, `/Outlines` + `/StructTreeRoot` in the written PDF, and an edited image on disk blocking the save of the old preview. |
+| Electron E2E | `playwright test test/e2e/{export-pdf,export-pdf-resources,export-pdf-acceptance}.spec.ts` | 11/11 passed, three consecutive runs on Windows x64. Covers SHA-256 equality of preview vs saved file, `/Outlines` + `/StructTreeRoot`, a same-size same-mtime image replacement blocking the save, a missing image that appears later blocking the save, a custom 180 × 240 mm paper whose saved `/MediaBox` measures 180 ± 2 mm × 240 ± 2 mm, a failed write that keeps the preview and then succeeds on retry, and no leftover hidden print window after generation. |
+| Visual baseline | `playwright test test/e2e/visual-regression.spec.ts --grep "floating dialog"` | The `dialog-linux.png` baseline was regenerated for the new PDF dialog layout: the measured card is 498 px in the old baseline and 878 px in the current build (CI actual and local win32 both 878 px), because the PDF dialog now shows settings next to the paginated preview at 880 px. Assertion and tolerance are unchanged. |
 | Lint | `eslint` on the changed files | 0 errors. |
 
 ## Not covered here

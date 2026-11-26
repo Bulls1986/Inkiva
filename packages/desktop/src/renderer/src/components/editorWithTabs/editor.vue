@@ -279,7 +279,8 @@ import { pdfPreviewSession } from '@/services/pdfPreviewRuntime'
 import {
   buildVersionSnapshot,
   collectResourceSnapshots,
-  extractLocalImagePaths
+  extractLocalImagePaths,
+  readResourceHash
 } from '@/components/exportSettings/previewVersions'
 import { setPdfPreviewContentProvider } from '@/services/pdfPreviewContentProvider'
 import type { Handler } from 'mitt'
@@ -2476,14 +2477,7 @@ const handleExportPreview = async (opts: ExportOptions): Promise<void> => {
   // on disk can invalidate this preview before it is written (P2/P7).
   const resources = await collectResourceSnapshots(
     extractLocalImagePaths(html),
-    async (path) => {
-      try {
-        const stat = await window.fileUtils.stat(path)
-        return { mtimeMs: Number(stat.mtimeMs), size: Number(stat.size) }
-      } catch {
-        return null
-      }
-    }
+    (path) => readResourceHash(path, (target) => window.fileUtils.readFile(target))
   )
 
   const id = currentFile.value?.id

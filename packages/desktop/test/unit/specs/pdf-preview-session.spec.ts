@@ -142,19 +142,16 @@ describe('PdfPreviewSession generation', () => {
 })
 
 describe('PdfPreviewSession resource validity', () => {
-  const imageSnapshot = { path: '/doc/img.png', mtimeMs: 1000, size: 10 }
+  // Identity is the file CONTENT hash: a replacement can keep both the byte
+  // count and the modification time and still change the rendered pages.
+  const imageSnapshot = { path: '/doc/img.png', hash: 'hash-a' }
+  const present = (hash: string) => async() => ({ hash })
 
-  it('blocks saving when a referenced image changed on disk after generation', async() => {
-    const stats: Record<string, { mtimeMs: number, size: number }> = {
-      '/doc/img.png': { mtimeMs: 1000, size: 10 }
-    }
-    const { session, deps } = createSession({ statResource: async(p) => stats[p] ?? null })
+  it('blocks saving when the image content changed but size and mtime did not', async() => {
+    const { session, deps } = createSession({ readResource: present('hash-b') })
 
     await session.requestPreview({ ...request(), resources: [imageSnapshot] })
     expect(session.state.status).toBe('ready')
-
-    // The user replaced/edited the image on disk while the preview was open.
-    stats['/doc/img.png'] = { mtimeMs: 5000, size: 10 }
 
     expect(await session.save({ defaultPath: '/out/report.pdf' })).toBe('blocked')
     expect(session.state.status).toBe('stale')
@@ -162,7 +159,7 @@ describe('PdfPreviewSession resource validity', () => {
   })
 
   it('blocks saving when a referenced image disappeared from disk', async() => {
-    const { session, deps } = createSession({ statResource: async() => null })
+    const { session, deps } = createSession({ readResource: async() => null })
 
     await session.requestPreview({ ...request(), resources: [imageSnapshot] })
 
@@ -171,15 +168,53 @@ describe('PdfPreviewSession resource validity', () => {
     expect(deps.save).not.toHaveBeenCalled()
   })
 
-  it('saves when the referenced resources are unchanged', async() => {
-    const { session, deps } = createSession({
-      statResource: async() => ({ mtimeMs: 1000, size: 10 })
+  it('blocks saving when an image that was missing at generation appears', async() => {
+    // A missing image contributes whatever the placeholder work decided; a
+    // newly available file changes the pagination, so the old preview is stale.
+    const { session, deps } = createSession({ readResource: present('hash-a') })
+
+    await session.requestPreview({
+      ...request(),
+      resources: [{ path: '/doc/late.png', hash: null }]
     })
+
+    expect(await session.save({ defaultPath: '/out/report.pdf' })).toBe('blocked')
+    expect(session.state.status).toBe('stale')
+    expect(deps.save).not.toHaveBeenCalled()
+  })
+
+  it('saves when the referenced resources are unchanged', async() => {
+    const { session, deps } = createSession({ readResource: present('hash-a') })
 
     await session.requestPreview({ ...request(), resources: [imageSnapshot] })
 
     expect(await session.save({ defaultPath: '/out/report.pdf' })).toBe('saved')
     expect(deps.save).toHaveBeenCalledTimes(1)
+  })
+
+  it('revalidates again after the native save dialog returns', async() => {
+    // The dialog is a long user pause: the image can change while it is open.
+    const gate = defer<{ canceled: boolean; filePath?: string }>()
+    let reads = 0
+    const { session, deps } = createSession({
+      showSaveDialog: () => gate.promise,
+      readResource: async() => {
+        reads += 1
+        return { hash: reads <= 1 ? 'hash-a' : 'hash-b' }
+      }
+    })
+
+    await session.requestPreview({ ...request(), resources: [imageSnapshot] })
+    const saving = session.save({ defaultPath: '/out/report.pdf' })
+
+    // The artifact is still current when the dialog opens, then the image
+    // changes on disk before the user confirms.
+    await flush()
+    gate.resolve({ canceled: false, filePath: '/out/report.pdf' })
+
+    expect(await saving).toBe('blocked')
+    expect(deps.save).not.toHaveBeenCalled()
+    expect(session.state.status).toBe('stale')
   })
 })
 

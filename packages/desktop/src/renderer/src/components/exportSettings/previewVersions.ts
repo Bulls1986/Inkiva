@@ -60,17 +60,53 @@ export const extractLocalImagePaths = (html: string): string[] => {
   return paths
 }
 
-/** Identity of each existing image at generation time; missing files are skipped. */
+/**
+ * Content identity of every referenced image, including the ones that cannot be
+ * read right now. A missing image is recorded with `hash: null` on purpose: if it
+ * appears later the pagination changes, so the old preview must go stale instead
+ * of silently keeping a PDF that was laid out without it (P2/P7).
+ *
+ * The hash is SHA-256 of the bytes. Size and mtime are not identity — a
+ * replacement can keep both and still render different pages.
+ */
 export const collectResourceSnapshots = async(
   paths: string[],
-  stat: (path: string) => Promise<{ mtimeMs: number, size: number } | null>
+  read: (path: string) => Promise<{ hash: string } | null>
 ): Promise<PdfResourceSnapshot[]> => {
   const snapshots: PdfResourceSnapshot[] = []
   for (const path of paths) {
-    const current = await stat(path)
-    if (current) snapshots.push({ path, mtimeMs: current.mtimeMs, size: current.size })
+    const current = await read(path)
+    snapshots.push({ path, hash: current?.hash ?? null })
   }
   return snapshots
+}
+
+const toHex = (buffer: ArrayBuffer): string =>
+  Array.from(new Uint8Array(buffer))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+
+/**
+ * Hash a local file's bytes through the preload bridge. Returns null when the
+ * file is missing or unreadable, which the snapshot records as "was not usable".
+ */
+export const readResourceHash = async(
+  path: string,
+  readFile: (path: string) => Promise<unknown>
+): Promise<{ hash: string } | null> => {
+  try {
+    const data = await readFile(path)
+    const bytes =
+      data instanceof Uint8Array
+        ? data
+        : typeof data === 'string'
+          ? new TextEncoder().encode(data)
+          : new Uint8Array(data as ArrayBufferLike)
+    const digest = await crypto.subtle.digest('SHA-256', bytes as unknown as BufferSource)
+    return { hash: toHex(digest) }
+  } catch {
+    return null
+  }
 }
 
 export const buildVersionSnapshot = (input: {
