@@ -462,6 +462,7 @@ export class ScrollPage extends Parent implements IDocumentSurface {
     private _headingKeyByBlock = new Map<Parent, string>();
     private _headingStructureSignature = '';
     private _headingStructureDirty = true;
+    private _collapseDomApplied = false;
     private _hiddenVirtualRanges: IVirtualRange[] = [];
 
     // The desktop keeps at most two non-active tabs warm. Cache the bounded
@@ -2248,7 +2249,11 @@ export class ScrollPage extends Parent implements IDocumentSurface {
         this._headingSectionBySlug = new Map(
             sections.map(section => [stableSlug(section.block), section]),
         );
-        this._updateHeadingKeys();
+        // getTOC() walks every top-level block. On a 50k cold mount there is
+        // no collapsed state to reconcile, so defer that walk until state is
+        // requested or a heading is actually collapsed.
+        if (this._collapsedHeadings.size > 0 || this._collapsedHeadingKeys.size > 0)
+            this._updateHeadingKeys();
         const sectionByKey = new Map(
             sections.flatMap((section) => {
                 const key = this._headingKeyByBlock.get(section.block);
@@ -2376,26 +2381,34 @@ export class ScrollPage extends Parent implements IDocumentSurface {
     }
 
     private _syncHeadingCollapseDom(): void {
-        this.children.forEach((child, index) => {
-            if (!child.isParent())
-                return;
-            const block = child as Parent;
-            const hidden = this._isVirtualIndexHidden(index);
-            const node = block.domNode;
-            if (node) {
-                node.classList.toggle('mu-heading-section-hidden', hidden);
-                if (hidden)
-                    node.setAttribute('aria-hidden', 'true');
-                else
-                    node.removeAttribute('aria-hidden');
-                if (block.blockName === 'atx-heading' || block.blockName === 'setext-heading') {
-                    node.classList.toggle('mu-heading-collapsed', this._collapsedHeadings.has(block));
+        const hasHiddenRanges = this._hiddenVirtualRanges.length > 0;
+        // With no collapsed section the only work is heading control state.
+        // Avoid an O(all blocks) cold scan on large documents; once a section
+        // has actually been hidden, the full scan is needed to clear classes on
+        // expand.
+        if (hasHiddenRanges || this._collapseDomApplied) {
+            this.children.forEach((child, index) => {
+                if (!child.isParent())
+                    return;
+                const block = child as Parent;
+                const hidden = this._isVirtualIndexHidden(index);
+                const node = block.domNode;
+                if (node) {
+                    node.classList.toggle('mu-heading-section-hidden', hidden);
+                    if (hidden)
+                        node.setAttribute('aria-hidden', 'true');
+                    else
+                        node.removeAttribute('aria-hidden');
+                    if (block.blockName === 'atx-heading' || block.blockName === 'setext-heading') {
+                        node.classList.toggle('mu-heading-collapsed', this._collapsedHeadings.has(block));
+                    }
                 }
-            }
-        });
+            });
+        }
 
         for (const section of this._headingSections)
             this._syncHeadingToggle(section);
+        this._collapseDomApplied = hasHiddenRanges;
     }
 
     private _syncHeadingToggle(section: IHeadingSection): void {
