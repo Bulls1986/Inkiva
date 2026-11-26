@@ -25,7 +25,7 @@
         type="button"
         class="recovery-dismiss"
         aria-label="关闭"
-        @click="bannerDismissed = true"
+        @click="dismissBanner"
       >
         ×
       </button>
@@ -244,6 +244,12 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useEditorStore } from '@/store/editor'
+import {
+  loadDismissedRecoveryIds,
+  mergeDismissedRecoveryIds,
+  saveDismissedRecoveryIds,
+  shouldShowRecoveryBanner
+} from './bannerDismissal'
 import type { RecoveryCenterItem, RecoveryCenterState } from '@shared/types/recovery'
 
 const emptyState = (): RecoveryCenterState => ({ safeMode: false, items: [] })
@@ -252,6 +258,7 @@ const editorStore = useEditorStore()
 const { currentFile } = storeToRefs(editorStore)
 const state = ref<RecoveryCenterState>(emptyState())
 const visible = ref(false)
+const dismissedIds = ref<string[]>(loadDismissedRecoveryIds())
 const bannerDismissed = ref(false)
 const selectedId = ref('')
 const previewMode = ref<'disk' | 'recovery'>('recovery')
@@ -294,6 +301,18 @@ const keepSelectionValid = (): void => {
 const refresh = async (): Promise<void> => {
   state.value = await window.electron.ipcRenderer.invoke('mt::recovery-center::get-state')
   keepSelectionValid()
+  bannerDismissed.value = !shouldShowRecoveryBanner(state.value.items, dismissedIds.value)
+}
+
+// Dismissal is remembered per recovery entry so the startup notice stays gone
+// until a new entry accumulates.
+const dismissBanner = (): void => {
+  dismissedIds.value = mergeDismissedRecoveryIds(
+    dismissedIds.value,
+    state.value.items.map(({ id }) => id)
+  )
+  saveDismissedRecoveryIds(dismissedIds.value)
+  bannerDismissed.value = true
 }
 
 const openDialog = async (): Promise<void> => {
@@ -310,7 +329,7 @@ const selectItem = (id: string): void => {
 
 const continueBlankLayout = (): void => {
   visible.value = false
-  bannerDismissed.value = true
+  dismissBanner()
 }
 
 const requestDiscardWorkspace = (): void => {
@@ -323,7 +342,7 @@ const discardWorkspaceState = async (): Promise<void> => {
   await window.electron.ipcRenderer.invoke('mt::recovery-center::discard-workspace')
   confirmWorkspaceDiscard.value = false
   visible.value = false
-  bannerDismissed.value = true
+  dismissBanner()
   await refresh()
 }
 
