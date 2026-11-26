@@ -34,13 +34,6 @@ import { getReusableExportPath, type LastExportTarget } from '../../utils/export
 
 type Win = BrowserWindow | null | undefined
 
-interface PageOptions {
-  pageSize?: string
-  pageSizeWidth?: number
-  pageSizeHeight?: number
-  isLandscape?: boolean
-}
-
 // TODO(refactor): "save" and "save as" should be moved to the editor window (editor.js) and
 // the renderer should communicate only with the editor window for file relevant stuff.
 // E.g. "mt::save-tabs" --> "mt::window-save-tabs$wid:<windowId>"
@@ -66,29 +59,13 @@ const getExportExtensionFilter = (type: string): Electron.FileFilter[] | undefin
   return undefined
 }
 
-const getPdfPageOptions = (options?: PageOptions): Record<string, unknown> => {
-  if (!options) {
-    return {}
-  }
-
-  const { pageSize, pageSizeWidth, pageSizeHeight, isLandscape } = options
-  if (pageSize === 'custom' && pageSizeWidth && pageSizeHeight) {
-    return {
-      // Note: mm to microns
-      pageSize: { height: pageSizeHeight * 1000, width: pageSizeWidth * 1000 },
-      landscape: !!isLandscape
-    }
-  } else {
-    return { pageSize, landscape: !!isLandscape }
-  }
-}
-
+// PDF export no longer travels through this channel: it has its own preview
+// artifact pipeline (main/ipc/pdfPreview.ts), so only styled HTML lands here.
 interface ExportPayload {
   type: string
   content?: string
   pathname?: string
   title?: string
-  pageOptions?: PageOptions
   reuseLastPath?: boolean
 }
 
@@ -96,7 +73,7 @@ const lastExportTargets = new WeakMap<BrowserWindow, LastExportTarget>()
 
 // Handle the export response from renderer process.
 const handleResponseForExport = async(e: IpcMainEvent, payload: ExportPayload): Promise<void> => {
-  const { type, content, pathname, title, pageOptions, reuseLastPath = false } = payload
+  const { type, content, pathname, title, reuseLastPath = false } = payload
   const win = BrowserWindow.fromWebContents(e.sender)
   if (!win) {
     return
@@ -133,26 +110,10 @@ const handleResponseForExport = async(e: IpcMainEvent, payload: ExportPayload): 
 
   if (filePath && !canceled) {
     try {
-      if (type === 'pdf') {
-        // Build a clickable bookmark/outline tree from the document's h1-h6
-        // headings so exported PDFs have a navigation pane (#2989). The outline
-        // is derived from the tagged-PDF structure tree, so generateTaggedPDF is
-        // required — generateDocumentOutline alone produces no outline.
-        const options: Electron.PrintToPDFOptions = {
-          printBackground: true,
-          generateTaggedPDF: true,
-          generateDocumentOutline: true
-        }
-        Object.assign(options, getPdfPageOptions(pageOptions))
-        const data = await win.webContents.printToPDF(options)
-        removePrintServiceFromWindow(win)
-        await writeFile(filePath, data, extension!, 'binary')
-      } else {
-        if (!content) {
-          throw new Error('No HTML content found.')
-        }
-        await writeFile(filePath, content, extension!, 'utf8')
+      if (!content) {
+        throw new Error('No HTML content found.')
       }
+      await writeFile(filePath, content, extension!, 'utf8')
       lastExportTargets.set(win, { type, filePath })
       win.webContents.send('mt::export-success', { type, filePath })
     } catch (err) {
@@ -164,11 +125,6 @@ const handleResponseForExport = async(e: IpcMainEvent, payload: ExportPayload): 
         type: 'error',
         message: ERROR_MSG
       })
-    }
-  } else {
-    // User canceled save dialog
-    if (type === 'pdf') {
-      removePrintServiceFromWindow(win)
     }
   }
 }

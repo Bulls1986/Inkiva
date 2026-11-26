@@ -369,6 +369,22 @@
       "title": "Table of Contents"
     },
     "export": "Export...",
+    "generatePreview": "Generate preview",
+    "refreshPreview": "Refresh preview",
+    "savePreview": "Save PDF",
+    "cancel": "Cancel",
+    "preview": {
+      "empty": "Generate a preview to check the real pagination before saving.",
+      "generating": "Generating the PDF...",
+      "ready": "Preview ready. Saving writes this exact PDF.",
+      "stale": "The preview is out of date. Generate it again before saving.",
+      "saving": "Saving...",
+      "saved": "Saved.",
+      "failed": "The preview could not be generated.",
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page {current} / {total}"
+    },
     "noPreviousExport": "No previous export target is available.",
     "options": {
       "pageSizes": {

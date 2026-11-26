@@ -192,6 +192,9 @@ importers:
       pathe:
         specifier: ^2.0.3
         version: 2.0.3
+      pdfjs-dist:
+        specifier: 6.5.438
+        version: 6.5.438
       pinia:
         specifier: ^3.0.4
         version: 3.0.4(typescript@6.0.3)(vue@3.5.38(typescript@6.0.3))
@@ -671,12 +674,12 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.3.1
         version: 4.3.1
-      '@types/node':
-        specifier: ^22.20.0
-        version: 22.20.0
       '@types/hast':
         specifier: ^3.0.4
         version: 3.0.4
+      '@types/node':
+        specifier: ^22.20.0
+        version: 22.20.0
       '@types/react':
         specifier: ^19.2.17
         version: 19.2.17
@@ -2510,6 +2513,75 @@ packages:
   '@mixmark-io/domino@2.2.0':
     resolution: {integrity: sha512-Y28PR25bHXUg88kCV7nivXrP2Nj2RueZ3/l/jdx6J9f8J4nsEGcgX0Qe6lt7Pa+J79+kPiJU3LguR6O/6zrLOw==}
 
+  '@napi-rs/canvas-android-arm64@1.2.1':
+    resolution: {integrity: sha512-CtM+0Xieqc8jMyIm6sPLbnvDut4/BmSAP+HQnbbwPcw3ZG+bY1NhwndtpOzAPcNbIPyWuiShSF99/Ja7vYeXbw==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [android]
+
+  '@napi-rs/canvas-darwin-arm64@1.2.1':
+    resolution: {integrity: sha512-DazlaWwTa1xIdROpA8e95ttU4yNedl6brXbqBm+upoQ/1WIpmDu4zwanYp6ftGIbrjMld/OjJK15kFrDPWLoEQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@napi-rs/canvas-darwin-x64@1.2.1':
+    resolution: {integrity: sha512-XU9zFjeRusfeP49/Dk4CNqvMzxOiBtrl6Qoyndp2Wxk0LhJxgiUhhSMGLIripipZZKfKJOo1h/k8FswMVk0PuA==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@napi-rs/canvas-linux-arm-gnueabihf@1.2.1':
+    resolution: {integrity: sha512-24R1MI8ZcWSrqU5rD+hRelWsoExMc4Bo8vRbIIge4f5X97P4pvrPMIMV0e5szSyU9y5aF8gA+CCXwWWRwFthYg==}
+    engines: {node: '>= 10'}
+    cpu: [arm]
+    os: [linux]
+
+  '@napi-rs/canvas-linux-arm64-gnu@1.2.1':
+    resolution: {integrity: sha512-2pxxAlQ3wTYxqZnuqXhQbE4sTvLC1/dYkuPpudggCgvQXRb6KYm6K01UAL2kWqpkTqFmy6kHfIjLJ/86vQhOnQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@napi-rs/canvas-linux-arm64-musl@1.2.1':
+    resolution: {integrity: sha512-+Ksk8ilbmbA4oMu+BfOL/WZMeDY0Z40TblthqS8Ssr6K7MFXh9707O1H3uJcVx3H7plXWsDuycGai20FBRO0sg==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@napi-rs/canvas-linux-riscv64-gnu@1.2.1':
+    resolution: {integrity: sha512-B7Y0cljUn/kTmDiSJ7q94axEvQMJLoJZX8FDf8+JdvAkQiUR2tHnDomGIxtHsvXGmzf3UE736YdtvNLEfCDjdg==}
+    engines: {node: '>= 10'}
+    cpu: [riscv64]
+    os: [linux]
+    libc: [glibc]
+
+  '@napi-rs/canvas-linux-x64-gnu@1.2.1':
+    resolution: {integrity: sha512-1/7y8Yx589PcQE8Xuvc0ZLRwEsjA1FonfV+ZWUS4s+pwI6Aa5i+VHUhAv+pR1692A+mIjuaH5FpH89+CFK0Nng==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@napi-rs/canvas-linux-x64-musl@1.2.1':
+    resolution: {integrity: sha512-fiO90vFdt9Kq3v+sPHSczzbpRi2CTMx6NQdfD31zfJFeouXVR8EeiGyHpXuV5wwE6ui7IQLmVTHq7Uz3V0xq/w==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@napi-rs/canvas-win32-x64-msvc@1.2.1':
+    resolution: {integrity: sha512-oPzPLrFlox/NAcqVVT8mHaXF0FsQ2XXX3nWy/l5yV/NksxBf9V/nnCes+O5fz+xzzwDNVjL5EOk7+siz5HmfCA==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
+
+  '@napi-rs/canvas@1.2.1':
+    resolution: {integrity: sha512-dTFJYKi4eE9Yr9FlLi7hN/Q+15VVmpnA1HrKkTzGQuWiVw5MWBL2reLXAaXUMENmzKxtlqYCtCp1NIeQqx+uEA==}
+    engines: {node: '>= 10'}
+
   '@napi-rs/wasm-runtime@1.1.5':
     resolution: {integrity: sha512-AWPoBRJ9tsnVhor4sjO7rkni+7p+2IAEFj6cx06UgP10jkQHqay/36uRV/bFkgrh18D9vb4cr8Q0Pthskgzy+Q==}
     peerDependencies:
@@ -3498,9 +3570,6 @@ packages:
 
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
-
-  '@types/deep-equal@1.0.4':
-    resolution: {integrity: sha512-tqdiS4otQP4KmY0PR3u6KbZ5EWvhNdUoS/jc93UuK23C220lOZ/9TvjfxdPcKvqwwDVtmtSCrnr0p/2dirAxkA==}
 
   '@types/dragula@3.7.5':
     resolution: {integrity: sha512-jojr2JVJB8DawAKXApGnollMvVOMyiMKpchH8gLeoExx35Eq0BQ4WgAiAHoBoEn7h/9eDrIl0yz//cM6ALIJbg==}
@@ -5010,10 +5079,6 @@ packages:
     resolution: {integrity: sha512-aW35yZM6Bb/4oJlZncMH2LCoZtJXTRxES17vE3hoRiowU2kWHaJKFkSBDnDR+cm9J+9QhXmREyIfv0pji9ejCQ==}
     engines: {node: '>=10'}
 
-  deep-equal@2.2.3:
-    resolution: {integrity: sha512-ZIwpnevOurS8bpT4192sqAowWM76JDKSHYzMLty3BZGSswgq6pBaH3DhCSW5xVAZICZyKdOBPjwww5wfgT/6PA==}
-    engines: {node: '>= 0.4'}
-
   deep-extend@0.6.0:
     resolution: {integrity: sha512-LOHxIOaPYdHlJRtCQfDIVZtfw/ufM8+rVj649RIHzcm/vGwQRXFt6OPqIFWsm2XEMrNIEtWR64sY1LEKD2vAOA==}
     engines: {node: '>=4.0.0'}
@@ -5335,9 +5400,6 @@ packages:
   es-errors@1.3.0:
     resolution: {integrity: sha512-Zf5H2Kxt2xjTvbJvP2ZWLEICxA6j+hAmMzIlypy4xcBg1vKVnx89Wy0GbS+kf5cwCVFFzdCFh2XSCFNULS6csw==}
     engines: {node: '>= 0.4'}
-
-  es-get-iterator@1.1.3:
-    resolution: {integrity: sha512-sPZmqHBe6JIiTfN5q2pEi//TwxmAFHwj/XEuYjTuse78i8KxaqMTTzxPoFKuzRpDpTJ+0NAbpfenkmH2rePtuw==}
 
   es-iterator-helpers@1.3.3:
     resolution: {integrity: sha512-0PuBxFi+4uPanB97iDxCLWuHeYud2FALrw5HFZGtAF38UpJDbDC8frwp2cnDyae692CQ0dou60UwWfhgsa4U/g==}
@@ -5880,8 +5942,8 @@ packages:
     resolution: {integrity: sha512-XXTUwCvisa5oacNGRP9SfNtYBNAMi+RPwBFmblZEF7N7swHYQS6/Zfk7SRwx4D5j3CH211YNRco1DEMNVfZCnQ==}
     engines: {node: '>=16.0.0'}
 
-  file-icons@https://codeload.github.com/file-icons/atom/tar.gz/28520868aee66e576145a0b18aa2cde5444a897a:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/file-icons/atom/tar.gz/28520868aee66e576145a0b18aa2cde5444a897a}
+  file-icons@https://codeload.github.com/file-icons/atom/tar.gz/d2ead27a6e6fe5a1b65773ba090898affa40e6a0:
+    resolution: {gitHosted: true, integrity: sha512-lb4EPCNfpgBwWy7tnyNT1QaLW2r6oXVRFfOGX5Kh4nfucQ6zIDk40qeDABbrfljCUCYwX/DhDYgcbvh6rcqe6Q==, tarball: https://codeload.github.com/file-icons/atom/tar.gz/d2ead27a6e6fe5a1b65773ba090898affa40e6a0}
     version: 2.1.47
     engines: {atom: '>=1.25.0'}
 
@@ -6389,10 +6451,6 @@ packages:
   irregular-plurals@1.4.0:
     resolution: {integrity: sha512-kniTIJmaZYiwa17eTtWIfm0K342seyugl6vuC8DiiyiRAJWAVlLkqGCI0Im0neo0TkXw+pRcKaBPRdcKHnQJ6Q==}
     engines: {node: '>=0.10.0'}
-
-  is-arguments@1.2.0:
-    resolution: {integrity: sha512-7bVbi0huj/wrIAOzb8U1aszg9kdi3KN/CyU19CTI7tAoZYEZoL9yCDXpbXN+uPsuWnP02cyug1gleqq+TU+YCA==}
-    engines: {node: '>= 0.4'}
 
   is-array-buffer@3.0.5:
     resolution: {integrity: sha512-DDfANUiiG2wC1qawP66qlTugJeL5HyzMpfr8lLK+jMQirGzNod0B12cFB/9q838Ru27sBwfw78/rdoU7RERz6A==}
@@ -7448,10 +7506,6 @@ packages:
     resolution: {integrity: sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew==}
     engines: {node: '>= 0.4'}
 
-  object-is@1.1.6:
-    resolution: {integrity: sha512-F8cZ+KfGlSGi09lJT7/Nd6KJZ9ygtvYC0/UYYLI9nmQKLMnydpB9yvbv9K1uSkEu7FU9vYPmVwLg328tX+ot3Q==}
-    engines: {node: '>= 0.4'}
-
   object-keys@1.1.1:
     resolution: {integrity: sha512-NuAESUOUMrlIXOfHKzD6bpPu3tYt3xvjNdRIQ+FeT0lNb4K8WR70CaDxhuNguS2XG+GjkyMwOzsN5ZktImfhLA==}
     engines: {node: '>= 0.4'}
@@ -7656,6 +7710,10 @@ packages:
 
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
+
+  pdfjs-dist@6.5.438:
+    resolution: {integrity: sha512-vg8Pw1x+AFKy4AMDvhuWl5cOYV8d698UoEANoFFhc79hqXDnZQqnOXoxw3HG907WHOg1JYOvLhP756boddFxpA==}
+    engines: {node: '>=22.13.0 || >=24'}
 
   pe-library@0.4.1:
     resolution: {integrity: sha512-eRWB5LBz7PpDu4PUlwT0PhnQfTQJlDDdPa35urV4Osrm0t0AqQFGn+UIkU3klZvwJ8KPO3VbBFsXquA6p6kqZw==}
@@ -11579,13 +11637,57 @@ snapshots:
 
   '@marktext/file-icons@1.0.6':
     dependencies:
-      file-icons: https://codeload.github.com/file-icons/atom/tar.gz/28520868aee66e576145a0b18aa2cde5444a897a
+      file-icons: https://codeload.github.com/file-icons/atom/tar.gz/d2ead27a6e6fe5a1b65773ba090898affa40e6a0
 
   '@mermaid-js/parser@1.2.1':
     dependencies:
       '@chevrotain/types': 11.1.2
 
   '@mixmark-io/domino@2.2.0': {}
+
+  '@napi-rs/canvas-android-arm64@1.2.1':
+    optional: true
+
+  '@napi-rs/canvas-darwin-arm64@1.2.1':
+    optional: true
+
+  '@napi-rs/canvas-darwin-x64@1.2.1':
+    optional: true
+
+  '@napi-rs/canvas-linux-arm-gnueabihf@1.2.1':
+    optional: true
+
+  '@napi-rs/canvas-linux-arm64-gnu@1.2.1':
+    optional: true
+
+  '@napi-rs/canvas-linux-arm64-musl@1.2.1':
+    optional: true
+
+  '@napi-rs/canvas-linux-riscv64-gnu@1.2.1':
+    optional: true
+
+  '@napi-rs/canvas-linux-x64-gnu@1.2.1':
+    optional: true
+
+  '@napi-rs/canvas-linux-x64-musl@1.2.1':
+    optional: true
+
+  '@napi-rs/canvas-win32-x64-msvc@1.2.1':
+    optional: true
+
+  '@napi-rs/canvas@1.2.1':
+    optionalDependencies:
+      '@napi-rs/canvas-android-arm64': 1.2.1
+      '@napi-rs/canvas-darwin-arm64': 1.2.1
+      '@napi-rs/canvas-darwin-x64': 1.2.1
+      '@napi-rs/canvas-linux-arm-gnueabihf': 1.2.1
+      '@napi-rs/canvas-linux-arm64-gnu': 1.2.1
+      '@napi-rs/canvas-linux-arm64-musl': 1.2.1
+      '@napi-rs/canvas-linux-riscv64-gnu': 1.2.1
+      '@napi-rs/canvas-linux-x64-gnu': 1.2.1
+      '@napi-rs/canvas-linux-x64-musl': 1.2.1
+      '@napi-rs/canvas-win32-x64-msvc': 1.2.1
+    optional: true
 
   '@napi-rs/wasm-runtime@1.1.5(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
     dependencies:
@@ -12470,8 +12572,6 @@ snapshots:
 
   '@types/deep-eql@4.0.2': {}
 
-  '@types/deep-equal@1.0.4': {}
-
   '@types/dragula@3.7.5': {}
 
   '@types/element-resize-detector@1.1.6': {}
@@ -12989,7 +13089,7 @@ snapshots:
       magicast: 0.5.3
       obug: 2.1.3
       tinyrainbow: 3.1.0
-      vitest: 4.1.9(@opentelemetry/api@1.9.0)(@types/node@26.0.0)(@vitest/coverage-istanbul@4.1.9)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.22.4)(yaml@2.9.0))
+      vitest: 4.1.9(@opentelemetry/api@1.9.0)(@types/node@22.20.0)(@vitest/coverage-istanbul@4.1.9)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.5(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.16.9)(tsx@4.22.4)(yaml@2.9.0))
     transitivePeerDependencies:
       - supports-color
 
@@ -13005,7 +13105,7 @@ snapshots:
       obug: 2.1.3
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.9(@opentelemetry/api@1.9.0)(@types/node@26.0.0)(@vitest/coverage-istanbul@4.1.9)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.22.4)(yaml@2.9.0))
+      vitest: 4.1.9(@opentelemetry/api@1.9.0)(@types/node@22.20.0)(@vitest/coverage-istanbul@4.1.9)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.5(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.16.9)(tsx@4.22.4)(yaml@2.9.0))
 
   '@vitest/eslint-plugin@1.6.20(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3)(vitest@4.1.9)':
     dependencies:
@@ -14227,27 +14327,6 @@ snapshots:
     dependencies:
       mimic-response: 3.1.0
 
-  deep-equal@2.2.3:
-    dependencies:
-      array-buffer-byte-length: 1.0.2
-      call-bind: 1.0.9
-      es-get-iterator: 1.1.3
-      get-intrinsic: 1.3.0
-      is-arguments: 1.2.0
-      is-array-buffer: 3.0.5
-      is-date-object: 1.1.0
-      is-regex: 1.2.1
-      is-shared-array-buffer: 1.0.4
-      isarray: 2.0.5
-      object-is: 1.1.6
-      object-keys: 1.1.1
-      object.assign: 4.1.7
-      regexp.prototype.flags: 1.5.4
-      side-channel: 1.1.1
-      which-boxed-primitive: 1.1.1
-      which-collection: 1.0.2
-      which-typed-array: 1.1.22
-
   deep-extend@0.6.0: {}
 
   deep-is@0.1.4: {}
@@ -14524,6 +14603,8 @@ snapshots:
       lodash.isequal: 4.5.0
       semver: 7.7.4
       tiny-typed-emitter: 2.1.0
+    transitivePeerDependencies:
+      - supports-color
 
   electron-vite@5.0.0(vite@7.3.5(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.16.9)(tsx@4.22.4)(yaml@2.9.0)):
     dependencies:
@@ -14703,18 +14784,6 @@ snapshots:
   es-define-property@1.0.1: {}
 
   es-errors@1.3.0: {}
-
-  es-get-iterator@1.1.3:
-    dependencies:
-      call-bind: 1.0.9
-      get-intrinsic: 1.3.0
-      has-symbols: 1.1.0
-      is-arguments: 1.2.0
-      is-map: 2.0.3
-      is-set: 2.0.3
-      is-string: 1.1.1
-      isarray: 2.0.5
-      stop-iteration-iterator: 1.1.0
 
   es-iterator-helpers@1.3.3:
     dependencies:
@@ -15619,7 +15688,7 @@ snapshots:
     dependencies:
       flat-cache: 4.0.1
 
-  file-icons@https://codeload.github.com/file-icons/atom/tar.gz/28520868aee66e576145a0b18aa2cde5444a897a:
+  file-icons@https://codeload.github.com/file-icons/atom/tar.gz/d2ead27a6e6fe5a1b65773ba090898affa40e6a0:
     dependencies:
       atom-fs: 0.2.1
       lru-cache: 5.1.1
@@ -16223,11 +16292,6 @@ snapshots:
   ipaddr.js@1.9.1: {}
 
   irregular-plurals@1.4.0: {}
-
-  is-arguments@1.2.0:
-    dependencies:
-      call-bound: 1.0.4
-      has-tostringtag: 1.0.2
 
   is-array-buffer@3.0.5:
     dependencies:
@@ -17433,11 +17497,6 @@ snapshots:
 
   object-inspect@1.13.4: {}
 
-  object-is@1.1.6:
-    dependencies:
-      call-bind: 1.0.9
-      define-properties: 1.2.1
-
   object-keys@1.1.1: {}
 
   object-treeify@1.1.33: {}
@@ -17682,6 +17741,10 @@ snapshots:
   path-to-regexp@8.4.2: {}
 
   pathe@2.0.3: {}
+
+  pdfjs-dist@6.5.438:
+    optionalDependencies:
+      '@napi-rs/canvas': 1.2.1
 
   pe-library@0.4.1: {}
 

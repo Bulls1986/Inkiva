@@ -30,6 +30,11 @@ import {
   type MoveHistoryPathRequest,
   type PrepareRenameRepairRequest
 } from '@shared/types/documentIntelligence'
+import {
+  PDF_PREVIEW_CHANNELS,
+  type PdfPreviewGenerateRequest,
+  type PdfPreviewSaveRequest
+} from '@shared/types/pdfPreview'
 
 // Set the application appearance before the renderer module starts. This lets
 // the inline loading shell select the persisted Light/Dark/Paper surface
@@ -404,6 +409,15 @@ const documentIntelligenceAPI = {
   pruneHistory: () => invoke(DOCUMENT_INTELLIGENCE_CHANNELS.pruneHistory)
 }
 
+const pdfPreviewAPI = {
+  generate: (request: PdfPreviewGenerateRequest) =>
+    invoke(PDF_PREVIEW_CHANNELS.generate, request),
+  read: (previewId: string) => invoke(PDF_PREVIEW_CHANNELS.read, previewId),
+  save: (request: PdfPreviewSaveRequest) => invoke(PDF_PREVIEW_CHANNELS.save, request),
+  cancel: () => send(PDF_PREVIEW_CHANNELS.cancel),
+  release: (previewId: string) => send(PDF_PREVIEW_CHANNELS.release, previewId)
+}
+
 const fontsAPI = {
   list: () => invoke('mt::fonts::list')
 }
@@ -481,6 +495,7 @@ try {
   contextBridge.exposeInMainWorld('ripgrep', ripgrepAPI)
   contextBridge.exposeInMainWorld('uploader', uploaderAPI)
   contextBridge.exposeInMainWorld('documentIntelligence', documentIntelligenceAPI)
+  contextBridge.exposeInMainWorld('pdfPreview', pdfPreviewAPI)
   contextBridge.exposeInMainWorld('fonts', fontsAPI)
 } catch (error) {
   console.error(error)
