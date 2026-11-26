@@ -58,6 +58,14 @@ bus event, so a click before the editor attached its listener was lost silently.
 The editor now registers itself as the preview content provider and the E2E waits
 for that readiness state.
 
+The intermittent E2E failure that survived those fixes was in the test helper,
+not the product: it treated "not generating" as completion, which the panel's
+pre-click `idle` state satisfies in the same tick, so it asserted on a preview
+that was still starting (the DOM status trail showed `idle>generating>ready`).
+The helper now waits for `ready`/`failed`/`stale`, and the panel exposes the
+status trail in test mode so a future stall is diagnosable from the failure
+message alone.
+
 ## Evidence
 
 | Gate | Command | Result |
@@ -67,7 +75,7 @@ for that readiness state.
 | Green | same three specs | 28 passed. |
 | Regression | `vitest run test/unit` (desktop) | 177 files passed; 1388 passed, 1 skipped. |
 | Type check | `vue-tsc --noEmit -p tsconfig.json` | No errors in the changed files. |
-| Electron E2E | `playwright test test/e2e/export-pdf.spec.ts` | 4/4 passed twice in a row on Windows x64, including a SHA-256 equality check between the preview artifact and the saved file, and `/Outlines` + `/StructTreeRoot` presence in the written PDF. |
+| Electron E2E | `playwright test test/e2e/export-pdf.spec.ts` | 4/4 passed five consecutive runs on Windows x64, including a SHA-256 equality check between the preview artifact and the saved file, and `/Outlines` + `/StructTreeRoot` presence in the written PDF. |
 | Lint | `eslint` on the changed files | 0 errors. |
 
 ## Not covered here
