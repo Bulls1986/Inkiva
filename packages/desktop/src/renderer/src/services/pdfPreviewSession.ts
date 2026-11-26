@@ -39,6 +39,13 @@ export interface PdfDocumentLike {
   renderPage?(pageNumber: number, canvas: HTMLCanvasElement, cssWidth: number): Promise<void>
 }
 
+/** A local resource the generated PDF depends on, captured at generation time. */
+export interface PdfResourceSnapshot {
+  path: string
+  mtimeMs: number
+  size: number
+}
+
 export interface PdfPreviewSessionDeps {
   generate(request: PdfPreviewGenerateRequest): Promise<PdfPreviewGenerateResponse>
   read(previewId: string): Promise<Uint8Array | null>
@@ -46,6 +53,11 @@ export interface PdfPreviewSessionDeps {
   cancel(): void
   release(previewId: string): void
   openDocument(bytes: Uint8Array): Promise<PdfDocumentLike>
+  /**
+   * Re-read one resource's identity. Returning null means the file is gone.
+   * When omitted, only document/settings changes can invalidate a preview.
+   */
+  statResource?(path: string): Promise<{ mtimeMs: number, size: number } | null>
 }
 
 export interface PdfPreviewState {
@@ -56,6 +68,7 @@ export interface PdfPreviewState {
   error: string | null
   message: string | null
   versions: PdfPreviewVersionSnapshot | null
+  resources: PdfResourceSnapshot[]
   /** Test-mode status trail; surfaced in the DOM so E2E failures are diagnosable. */
   events: string[]
 }
@@ -64,6 +77,8 @@ export interface PdfPreviewRequestInput {
   html: string
   pageOptions?: PdfPreviewPageOptions
   versions: PdfPreviewVersionSnapshot
+  /** Local images the HTML references, as read when the preview was made. */
+  resources?: PdfResourceSnapshot[]
 }
 
 export type PdfPreviewSaveOutcome = 'saved' | 'canceled' | 'failed' | 'blocked'
@@ -84,6 +99,7 @@ export class PdfPreviewSession {
       error: null,
       message: null,
       versions: null,
+      resources: [],
       events: []
     })
   }
@@ -101,6 +117,7 @@ export class PdfPreviewSession {
     this.state.pageCount = 0
     this.state.currentPage = 1
     this.state.versions = input.versions
+    this.state.resources = input.resources ?? []
 
     const request: PdfPreviewGenerateRequest = {
       ...input.versions,
@@ -173,6 +190,18 @@ export class PdfPreviewSession {
       return 'blocked'
     }
     const versions = this.state.versions
+    const sequence = this.sequence
+
+    // A referenced image that changed on disk after generation makes the
+    // previewed pagination obsolete (P2/P7): refuse before asking for a target.
+    if (await this.resourcesChanged()) {
+      if (sequence !== this.sequence) return 'blocked'
+      this.invalidate('resources')
+      this.state.error = 'A referenced image changed on disk. Generate the preview again.'
+      return 'blocked'
+    }
+    if (sequence !== this.sequence) return 'blocked'
+
     this.setStatus('saving')
     this.state.error = null
     const result = await this.deps.save({
@@ -183,6 +212,9 @@ export class PdfPreviewSession {
       defaultPath: request.defaultPath,
       reuseLastPath: request.reuseLastPath
     })
+    // The dialog may have been closed or a new export started while the native
+    // save dialog was open; that newer session owns the state now.
+    if (sequence !== this.sequence) return 'blocked'
     if (result.ok && result.status === 'saved') {
       this.setStatus('saved')
       this.state.message = result.filePath
@@ -249,6 +281,20 @@ export class PdfPreviewSession {
     this.state.status = next
   }
 
+  private async resourcesChanged(): Promise<boolean> {
+    const stat = this.deps.statResource
+    const resources = this.state.resources
+    if (!stat || resources.length === 0) return false
+    for (const resource of resources) {
+      const current = await stat(resource.path)
+      if (!current) return true
+      if (current.mtimeMs !== resource.mtimeMs || current.size !== resource.size) {
+        return true
+      }
+    }
+    return false
+  }
+
   private resetState(): void {
     this.setStatus('idle')
     this.state.previewId = null
@@ -257,6 +303,7 @@ export class PdfPreviewSession {
     this.state.error = null
     this.state.message = null
     this.state.versions = null
+    this.state.resources = []
   }
 
   private dropDocumentInBackground(): void {

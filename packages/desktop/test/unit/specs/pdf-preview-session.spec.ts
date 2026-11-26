@@ -141,6 +141,48 @@ describe('PdfPreviewSession generation', () => {
   })
 })
 
+describe('PdfPreviewSession resource validity', () => {
+  const imageSnapshot = { path: '/doc/img.png', mtimeMs: 1000, size: 10 }
+
+  it('blocks saving when a referenced image changed on disk after generation', async() => {
+    const stats: Record<string, { mtimeMs: number, size: number }> = {
+      '/doc/img.png': { mtimeMs: 1000, size: 10 }
+    }
+    const { session, deps } = createSession({ statResource: async(p) => stats[p] ?? null })
+
+    await session.requestPreview({ ...request(), resources: [imageSnapshot] })
+    expect(session.state.status).toBe('ready')
+
+    // The user replaced/edited the image on disk while the preview was open.
+    stats['/doc/img.png'] = { mtimeMs: 5000, size: 10 }
+
+    expect(await session.save({ defaultPath: '/out/report.pdf' })).toBe('blocked')
+    expect(session.state.status).toBe('stale')
+    expect(deps.save).not.toHaveBeenCalled()
+  })
+
+  it('blocks saving when a referenced image disappeared from disk', async() => {
+    const { session, deps } = createSession({ statResource: async() => null })
+
+    await session.requestPreview({ ...request(), resources: [imageSnapshot] })
+
+    expect(await session.save({ defaultPath: '/out/report.pdf' })).toBe('blocked')
+    expect(session.state.status).toBe('stale')
+    expect(deps.save).not.toHaveBeenCalled()
+  })
+
+  it('saves when the referenced resources are unchanged', async() => {
+    const { session, deps } = createSession({
+      statResource: async() => ({ mtimeMs: 1000, size: 10 })
+    })
+
+    await session.requestPreview({ ...request(), resources: [imageSnapshot] })
+
+    expect(await session.save({ defaultPath: '/out/report.pdf' })).toBe('saved')
+    expect(deps.save).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('PdfPreviewSession staleness', () => {
   it('marks a ready preview stale when settings change', async() => {
     const { session } = createSession()
@@ -178,6 +220,28 @@ describe('PdfPreviewSession staleness', () => {
 })
 
 describe('PdfPreviewSession saving', () => {
+  it('does not apply a save result that lands after the session was reset', async() => {
+    // The native save dialog can outlive the dialog that started it: the answer
+    // must not repaint a session the user has already replaced.
+    const gate = defer<PdfPreviewSaveResponse>()
+    const { session } = createSession({ save: () => gate.promise })
+
+    await session.requestPreview(request())
+    const saving = session.save({ defaultPath: '/out/report.pdf' })
+    session.close()
+
+    gate.resolve({
+      ok: true,
+      status: 'saved',
+      filePath: '/out/report.pdf',
+      byteLength: 5
+    })
+    await saving
+
+    expect(session.state.status).toBe('idle')
+    expect(session.state.previewId).toBeNull()
+  })
+
   it('keeps the preview when the save dialog is canceled', async() => {
     const { session } = createSession({
       save: vi.fn(async(): Promise<PdfPreviewSaveResponse> => ({ ok: true, status: 'canceled' }))

@@ -27,5 +27,14 @@ export const pdfPreviewSession = new PdfPreviewSession({
   openDocument: async(bytes) => {
     const { openPdfDocument } = await import('@/util/pdfPreviewViewer')
     return openPdfDocument(bytes)
+  },
+  statResource: async(path) => {
+    try {
+      const stat = await window.fileUtils.stat(path)
+      return { mtimeMs: Number(stat.mtimeMs), size: Number(stat.size) }
+    } catch {
+      // A vanished image is a change, not an error.
+      return null
+    }
   }
 })

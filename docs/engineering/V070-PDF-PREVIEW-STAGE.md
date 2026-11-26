@@ -37,7 +37,15 @@ PRs and must not be mixed into this change.
    bounded so a page that never reports destruction cannot stall the queue, and
    an awaited teardown that finishes late never resets a newer generation
    (the renderer session re-checks its sequence before resetting).
-7. **Paper units are inches.** `printToPDF` reads custom `pageSize` in inches;
+7. **Referenced images are part of the artifact identity.** The preview
+   records `mtimeMs`/`size` for every local `file://` image it embeds and re-reads
+   them before saving; a changed or vanished file marks the preview stale and
+   blocks the write (P2/P7). Images the renderer never embeds (remote, `data:`)
+   are out of scope by construction.
+8. **A save result never repaints a replaced session.** The native dialog can
+   outlive the export dialog that opened it; the session re-checks its sequence
+   before applying the outcome.
+9. **Paper units are inches.** `printToPDF` reads custom `pageSize` in inches;
    the dialog collects millimetres, so the conversion happens in
    `main/pdfPreview/pageOptions.ts`.
 
@@ -72,10 +80,10 @@ message alone.
 |---|---|---|
 | Red (main artifact service) | `vitest run test/unit/specs/pdf-preview-service.spec.ts test/unit/specs/pdf-preview-page-options.spec.ts` | 16 of 17 assertions failed against the interface stub (missing artifact reuse, serialization, stale/timeout handling, mm→inch conversion). |
 | Red (renderer session) | `vitest run test/unit/specs/pdf-preview-session.spec.ts` | 11 of 11 assertions failed against the interface stub. |
-| Green | same three specs | 28 passed. |
+| Green | the PDF preview specs | 35 passed (31 + 4 resource-identity assertions). |
 | Regression | `vitest run test/unit` (desktop) | 177 files passed; 1388 passed, 1 skipped. |
 | Type check | `vue-tsc --noEmit -p tsconfig.json` | No errors in the changed files. |
-| Electron E2E | `playwright test test/e2e/export-pdf.spec.ts` | 4/4 passed five consecutive runs on Windows x64, including a SHA-256 equality check between the preview artifact and the saved file, and `/Outlines` + `/StructTreeRoot` presence in the written PDF. |
+| Electron E2E | `playwright test test/e2e/export-pdf.spec.ts test/e2e/export-pdf-resources.spec.ts` | 5/5 passed on repeated runs on Windows x64: SHA-256 equality between the preview artifact and the saved file, `/Outlines` + `/StructTreeRoot` in the written PDF, and an edited image on disk blocking the save of the old preview. |
 | Lint | `eslint` on the changed files | 0 errors. |
 
 ## Not covered here

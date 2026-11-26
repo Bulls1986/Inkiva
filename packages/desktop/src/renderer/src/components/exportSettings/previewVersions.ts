@@ -1,4 +1,4 @@
-import type { PdfPreviewVersionSnapshot } from '@/services/pdfPreviewSession'
+import type { PdfPreviewVersionSnapshot, PdfResourceSnapshot } from '@/services/pdfPreviewSession'
 
 /**
  * Version snapshots that decide whether a preview is still the current one.
@@ -39,6 +39,38 @@ export const computeResourceVersion = (html: string, extraCss: string): string =
     sources.push(match[1] ?? '')
   }
   return hashString(sources.join('\n') + '\n' + extraCss)
+}
+
+/**
+ * Local images the exported HTML embeds as absolute `file://` URLs. These are the
+ * resources whose on-disk change must invalidate a generated preview.
+ */
+export const extractLocalImagePaths = (html: string): string[] => {
+  const paths: string[] = []
+  IMG_SRC_REG.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = IMG_SRC_REG.exec(html)) !== null) {
+    const src = match[1] ?? ''
+    if (!src.toLowerCase().startsWith('file://')) continue
+    let path = decodeURI(src.slice('file://'.length))
+    // `file:///E:/x.png` keeps a leading slash in front of a Windows drive.
+    if (/^\/[a-zA-Z]:[\\/]/.test(path)) path = path.slice(1)
+    if (!paths.includes(path)) paths.push(path)
+  }
+  return paths
+}
+
+/** Identity of each existing image at generation time; missing files are skipped. */
+export const collectResourceSnapshots = async(
+  paths: string[],
+  stat: (path: string) => Promise<{ mtimeMs: number, size: number } | null>
+): Promise<PdfResourceSnapshot[]> => {
+  const snapshots: PdfResourceSnapshot[] = []
+  for (const path of paths) {
+    const current = await stat(path)
+    if (current) snapshots.push({ path, mtimeMs: current.mtimeMs, size: current.size })
+  }
+  return snapshots
 }
 
 export const buildVersionSnapshot = (input: {

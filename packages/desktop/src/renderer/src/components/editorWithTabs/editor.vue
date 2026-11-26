@@ -276,7 +276,11 @@ import { exportStyledHTML, type HeaderFooterPart } from '@/util/exportHtml'
 import { applyCursor, isIndexCursor } from '@/util/cursor'
 import bus, { type BusEvents } from '@/bus'
 import { pdfPreviewSession } from '@/services/pdfPreviewRuntime'
-import { buildVersionSnapshot } from '@/components/exportSettings/previewVersions'
+import {
+  buildVersionSnapshot,
+  collectResourceSnapshots,
+  extractLocalImagePaths
+} from '@/components/exportSettings/previewVersions'
 import { setPdfPreviewContentProvider } from '@/services/pdfPreviewContentProvider'
 import type { Handler } from 'mitt'
 import { DEFAULT_EDITOR_FONT_FAMILY, DEFAULT_CODE_FONT_FAMILY } from '@/config'
@@ -2468,10 +2472,25 @@ const handleExportPreview = async (opts: ExportOptions): Promise<void> => {
     dir: props.textDirection
   })
 
+  // Record the identity of every local image the HTML embeds, so a later change
+  // on disk can invalidate this preview before it is written (P2/P7).
+  const resources = await collectResourceSnapshots(
+    extractLocalImagePaths(html),
+    async (path) => {
+      try {
+        const stat = await window.fileUtils.stat(path)
+        return { mtimeMs: Number(stat.mtimeMs), size: Number(stat.size) }
+      } catch {
+        return null
+      }
+    }
+  )
+
   const id = currentFile.value?.id
   rememberLastExport(opts)
   await pdfPreviewSession.requestPreview({
     html,
+    resources,
     pageOptions: {
       pageSize: opts.pageSize,
       pageSizeWidth: opts.pageSizeWidth,
