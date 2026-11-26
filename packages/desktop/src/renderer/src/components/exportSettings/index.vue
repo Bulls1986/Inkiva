@@ -484,8 +484,11 @@ const showDialog = (type: unknown) => {
   showExportSettingsDialog.value = true
   // A new dialog session starts from a clean preview unless it is the same PDF
   // flow that is already showing one.
-  if (exportTypeValue !== 'pdf') {
-    pdfPreviewSession.teardown()
+  // Export Again always starts a fresh preview session: the previous artifact
+  // belongs to the previous dialog visit, and reusing it would show a stale
+  // preview for content that may have changed since.
+  if (exportTypeValue !== 'pdf' || repeatExport.value) {
+    pdfPreviewSession.close()
   }
   bus.emit('editor-blur')
 
