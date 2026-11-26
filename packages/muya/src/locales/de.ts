@@ -51,7 +51,8 @@ export const de = {
         'Type / to insert...': '/ eingeben zum Einfügen...',
         'Copy anchor link to this heading': 'Ankerlink zu dieser Überschrift kopieren',
         'Collapse section': 'Abschnitt einklappen',
-        'Expand section': 'Abschnitt ausklappen',        'Click to add an image': 'Klicken, um ein Bild hinzuzufügen',
+        'Expand section': 'Abschnitt ausklappen',
+        'Click to add an image': 'Klicken, um ein Bild hinzuzufügen',
         'Load image failed': 'Bild konnte nicht geladen werden',
         // formatPicker
         'Emphasize': 'Fett',

@@ -51,7 +51,8 @@ export const en = {
         'Type / to insert...': 'Type / to insert...',
         'Copy anchor link to this heading': 'Copy anchor link to this heading',
         'Collapse section': 'Collapse section',
-        'Expand section': 'Expand section',        'Click to add an image': 'Click to add an image',
+        'Expand section': 'Expand section',
+        'Click to add an image': 'Click to add an image',
         'Load image failed': 'Load image failed',
         // formatPicker
         'Emphasize': 'Emphasize',

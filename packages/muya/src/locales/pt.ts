@@ -51,7 +51,8 @@ export const pt = {
         'Type / to insert...': 'Digite / para inserir...',
         'Copy anchor link to this heading': 'Copiar link de âncora para este título',
         'Collapse section': 'Recolher seção',
-        'Expand section': 'Expandir seção',        'Click to add an image': 'Clique para adicionar uma imagem',
+        'Expand section': 'Expandir seção',
+        'Click to add an image': 'Clique para adicionar uma imagem',
         'Load image failed': 'Falha ao carregar a imagem',
         // formatPicker
         'Emphasize': 'Negrito',

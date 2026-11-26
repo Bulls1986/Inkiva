@@ -51,7 +51,8 @@ export const es = {
         'Type / to insert...': 'Escribe / para insertar...',
         'Copy anchor link to this heading': 'Copiar enlace de ancla a este encabezado',
         'Collapse section': 'Contraer sección',
-        'Expand section': 'Expandir sección',        'Click to add an image': 'Haz clic para añadir una imagen',
+        'Expand section': 'Expandir sección',
+        'Click to add an image': 'Haz clic para añadir una imagen',
         'Load image failed': 'Error al cargar la imagen',
         // formatPicker
         'Emphasize': 'Negrita',

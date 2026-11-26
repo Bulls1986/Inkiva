@@ -51,7 +51,8 @@ export const ja = {
         'Type / to insert...': '段落を入力 /挿入する',
         'Copy anchor link to this heading': 'この見出しへのアンカーリンクをコピー',
         'Collapse section': 'セクションを折りたたむ',
-        'Expand section': 'セクションを展開',        'Click to add an image': 'クリックして画像を追加',
+        'Expand section': 'セクションを展開',
+        'Click to add an image': 'クリックして画像を追加',
         'Load image failed': '画像の読み込みに失敗しました',
         // formatPicker
         'Emphasize': '太字',
