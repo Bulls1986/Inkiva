@@ -44,6 +44,7 @@
       class="preview-status"
       :class="'preview-status--' + state.status"
       :data-status="state.status"
+      :data-events="state.events.join(',')"
       data-testid="pdf-preview-status"
     >
       {{ statusText }}

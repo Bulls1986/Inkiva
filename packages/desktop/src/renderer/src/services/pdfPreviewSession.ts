@@ -56,6 +56,8 @@ export interface PdfPreviewState {
   error: string | null
   message: string | null
   versions: PdfPreviewVersionSnapshot | null
+  /** Test-mode status trail; surfaced in the DOM so E2E failures are diagnosable. */
+  events: string[]
 }
 
 export interface PdfPreviewRequestInput {
@@ -81,7 +83,8 @@ export class PdfPreviewSession {
       currentPage: 1,
       error: null,
       message: null,
-      versions: null
+      versions: null,
+      events: []
     })
   }
 
@@ -91,7 +94,7 @@ export class PdfPreviewSession {
     // Start synchronously: a teardown that is still running must never hold a
     // new generation in its previous status.
     this.dropDocumentInBackground()
-    this.state.status = 'generating'
+    this.setStatus('generating')
     this.state.error = null
     this.state.message = null
     this.state.previewId = null
@@ -110,7 +113,7 @@ export class PdfPreviewSession {
       return
     }
     if (!generated.ok) {
-      this.state.status = 'failed'
+      this.setStatus('failed')
       this.state.error = generated.message
       return
     }
@@ -121,7 +124,7 @@ export class PdfPreviewSession {
       return
     }
     if (!bytes) {
-      this.state.status = 'failed'
+      this.setStatus('failed')
       this.state.error = 'The generated preview could not be read.'
       this.deps.release(generated.previewId)
       return
@@ -138,7 +141,7 @@ export class PdfPreviewSession {
     this.state.previewId = generated.previewId
     this.state.pageCount = document.numPages
     this.state.currentPage = 1
-    this.state.status = 'ready'
+    this.setStatus('ready')
   }
 
   getDocument(): PdfDocumentLike | null {
@@ -149,12 +152,12 @@ export class PdfPreviewSession {
     if (this.state.status === 'generating') {
       this.sequence += 1
       this.deps.cancel()
-      this.state.status = 'stale'
+      this.setStatus('stale')
       this.state.error = null
       return
     }
     if (this.state.status === 'ready' || this.state.status === 'saved') {
-      this.state.status = 'stale'
+      this.setStatus('stale')
       this.state.message = null
       if (reason === 'document') {
         this.state.error = null
@@ -170,7 +173,7 @@ export class PdfPreviewSession {
       return 'blocked'
     }
     const versions = this.state.versions
-    this.state.status = 'saving'
+    this.setStatus('saving')
     this.state.error = null
     const result = await this.deps.save({
       previewId: this.state.previewId,
@@ -181,21 +184,21 @@ export class PdfPreviewSession {
       reuseLastPath: request.reuseLastPath
     })
     if (result.ok && result.status === 'saved') {
-      this.state.status = 'saved'
+      this.setStatus('saved')
       this.state.message = result.filePath
       return 'saved'
     }
     if (result.ok && result.status === 'canceled') {
       // Canceling the OS dialog returns to the same preview page (P3).
-      this.state.status = 'ready'
+      this.setStatus('ready')
       return 'canceled'
     }
     if (!result.ok) {
-      this.state.status = 'ready'
+      this.setStatus('ready')
       this.state.error = result.message
       return 'failed'
     }
-    this.state.status = 'ready'
+    this.setStatus('ready')
     return 'failed'
   }
 
@@ -233,8 +236,21 @@ export class PdfPreviewSession {
     this.resetState()
   }
 
+  private logTransition(next: string): void {
+    if (window.electron?.process?.env?.PERF_TESTING !== 'true') return
+    // eslint-disable-next-line no-console
+    console.log('[pdf-status]', this.state.status, '->', next, 'seq=' + this.sequence)
+  }
+
+  private setStatus(next: PdfPreviewStatus): void {
+    if (window.electron?.process?.env?.PERF_TESTING === 'true') {
+      this.state.events = [...this.state.events, this.state.status + '>' + next].slice(-12)
+    }
+    this.state.status = next
+  }
+
   private resetState(): void {
-    this.state.status = 'idle'
+    this.setStatus('idle')
     this.state.previewId = null
     this.state.pageCount = 0
     this.state.currentPage = 1

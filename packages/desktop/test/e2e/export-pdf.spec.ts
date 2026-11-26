@@ -102,6 +102,7 @@ const clearExportSuccesses = async(page: Page): Promise<void> => {
 // Renderer errors explain why a generation silently never starts; they are
 // surfaced in the failure message instead of being lost in the app console.
 const rendererErrors: string[] = []
+const rendererLogs: string[] = []
 
 // Open the PDF export dialog and wait for the preview controls. The PDF path is
 // now: File › Export › Export PDF → settings → "Generate preview" →
@@ -152,9 +153,12 @@ const generatePreview = async(page: Page, userDataDir: string): Promise<void> =>
   } else {
     await refresh.click()
   }
+  // Wait for a terminal state. "not generating" is satisfied by the idle state
+  // that is still visible in the same tick as the click, which made this helper
+  // race the very transition it was waiting for.
   await expect
     .poll(async() => readStatus(page), { timeout: 60000 })
-    .not.toBe('generating')
+    .toMatch(/^(ready|failed|stale)$/)
   const status = await readStatus(page)
   if (status !== 'ready') {
     const detail = await page
@@ -168,6 +172,11 @@ const generatePreview = async(page: Page, userDataDir: string): Promise<void> =>
         detail +
         '\nrenderer: ' +
         (rendererErrors.slice(-3).join(' | ') || '(none)') +
+        '\nevents: ' +
+        ((await page
+          .locator('[data-testid="pdf-preview-status"]')
+          .getAttribute('data-events', { timeout: 2000 })
+          .catch(() => null)) ?? '(none)') +
         '\n' +
         dumpMainLog(userDataDir)
     )
@@ -211,6 +220,7 @@ test.describe('PDF preview and same-artifact save (P1-P3, P7)', () => {
     page = launched.page
     page.on('pageerror', (error) => rendererErrors.push('pageerror: ' + error.message))
     page.on('console', (message) => {
+      rendererLogs.push(message.text())
       if (message.type() === 'error') rendererErrors.push('console: ' + message.text())
     })
     await waitForMenuReady(app)
