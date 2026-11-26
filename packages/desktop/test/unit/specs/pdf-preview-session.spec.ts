@@ -24,14 +24,22 @@ interface Deferred<T> {
   reject: (error: unknown) => void
 }
 
-const defer = <T,>(): Deferred<T> => {
-  let resolve!: (value: T) => void
-  let reject!: (error: unknown) => void
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res
-    reject = rej
+const defer = <T>(): Deferred<T> => {
+  let resolveFn: ((value: T) => void) | undefined
+  let rejectFn: ((error: unknown) => void) | undefined
+  const promise = new Promise<T>((resolve, reject) => {
+    resolveFn = resolve
+    rejectFn = reject
   })
-  return { promise, resolve, reject }
+  return {
+    promise,
+    resolve: (value: T) => {
+      resolveFn?.(value)
+    },
+    reject: (error: unknown) => {
+      rejectFn?.(error)
+    }
+  }
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -206,7 +214,7 @@ describe('PdfPreviewSession saving', () => {
 })
 
 describe('PdfPreviewSession paging and teardown', () => {
-  it('does not let a passive teardown interrupt a running generation', async () => {
+  it('does not let a passive teardown interrupt a running generation', async() => {
     const gate = defer<PdfPreviewGenerateResponse>()
     const { session } = createSession({ generate: () => gate.promise })
 
@@ -220,7 +228,7 @@ describe('PdfPreviewSession paging and teardown', () => {
     expect(session.state.status).toBe('ready')
   })
 
-  it('starts a new generation even while the previous teardown is still pending', async () => {
+  it('starts a new generation even while the previous teardown is still pending', async() => {
     // Reproduced from the Electron E2E: closing the dialog awaited the PDF.js
     // teardown, and that late continuation reset the session to 'idle' after a
     // fresh generation had already started, so the preview silently never came.
@@ -261,7 +269,6 @@ describe('PdfPreviewSession paging and teardown', () => {
     expect(session.state.status).toBe('ready')
     expect(session.state.previewId).toBe('preview-2')
   })
-
 
   it('clamps page navigation to the real page count', async() => {
     const { session } = createSession()

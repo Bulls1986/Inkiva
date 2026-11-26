@@ -20,14 +20,22 @@ interface Deferred<T> {
   reject: (error: unknown) => void
 }
 
-const defer = <T,>(): Deferred<T> => {
-  let resolve!: (value: T) => void
-  let reject!: (error: unknown) => void
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res
-    reject = rej
+const defer = <T>(): Deferred<T> => {
+  let resolveFn: ((value: T) => void) | undefined
+  let rejectFn: ((error: unknown) => void) | undefined
+  const promise = new Promise<T>((resolve, reject) => {
+    resolveFn = resolve
+    rejectFn = reject
   })
-  return { promise, resolve, reject }
+  return {
+    promise,
+    resolve: (value: T) => {
+      resolveFn?.(value)
+    },
+    reject: (error: unknown) => {
+      rejectFn?.(error)
+    }
+  }
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -96,7 +104,7 @@ const createHarness = (options: {
 }
 
 describe('PdfPreviewService generation', () => {
-  it('keeps one artifact for preview reads and saves the same bytes to disk', async () => {
+  it('keeps one artifact for preview reads and saves the same bytes to disk', async() => {
     const writes: Uint8Array[] = []
     const { service } = createHarness({
       writeFile: async(_path, data) => {
@@ -123,7 +131,7 @@ describe('PdfPreviewService generation', () => {
     expect(writes[0]).toBe(previewBytes)
   })
 
-  it('asks for tagged output plus a document outline so bookmarks survive', async () => {
+  it('asks for tagged output plus a document outline so bookmarks survive', async() => {
     const printOptions: Record<string, unknown>[] = []
     const { service } = createHarness({ printOptions })
 
@@ -136,7 +144,7 @@ describe('PdfPreviewService generation', () => {
     })
   })
 
-  it('reports the artifact byte length without re-rendering', async () => {
+  it('reports the artifact byte length without re-rendering', async() => {
     const { service, log } = createHarness()
     const preview = await service.generate({ ...KEY, html: '<p>hi</p>' })
 
@@ -146,7 +154,7 @@ describe('PdfPreviewService generation', () => {
 })
 
 describe('PdfPreviewService print-page isolation', () => {
-  it('discards the superseded generation and only prints again after cleanup', async () => {
+  it('discards the superseded generation and only prints again after cleanup', async() => {
     const firstGate = defer<void>()
     let gateIndex = 0
     const { service, log } = createHarness({
@@ -180,7 +188,7 @@ describe('PdfPreviewService print-page isolation', () => {
     expect(service.read(preview.previewId)).toBeInstanceOf(Uint8Array)
   })
 
-  it('drops a late result that lands after the preview was canceled', async () => {
+  it('drops a late result that lands after the preview was canceled', async() => {
     const gate = defer<void>()
     const { service, log } = createHarness({ printGate: () => gate.promise })
 
@@ -198,7 +206,7 @@ describe('PdfPreviewService print-page isolation', () => {
     ).rejects.toMatchObject({ code: 'stale' })
   })
 
-  it('fails a generation that exceeds its bounded timeout and cleans the page up', async () => {
+  it('fails a generation that exceeds its bounded timeout and cleans the page up', async() => {
     const { service, log } = createHarness({
       generationTimeoutMs: 20,
       printGate: () => new Promise(() => {})
@@ -211,18 +219,18 @@ describe('PdfPreviewService print-page isolation', () => {
     expect(log.pages[0]!.destroy).toHaveBeenCalled()
   })
 
-  it('finishes the generation even when the print page never reports destruction', async () => {
+  it('finishes the generation even when the print page never reports destruction', async() => {
     // A hung teardown must not freeze the single print-page queue: the next
     // preview would otherwise wait behind it forever.
     const stuck: PdfPrintPage = {
-      loadHtml: async () => {},
-      printToPdf: async () => PDF_BYTES,
+      loadHtml: async() => {},
+      printToPdf: async() => PDF_BYTES,
       destroy: () => new Promise<void>(() => {})
     }
     const service = new PdfPreviewService({
       createPrintPage: () => stuck,
-      writeFile: async () => {},
-      showSaveDialog: async () => ({ canceled: false, filePath: '/out/x.pdf' }),
+      writeFile: async() => {},
+      showSaveDialog: async() => ({ canceled: false, filePath: '/out/x.pdf' }),
       generationTimeoutMs: 2000,
       cleanupTimeoutMs: 20,
       createPreviewId: () => 'preview-stuck'
@@ -237,7 +245,7 @@ describe('PdfPreviewService print-page isolation', () => {
     expect(service.read('preview-stuck')).toBeInstanceOf(Uint8Array)
   })
 
-  it('cleans up the print page when generating the PDF fails', async () => {
+  it('cleans up the print page when generating the PDF fails', async() => {
     const { service, log } = createHarness()
     log.pages.length = 0
     const failing: PdfPrintPage = {
@@ -264,7 +272,7 @@ describe('PdfPreviewService print-page isolation', () => {
 })
 
 describe('PdfPreviewService save validity', () => {
-  it('refuses to save when the document/settings/resources moved on', async () => {
+  it('refuses to save when the document/settings/resources moved on', async() => {
     const { service } = createHarness()
     const preview = await service.generate({ ...KEY, html: '<p>hi</p>' })
 
@@ -278,7 +286,7 @@ describe('PdfPreviewService save validity', () => {
     ).rejects.toMatchObject({ code: 'stale' })
   })
 
-  it('revalidates the artifact after the native save dialog returns', async () => {
+  it('revalidates the artifact after the native save dialog returns', async() => {
     const dialog = defer<{ canceled: boolean; filePath?: string }>()
     const writeFile = vi.fn(async() => {})
     const { service } = createHarness({ showSaveDialog: () => dialog.promise, writeFile })
@@ -299,7 +307,7 @@ describe('PdfPreviewService save validity', () => {
     expect(writeFile).not.toHaveBeenCalled()
   })
 
-  it('keeps the artifact and allows a retry after a write failure', async () => {
+  it('keeps the artifact and allows a retry after a write failure', async() => {
     let attempt = 0
     const writeFile = vi.fn(async() => {
       attempt += 1
@@ -323,7 +331,7 @@ describe('PdfPreviewService save validity', () => {
     expect(writeFile).toHaveBeenCalledTimes(2)
   })
 
-  it('treats a canceled save dialog as a no-op that keeps the preview', async () => {
+  it('treats a canceled save dialog as a no-op that keeps the preview', async() => {
     const { service } = createHarness({
       showSaveDialog: async() => ({ canceled: true })
     })
@@ -339,7 +347,7 @@ describe('PdfPreviewService save validity', () => {
     expect(service.read(preview.previewId)).toBeInstanceOf(Uint8Array)
   })
 
-  it('rejects an unknown preview id instead of writing something else', async () => {
+  it('rejects an unknown preview id instead of writing something else', async() => {
     const writeFile = vi.fn(async() => {})
     const { service } = createHarness({ writeFile })
 
@@ -350,7 +358,7 @@ describe('PdfPreviewService save validity', () => {
 })
 
 describe('PdfPreviewService release', () => {
-  it('drops the artifact so a released preview cannot be saved', async () => {
+  it('drops the artifact so a released preview cannot be saved', async() => {
     const { service } = createHarness()
     const preview = await service.generate({ ...KEY, html: '<p>hi</p>' })
 
