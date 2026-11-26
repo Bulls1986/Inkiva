@@ -454,8 +454,16 @@ const editor = ref<MuyaInstance>(null)
 // The outline keeps every heading for navigation, but the active-heading
 // highlight must ignore headings hidden by a collapsed ancestor. Otherwise a
 // zero-height hidden heading can win the scroll offset lookup.
-const visibleTocItems = () =>
-  listToc.value.filter((item) => !editor.value || editor.value.isTocItemVisible(item.slug))
+const visibleTocItems = () => {
+  const items = listToc.value.filter(
+    (item) => !editor.value || editor.value.isTocItemVisible(item.slug)
+  )
+  // Source/tab rebuilds can briefly expose a TOC list whose runtime slugs have
+  // not caught up with the new block objects. Falling back to the full outline
+  // preserves active-heading tracking until the next TOC refresh; a real
+  // collapsed document always keeps at least its visible top-level headings.
+  return items.length ? items : listToc.value
+}
 const linkCompletionVisible = ref(false)
 const linkCompletionQuery = ref('')
 const linkCompletionCandidates = ref<MarkdownLinkCandidate[]>([])
