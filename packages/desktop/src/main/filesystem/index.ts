@@ -73,9 +73,7 @@ export const writeFile = async(
       // that is no longer here, so no migration may happen.
       const identityAtWrite = await fileIdentity(pathname)
       await writeFileAtomic(pathname, content, options)
-      if (identityBeforeWrite !== null && identityBeforeWrite === identityAtWrite) {
-        await rekeyAfterAppSave(pathname, identityBeforeWrite).catch(() => {})
-      }
+      await rekeyAfterAppSave(pathname, identityBeforeWrite, identityAtWrite).catch(() => {})
     }
   })
 }

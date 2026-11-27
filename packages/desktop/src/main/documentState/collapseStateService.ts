@@ -43,12 +43,39 @@ export const getCollapseStateStore = (): CollapseStateStore => {
  * migrated; nothing is inferred from a path, and if either side is unknown the
  * record is left alone (the document then opens expanded).
  */
+export interface RekeyDeps {
+  identity(path: string): Promise<string | null>
+  rekey(previous: string, next: string): Promise<void>
+}
+
+/**
+ * Decide whether the record may follow an application save.
+ *
+ * `capturedIdentity` was read before the write and `identityAtWrite` right
+ * before it. They must exist and be equal: a difference means the file was
+ * replaced externally in that window, so the record belongs to a document that is
+ * no longer at this path and must not be adopted by the new one.
+ */
+export const rekeyIfSameDocument = async(
+  pathname: string,
+  capturedIdentity: string | null,
+  identityAtWrite: string | null,
+  deps: RekeyDeps
+): Promise<boolean> => {
+  if (!capturedIdentity || capturedIdentity !== identityAtWrite) return false
+  const nextIdentity = await deps.identity(pathname)
+  if (!nextIdentity || nextIdentity === capturedIdentity) return false
+  await deps.rekey(capturedIdentity, nextIdentity)
+  return true
+}
+
 export const rekeyAfterAppSave = async(
   pathname: string,
-  previousIdentity: string | null
+  capturedIdentity: string | null,
+  identityAtWrite: string | null
 ): Promise<void> => {
-  if (!previousIdentity) return
-  const nextIdentity = await fileIdentity(pathname)
-  if (!nextIdentity || nextIdentity === previousIdentity) return
-  await getCollapseStateStore().rekey(previousIdentity, nextIdentity)
+  await rekeyIfSameDocument(pathname, capturedIdentity, identityAtWrite, {
+    identity: fileIdentity,
+    rekey: (previous, next) => getCollapseStateStore().rekey(previous, next)
+  })
 }

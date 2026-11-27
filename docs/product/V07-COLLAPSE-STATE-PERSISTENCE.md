@@ -9,45 +9,61 @@ changes are touched here.
 
 | Piece | Behaviour |
 |---|---|
-| `main/documentState/collapseStateStore.ts` | Records keyed by platform file identity (`dev`+`ino`), versioned JSON in `userData`, serialized read-modify-write, atomic replace, corrupt file treated as empty. No identity → nothing read or written. `rekey()` migrates one record. |
-| `main/documentState/collapseStateService.ts` | Application-wide store. Writes are **synchronous inside the IPC handler** so collapsing and quitting immediately cannot lose the change. `rekeyAfterAppSave` migrates the record after an atomic app save. |
-| `main/filesystem/index.ts` | Captures identity before the atomic write, re-checks it immediately before writing, and migrates the record only when both identities exist and match the captured one. |
-| `renderer/src/services/collapseRestore.ts` | `buildHeadingRecords` derives the ancestor key chain from document order using the engine's own key; `resolveCollapseRestore` restores only a unique key+level+ancestor match and reports the rest as stale. |
-| `editor.vue` | Restores once per document when the outline exists (a still-mounting engine would otherwise prune a valid record), writes on every collapse change, re-checks document id/path after the async load, and attaches session-only state when a first save gives the document a path. |
+| `main/documentState/collapseStateStore.ts` | Records keyed by platform file identity (`dev`+`ino`), versioned JSON in `userData`, serialized read-modify-write, atomic replace, corrupt file treated as empty. No identity → nothing read or written. A failed write rejects without damaging the previous record. |
+| `main/documentState/collapseStateService.ts` | Application-wide store; synchronous write inside the IPC handler so a collapse followed by an immediate quit is already durable. `rekeyIfSameDocument` migrates a record after an app save only when the identity captured before the write still holds at the moment of writing. |
+| `main/filesystem/index.ts` | Captures the identity before the atomic write, re-reads it immediately before, and delegates the migrate/skip decision to `rekeyIfSameDocument`. |
+| `renderer/src/services/collapseRestore.ts` | Ancestor key chain derived from document order with the engine's own key; a heading restores only on a unique key+level+ancestor match, everything else stays expanded and is reported stale. |
+| `editor.vue` | Restores once per document when the outline exists, persists on every collapse change, discards an async restore whose document id/path changed meanwhile, and attaches session-only state when a first save gives an untitled document a path. |
 
-## Evidence (Windows x64, development build)
+## Evidence (Windows x64, development build, production IPC, no stubs)
 
-`collapse-persistence.spec.ts` drives the production IPC + store, no stubs, real
-app quit and relaunch, shared `--user-data-dir`:
+`collapse-persistence.spec.ts` — real quit + relaunch with a shared `--user-data-dir`:
 
 | Case | Expectation |
 |---|---|
-| Collapse, quit immediately, relaunch | still collapsed; sibling expanded |
+| Collapse, quit immediately, relaunch | still collapsed, sibling expanded |
 | Same path replaced by a different file | expanded |
 | Copy with identical content | expanded |
-| Application save (atomic replace) then relaunch | still collapsed |
+| App atomic save, then relaunch | still collapsed |
 | Moved/renamed within the same volume | still collapsed |
-| Corrupt store file | opens expanded, document usable |
+| Corrupt store | opens expanded, document usable |
 
-Unit: 22 assertions (8 store + 8 matching + 4 ancestor + 2 rekey). Typecheck and
-full-repo eslint clean.
 
-## Guards added without a failing test first
+Unit: store (11, including write-failure recovery), matching (8), ancestors (4),
+rekey race (5).
 
-These are defensive; no deterministic failing test was produced for them, so they
-are **not** claimed as verified behaviour:
+## Conflict and lifecycle strategy
 
-- stale async load after a document switch is discarded (id + path re-check),
-- an external replacement between identity capture and the atomic write skips the
-  re-key instead of attaching the record to the new file.
+- **Multiple windows**: each window writes the whole record for its document, so
+  the last completed write wins; there is no field-level merge. This is the
+  intended strategy, but it is **not yet verified end to end**: an attempt to run
+  two Electron processes against one `--user-data-dir` fails at launch (the
+  second instance cannot use that profile), so the case has to be driven through a
+  second BrowserWindow inside one process, which is not written yet.
+- **Quit while a change is in flight**: the main process writes synchronously
+  while handling the IPC message, so the record is durable before the window can
+  close.
+- **Write failure** (read-only profile, disk full): the store rejects, the
+  renderer swallows it, the session keeps working and the previous record stays
+  readable.
 
-## Not done / not verifiable here
+## Guards with tests but no failing-first proof
 
-- Multi-window: two windows on the same file are not exercised end to end; the
-  store serializes writes, but last-writer-wins between windows is untested.
-- Untitled document: the first-save association is implemented but not covered by
-  an Electron test (the save dialog has to be stubbed).
+`rekeyIfSameDocument` now has direct unit tests (unchanged identity migrates;
+external replacement, missing identity, unchanged inode and vanished file do
+not). The late-restore guard in the editor is **not** covered by a controlled
+race test yet: its predicate is inline, and no deterministic failing test was
+produced for it. It is not claimed as verified behaviour.
+
+## Not done
+
+- Untitled document first-save association: implemented via a path watcher, but no
+  Electron test yet (the native save dialog has to be stubbed).
+- Multi-window concurrency: strategy defined, no valid test yet (see above).
+- Late-restore race: no controlled test (see above).
+- Local E2E runs must start from a clean process table: leaked Electron processes
+  from an interrupted run pushed the same suite into timeouts twice.
+- A replacement between the last identity check and the write itself cannot be
+  distinguished from the app's own write.
 - macOS APFS and real devices are not tested (user decision); network/cloud drives
   are unknown.
-- A file replaced between the pre-write identity check and the write itself cannot
-  be distinguished from the app's own write.

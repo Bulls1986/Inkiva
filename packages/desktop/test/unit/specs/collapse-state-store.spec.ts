@@ -127,6 +127,36 @@ describe('CollapseStateStore persistence', () => {
     expect(await store.load('/docs/a.md')).toBeNull()
   })
 
+  it('rejects a write failure without corrupting the previous record', async() => {
+    // The renderer swallows this rejection, so a read-only profile must not take
+    // the app down; the earlier record must also stay readable.
+    let failWrites = false
+    const files = new Map<string, string>()
+    const store = new CollapseStateStore({
+      filePath: '/userData/collapse-state.json',
+      readFile: async(path) => {
+        const value = files.get(path)
+        if (value === undefined) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        return value
+      },
+      writeFile: async(path, text) => {
+        if (failWrites) throw new Error('EACCES')
+        files.set(path, text)
+      },
+      identity: async() => 'dev1:ino1',
+      now: () => 1
+    })
+
+    await store.save('/docs/a.md', { headings: [{ key: 'chapter', level: 2, ancestors: [] }] })
+    failWrites = true
+
+    await expect(
+      store.save('/docs/a.md', { headings: [{ key: 'other', level: 2, ancestors: [] }] })
+    ).rejects.toThrow()
+
+    expect((await store.load('/docs/a.md'))?.headings[0]?.key).toBe('chapter')
+  })
+
   it('drops the record when asked (document closed without state)', async() => {
     const { store } = createStore()
     await store.save('/docs/a.md', { headings: [{ key: 'a', level: 1, ancestors: [] }] })

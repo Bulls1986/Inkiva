@@ -2725,7 +2725,7 @@ const maybeRestoreCollapseFromDisk = (): void => {
   if (headingCollapseByDocument.has(id) || collapseRestoreAttempted.has(id)) { return }
   if ((editor.value?.getTOC().length ?? 0) === 0) { return }
   collapseRestoreAttempted.add(id)
-  void restoreCollapseFromDisk(pathname, id).catch(() => {})
+  restoreCollapseFromDisk(pathname, id).catch(() => {})
 }
 
 // US09 — delayed caret/viewport restoration is allowed to complete only while
