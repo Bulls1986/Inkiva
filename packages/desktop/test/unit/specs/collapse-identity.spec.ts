@@ -33,7 +33,7 @@ describe('collapse state file identity', () => {
   })
 
   it('never restores when neither side could confirm the identity', async() => {
-    let key = identityKey(stat(4242n, 0n))
+    const key = identityKey(stat(4242n, 0n))
     let disk = ''
     const store = new CollapseStateStore({
       filePath: '/store.json',
