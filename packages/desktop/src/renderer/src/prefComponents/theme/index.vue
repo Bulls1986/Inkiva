@@ -68,10 +68,10 @@
       />
     </div>
     <separator v-show="false" />
-    <preference-status
-      :error="customCssMutationError"
-      :on-retry="retryCustomCss"
-    />
+      <preference-status
+        :error="customCssMutationError"
+        :on-retry="retryCustomCss"
+      />
     <section
       v-show="false"
       class="import-themes ag-underdevelop"

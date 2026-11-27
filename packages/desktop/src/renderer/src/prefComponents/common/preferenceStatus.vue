@@ -1,32 +1,18 @@
 <template>
-  <div
-    class="pref-effect-status"
-    :class="{ error: Boolean(error) }"
-  >
+  <div class="pref-effect-status" :class="{ error: Boolean(error) }">
     <span>{{ timingLabel }}</span>
     <template v-if="pending && timing === 'app-restart'">
       <span class="separator">·</span>
-      <button
-        type="button"
-        class="apply-action"
-        @click="quitInkiva"
-      >
+      <button type="button" class="apply-action" @click="quitInkiva">
         {{ restartActionLabel }}
       </button>
     </template>
     <template v-if="error">
       <span class="separator">·</span>
-      <button
-        type="button"
-        class="retry"
-        @click="onRetry"
-      >
+      <button type="button" class="retry" @click="onRetry">
         {{ failureLabel }}
       </button>
-      <span
-        class="reason"
-        :title="error"
-      >{{ error }}</span>
+      <span class="reason" :title="error">{{ error }}</span>
     </template>
   </div>
 </template>
