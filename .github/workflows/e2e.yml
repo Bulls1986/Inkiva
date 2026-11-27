@@ -24,9 +24,13 @@ jobs:
   e2e:
     runs-on: ubuntu-24.04
     # A wedged Electron close/renderer handshake must fail the job instead of
-    # consuming a runner indefinitely. The suite normally completes in about
-    # five minutes on this runner.
-    timeout-minutes: 15
+    # consuming a runner indefinitely. Measured durations for this job (Actions
+    # API, per-step): system dependencies 1.7m + setup/postinstall/build 1.3m +
+    # E2E tests 9.5-12.0m + artifact upload, i.e. 11.1-15.2m total over the last
+    # twelve runs. The 15m ceiling left no headroom and cancelled a run whose
+    # tests had already finished (444 passed, 0 failed), so the budget follows the
+    # measured worst case with the same protection against a wedged run.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 

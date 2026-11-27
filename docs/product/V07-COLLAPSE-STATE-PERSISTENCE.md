@@ -210,3 +210,50 @@ immediate quit the record holds both `Installation` (from the stored record) and
 - 200+ heading documents remain unverified: the virtualised last section's
   collapse control cannot be mounted from the test side (four approaches tried by
   QA, three here); 40 headings are covered.
+
+## D9: an unconfirmed identity must not fall back to a weaker key
+
+Re-verification ran the real `fileIdentity` and store against real filesystems and
+found the hole left by D8. On ext4 and tmpfs the inode is reused 20/20 when a file
+is deleted and recreated at the same path, and the birth time separated those cases
+20/20 — but **not every filesystem reports a birth time**: WSL drvfs (`/mnt/c`)
+reports `birthtimeNs = 0`, as do NFS and older kernels. With the old fallback the
+key was then a bare `device:inode`, so a replacement that reused the inode matched
+the previous record and the new file opened with the old document's collapsed
+sections (store end-to-end collision, reproduced by QA).
+
+The identity now returns **null when no birth time is reported**, which is the
+approved "identity cannot be confirmed → open expanded" contract. Consequences,
+stated plainly:
+
+- Filesystems that report no birth time lose cross-session collapse entirely. That
+  is the intended trade: opening expanded is safe, assuming sameness is not.
+- `device:inode:birthtime` is still not proof. Two limits remain and are not
+  claimed to be solved: a coarse filesystem timestamp (FAT's 2s granularity) can
+  collide, and an inode reused by a file created within the same timestamp tick
+  cannot be told apart. Neither was constructed on a real filesystem here.
+- A record written by an earlier build (`device:inode` or `device:inode:birthtime`
+  before this change) never matches, so those documents open expanded once.
+- Same-volume move keeps device, inode and birth time and still restores; an
+  application atomic save still migrates through `rekeyIfSameDocument`.
+- macOS/APFS remains untested by decision; it reports a birth time, but whether it
+  reuses inodes is not measured here.
+
+## CI: the e2e job was cancelled by its own budget, not by a failing test
+
+The run on `6c764509` ended with 444 passed, 15 skipped, 0 failed, and the job
+still marked cancelled. Per-step timings from the Actions API over the last twelve
+runs of this workflow:
+
+| step | duration |
+|---|---|
+| Install System Dependencies | 1.7m |
+| setup + postinstall + build | 1.3m |
+| Run E2E Tests | 9.5m – 12.0m |
+| total job | 11.1m – **15.2m** |
+
+The ceiling was 15 minutes and the worst measured run was 15.2m, so the job was
+cancelled while its tests had already finished. `timeout-minutes` is now 25,
+which is the measured worst case with headroom and keeps the same protection
+against a wedged Electron close/renderer handshake. No assertion was relaxed and
+no suite was skipped; the comment in the workflow records the measured numbers.

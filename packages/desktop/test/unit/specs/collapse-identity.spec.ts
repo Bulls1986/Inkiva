@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
-import { identityKey } from '../../../src/main/documentState/collapseStateStore'
+import {
+  CollapseStateStore,
+  identityKey
+} from '../../../src/main/documentState/collapseStateStore'
 
-// D8: the store keys records by file identity. The independent re-verification
-// showed that ext4 reuses the inode number when a file is deleted and recreated
-// at the same path (20/20), so a replacement inherited the old record and the CI
-// e2e "same path now holds a different file" failed on Ubuntu. device+inode is
-// therefore not a sufficient identity on its own.
+// D8 keyed records by device:inode:birthtime, which separates a replacement that
+// reuses the inode when the filesystem reports a birth time. D9 is the remaining
+// hole found by re-verification: when NO birth time is reported (drvfs, NFS, old
+// kernels report 0), the key fell back to a bare device:inode, and an inode
+// reused by a replacement then matched the old record. The approved contract is
+// "when the file identity cannot be confirmed, open expanded", so an unavailable
+// birth time must mean "unconfirmed", not "fall back to a weaker key".
 
 const stat = (ino: bigint, birthtimeNs: bigint) => ({ dev: 7n, ino, birthtimeNs })
 
@@ -21,18 +26,29 @@ describe('collapse state file identity', () => {
     expect(identityKey(stat(4242n, 1_000n))).toBe(identityKey(stat(4242n, 1_000n)))
   })
 
-  it('falls back to device and inode when the filesystem reports no birth time', () => {
-    // No birth time is available: the key stays at the older shape, so a record
-    // written where it is available never matches here (the document opens
-    // expanded), while two files that differ in inode still never match.
-    expect(identityKey(stat(4242n, 0n))).toBe('7:4242')
-    expect(identityKey(stat(4243n, 0n))).not.toBe(identityKey(stat(4242n, 0n)))
+  it('reports no identity when the filesystem reports no birth time', () => {
+    // Nothing distinguishes a replacement from the original here, so the identity
+    // is unconfirmed rather than weaker.
+    expect(identityKey(stat(4242n, 0n))).toBeNull()
   })
-})
 
-describe('collapse state after a replacement that reuses the inode', () => {
+  it('never restores when neither side could confirm the identity', async() => {
+    let key = identityKey(stat(4242n, 0n))
+    let disk = ''
+    const store = new CollapseStateStore({
+      filePath: '/store.json',
+      readFile: async() => disk,
+      writeFile: async(_path, text) => { disk = text },
+      identity: async() => key
+    })
+    await store.save('/doc.md', {
+      headings: [{ key: 'installation', level: 2, collapsed: true, text: 'Installation', ancestors: [] }]
+    })
+    expect(disk, 'nothing is persisted without a confirmed identity').toBe('')
+    await expect(store.load('/doc.md')).resolves.toBeNull()
+  })
+
   it('does not restore a record for a file whose birth time changed', async() => {
-    const { CollapseStateStore } = await import('../../../src/main/documentState/collapseStateStore')
     let key = identityKey(stat(4242n, 1_000n))
     let disk = ''
     const store = new CollapseStateStore({
@@ -46,8 +62,7 @@ describe('collapse state after a replacement that reuses the inode', () => {
     })
     await expect(store.load('/doc.md')).resolves.not.toBeNull()
 
-    // Same path, deleted and recreated: ext4 reuses the inode, the birth time
-    // differs (20/20 measured). The document must open expanded.
+    // Same path, deleted and recreated: the inode was reused, the birth time is new.
     key = identityKey(stat(4242n, 9_000n))
     await expect(store.load('/doc.md')).resolves.toBeNull()
   })

@@ -252,26 +252,29 @@ export class CollapseStateStore {
 }
 
 /**
- * Identity key for a file.
+ * Identity key for a file, or null when the identity cannot be confirmed.
  *
  * `dev:ino` alone is not enough: on ext4 (and in principle on NTFS/APFS) the
  * allocator reuses the inode number of a file that was deleted and recreated at
  * the same path, so a replacement would inherit the old record. The birth time
- * separates the two generations when the filesystem reports one. It is only used
- * as an additional component — never as proof on its own — and when it is
- * unavailable the key keeps the previous shape, so a record written on a
- * filesystem that reports it never matches a file read where it is missing.
+ * separates the two generations.
+ *
+ * It is not proof on its own, and two limits remain: a filesystem with a coarse
+ * timestamp can still collide, and the inode can be reused for a file created in
+ * the same instant. What it does decide is whether an identity is confirmed at
+ * all — some filesystems report no birth time (drvfs, NFS, older kernels report
+ * 0), and there a reused inode is indistinguishable from the original. Following
+ * the approved contract, an unconfirmed identity returns null so the document
+ * opens expanded instead of falling back to a weaker `dev:ino` key that a
+ * replacement can match.
  */
 export const identityKey = (stat: {
   dev: bigint
   ino: bigint
   birthtimeNs: bigint
-}): string => {
-  const base = String(stat.dev) + ':' + String(stat.ino)
-  // 0n means the filesystem did not report a birth time (some Linux setups, and
-  // older stat calls). Then the key keeps the old shape instead of pretending to
-  // know the generation.
-  return stat.birthtimeNs > 0n ? base + ':' + String(stat.birthtimeNs) : base
+}): string | null => {
+  if (stat.birthtimeNs <= 0n) return null
+  return String(stat.dev) + ':' + String(stat.ino) + ':' + String(stat.birthtimeNs)
 }
 
 /** Synchronous identity, for the quit flush while the window is unloading. */
