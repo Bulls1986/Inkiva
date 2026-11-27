@@ -15,7 +15,10 @@ export const COLLAPSE_STATE_CHANNELS = {
 export interface CollapseHeadingRecordPayload {
   key: string
   level: number
+  /** Heading text: the cross-session identity. */
+  text: string
   collapsed: boolean
+  /** Ancestor heading texts, outermost first. */
   ancestors: string[]
 }
 

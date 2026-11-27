@@ -67,3 +67,18 @@ produced for it. It is not claimed as verified behaviour.
   distinguished from the app's own write.
 - macOS APFS and real devices are not tested (user decision); network/cloud drives
   are unknown.
+
+## Independent pre-verification (PR #291, head 0068cdcf) — status at this commit
+
+Three defects were reproduced through the production path in
+`collapse-regressions.spec.ts` (real quit + relaunch, no stubs).
+
+| Defect | State |
+|---|---|
+| D3: an inserted identical heading collapsed the new heading and expanded the original | **fixed** — identity is now the heading text + level + ancestor texts, matched only when unique; the regression passes |
+| D1: pruning one stale key wiped every restored collapse | **not fixed** — reproduction still fails after changing the prune save to persist the post-restore state |
+| D2: a document without a record inherited the previous document's collapse | **not fixed** — reproduction still fails after clearing the engine collapse state before a restore attempt |
+
+The two attempted fixes are in this commit but unproven; the failures mean the
+cause is elsewhere (likely the restore attempt guard and the point at which the
+engine state is read back). Do not merge until both regressions pass.

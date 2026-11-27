@@ -1016,8 +1016,11 @@ const headingCollapseByDocument = new Map<string, IHeadingCollapseState[]>()
 // Written on every change rather than debounced: a user can collapse a section
 // and quit immediately, and the store write must already have happened. The
 // store serializes writes, and collapse changes are infrequent user actions.
+const outlineTexts = (): string[] =>
+  (editor.value?.getTOC() ?? []).map((item: { content: string }) => item.content)
+
 const persistCollapse = (pathname: string, state: IHeadingCollapseState[]): void => {
-  window.collapseState?.save(pathname, buildHeadingRecords(state)).catch(() => {})
+  window.collapseState?.save(pathname, buildHeadingRecords(state, outlineTexts())).catch(() => {})
 }
 
 // An untitled document keeps its collapse state in the session only. When the
@@ -1043,7 +1046,7 @@ const restoreCollapseFromDisk = async (pathname: string, documentId: string): Pr
   if (!record || record.headings.length === 0) { return }
   const currentState = editor.value?.getHeadingCollapseState() ?? []
   if (currentState.length === 0) { return }
-  const currentRecords = buildHeadingRecords(currentState)
+  const currentRecords = buildHeadingRecords(currentState, outlineTexts())
   const { collapsedKeys, staleKeys } = resolveCollapseRestore(record.headings, currentRecords)
   if (collapsedKeys.length > 0) {
     const collapsed = new Set(collapsedKeys)
@@ -1059,9 +1062,19 @@ const restoreCollapseFromDisk = async (pathname: string, documentId: string): Pr
     )
   }
   if (staleKeys.length > 0) {
-    // Drop records that no longer describe this document instead of letting a
-    // later same-name heading inherit them.
-    await window.collapseState?.save(pathname, currentRecords).catch(() => {})
+    // Prune records that no longer describe this document. This must persist the
+    // state *after* the restore was applied: saving the pre-restore snapshot (all
+    // expanded) would wipe the collapses the user still has, and a single renamed
+    // heading would then cost every other section on the next launch.
+    // Let the engine apply the restore before reading it back: reading in the
+    // same tick returns the pre-restore snapshot and would persist "expanded".
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const applied = editor.value?.getHeadingCollapseState() ?? []
+    if (applied.length > 0) {
+      await window
+        .collapseState?.save(pathname, buildHeadingRecords(applied, outlineTexts()))
+        .catch(() => {})
+    }
   }
 }
 let preSourceModeHeadingCollapse: IHeadingCollapseState[] | null = null
@@ -2724,6 +2737,10 @@ const maybeRestoreCollapseFromDisk = (): void => {
   if (!id || !pathname) { return }
   if (headingCollapseByDocument.has(id) || collapseRestoreAttempted.has(id)) { return }
   if ((editor.value?.getTOC().length ?? 0) === 0) { return }
+  // A document without an in-session record starts fully expanded. The engine can
+  // still hold the previous document's collapsed sections (the same heading keys
+  // exist in both), so clear it before any restore is attempted.
+  editor.value?.setHeadingCollapseState([])
   collapseRestoreAttempted.add(id)
   restoreCollapseFromDisk(pathname, id).catch(() => {})
 }

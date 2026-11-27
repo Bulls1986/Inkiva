@@ -15,6 +15,9 @@ export interface CollapseHeadingRecord {
   level: number
   /** Optional on input; a record without it is treated as expanded. */
   collapsed?: boolean
+  /** Heading text: the cross-session identity. Records without it never match. */
+  text?: string
+  /** Ancestor heading texts, outermost first. */
   ancestors: string[]
 }
 
@@ -49,6 +52,7 @@ const isHeadingRecord = (value: unknown): value is CollapseHeadingRecord => {
     typeof candidate.key === 'string' &&
     typeof candidate.level === 'number' &&
     (candidate.collapsed === undefined || typeof candidate.collapsed === 'boolean') &&
+    (candidate.text === undefined || typeof candidate.text === 'string') &&
     Array.isArray(candidate.ancestors) &&
     candidate.ancestors.every((item) => typeof item === 'string')
   )
@@ -88,6 +92,7 @@ export class CollapseStateStore {
       key: heading.key,
       level: heading.level,
       collapsed: heading.collapsed === true,
+      text: heading.text ?? '',
       ancestors: [...heading.ancestors]
     }))
 

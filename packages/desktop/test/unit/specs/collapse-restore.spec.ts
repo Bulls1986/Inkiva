@@ -5,79 +5,85 @@ import {
   type CurrentHeading
 } from '@/services/collapseRestore'
 
-// F6: after a confirmed identity, headings are matched by key + level + ancestor
-// chain. Anything that is not a unique match stays expanded, and stale records
-// are reported so they can be pruned instead of being reused by a later heading
-// with the same name.
+// F6 identity is the heading text + level + ancestor texts, never the engine's
+// occurrence-numbered key: inserting an identical heading shifts those keys.
 
 const recorded = (
-  key: string,
+  text: string,
   level: number,
   collapsed: boolean,
   ancestors: string[] = []
-): CollapseHeadingRecord => ({ key, level, collapsed, ancestors })
+): CollapseHeadingRecord => ({ key: text, level, text, collapsed, ancestors })
 
-const current = (
-  key: string,
-  level: number,
-  ancestors: string[] = []
-): CurrentHeading => ({ key, level, ancestors })
+const current = (key: string, text: string, level: number, ancestors: string[] = []): CurrentHeading =>
+  ({ key, text, level, ancestors })
 
 describe('resolveCollapseRestore', () => {
   it('restores a collapsed heading that matches uniquely', () => {
-    const result = resolveCollapseRestore([recorded('chapter', 2, true)], [current('chapter', 2)])
+    const result = resolveCollapseRestore([recorded('Chapter', 2, true)], [current('chapter', 'Chapter', 2)])
     expect(result.collapsedKeys).toEqual(['chapter'])
     expect(result.staleKeys).toEqual([])
   })
 
   it('keeps a recorded expanded heading expanded', () => {
-    const result = resolveCollapseRestore([recorded('chapter', 2, false)], [current('chapter', 2)])
-    expect(result.collapsedKeys).toEqual([])
+    expect(resolveCollapseRestore([recorded('Chapter', 2, false)], [current('chapter', 'Chapter', 2)]).collapsedKeys)
+      .toEqual([])
   })
 
   it('does not restore a same-name heading under a different parent', () => {
     const result = resolveCollapseRestore(
-      [recorded('intro', 2, true, ['guide-a'])],
-      [current('intro', 2, ['guide-b'])]
+      [recorded('Intro', 2, true, ['Guide A'])],
+      [current('intro', 'Intro', 2, ['Guide B'])]
     )
     expect(result.collapsedKeys).toEqual([])
-    expect(result.staleKeys).toEqual(['guide-a/intro'])
+    expect(result.staleKeys).toEqual(['Guide A/Intro'])
   })
 
   it('leaves duplicate headings expanded when the match is ambiguous', () => {
     const result = resolveCollapseRestore(
-      [recorded('notes', 2, true)],
-      [current('notes', 2), current('notes', 2)]
+      [recorded('Notes', 2, true)],
+      [current('notes', 'Notes', 2), current('notes-1', 'Notes', 2)]
     )
     expect(result.collapsedKeys).toEqual([])
-    expect(result.staleKeys).toEqual(['notes'])
+    expect(result.staleKeys).toEqual(['Notes'])
   })
 
   it('does not restore a heading whose level changed', () => {
-    const result = resolveCollapseRestore([recorded('chapter', 2, true)], [current('chapter', 3)])
-    expect(result.collapsedKeys).toEqual([])
+    expect(resolveCollapseRestore([recorded('Chapter', 2, true)], [current('chapter', 'Chapter', 3)]).collapsedKeys)
+      .toEqual([])
   })
 
-  it('restores the unaffected headings and drops records for removed ones', () => {
+  it('restores unaffected headings and drops removed ones', () => {
     const result = resolveCollapseRestore(
-      [recorded('keep', 2, true), recorded('gone', 2, true)],
-      [current('keep', 2)]
+      [recorded('Keep', 2, true), recorded('Gone', 2, true)],
+      [current('keep', 'Keep', 2)]
     )
     expect(result.collapsedKeys).toEqual(['keep'])
-    expect(result.staleKeys).toEqual(['gone'])
+    expect(result.staleKeys).toEqual(['Gone'])
   })
 
-  it('restores nested headings with their ancestor chain intact', () => {
+  it('restores nested headings with the ancestor text chain intact', () => {
     const result = resolveCollapseRestore(
-      [recorded('guide', 1, true), recorded('step', 2, true, ['guide'])],
-      [current('guide', 1), current('step', 2, ['guide'])]
+      [recorded('Guide', 1, true), recorded('Step', 2, true, ['Guide'])],
+      [current('guide', 'Guide', 1), current('step', 'Step', 2, ['Guide'])]
     )
     expect(result.collapsedKeys).toEqual(['guide', 'step'])
     expect(result.staleKeys).toEqual([])
   })
 
-  it('treats a recorded state for an empty document as nothing to restore', () => {
-    expect(resolveCollapseRestore([recorded('a', 1, true)], [])).toEqual({
+  it('follows the current key even when the engine renumbered it', () => {
+    // Same text, same ancestors, same level: the key shifted because another
+    // heading was inserted elsewhere, but this heading is still unique.
+    const result = resolveCollapseRestore(
+      [recorded('Notes', 2, true)],
+      [current('other', 'Other', 2), current('notes-1', 'Notes', 2)]
+    )
+    expect(result.collapsedKeys).toEqual(['notes-1'])
+  })
+
+  it('never restores a record without heading text', () => {
+    const legacy = { key: 'a', level: 1, collapsed: true, ancestors: [] } as unknown as CollapseHeadingRecord
+    expect(resolveCollapseRestore([legacy], [current('a', 'A', 1)])).toEqual({
       collapsedKeys: [],
       staleKeys: ['a']
     })
