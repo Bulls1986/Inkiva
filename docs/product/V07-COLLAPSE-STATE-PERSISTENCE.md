@@ -158,3 +158,55 @@ Red before the fixes (commit `301b9829`): D4 and D5 failed, D6 passed.
 Green after (`collapse-acceptance-d4d5.spec.ts` + the earlier suites): 14/14,
 covering D4/D5/D6, D1/D2/D3, the six persistence scenarios and both multi-window
 cases. Unit: 33 passed. `vue-tsc`: 0 errors. ESLint: 0 errors.
+
+## Re-verification follow-up: D8 identity and D7 quit flush
+
+The independent re-verification of `fad4abf1` found one blocker and one narrow
+window. Both were reproduced before the fix.
+
+**D8 — a same-path replacement inherited the old record.** The identity key was
+`device:inode`, and ext4 reuses the inode number when a file is deleted and
+recreated at the same path. Measured on this machine with a 20-iteration probe
+(`rm` + write at the same path):
+
+| filesystem | inode reused | birth time differs | old key still equal |
+|---|---|---|---|
+| Windows NTFS | 0/20 | — (new inode) | 0/20 |
+| WSL ext4 | **20/20** | **20/20** | 20/20 before the fix, **0/20 after** |
+
+The key is now `device:inode:birthtime`. It is an additional component, never a
+claim of proof: when the filesystem reports no birth time (`0n`) the key keeps
+the older `device:inode` shape, so a record written where it is reported can
+never match a file read where it is not — the document opens expanded. Same-volume
+move keeps device, inode and birth time, so it still restores; an application
+atomic save still migrates through `rekeyIfSameDocument`; a copy still has its own
+inode. Records written by the previous format simply never match, which is the
+approved "expanded" fallback for an unmerged feature.
+
+macOS/APFS is untested (real devices out of scope by decision); APFS reports a
+birth time, so the same key shape applies, but the inode-reuse behaviour there is
+not measured.
+
+**D7 — a collapse made while the record was loading was lost by quitting
+immediately.** Holding the read open and quitting right after a toggle lost that
+toggle, because the write had been deferred until the restore settled. A window
+that is unloading cannot await anything, and writing its whole snapshot would have
+erased the headings the record still held. Now the renderer hands main only the
+headings the user actually toggled (`mt::collapse-state::stage`), and main merges
+them into the stored record on `before-quit`. Verified on the real path: after an
+immediate quit the record holds both `Installation` (from the stored record) and
+`Configuration` (the user's newer toggle), and the relaunch shows both.
+
+### Evidence
+
+- Red: `collapse-d7-exit-flush.spec.ts` failed on the parent commit (store still
+  held the seed record); `collapse-identity.spec.ts` failed because two files with
+  the same device and inode but different birth times produced the same key.
+- Green: 15/15 collapse E2E (D7, D4/D5/D6, D1/D2/D3, six persistence scenarios,
+  two multi-window cases), 37 unit assertions in six specs, `vue-tsc` 0 errors.
+- `editor.vue` line endings were normalised to the repository's CRLF: the diff
+  against the merge base drops from 8251 changed lines to 332, so the review now
+  sees only the semantic change.
+- 200+ heading documents remain unverified: the virtualised last section's
+  collapse control cannot be mounted from the test side (four approaches tried by
+  QA, three here); 40 headings are covered.

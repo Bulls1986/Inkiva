@@ -1,4 +1,4 @@
-import { promises as fs, renameSync } from 'node:fs'
+import { promises as fs, renameSync, statSync } from 'node:fs'
 
 /**
  * Per-document collapse state store (v0.7.0 F5/F6).
@@ -34,6 +34,16 @@ export interface CollapseStateStoreDeps {
   writeFile(path: string, text: string): Promise<void>
   identity(path: string): Promise<string | null>
   now?: () => number
+  /**
+   * Synchronous counterparts, used only for the quit flush. A window that is
+   * unloading cannot await anything, so the last pending write has to complete
+   * in the same turn that the renderer is torn down.
+   */
+  sync?: {
+    readFile(path: string): string
+    writeFile(path: string, text: string): void
+    identity(path: string): string | null
+  }
 }
 
 interface StoreFile {
@@ -44,6 +54,44 @@ interface StoreFile {
 const STORE_VERSION = 1
 
 const emptyStore = (): StoreFile => ({ version: STORE_VERSION, documents: {} })
+
+/** Stable heading identity used when two snapshots have to be merged. */
+export const headingIdentityKey = (heading: {
+  level: number
+  text?: string
+  ancestors: string[]
+}): string => [heading.level, heading.text ?? '', ...heading.ancestors].join('\u0000')
+
+const normalizeHeadings = (headings: CollapseHeadingRecord[]): CollapseHeadingRecord[] =>
+  headings.filter(isHeadingRecord).map((heading) => ({
+    key: heading.key,
+    level: heading.level,
+    collapsed: heading.collapsed === true,
+    text: heading.text ?? '',
+    ancestors: [...heading.ancestors]
+  }))
+
+/** Parses a store file; anything damaged becomes an empty store. */
+const parseStoreFile = (raw: string): StoreFile => {
+  try {
+    const parsed = JSON.parse(raw) as Partial<StoreFile>
+    if (!parsed || parsed.version !== STORE_VERSION || typeof parsed.documents !== 'object') {
+      return emptyStore()
+    }
+    const documents: StoreFile['documents'] = {}
+    for (const [identity, entry] of Object.entries(parsed.documents ?? {})) {
+      if (!entry || !Array.isArray(entry.headings)) continue
+      documents[identity] = {
+        headings: entry.headings.filter(isHeadingRecord),
+        updatedAt: typeof entry.updatedAt === 'number' ? entry.updatedAt : 0
+      }
+    }
+    return { version: STORE_VERSION, documents }
+  } catch {
+    // A damaged store must never break opening a document.
+    return emptyStore()
+  }
+}
 
 const isHeadingRecord = (value: unknown): value is CollapseHeadingRecord => {
   if (!value || typeof value !== 'object') return false
@@ -88,13 +136,7 @@ export class CollapseStateStore {
     // alone must never revive state for a file that may have been replaced.
     if (!identity) return
 
-    const headings = state.headings.filter(isHeadingRecord).map((heading) => ({
-      key: heading.key,
-      level: heading.level,
-      collapsed: heading.collapsed === true,
-      text: heading.text ?? '',
-      ancestors: [...heading.ancestors]
-    }))
+    const headings = normalizeHeadings(state.headings)
 
     await this.mutate((store) => {
       store.documents[identity] = {
@@ -127,6 +169,62 @@ export class CollapseStateStore {
     })
   }
 
+  /**
+   * Write one record synchronously, for the quit flush only.
+   *
+   * It does not consult the in-memory queue: the window is going away and the
+   * snapshot it carries is the newest user intent. A failure is swallowed on
+   * purpose — quitting must never be blocked by the state file.
+   */
+  /**
+   * Merge headings into the stored record synchronously.
+   *
+   * Used by the quit flush: the window could not wait for the record read, so its
+   * snapshot holds only what the user just changed. Writing that snapshot as-is
+   * would erase every heading the record still had; merging by heading identity
+   * keeps them and applies the user's newer intent.
+   */
+  mergeSync(pathname: string, touched: CollapseHeadingRecord[]): boolean {
+    const sync = this.deps.sync
+    if (!sync) return false
+    try {
+      const identity = sync.identity(pathname)
+      if (!identity) return false
+      const store = parseStoreFile(sync.readFile(this.deps.filePath))
+      const existing = store.documents[identity]?.headings ?? []
+      const merged = new Map(existing.map((heading) => [headingIdentityKey(heading), heading]))
+      for (const heading of normalizeHeadings(touched)) {
+        merged.set(headingIdentityKey(heading), heading)
+      }
+      store.documents[identity] = {
+        headings: [...merged.values()],
+        updatedAt: (this.deps.now ?? Date.now)()
+      }
+      sync.writeFile(this.deps.filePath, JSON.stringify(store))
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  saveSync(pathname: string, state: { headings: CollapseHeadingRecord[] }): boolean {
+    const sync = this.deps.sync
+    if (!sync) return false
+    try {
+      const identity = sync.identity(pathname)
+      if (!identity) return false
+      const store = parseStoreFile(sync.readFile(this.deps.filePath))
+      store.documents[identity] = {
+        headings: normalizeHeadings(state.headings),
+        updatedAt: (this.deps.now ?? Date.now)()
+      }
+      sync.writeFile(this.deps.filePath, JSON.stringify(store))
+      return true
+    } catch {
+      return false
+    }
+  }
+
   /** Serialized read-modify-write so parallel windows cannot interleave. */
   private mutate(change: (store: StoreFile) => void): Promise<void> {
     const run = this.queue.then(async() => {
@@ -145,29 +243,45 @@ export class CollapseStateStore {
     } catch {
       return emptyStore()
     }
-
-    try {
-      const parsed = JSON.parse(raw) as Partial<StoreFile>
-      if (!parsed || parsed.version !== STORE_VERSION || typeof parsed.documents !== 'object') {
-        return emptyStore()
-      }
-      const documents: StoreFile['documents'] = {}
-      for (const [identity, entry] of Object.entries(parsed.documents ?? {})) {
-        if (!entry || !Array.isArray(entry.headings)) continue
-        documents[identity] = {
-          headings: entry.headings.filter(isHeadingRecord),
-          updatedAt: typeof entry.updatedAt === 'number' ? entry.updatedAt : 0
-        }
-      }
-      return { version: STORE_VERSION, documents }
-    } catch {
-      // A damaged store must never break opening a document.
-      return emptyStore()
-    }
+    return parseStoreFile(raw)
   }
 
   private async writeStore(store: StoreFile): Promise<void> {
     await this.deps.writeFile(this.deps.filePath, JSON.stringify(store))
+  }
+}
+
+/**
+ * Identity key for a file.
+ *
+ * `dev:ino` alone is not enough: on ext4 (and in principle on NTFS/APFS) the
+ * allocator reuses the inode number of a file that was deleted and recreated at
+ * the same path, so a replacement would inherit the old record. The birth time
+ * separates the two generations when the filesystem reports one. It is only used
+ * as an additional component — never as proof on its own — and when it is
+ * unavailable the key keeps the previous shape, so a record written on a
+ * filesystem that reports it never matches a file read where it is missing.
+ */
+export const identityKey = (stat: {
+  dev: bigint
+  ino: bigint
+  birthtimeNs: bigint
+}): string => {
+  const base = String(stat.dev) + ':' + String(stat.ino)
+  // 0n means the filesystem did not report a birth time (some Linux setups, and
+  // older stat calls). Then the key keeps the old shape instead of pretending to
+  // know the generation.
+  return stat.birthtimeNs > 0n ? base + ':' + String(stat.birthtimeNs) : base
+}
+
+/** Synchronous identity, for the quit flush while the window is unloading. */
+export const fileIdentitySync = (pathname: string): string | null => {
+  try {
+    const stat = statSync(pathname, { bigint: true })
+    if (!stat.isFile()) return null
+    return identityKey({ dev: stat.dev, ino: stat.ino, birthtimeNs: stat.birthtimeNs })
+  } catch {
+    return null
   }
 }
 
@@ -176,7 +290,7 @@ export const fileIdentity = async(pathname: string): Promise<string | null> => {
   try {
     const stat = await fs.stat(pathname, { bigint: true })
     if (!stat.isFile()) return null
-    return String(stat.dev) + ':' + String(stat.ino)
+    return identityKey({ dev: stat.dev, ino: stat.ino, birthtimeNs: stat.birthtimeNs })
   } catch {
     return null
   }

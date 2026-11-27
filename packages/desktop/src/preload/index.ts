@@ -412,7 +412,13 @@ const collapseStateAPI = {
   load: (pathname: string) => invoke(COLLAPSE_STATE_CHANNELS.load, pathname),
   save: (pathname: string, headings: CollapseHeadingRecordPayload[]) =>
     invoke(COLLAPSE_STATE_CHANNELS.save, pathname, headings),
-  clear: (pathname: string) => invoke(COLLAPSE_STATE_CHANNELS.clear, pathname)
+  clear: (pathname: string) => invoke(COLLAPSE_STATE_CHANNELS.clear, pathname),
+  // Used only from the window's unload handler; nothing can be awaited there.
+  saveSync: (pathname: string, headings: CollapseHeadingRecordPayload[]) =>
+    ipcWrapper.sendSync(COLLAPSE_STATE_CHANNELS.saveSync, pathname, headings),
+  /** Hand a deferred write to main, which merges it when the app quits. */
+  stage: (pathname: string, headings: CollapseHeadingRecordPayload[]) =>
+    invoke(COLLAPSE_STATE_CHANNELS.stage, pathname, headings)
 }
 
 const fontsAPI = {

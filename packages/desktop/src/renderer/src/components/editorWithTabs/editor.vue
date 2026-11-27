@@ -4003,6 +4003,15 @@ onMounted(() => {
       if (pathname) {
         if (collapseRestorePending || (userId && !collapseRestoreSettled.has(userId))) {
           collapsePersistPending = true
+          // Quitting inside this window cannot wait for the read, and writing the
+          // whole snapshot would erase the headings the record still holds. Hand
+          // main only what the user just changed; it merges that on quit.
+          const touchedRecords = buildHeadingRecords(state, outlineTexts()).filter((record) =>
+            userId ? userTouchedKeys(userId).has(record.key) : false
+          )
+          if (touchedRecords.length > 0) {
+            window.collapseState?.stage(pathname, touchedRecords).catch(() => {})
+          }
         } else {
           persistCollapse(pathname, state)
         }

@@ -128,6 +128,11 @@ export interface IpcInvokeChannels {
     ret: void
   }
   'mt::collapse-state::clear': { args: [pathname: string]; ret: void }
+  // Deferred write handed to main; merged into the record when the app quits.
+  'mt::collapse-state::stage': {
+    args: [pathname: string, headings: CollapseHeadingRecordPayload[]]
+    ret: void
+  }
   'mt::preferences::set': {
     args: [partial: PreferencePatch]
     ret: PreferenceMutationResult
@@ -391,6 +396,12 @@ export interface IpcSendChannels {
 export interface IpcSyncChannels {
   'mt::boot-info': { args: []; ret: BootInfo }
   'mt::paths::is-same-sync': { args: [a: string, b: string]; ret: boolean }
+  // Quit flush: a window that is unloading cannot await, so the last pending
+  // collapse write has to land in the same turn.
+  'mt::collapse-state::save-sync': {
+    args: [pathname: string, headings: CollapseHeadingRecordPayload[]]
+    ret: boolean
+  }
 }
 
 // =================================================================

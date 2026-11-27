@@ -232,6 +232,9 @@ declare global {
     load(pathname: string): Promise<CollapseStateRecordPayload | null>
     save(pathname: string, headings: CollapseHeadingRecordPayload[]): Promise<void>
     clear(pathname: string): Promise<void>
+    /** Synchronous; only the window's unload handler may call it. */
+    saveSync(pathname: string, headings: CollapseHeadingRecordPayload[]): boolean
+    stage(pathname: string, headings: CollapseHeadingRecordPayload[]): Promise<void>
   }
 
   interface DocumentIntelligenceAPI {

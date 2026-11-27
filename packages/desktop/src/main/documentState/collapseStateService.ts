@@ -1,9 +1,14 @@
 import path from 'node:path'
 import { app } from 'electron'
-import { writeFileSync, renameSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs'
 import { promises as fs } from 'node:fs'
 
-import { CollapseStateStore, fileIdentity } from './collapseStateStore'
+import {
+  CollapseStateStore,
+  fileIdentity,
+  fileIdentitySync,
+  headingIdentityKey
+} from './collapseStateStore'
 
 /**
  * Application-wide collapse-state store.
@@ -29,7 +34,17 @@ export const getCollapseStateStore = (): CollapseStateStore => {
         renameSync(temp, filePath)
         return Promise.resolve()
       },
-      identity: fileIdentity
+      identity: fileIdentity,
+      sync: {
+        readFile: (filePath) => readFileSync(filePath, 'utf8'),
+        writeFile: (filePath, text) => {
+          mkdirSync(path.dirname(filePath), { recursive: true })
+          const temp = filePath + '.tmp'
+          writeFileSync(temp, text)
+          renameSync(temp, filePath)
+        },
+        identity: fileIdentitySync
+      }
     })
   }
   return store
@@ -43,6 +58,50 @@ export const getCollapseStateStore = (): CollapseStateStore => {
  * migrated; nothing is inferred from a path, and if either side is unknown the
  * record is left alone (the document then opens expanded).
  */
+/**
+ * Writes deferred while a record read was still open, held for the quit flush.
+ *
+ * The renderer cannot wait for the read at unload, so it hands the headings the
+ * user just changed to main, which merges them into the record on quit instead
+ * of writing a snapshot that is missing everything else.
+ */
+const stagedFlush = new Map<string, Map<string, ReturnType<typeof stagedEntry>>>()
+
+const stagedEntry = (heading: {
+  key: string
+  level: number
+  text?: string
+  collapsed?: boolean
+  ancestors: string[]
+}) => ({
+  key: heading.key,
+  level: heading.level,
+  text: heading.text ?? '',
+  collapsed: heading.collapsed === true,
+  ancestors: [...heading.ancestors]
+})
+
+export const stageCollapseFlush = (
+  pathname: string,
+  headings: Array<Parameters<typeof stagedEntry>[0]>
+): void => {
+  const entry = stagedFlush.get(pathname) ?? new Map()
+  for (const heading of headings) {
+    const normalized = stagedEntry(heading)
+    entry.set(headingIdentityKey(normalized), normalized)
+  }
+  stagedFlush.set(pathname, entry)
+}
+
+export const flushStagedCollapseWrites = (): void => {
+  if (stagedFlush.size === 0) return
+  const store = getCollapseStateStore()
+  for (const [pathname, headings] of stagedFlush) {
+    store.mergeSync(pathname, [...headings.values()])
+  }
+  stagedFlush.clear()
+}
+
 export interface RekeyDeps {
   identity(path: string): Promise<string | null>
   rekey(previous: string, next: string): Promise<void>

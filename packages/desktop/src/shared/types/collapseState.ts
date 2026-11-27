@@ -9,7 +9,11 @@
 export const COLLAPSE_STATE_CHANNELS = {
   load: 'mt::collapse-state::load',
   save: 'mt::collapse-state::save',
-  clear: 'mt::collapse-state::clear'
+  clear: 'mt::collapse-state::clear',
+  /** Synchronous, used only by the window's quit flush. */
+  saveSync: 'mt::collapse-state::save-sync',
+  /** A write deferred while a record read was open; merged on quit. */
+  stage: 'mt::collapse-state::stage'
 } as const
 
 export interface CollapseHeadingRecordPayload {
