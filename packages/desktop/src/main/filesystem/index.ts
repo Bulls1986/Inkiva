@@ -68,8 +68,14 @@ export const writeFile = async(
       // collapse record has to follow the file we are about to write. Both
       // identities must exist for the migration; otherwise nothing is inferred.
       const identityBeforeWrite = await fileIdentity(pathname)
+      // Re-check right before writing: if the file was replaced externally
+      // between the capture and this point, its record belongs to a document
+      // that is no longer here, so no migration may happen.
+      const identityAtWrite = await fileIdentity(pathname)
       await writeFileAtomic(pathname, content, options)
-      await rekeyAfterAppSave(pathname, identityBeforeWrite).catch(() => {})
+      if (identityBeforeWrite !== null && identityBeforeWrite === identityAtWrite) {
+        await rekeyAfterAppSave(pathname, identityBeforeWrite).catch(() => {})
+      }
     }
   })
 }

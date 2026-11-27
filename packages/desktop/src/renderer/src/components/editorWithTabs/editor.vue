@@ -1013,21 +1013,33 @@ const headingCollapseByDocument = new Map<string, IHeadingCollapseState[]>()
 // Cross-session persistence (F5/F6). Main keys the record by file identity, so
 // it follows the document across atomic saves and application restarts; a path
 // alone never revives state for a file that may have been replaced.
-let collapsePersistTimer: ReturnType<typeof setTimeout> | null = null
-const schedulePersistCollapse = (pathname: string, state: IHeadingCollapseState[]): void => {
-  if (collapsePersistTimer) clearTimeout(collapsePersistTimer)
-  collapsePersistTimer = setTimeout(() => {
-    collapsePersistTimer = null
-    window.collapseState?.save(pathname, buildHeadingRecords(state)).catch(() => {})
-  }, 300)
+// Written on every change rather than debounced: a user can collapse a section
+// and quit immediately, and the store write must already have happened. The
+// store serializes writes, and collapse changes are infrequent user actions.
+const persistCollapse = (pathname: string, state: IHeadingCollapseState[]): void => {
+  window.collapseState?.save(pathname, buildHeadingRecords(state)).catch(() => {})
 }
 
-const restorePersistedCollapse = (pathname: string): void => {
-  restoreCollapseFromDisk(pathname).catch(() => {})
-}
+// An untitled document keeps its collapse state in the session only. When the
+// first save gives it a path (or a rename/move changes it), attach that state to
+// the file now, while the collapse is still known.
+watch(
+  () => currentFile.value?.pathname,
+  (pathname: string | undefined, previous: string | undefined) => {
+    if (!pathname || pathname === previous) { return }
+    const id = currentFile.value?.id
+    const state = id ? headingCollapseByDocument.get(id) : undefined
+    if (state && state.length > 0) { persistCollapse(pathname, state) }
+  }
+)
 
-const restoreCollapseFromDisk = async (pathname: string): Promise<void> => {
+const restoreCollapseFromDisk = async (pathname: string, documentId: string): Promise<void> => {
   const record = await window.collapseState?.load(pathname).catch(() => null)
+  // The load is asynchronous: the user may have switched documents while it was
+  // in flight, and the record must never be applied to the new document.
+  if (currentFile.value?.id !== documentId || currentFile.value?.pathname !== pathname) {
+    return
+  }
   if (!record || record.headings.length === 0) { return }
   const currentState = editor.value?.getHeadingCollapseState() ?? []
   if (currentState.length === 0) { return }
@@ -2699,6 +2711,21 @@ const recordTocMetric = (metric: TocMetric): void => {
 const refreshEditorToc = (force = true): void => {
   if (!editor.value) return
   editorStore.UPDATE_TOC(editor.value.getTOC(), force)
+  maybeRestoreCollapseFromDisk()
+}
+
+// Restoring has to wait until the outline exists: an engine that is still
+// mounting headings would report an empty or partial heading list and the
+// record would be pruned as stale. Once per document is enough.
+const collapseRestoreAttempted = new Set<string>()
+const maybeRestoreCollapseFromDisk = (): void => {
+  const id = currentFile.value?.id
+  const pathname = currentFile.value?.pathname
+  if (!id || !pathname) { return }
+  if (headingCollapseByDocument.has(id) || collapseRestoreAttempted.has(id)) { return }
+  if ((editor.value?.getTOC().length ?? 0) === 0) { return }
+  collapseRestoreAttempted.add(id)
+  void restoreCollapseFromDisk(pathname, id).catch(() => {})
 }
 
 // US09 — delayed caret/viewport restoration is allowed to complete only while
@@ -3052,7 +3079,7 @@ const setMarkdownToEditor = (payload: unknown) => {
       }
       const pathname = currentFile.value?.pathname
       if (!savedCollapse && pathname) {
-        runWhenEditorRenderComplete(id, () => restorePersistedCollapse(pathname))
+        runWhenEditorRenderComplete(id, () => maybeRestoreCollapseFromDisk())
       }
     }
     // A freshly created/opened tab should be ready to type into.
@@ -3292,7 +3319,7 @@ const handleFileChange = (payload: unknown) => {
       } else {
         const pathname = currentFile.value?.pathname
         if (pathname) {
-          runWhenEditorRenderComplete(id, () => restorePersistedCollapse(pathname))
+          runWhenEditorRenderComplete(id, () => maybeRestoreCollapseFromDisk())
         }
       }
     }
@@ -3798,7 +3825,7 @@ onMounted(() => {
       }
       const pathname = currentFile.value?.pathname
       if (pathname) {
-        schedulePersistCollapse(pathname, state)
+        persistCollapse(pathname, state)
       }
       tocScrollSync?.update(visibleTocItems())
       tocScrollSync?.refresh()

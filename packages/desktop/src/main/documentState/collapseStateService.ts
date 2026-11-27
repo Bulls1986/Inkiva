@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { app } from 'electron'
-import writeFileAtomic from 'write-file-atomic'
+import { writeFileSync, renameSync, mkdirSync } from 'node:fs'
 import { promises as fs } from 'node:fs'
 
 import { CollapseStateStore, fileIdentity } from './collapseStateStore'
@@ -19,8 +19,15 @@ export const getCollapseStateStore = (): CollapseStateStore => {
     store = new CollapseStateStore({
       filePath: path.join(app.getPath('userData'), 'collapse-state.json'),
       readFile: (filePath) => fs.readFile(filePath, 'utf8'),
-      writeFile: async(filePath, text) => {
-        await writeFileAtomic(filePath, text)
+      writeFile: (filePath, text) => {
+        // Synchronous on purpose: the write happens while main handles the IPC
+        // message, so collapsing and quitting immediately cannot lose it. The
+        // record is tiny and this never runs on an editor hot path.
+        mkdirSync(path.dirname(filePath), { recursive: true })
+        const temp = filePath + '.tmp'
+        writeFileSync(temp, text)
+        renameSync(temp, filePath)
+        return Promise.resolve()
       },
       identity: fileIdentity
     })
