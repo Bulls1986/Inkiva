@@ -86,8 +86,9 @@ message alone.
 |---|---|---|
 | Red (main artifact service) | `vitest run test/unit/specs/pdf-preview-service.spec.ts test/unit/specs/pdf-preview-page-options.spec.ts` | 16 of 17 assertions failed against the interface stub (missing artifact reuse, serialization, stale/timeout handling, mm→inch conversion). |
 | Red (renderer session) | `vitest run test/unit/specs/pdf-preview-session.spec.ts` | 11 of 11 assertions failed against the interface stub. |
-| Green | the PDF preview specs | 35 passed (31 + 4 resource-identity assertions). |
-| Regression | `vitest run test/unit` (desktop) | 177 files passed; 1388 passed, 1 skipped. |
+| Red (resource identity, review follow-up) | same session spec | 4 assertions failed: a same-size/same-mtime replacement, a disappeared file, an image that appears after being unreadable, and revalidation after the native dialog all saved when they had to block. |
+| Green | the PDF preview specs | 25 passed in the session spec (19) plus 6 resource-identity assertions. |
+| Regression | `vitest run test/unit` (desktop) | 178 files passed; 1403 passed, 1 skipped. |
 | Type check | `vue-tsc --noEmit -p tsconfig.json` | No errors in the changed files. |
 | Electron E2E | `playwright test test/e2e/{export-pdf,export-pdf-resources,export-pdf-acceptance}.spec.ts` | 11/11 passed, three consecutive runs on Windows x64. Covers SHA-256 equality of preview vs saved file, `/Outlines` + `/StructTreeRoot`, a same-size same-mtime image replacement blocking the save, a missing image that appears later blocking the save, a custom 180 × 240 mm paper whose saved `/MediaBox` measures 180 ± 2 mm × 240 ± 2 mm, a failed write that keeps the preview and then succeeds on retry, and no leftover hidden print window after generation. |
 | Visual baseline | `playwright test test/e2e/visual-regression.spec.ts --grep "floating dialog"` | The `dialog-linux.png` baseline was regenerated for the new PDF dialog layout: the measured card is 498 px in the old baseline and 878 px in the current build (CI actual and local win32 both 878 px), because the PDF dialog now shows settings next to the paginated preview at 880 px. Assertion and tolerance are unchanged. |
@@ -95,11 +96,17 @@ message alone.
 
 ## Not covered here
 
-- macOS Intel/Apple Silicon real-device runs (user decision for this release
-  cycle); only Windows x64 behaviour is exercised.
-- Packaged installers: PDF.js worker loading and CJK font rendering are verified
-  from a development build only.
-- External image content changes that the renderer cannot observe keep the
-  confirmed artifact, as the design allows; only added/removed references and
-  theme/CSS changes are detected.
-- Page-number and missing-image placeholder behaviour belong to their own PRs.
+- macOS Intel/Apple Silicon **real-device** runs (user decision for this release
+  cycle); only Windows x64 behaviour is exercised in a development build. The
+  macOS CI legs build/lint and package but are not product acceptance.
+- Packaged installers: PDF.js worker loading from ASAR and CJK pagination are
+  verified from the development build only.
+- Real native save-dialog interaction: the Electron E2E stubs
+  `dialog.showSaveDialog` in the main process, so overwrite confirmation and
+  OS-level dialog behaviour are unverified.
+- Remote (`http(s):`) and `data:` images: they carry no local file to hash, so they
+  are outside the artifact identity by construction. A remote image changing
+  server-side cannot invalidate a preview, and this PR does not claim otherwise.
+- Page-number (P5) and missing-image placeholder (P6) behaviour belong to their
+  own PRs; this PR only records which images were unusable when the preview was
+  generated.
