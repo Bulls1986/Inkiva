@@ -1060,23 +1060,34 @@ const applyCollapseProgrammatically = (state: IHeadingCollapseState[]): void => 
   }
 }
 
+// A document with no session record must start fully expanded. Muya re-uses
+// heading keys when it replaces the tree, so the previous document's collapsed
+// sections would otherwise attach to this one — including an untitled document,
+// which has no record and no path.
+const resetCollapseIfNoSessionRecord = (): void => {
+  const id = currentFile.value?.id
+  if (id && headingCollapseByDocument.has(id)) { return }
+  applyCollapseProgrammatically([])
+}
+
 const restoreCollapseFromDisk = async (
   pathname: string,
   documentId: string,
   activation: number
 ): Promise<void> => {
+  // Both tokens are captured BEFORE the asynchronous read: a user collapse that
+  // happens while the record is in flight must invalidate the result. Capturing
+  // the revision after the await made that newer intent invisible.
+  const revisionAtRead = collapseUserRevision
   const record = await window.collapseState?.load(pathname).catch(() => null)
-  // Reject a result that lost its turn: another document was activated later
-  // (including A→B→A), or the user collapsed something while the read was in
-  // flight. An id/path check alone cannot see either case.
   if (
     activation !== documentActivation ||
+    revisionAtRead !== collapseUserRevision ||
     currentFile.value?.id !== documentId ||
     currentFile.value?.pathname !== pathname
   ) {
     return
   }
-  const revisionAtRead = collapseUserRevision
   if (!record || record.headings.length === 0) { return }
   const currentState = editor.value?.getHeadingCollapseState() ?? []
   if (currentState.length === 0) { return }
@@ -3111,13 +3122,7 @@ const setMarkdownToEditor = (payload: unknown) => {
         withDocumentContentSwitch(() => editor.value.setContent(newMarkdown ?? ''))
       )
       editorLayoutReconciler?.reset(true)
-      // Muya rebuilds by re-using existing heading keys, so a freshly loaded
-      // document can carry the previous document's collapsed sections. With no
-      // session record of its own it must start fully expanded; the clear is
-      // programmatic and therefore never persisted.
-      if (!(currentFile.value?.id && headingCollapseByDocument.has(currentFile.value.id))) {
-        applyCollapseProgrammatically([])
-      }
+      resetCollapseIfNoSessionRecord()
     }
     // The freshly loaded content is this tab's clean baseline (id 0). History
     // comparison needs Muya's normalized serialization, but the authoritative
@@ -3308,6 +3313,7 @@ const handleFileChange = (payload: unknown) => {
         resetSyntheticHistory(id, newMarkdown)
       }
       withDocumentContentSwitch(() => editor.value.replaceContent(newMarkdown))
+      resetCollapseIfNoSessionRecord()
       refreshEditorTocWhenReady(id)
       if (newCursor) {
         applyCursor(editor.value, newCursor)
@@ -3339,6 +3345,7 @@ const handleFileChange = (payload: unknown) => {
             )
           )
         )
+        resetCollapseIfNoSessionRecord()
       } else {
         recordEditorSetContent('markdown')
         measureEditorActivationPhase('set-content-markdown', () =>
