@@ -110,3 +110,51 @@ eslint 0 errors.
   scope by decision.
 - Very large documents: recovery is verified with the sample documents used here,
   not a 200+ heading document.
+
+## Acceptance follow-up: D4, D5, D6 (head `301b9829` + this change)
+
+The independent acceptance pass found two blockers after D1–D3 were fixed. The
+root causes below were established by recording the real event sequence in the
+running renderer (temporary `console` traces through a Playwright listener, all
+removed before this commit), not by reading the code alone.
+
+**D4 — an untitled document inherited the previous document's collapse.**
+Trace: the tree replacement emitted `heading-collapse-change` with
+`documentContentSwitching` true (correctly ignored), and
+`maybeRestoreCollapseFromDisk` was reached for the new document with an empty
+path. That branch returned immediately, so nothing ever cleared the engine state
+Muya had carried over from the previous tree. Fix: the pathless branch now
+resets the engine to expanded programmatically and marks the document settled.
+
+**D5 — a late restore overwrote a newer user collapse.** The trace showed two
+separate faults, and the second one is why the first fix attempt failed:
+1. The revision token was sampled after `await load`, so a toggle made while the
+   read was open was invisible. Sampling alone was not enough.
+2. Comparing documents' snapshots cannot distinguish "the user changed this" from
+   "this is the document's initial state", so a toggle made *before* the read
+   started was still overwritten. Fix: real user events record which heading keys
+   the user actually toggled (`userTouchedByDocument`), and the restore preserves
+   those keys while applying the record to the rest. The whole-result discard on
+   revision is gone; identity and activation generation still discard.
+3. A toggle made before the restore settled also wrote a snapshot that lacked the
+   stored headings, erasing them on disk (verified: the store ended up with
+   `installation: expanded`). Fix: no write is issued until the document's restore
+   decision is final; a pending write is flushed once, merged with the restored
+   state.
+
+**D6 — untitled first save then relaunch.** Reproduced as passing once D4 was
+fixed, which confirms the acceptance failure was a consequence of D4's inherited
+state rather than a separate first-save binding defect. The case is now part of
+the suite so it cannot silently regress.
+
+### Evidence
+
+Production path, real launch/quit, no stubs except the native save dialog in D6.
+The only test seam is `INKIVA_COLLAPSE_LOAD_DELAY_MS`, which holds the store read
+open so a late response can be exercised; it is off unless set and has no
+production effect.
+
+Red before the fixes (commit `301b9829`): D4 and D5 failed, D6 passed.
+Green after (`collapse-acceptance-d4d5.spec.ts` + the earlier suites): 14/14,
+covering D4/D5/D6, D1/D2/D3, the six persistence scenarios and both multi-window
+cases. Unit: 33 passed. `vue-tsc`: 0 errors. ESLint: 0 errors.

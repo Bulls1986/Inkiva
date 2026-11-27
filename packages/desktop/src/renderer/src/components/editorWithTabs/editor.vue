@@ -1064,6 +1064,38 @@ const applyCollapseProgrammatically = (state: IHeadingCollapseState[]): void => 
 // heading keys when it replaces the tree, so the previous document's collapsed
 // sections would otherwise attach to this one — including an untitled document,
 // which has no record and no path.
+// Headings the user has toggled in this document. A restore must never undo one
+// of these, whatever the order of the asynchronous read and the click.
+// While a record read is in flight, a user toggle must not be written yet: the
+// snapshot at that moment still lacks the stored headings, so writing it would
+// erase the record it is racing with. The write is deferred and merged after the
+// restore settles instead.
+let collapseRestorePending = false
+let collapsePersistPending = false
+// Documents whose restore decision is final (restored, skipped, or impossible).
+// A write before that point would persist a snapshot that is missing the very
+// headings the record still has to restore, silently erasing them.
+const collapseRestoreSettled = new Set<string>()
+
+const settleCollapseRestore = (id: string): void => {
+  collapseRestoreSettled.add(id)
+  collapseRestorePending = false
+  if (!collapsePersistPending) { return }
+  collapsePersistPending = false
+  const activePath = currentFile.value?.pathname
+  if (activePath) { persistCollapse(activePath, currentCollapseSnapshot()) }
+}
+
+const userTouchedByDocument = new Map<string, Set<string>>()
+const userTouchedKeys = (documentId: string): Set<string> => {
+  let keys = userTouchedByDocument.get(documentId)
+  if (!keys) {
+    keys = new Set<string>()
+    userTouchedByDocument.set(documentId, keys)
+  }
+  return keys
+}
+
 const resetCollapseIfNoSessionRecord = (): void => {
   const id = currentFile.value?.id
   if (id && headingCollapseByDocument.has(id)) { return }
@@ -1075,14 +1107,14 @@ const restoreCollapseFromDisk = async (
   documentId: string,
   activation: number
 ): Promise<void> => {
-  // Both tokens are captured BEFORE the asynchronous read: a user collapse that
-  // happens while the record is in flight must invalidate the result. Capturing
-  // the revision after the await made that newer intent invisible.
-  const revisionAtRead = collapseUserRevision
+  const revisionAtActivation = collapseUserRevision
   const record = await window.collapseState?.load(pathname).catch(() => null)
+  // The user's newer intent is preserved per heading below, so a toggle made
+  // while the read was open must not discard the whole record: the headings they
+  // did not touch still have to come back. Identity and activation generation
+  // remain the discard conditions.
   if (
     activation !== documentActivation ||
-    revisionAtRead !== collapseUserRevision ||
     currentFile.value?.id !== documentId ||
     currentFile.value?.pathname !== pathname
   ) {
@@ -1097,7 +1129,12 @@ const restoreCollapseFromDisk = async (
     record.headings,
     currentRecords
   )
-  if (collapsedKeys.length > 0) {
+  // A heading the user toggled themselves keeps the user's value; only untouched
+  // headings take the stored record. The set is recorded from real user events,
+  // so it also covers a toggle made before the read was requested — comparing two
+  // snapshots could not tell that apart from the document's initial state.
+  const userTouched = userTouchedKeys(documentId)
+  if (collapsedKeys.length > 0 || userTouched.size > 0) {
     const collapsed = new Set(collapsedKeys)
     // Restoring is a UI-only transaction: the engine event must not persist it,
     // otherwise a programmatic change would overwrite the record it came from.
@@ -1105,7 +1142,9 @@ const restoreCollapseFromDisk = async (
       currentRecords.map((item) => ({
         key: item.key,
         level: item.level,
-        collapsed: collapsed.has(item.key),
+        collapsed: userTouched.has(item.key)
+          ? currentState.find((entry: IHeadingCollapseState) => entry.key === item.key)?.collapsed === true
+          : collapsed.has(item.key),
         collapsible:
           currentState.find((entry: IHeadingCollapseState) => entry.key === item.key)
             ?.collapsible ?? true
@@ -1116,7 +1155,7 @@ const restoreCollapseFromDisk = async (
   // restore just produced, so it cannot carry another document's headings, and
   // it is skipped when the user already acted or another document was activated.
   if (staleKeys.length === 0 || !canPrune) { return }
-  if (revisionAtRead !== collapseUserRevision || activation !== documentActivation) { return }
+  if (revisionAtActivation !== collapseUserRevision || activation !== documentActivation) { return }
 
   const appliedRecords = buildHeadingRecords(currentCollapseSnapshot(), engineTexts)
   const stale = new Set(staleKeys)
@@ -2784,16 +2823,42 @@ const collapseRestoreAttempted = new Set<string>()
 const maybeRestoreCollapseFromDisk = (): void => {
   const id = currentFile.value?.id
   const pathname = currentFile.value?.pathname
-  if (!id || !pathname) { return }
-  if (headingCollapseByDocument.has(id) || collapseRestoreAttempted.has(id)) { return }
+  if (!id) { return }
+  if (!pathname) {
+    // Untitled documents have no record and never will: the engine still carries
+    // the previous tree's heading keys, so they must be cleared explicitly here.
+    // This is the only point reached for a pathless document after its tree is
+    // in place, and the clear is programmatic, so nothing is persisted.
+    applyCollapseProgrammatically([])
+    settleCollapseRestore(id)
+    return
+  }
+  // Only a completed attempt skips the restore. A session cache entry is not a
+  // reason to skip: the user may have collapsed something before the read, and
+  // the record still has to restore the headings they did not touch.
+  if (collapseRestoreAttempted.has(id)) {
+    settleCollapseRestore(id)
+    return
+  }
   if ((editor.value?.getTOC().length ?? 0) === 0) { return }
 
-  // Starting point for a document without a session record is fully expanded.
-  // This clear is programmatic: the engine may still hold the previous
-  // document's collapsed sections, but clearing must not be persisted.
-  applyCollapseProgrammatically([])
+  // Starting point for a document without a session record is fully expanded, but
+  // a heading the user already toggled keeps its value: this clear must not undo
+  // their intent. It is programmatic, so nothing here is persisted.
+  const touched = userTouchedKeys(id)
+  const snapshot = editor.value?.getHeadingCollapseState() ?? []
+  applyCollapseProgrammatically(
+    touched.size === 0
+      ? []
+      : snapshot.map((item: IHeadingCollapseState) =>
+        touched.has(item.key) ? item : { ...item, collapsed: false }
+      )
+  )
   collapseRestoreAttempted.add(id)
-  restoreCollapseFromDisk(pathname, id, documentActivation).catch(() => {})
+  collapseRestorePending = true
+  restoreCollapseFromDisk(pathname, id, documentActivation)
+    .catch(() => {})
+    .finally(() => settleCollapseRestore(id))
 }
 
 // Every document activation opens a new generation, so a restore started for an
@@ -3916,12 +3981,31 @@ onMounted(() => {
       }
       // A real user action: newer intent invalidates any restore still in flight.
       collapseUserRevision += 1
-      if (currentFile.value?.id) {
-        headingCollapseByDocument.set(currentFile.value.id, state)
+      const userId = currentFile.value?.id
+      if (userId) {
+        const previousState = headingCollapseByDocument.get(userId) ?? []
+        const touched = userTouchedKeys(userId)
+        if (previousState.length === 0) {
+          // Nothing cached yet, so a baseline diff is impossible. A collapse the
+          // user just made is still theirs; expanding an already expanded heading
+          // changes nothing and needs no record.
+          for (const entry of state) {
+            if (entry.collapsed) { touched.add(entry.key) }
+          }
+        }
+        for (const entry of state) {
+          const before = previousState.find((item: IHeadingCollapseState) => item.key === entry.key)
+          if (before && before.collapsed !== entry.collapsed) { touched.add(entry.key) }
+        }
+        headingCollapseByDocument.set(userId, state)
       }
       const pathname = currentFile.value?.pathname
       if (pathname) {
-        persistCollapse(pathname, state)
+        if (collapseRestorePending || (userId && !collapseRestoreSettled.has(userId))) {
+          collapsePersistPending = true
+        } else {
+          persistCollapse(pathname, state)
+        }
       }
       tocScrollSync?.update(visibleTocItems())
       tocScrollSync?.refresh()
