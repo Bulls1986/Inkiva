@@ -32,6 +32,12 @@ import type {
 } from './files'
 import type { BufferedState as BufferedStateType } from './bufferedState'
 import type { RecoveryCenterState, RecoveryOpenResult, RecoveryReplaceResult } from './recovery'
+import type {
+  PdfPreviewGenerateRequest,
+  PdfPreviewGenerateResponse,
+  PdfPreviewSaveRequest,
+  PdfPreviewSaveResponse
+} from './pdfPreview'
 import type { MenuTemplate, MenuPopupPosition } from './menu'
 import type { ShortcutStyle } from './preferences'
 import type { UpdateStatus } from '../../main/update/types'
@@ -118,6 +124,15 @@ export interface IpcInvokeChannels {
   'mt::preferences::set': {
     args: [partial: PreferencePatch]
     ret: PreferenceMutationResult
+  }
+  'mt::pdf-preview::generate': {
+    args: [request: PdfPreviewGenerateRequest]
+    ret: PdfPreviewGenerateResponse
+  }
+  'mt::pdf-preview::read': { args: [previewId: string]; ret: Uint8Array | null }
+  'mt::pdf-preview::save': {
+    args: [request: PdfPreviewSaveRequest]
+    ret: PdfPreviewSaveResponse
   }
   'mt::document-intelligence::index-workspace': {
     args: [rootPath: string | null]
@@ -329,6 +344,8 @@ export interface IpcSendChannels {
   'mt::response-print': []
   'mt::rg::ack': [searchId: string, batchId: number]
   'mt::rg::cancel': [searchId: string]
+  'mt::pdf-preview::cancel': []
+  'mt::pdf-preview::release': [previewId: string]
   'mt::save-and-close-tabs': [tabs: UnsavedFile[]]
   'mt::save-tabs': [tabs: UnsavedFile[]]
   'mt::select-default-directory-to-open': []

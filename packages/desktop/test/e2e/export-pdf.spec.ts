@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from 'playwright'
 import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import { createHash } from 'node:crypto'
 import {
   launchWithMarkdown,
   waitForMenuReady,
@@ -96,18 +99,101 @@ const clearExportSuccesses = async(page: Page): Promise<void> => {
   })
 }
 
-// Drive the real renderer export dialog: send the same IPC the menu item sends
-// (`mt::show-export-dialog`), wait for the export-settings dialog to render,
-// then click its primary "Export" button. That runs the renderer pipeline that
-// renders the print webview and emits `mt::response-export` to main.
-const triggerPdfExportViaDialog = async(app: ElectronApplication, page: Page): Promise<void> => {
+// Renderer errors explain why a generation silently never starts; they are
+// surfaced in the failure message instead of being lost in the app console.
+const rendererErrors: string[] = []
+const rendererLogs: string[] = []
+
+// Open the PDF export dialog and wait for the preview controls. The PDF path is
+// now: File › Export › Export PDF → settings → "Generate preview" →
+// generatePreview IPC (isolated print page, tagged PDF + outline) → PDF.js
+// renders those exact bytes → "Save PDF" → savePreview IPC writes the same
+// artifact. The native save dialog is the only non-headless seam.
+const openPdfExportDialog = async(app: ElectronApplication, page: Page): Promise<void> => {
+  // The dialog can appear before the editor has registered itself as the
+  // preview content provider; a generation requested in that window is dropped.
+  // Wait for the readiness flag the editor sets right after registering.
+  await page.waitForFunction(
+    () =>
+      (globalThis as unknown as { __inkiva_pdf_preview_ready__?: boolean })
+        .__inkiva_pdf_preview_ready__ === true,
+    undefined,
+    { timeout: 30000 }
+  )
   await sendIpcToRenderer(app, 'mt::show-export-dialog', 'pdf')
-  const confirm = page.locator('.print-settings-dialog .button-primary')
-  await confirm.waitFor({ state: 'visible', timeout: 10000 })
-  await confirm.click()
+  await page.locator('[data-testid="pdf-preview-generate"]').waitFor({
+    state: 'visible',
+    timeout: 10000
+  })
 }
 
-const pollForPdfFile = async(filePath: string, timeoutMs = 20000): Promise<Buffer> => {
+const readStatus = async(page: Page): Promise<string> =>
+  (await page
+    .locator('[data-testid="pdf-preview-status"]')
+    .getAttribute('data-status', { timeout: 2000 })
+    .catch(() => null)) ?? 'unknown'
+
+// The main process logs each generation failure; surfacing it turns a hung
+// preview into a diagnosable failure instead of a bare timeout.
+const dumpMainLog = (userDataDir: string): string => {
+  const logPath = path.join(userDataDir, 'logs', 'main.log')
+  try {
+    const lines = fs.readFileSync(logPath, 'utf8').split('\n')
+    return lines.slice(-25).join('\n')
+  } catch {
+    return '(no main log at ' + logPath + ')'
+  }
+}
+
+const generatePreview = async(page: Page, userDataDir: string): Promise<void> => {
+  const generate = page.locator('[data-testid="pdf-preview-generate"]')
+  const refresh = page.locator('[data-testid="pdf-preview-regenerate"]')
+  if (await generate.isVisible()) {
+    await generate.click()
+  } else {
+    await refresh.click()
+  }
+  // Wait for a terminal state. "not generating" is satisfied by the idle state
+  // that is still visible in the same tick as the click, which made this helper
+  // race the very transition it was waiting for.
+  await expect
+    .poll(async() => readStatus(page), { timeout: 60000 })
+    .toMatch(/^(ready|failed|stale)$/)
+  const status = await readStatus(page)
+  if (status !== 'ready') {
+    const detail = await page
+      .locator('[data-testid="pdf-preview-error"]')
+      .textContent({ timeout: 2000 })
+      .catch(() => '')
+    throw new Error(
+      'PDF preview did not become ready: ' +
+        status +
+        ' ' +
+        detail +
+        '\nrenderer: ' +
+        (rendererErrors.slice(-3).join(' | ') || '(none)') +
+        '\nevents: ' +
+        ((await page
+          .locator('[data-testid="pdf-preview-status"]')
+          .getAttribute('data-events', { timeout: 2000 })
+          .catch(() => null)) ?? '(none)') +
+        '\n' +
+        dumpMainLog(userDataDir)
+    )
+  }
+}
+
+const getPreviewHash = async(page: Page): Promise<string> => {
+  return await page.evaluate(() => {
+    const w = window as unknown as { __inkiva_pdf_preview_hash__?: string }
+    return w.__inkiva_pdf_preview_hash__ ?? ''
+  })
+}
+
+const sha256File = (filePath: string): string =>
+  createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
+
+const pollForPdfFile = async(filePath: string, timeoutMs = 30000): Promise<Buffer> => {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     if (fs.existsSync(filePath)) {
@@ -116,17 +202,27 @@ const pollForPdfFile = async(filePath: string, timeoutMs = 20000): Promise<Buffe
     }
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
-  throw new Error(`PDF file was not written within ${timeoutMs}ms: ${filePath}`)
+  throw new Error('PDF file was not written within ' + timeoutMs + 'ms: ' + filePath)
 }
 
-test.describe('PDF export to a real file (item 231)', () => {
+// A generation is bounded by the main process; keep the test window wider than
+// that bound so a timeout surfaces as a product state instead of a dead test.
+test.describe.configure({ timeout: 120000 })
+
+test.describe('PDF preview and same-artifact save (P1-P3, P7)', () => {
   let app: ElectronApplication
   let page: Page
+  const userDataDir = path.join(os.tmpdir(), 'inkiva-e2e-pdf-preview-userdata')
 
   test.beforeAll(async() => {
-    const launched = await launchWithMarkdown(PDF_DOC)
+    const launched = await launchWithMarkdown(PDF_DOC, { userDataDir })
     app = launched.app
     page = launched.page
+    page.on('pageerror', (error) => rendererErrors.push('pageerror: ' + error.message))
+    page.on('console', (message) => {
+      rendererLogs.push(message.text())
+      if (message.type() === 'error') rendererErrors.push('console: ' + message.text())
+    })
     await waitForMenuReady(app)
     await installExportSuccessProbe(page)
   })
@@ -138,48 +234,55 @@ test.describe('PDF export to a real file (item 231)', () => {
     }
   })
 
-  test('writes a non-empty file beginning with the %PDF- magic bytes', async() => {
-    const out = '/tmp/inkiva-e2e-export-' + Date.now() + '-a.pdf'
+  test('generates a real paginated preview and saves those exact bytes', async() => {
+    const out = '/tmp/inkiva-e2e-pdf-preview-' + Date.now() + '.pdf'
     if (fs.existsSync(out)) fs.rmSync(out)
     await clearExportSuccesses(page)
     await stubSaveDialog(app, out)
 
-    await triggerPdfExportViaDialog(app, page)
+    await openPdfExportDialog(app, page)
+    await generatePreview(page, userDataDir)
 
+    // Real pages: PDF.js reports the artifact's page count for the preview.
+    const pageText = await page.locator('.preview-page-indicator').textContent()
+    expect(pageText).toMatch(/1\s*\/\s*\d+/)
+    const previewHash = await getPreviewHash(page)
+    expect(previewHash).toHaveLength(64)
+
+    await page.locator('[data-testid="pdf-preview-save"]').click()
     const data = await pollForPdfFile(out)
-    expect(data.length).toBeGreaterThan(0)
+
     expect(data.subarray(0, 5).toString('latin1')).toBe('%PDF-')
-
-    fs.rmSync(out, { force: true })
-  })
-
-  test('fires mt::export-success with type "pdf" and the written file path', async() => {
-    const out = '/tmp/inkiva-e2e-export-' + Date.now() + '-b.pdf'
-    if (fs.existsSync(out)) fs.rmSync(out)
-    await clearExportSuccesses(page)
-    await stubSaveDialog(app, out)
-
-    await triggerPdfExportViaDialog(app, page)
-
-    await pollForPdfFile(out)
+    // P7: the saved file is the artifact the user previewed, byte for byte.
+    expect(sha256File(out)).toBe(previewHash)
+    // Real bookmarks and tagged structure from the isolated print page.
+    const raw = data.toString('latin1')
+    expect(raw).toContain('/Outlines')
+    expect(raw).toContain('/StructTreeRoot')
 
     await expect
-      .poll(async() => (await getExportSuccesses(page)).length, { timeout: 10000 })
-      .toBeGreaterThan(0)
-
-    const successes = await getExportSuccesses(page)
-    const match = successes.find((s) => s.filePath === out)
-    expect(match, 'export-success payload should reference the written path').toBeTruthy()
-    expect(match?.type).toBe('pdf')
+      .poll(async() => (await getExportSuccesses(page)).some((s) => s.filePath === out), {
+        timeout: 10000
+      })
+      .toBe(true)
 
     fs.rmSync(out, { force: true })
   })
 
-  test('canceling the save dialog writes no file and fires no export-success', async() => {
-    const out = '/tmp/inkiva-e2e-export-' + Date.now() + '-c.pdf'
+  test('cannot save before a preview exists', async() => {
+    await openPdfExportDialog(app, page)
+    const save = page.locator('[data-testid="pdf-preview-save"]')
+    await expect(save).toBeDisabled()
+    await page.locator('[data-testid="pdf-preview-cancel"]').click()
+  })
+
+  test('canceling the save dialog keeps the preview and writes nothing', async() => {
+    const out = '/tmp/inkiva-e2e-pdf-cancel-' + Date.now() + '.pdf'
     if (fs.existsSync(out)) fs.rmSync(out)
     await clearExportSuccesses(page)
-    // Stub the save dialog to report cancellation — main must skip printToPDF.
+    await openPdfExportDialog(app, page)
+    await generatePreview(page, userDataDir)
+
     await app.evaluate(({ dialog }) => {
       ;(dialog as unknown as { showSaveDialog: unknown }).showSaveDialog = async() => ({
         canceled: true,
@@ -187,76 +290,37 @@ test.describe('PDF export to a real file (item 231)', () => {
       })
     })
 
-    await triggerPdfExportViaDialog(app, page)
-
-    // Give main a generous window to (not) write the file.
-    await page.waitForTimeout(2000)
+    await page.locator('[data-testid="pdf-preview-save"]').click()
+    await expect
+      .poll(async() => page.locator('[data-testid="pdf-preview-status"]').getAttribute('data-status'), {
+        timeout: 10000
+      })
+      .toBe('ready')
 
     expect(fs.existsSync(out)).toBe(false)
-    const successes = await getExportSuccesses(page)
-    expect(successes.find((s) => s.filePath === out)).toBeFalsy()
+    await page.locator('[data-testid="pdf-preview-cancel"]').click()
   })
 
-  test('the renderer EXPORT path round-trips a second export to a fresh path', async() => {
-    // Re-export to a different path to prove the print service is re-armed and
-    // the wiring is not single-shot.
-    const out = '/tmp/inkiva-e2e-export-' + Date.now() + '-d.pdf'
+  test('Export Again reopens the preview flow instead of writing directly', async() => {
+    const out = '/tmp/inkiva-e2e-pdf-again-' + Date.now() + '.pdf'
     if (fs.existsSync(out)) fs.rmSync(out)
-    await clearExportSuccesses(page)
     await stubSaveDialog(app, out)
-
-    await triggerPdfExportViaDialog(app, page)
-
-    const data = await pollForPdfFile(out)
-    expect(data.subarray(0, 5).toString('latin1')).toBe('%PDF-')
-
-    await expect
-      .poll(async() => (await getExportSuccesses(page)).some((s) => s.filePath === out), {
-        timeout: 10000
-      })
-      .toBe(true)
-
-    fs.rmSync(out, { force: true })
-  })
-
-  test('Export Again reuses the last target without opening another save dialog', async() => {
-    const out = '/tmp/inkiva-e2e-export-' + Date.now() + '-repeat.pdf'
-    if (fs.existsSync(out)) fs.rmSync(out)
     await clearExportSuccesses(page)
-    await stubSaveDialog(app, out)
 
-    // Establish the repeat target through a normal export first.
-    await triggerPdfExportViaDialog(app, page)
+    await openPdfExportDialog(app, page)
+    await generatePreview(page, userDataDir)
+    await page.locator('[data-testid="pdf-preview-save"]').click()
     await pollForPdfFile(out)
-
-    // A repeat export must go straight to the remembered target. Make a save
-    // dialog call observable and fail loudly if the implementation regresses
-    // to prompting again.
-    await app.evaluate(({ dialog }) => {
-      const g = global as unknown as { __mt_repeat_dialog_calls__?: number }
-      g.__mt_repeat_dialog_calls__ = 0
-      ;(dialog as unknown as { showSaveDialog: unknown }).showSaveDialog = async() => {
-        g.__mt_repeat_dialog_calls__ = (g.__mt_repeat_dialog_calls__ ?? 0) + 1
-        throw new Error('Export Again should not open a save dialog')
-      }
-    })
-    await clearExportSuccesses(page)
-
-    await sendIpcToRenderer(app, 'mt::export-again')
-
-    const repeated = await pollForPdfFile(out)
-    expect(repeated.subarray(0, 5).toString('latin1')).toBe('%PDF-')
-    await expect
-      .poll(async() => (await getExportSuccesses(page)).some((s) => s.filePath === out), {
-        timeout: 10000
-      })
-      .toBe(true)
-    const dialogCalls = await app.evaluate(() => {
-      const g = global as unknown as { __mt_repeat_dialog_calls__?: number }
-      return g.__mt_repeat_dialog_calls__ ?? -1
-    })
-    expect(dialogCalls).toBe(0)
-
     fs.rmSync(out, { force: true })
+
+    // A repeat export must not write anything on its own; it reopens the
+    // dialog so a fresh preview is confirmed first.
+    await sendIpcToRenderer(app, 'mt::export-again')
+    await page.locator('[data-testid="pdf-preview-generate"]').waitFor({
+      state: 'visible',
+      timeout: 10000
+    })
+    expect(fs.existsSync(out)).toBe(false)
+    await page.locator('[data-testid="pdf-preview-cancel"]').click()
   })
 })

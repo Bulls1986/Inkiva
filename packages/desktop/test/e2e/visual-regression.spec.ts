@@ -219,6 +219,16 @@ test.describe.serial('UI-14 visual regression baseline', () => {
     // preferences teardown above. Both surfaces are async components, and a
     // fresh renderer makes the visual state deterministic rather than relying
     // on an event bus surviving another overlay's close transition.
+    //
+    // This baseline covers the PDF export dialog, whose layout changed on
+    // purpose in the PDF preview work: the paginated preview sits next to the
+    // settings at 880px instead of the previous 500px single column. The
+    // assertion and its tolerance are unchanged; the baseline was regenerated
+    // for the new layout (see docs/engineering/V070-PDF-PREVIEW-STAGE.md).
+    test.info().annotations.push({
+      type: 'visual-baseline',
+      description: 'pdf export dialog: settings + paginated preview, 880px'
+    })
     const dialogLaunch = await launchWithMarkdown(MARKDOWN_KITCHEN_SINK)
     try {
       await dialogLaunch.page.bringToFront()

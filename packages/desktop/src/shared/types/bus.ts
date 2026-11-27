@@ -2,6 +2,16 @@ import type { ExportType } from './files'
 import type { BrokenMarkdownLinkFinding } from './documentIntelligence'
 
 export type ExportDialogType = 'print' | ExportType
+
+/**
+ * A dialog request carries the export kind plus the repeat-export hint: Export
+ * Again restores the previous settings and last confirmed target, but still
+ * requires a freshly generated preview before anything is written.
+ */
+export interface ExportDialogRequest {
+  type: ExportDialogType
+  reuseLastPath?: boolean
+}
 export type SidebarCreateType = 'file' | 'directory'
 export type SidebarClipboardType = 'copy' | 'cut'
 export type LayoutEntry = 'showSideBar' | 'showTabBar' | 'splitEditor'
@@ -196,7 +206,7 @@ export type BusEvents = {
   selectAll: 'selectAll'
   'show-command-palette': RendererCommandLike | null | undefined
   'source-mode-exit-readiness': SourceModeExitReadinessRequest
-  showExportDialog: ExportDialogType
+  showExportDialog: ExportDialogType | ExportDialogRequest
   'SIDEBAR::copy-cut': SidebarClipboardType
   'SIDEBAR::new': SidebarCreateType
   'SIDEBAR::paste': undefined

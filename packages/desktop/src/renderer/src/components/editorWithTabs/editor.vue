@@ -258,6 +258,14 @@ import {
 import { exportStyledHTML, type HeaderFooterPart } from '@/util/exportHtml'
 import { applyCursor, isIndexCursor } from '@/util/cursor'
 import bus, { type BusEvents } from '@/bus'
+import { pdfPreviewSession } from '@/services/pdfPreviewRuntime'
+import {
+  buildVersionSnapshot,
+  collectResourceSnapshots,
+  extractLocalImagePaths,
+  readResourceHash
+} from '@/components/exportSettings/previewVersions'
+import { setPdfPreviewContentProvider } from '@/services/pdfPreviewContentProvider'
 import type { Handler } from 'mitt'
 import { DEFAULT_EDITOR_FONT_FAMILY, DEFAULT_CODE_FONT_FAMILY } from '@/config'
 import notice from '@/services/notification'
@@ -2439,38 +2447,9 @@ const handleExport = async (options: unknown) => {
       break
     }
     case 'pdf': {
-      // NOTE: We need to set page size via Electron.
-      try {
-        const { pageSize, pageSizeWidth, pageSizeHeight, isLandscape } = opts
-        const pageOptions = {
-          pageSize,
-          pageSizeWidth,
-          pageSizeHeight,
-          isLandscape
-        }
-
-        const html = await exportStyledHTML(editor.value, markdown, {
-          title: '',
-          printOptimization: true,
-          extraCss,
-          toc: htmlToc,
-          header,
-          footer,
-          headerFooterStyled: headerFooterStyled as boolean | undefined,
-          dir: props.textDirection
-        })
-        printer!.renderMarkdown(html, true, props.textDirection)
-        rememberLastExport(opts)
-        editorStore.EXPORT({ type, pageOptions, reuseLastPath: opts.reuseLastPath })
-      } catch (err) {
-        log.error('Failed to export document:', err)
-        notice.notify({
-          title: t('editor.export.failed', { type: 'PDF' }),
-          type: 'error',
-          message: t('editor.export.errorExporting', { type: htmlTitle || 'PDF' })
-        })
-        handlePrintServiceClearup()
-      }
+      // PDF never renders in the editor window and never writes directly: it
+      // goes through the preview artifact pipeline (P1-P4, P7).
+      await handleExportPreview(opts)
       break
     }
     case 'print': {
@@ -2502,6 +2481,73 @@ const handleExport = async (options: unknown) => {
   }
 }
 
+/**
+ * Build the printable HTML for a PDF preview and ask main to render it on an
+ * isolated print page. The same serialized content and settings produce both
+ * the previewed pages and the saved file.
+ */
+const handleExportPreview = async (opts: ExportOptions): Promise<void> => {
+  const { headerFooterStyled } = opts
+  const extraCss = await getCssForOptions(opts as unknown as PdfCssOptions)
+  const htmlToc = getHtmlToc(editor.value.getTOC(), opts as unknown as HtmlTocOptions)
+  const markdown = getCurrentRevisionMarkdownSnapshot()
+  const header = (opts.header ?? null) as HeaderFooterPart | null
+  const footer = (opts.footer ?? null) as HeaderFooterPart | null
+
+  const html = await exportStyledHTML(editor.value, markdown, {
+    title: '',
+    printOptimization: true,
+    extraCss,
+    toc: htmlToc,
+    header,
+    footer,
+    headerFooterStyled: headerFooterStyled as boolean | undefined,
+    dir: props.textDirection
+  })
+
+  // Record the identity of every local image the HTML embeds, so a later change
+  // on disk can invalidate this preview before it is written (P2/P7).
+  const resources = await collectResourceSnapshots(
+    extractLocalImagePaths(html),
+    (path) => readResourceHash(path, (target) => window.fileUtils.readFile(target))
+  )
+
+  const id = currentFile.value?.id
+  rememberLastExport(opts)
+  await pdfPreviewSession.requestPreview({
+    html,
+    resources,
+    pageOptions: {
+      pageSize: opts.pageSize,
+      pageSizeWidth: opts.pageSizeWidth,
+      pageSizeHeight: opts.pageSizeHeight,
+      isLandscape: opts.isLandscape
+    },
+    versions: buildVersionSnapshot({
+      documentVersion: id ? editorRuntime.currentRevision(id) : 0,
+      settingsOptions: opts as Record<string, unknown>,
+      html,
+      extraCss
+    })
+  })
+}
+
+const handleExportPreviewRequest = async (options: unknown): Promise<void> => {
+  try {
+    await handleExportPreview(options as ExportOptions)
+  } catch (err) {
+    log.error('Failed to build the PDF preview:', err)
+    // electron-log is not visible from the E2E harness; keep the reason on the
+    // renderer console too so a failing preview is diagnosable.
+    console.error('Failed to build the PDF preview:', err)
+    notice.notify({
+      title: t('editor.export.failed', { type: 'PDF' }),
+      type: 'error',
+      message: t('editor.export.errorExporting', { type: 'PDF' })
+    })
+  }
+}
+
 const handleExportAgain = () => {
   if (!lastExportRequest || lastExportRequest.fileId !== currentFile.value?.id) {
     notice.notify({
@@ -2509,6 +2555,14 @@ const handleExportAgain = () => {
       type: 'warning',
       message: t('exportSettings.noPreviousExport')
     })
+    return
+  }
+
+  if (lastExportRequest.options.type === 'pdf') {
+    // Keep the previous settings and default target, but still require a
+    // generated preview before anything is written.
+    lastExportRequest.options = { ...lastExportRequest.options, reuseLastPath: true }
+    bus.emit('showExportDialog', { type: 'pdf', reuseLastPath: true })
     return
   }
 
@@ -3802,9 +3856,19 @@ onMounted(() => {
     focusEditorAfterFirstScreen,
     activatePostPaintGeometry
   )
+
+  // From this point the dialog can ask for a preview; before it the request
+  // would have nowhere to go.
+  setPdfPreviewContentProvider(handleExportPreviewRequest)
+  if (window.electron?.process?.env?.PERF_TESTING === 'true') {
+    ;(
+      globalThis as typeof globalThis & { __inkiva_pdf_preview_ready__?: boolean }
+    ).__inkiva_pdf_preview_ready__ = true
+  }
 })
 
 onBeforeUnmount(() => {
+  setPdfPreviewContentProvider(null)
   cancelLinkCompletion()
   stopTypewriterScrollAnimation()
   const container = getScrollContainer()

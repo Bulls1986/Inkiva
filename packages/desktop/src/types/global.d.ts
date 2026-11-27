@@ -36,6 +36,12 @@ import type {
   RenameRepairPlan,
   WorkspaceLinkIndexResult
 } from '@shared/types/documentIntelligence'
+import type {
+  PdfPreviewGenerateRequest,
+  PdfPreviewGenerateResponse,
+  PdfPreviewSaveRequest,
+  PdfPreviewSaveResponse
+} from '@shared/types/pdfPreview'
 
 declare global {
   // ---- Build-time defines (electron-vite `define`) ----
@@ -224,6 +230,14 @@ declare global {
     list(): Promise<string[]>
   }
 
+  interface PdfPreviewAPI {
+    generate(request: PdfPreviewGenerateRequest): Promise<PdfPreviewGenerateResponse>
+    read(previewId: string): Promise<Uint8Array | null>
+    save(request: PdfPreviewSaveRequest): Promise<PdfPreviewSaveResponse>
+    cancel(): void
+    release(previewId: string): void
+  }
+
   interface DocumentIntelligenceAPI {
     indexWorkspace(rootPath: string | null): Promise<WorkspaceLinkIndexResult>
     refreshWorkspaceFile(pathname: string): Promise<void>
@@ -263,6 +277,7 @@ declare global {
     ripgrep: RipgrepAPI
     uploader: UploaderAPI
     documentIntelligence: DocumentIntelligenceAPI
+    pdfPreview: PdfPreviewAPI
     fonts: FontsAPI
     process: ProcessShim
     rgPath: string
