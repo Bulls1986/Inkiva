@@ -250,6 +250,7 @@ import {
   tr,
   zhCN,
   zhTW,
+  type IHeadingCollapseState,
   type ILocale,
   type ITableOverwriteRequest,
   type ITableResizeRequest
@@ -450,6 +451,19 @@ const resolveEditorFont = (family: string): string =>
 const resolveCodeFont = (family: string): string => `${family}, ${DEFAULT_CODE_FONT_FAMILY}`
 const selectionChange = ref<unknown>(null)
 const editor = ref<MuyaInstance>(null)
+// The outline keeps every heading for navigation, but the active-heading
+// highlight must ignore headings hidden by a collapsed ancestor. Otherwise a
+// zero-height hidden heading can win the scroll offset lookup.
+const visibleTocItems = () => {
+  const items = listToc.value.filter(
+    (item) => !editor.value || editor.value.isTocItemVisible(item.slug)
+  )
+  // Source/tab rebuilds can briefly expose a TOC list whose runtime slugs have
+  // not caught up with the new block objects. Falling back to the full outline
+  // preserves active-heading tracking until the next TOC refresh; a real
+  // collapsed document always keeps at least its visible top-level headings.
+  return items.length ? items : listToc.value
+}
 const linkCompletionVisible = ref(false)
 const linkCompletionQuery = ref('')
 const linkCompletionCandidates = ref<MarkdownLinkCandidate[]>([])
@@ -970,6 +984,20 @@ interface EditorHistoryRevisionSnapshot {
 // `replaceContent` as the rebuild boundary's restore-selection, so the first
 // undo after the handoff returns the caret to where source mode was entered.
 let preSourceModeSelection: unknown = null
+// In-session document-scoped collapse state. Cross-session persistence is a
+// separate work item; this map is the boundary it will replace.
+const headingCollapseByDocument = new Map<string, IHeadingCollapseState[]>()
+let preSourceModeHeadingCollapse: IHeadingCollapseState[] | null = null
+let documentContentSwitching = false
+function withDocumentContentSwitch<T> (callback: () => T): T {
+  const previous = documentContentSwitching
+  documentContentSwitching = true
+  try {
+    return callback()
+  } finally {
+    documentContentSwitching = previous
+  }
+}
 // Source -> WYSIWYG handoff rebuilds Muya from the canonical Source snapshot.
 // `replaceContent` emits a synchronous `json-change` while parsing that snapshot;
 // that event is a presentation rebuild, not a new user mutation. Recording it
@@ -1660,8 +1688,8 @@ watch(currentFile, (value, oldValue) => {
 
 watch(
   listToc,
-  (value) => {
-    tocScrollSync?.update(value)
+  () => {
+    tocScrollSync?.update(visibleTocItems())
   },
   { flush: 'post' }
 )
@@ -1693,6 +1721,10 @@ watch(
         // reads) so the post-handoff undo can restore it — see
         // `preSourceModeSelection`.
         preSourceModeSelection = editor.value.getSelection()
+        // Source mode shows the complete Markdown. Remember the valid
+        // WYSIWYG collapse state so returning can restore it if the headings
+        // still match after a source edit.
+        preSourceModeHeadingCollapse = editor.value.getHeadingCollapseState()
       }
     }
   },
@@ -2266,6 +2298,11 @@ const scrollToHeader = (slug: unknown) => {
   suspendTypewriterFollow()
   const container = getScrollContainer()
   if (!container) return
+  // A TOC jump is an explicit activation: expand only the collapsed ancestors
+  // hiding the target heading. The target's own collapsed state stays intact.
+  if (typeof slug === 'string') {
+    editor.value?.revealHeadingTarget(slug)
+  }
   const tocItem = editorStore.listToc.find((item) => item.slug === slug)
   if (
     typeof tocItem?.blockIndex === 'number' &&
@@ -2284,12 +2321,25 @@ const scrollToHeader = (slug: unknown) => {
 // `<a id="...">`) resolved by `FORMAT_LINK_CLICK` via `getElementById`.
 const scrollToAnchorElement = (element: unknown) => {
   suspendTypewriterFollow()
-  if (element instanceof Element) scrollElementIntoView(element)
+  if (element instanceof Element) {
+    const targetId = element.id
+    editor.value?.revealElementTarget(element)
+    scrollElementIntoView(
+      targetId ? document.getElementById(targetId) : element
+    )
+  }
 }
 
 const scrollToElement = (selector: string) => {
-  // Scroll to search highlight word
-  scrollElementIntoView(document.querySelector(selector))
+  // Scroll to search highlight word. A find result is an explicit activation,
+  // so reveal every collapsed section hiding it before the scroll.
+  let element = document.querySelector(selector)
+  if (element) {
+    editor.value?.revealElementTarget(element)
+    // Expanding a collapsed virtual section can remount the highlight.
+    element = document.querySelector(selector)
+  }
+  scrollElementIntoView(element)
 }
 
 const handleFindAction = (action: unknown) => {
@@ -2899,7 +2949,7 @@ const setMarkdownToEditor = (payload: unknown) => {
       // a cursor afterwards (a freshly-opened file has no history to restore).
       recordEditorSetContent('markdown')
       measureEditorActivationPhase('set-content-markdown', () =>
-        editor.value.setContent(newMarkdown ?? '')
+        withDocumentContentSwitch(() => editor.value.setContent(newMarkdown ?? ''))
       )
       editorLayoutReconciler?.reset(true)
     }
@@ -2928,6 +2978,14 @@ const setMarkdownToEditor = (payload: unknown) => {
     // progressive block rendering completes (otherwise a large file would
     // publish a partial outline while its tail is still mounting).
     refreshEditorTocWhenReady(id)
+    if (id) {
+      const savedCollapse = headingCollapseByDocument.get(id)
+      if (savedCollapse) {
+        runWhenEditorRenderComplete(id, () => {
+          editor.value?.setHeadingCollapseState(savedCollapse)
+        })
+      }
+    }
     // A freshly created/opened tab should be ready to type into.
     focusFreshEditor()
     scheduleEditorMilestones(id)
@@ -3020,7 +3078,9 @@ const handleFileChange = (payload: unknown) => {
       // remapping below.
       suppressEditorMutationRecording = true
       try {
-        editor.value.replaceContent(newMarkdown, preSourceModeSelection)
+        withDocumentContentSwitch(() =>
+          editor.value.replaceContent(newMarkdown, preSourceModeSelection)
+        )
       } finally {
         suppressEditorMutationRecording = false
         preSourceModeSelection = null
@@ -3044,6 +3104,16 @@ const handleFileChange = (payload: unknown) => {
         })
       }
       refreshEditorTocWhenReady(id)
+      const collapseToRestore = preSourceModeHeadingCollapse
+      preSourceModeHeadingCollapse = null
+      if (collapseToRestore) {
+        // replaceContent can finish its progressive rebuild after this
+        // synchronous branch returns. Apply on the render-complete boundary so
+        // the state is attached to the final block objects.
+        runWhenEditorRenderComplete(id, () => {
+          editor.value?.setHeadingCollapseState(collapseToRestore)
+        })
+      }
       // `replaceContent` can restart progressive/virtual rendering. Restore the
       // source-mode caret at the render-complete boundary so a later render pass
       // cannot overwrite the native DOM Selection on a slower CI machine.
@@ -3067,7 +3137,7 @@ const handleFileChange = (payload: unknown) => {
       if (id) {
         resetSyntheticHistory(id, newMarkdown)
       }
-      editor.value.replaceContent(newMarkdown)
+      withDocumentContentSwitch(() => editor.value.replaceContent(newMarkdown))
       refreshEditorTocWhenReady(id)
       if (newCursor) {
         applyCursor(editor.value, newCursor)
@@ -3089,23 +3159,27 @@ const handleFileChange = (payload: unknown) => {
         // `blocks` came through Pinia and may be reactive. Give Muya the raw
         // snapshot so its document model does not retain Vue proxies.
         measureEditorActivationPhase('set-content-blocks', () =>
-          editor.value.setContent(
-            toRaw(reusableBlocks),
-            false,
-            true,
-            CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
-            id ?? null
+          withDocumentContentSwitch(() =>
+            editor.value.setContent(
+              toRaw(reusableBlocks),
+              false,
+              true,
+              CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
+              id ?? null
+            )
           )
         )
       } else {
         recordEditorSetContent('markdown')
         measureEditorActivationPhase('set-content-markdown', () =>
-          editor.value.setContent(
-            newMarkdown,
-            false,
-            true,
-            CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
-            id ?? null
+          withDocumentContentSwitch(() =>
+            editor.value.setContent(
+              newMarkdown,
+              false,
+              true,
+              CONTENT_SWITCH_PROGRESSIVE_RENDER_START_DELAY_MS,
+              id ?? null
+            )
           )
         )
       }
@@ -3140,6 +3214,14 @@ const handleFileChange = (payload: unknown) => {
       }
     }
     editorLayoutReconciler?.reset(true)
+    if (id && !isSourceModeHandoff) {
+      const savedCollapse = headingCollapseByDocument.get(id)
+      if (savedCollapse) {
+        runWhenEditorRenderComplete(id, () => {
+          editor.value?.setHeadingCollapseState(savedCollapse)
+        })
+      }
+    }
   } else if (newCursor) {
     applyCursor(editor.value, newCursor)
   }
@@ -3494,7 +3576,7 @@ onMounted(() => {
     40,
     documentGeometry.getBlockOffset
   )
-  tocScrollSync.update(listToc.value)
+  tocScrollSync.update(visibleTocItems())
 
   const activatePostPaintGeometry = (): void => {
     tocScrollSync?.attach()
@@ -3632,6 +3714,18 @@ onMounted(() => {
   editor.value.on('heading-copy-link', ({ key }: { key: string }) => {
     editorStore.copyGithubSlug(key)
   })
+
+  editor.value.on(
+    'heading-collapse-change',
+    ({ state }: { state: IHeadingCollapseState[] }) => {
+      if (documentContentSwitching) { return }
+      if (currentFile.value?.id) {
+        headingCollapseByDocument.set(currentFile.value.id, state)
+      }
+      tocScrollSync?.update(visibleTocItems())
+      tocScrollSync?.refresh()
+    }
+  )
 
   editor.value.on(
     'format-click',

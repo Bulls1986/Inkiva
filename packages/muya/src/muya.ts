@@ -1,5 +1,6 @@
 import type Content from './block/base/content';
 import type Parent from './block/base/parent';
+import type { IHeadingCollapseState } from './block/scrollPage';
 import type { TBlockPath } from './block/types';
 import type { Listener } from './event/types';
 import type { ILocale } from './i18n/types';
@@ -287,6 +288,41 @@ export class Muya {
 
     getTOC(): ITocItem[] {
         return this.editor.jsonState.getTOC();
+    }
+
+    /**
+     * Document-scoped heading collapse state. The key is stable for the current
+     * heading structure and is the interface a later persistence layer stores;
+     * this version only keeps it for the open editor session.
+     */
+    getHeadingCollapseState(): IHeadingCollapseState[] {
+        return this.editor.scrollPage?.getHeadingCollapseState() ?? [];
+    }
+
+    setHeadingCollapseState(state: readonly IHeadingCollapseState[]): void {
+        this.editor.scrollPage?.setHeadingCollapseState(state);
+    }
+
+    setHeadingCollapsed(slug: string, collapsed: boolean): boolean {
+        return this.editor.scrollPage?.setHeadingCollapsed(slug, collapsed) ?? false;
+    }
+
+    /** Expand only the ancestors that hide a heading target. */
+    revealHeadingTarget(slug: string): boolean {
+        return this.editor.scrollPage?.revealHeadingTarget(slug) ?? false;
+    }
+
+    /** Expand every section containing a body block. */
+    revealBlockTarget(index: number): boolean {
+        return this.editor.scrollPage?.revealBlockTarget(index) ?? false;
+    }
+
+    revealElementTarget(element: Element): boolean {
+        return this.editor.scrollPage?.revealElementTarget(element) ?? false;
+    }
+
+    isTocItemVisible(slug: string): boolean {
+        return this.editor.scrollPage?.isTocItemVisible(slug) ?? false;
     }
 
     undo() {

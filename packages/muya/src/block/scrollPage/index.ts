@@ -5,11 +5,13 @@ import type Content from '../base/content';
 import type TreeNode from '../base/treeNode';
 import type { IConstructor, TBlockPath } from '../types';
 import { BLOCK_DOM_PROPERTY, VIRTUAL_BLOCK_MOUNT_EVENT } from '../../config';
+import { stableSlug } from '../../state/getTOC';
 import { deepClone, isHTMLElement, isMouseEvent } from '../../utils';
 import { findScrollContainer } from '../../utils/dom';
 import logger from '../../utils/logger';
 import Parent from '../base/parent';
 import { withDeferredBlockDomCreation } from '../base/treeNode';
+import HeadingCollapseToggle from '../commonMark/headingCollapseToggle';
 
 const debug = logger('scrollpage:');
 
@@ -28,6 +30,27 @@ export interface IDocumentSurface {
     getBlockOffset: (index: number) => number | null;
     isWindowed: () => boolean;
     prepareForNavigation: () => void;
+}
+
+/**
+ * Collapse state uses a document-position key rather than a runtime block id so
+ * a later cross-session persistence layer can store and match it. The key is
+ * the heading's GitHub slug plus its duplicate occurrence (for example
+ * `intro` and `intro-1`), matching the outline's stable key convention.
+ */
+export interface IHeadingCollapseState {
+    key: string;
+    level: number;
+    collapsed: boolean;
+    collapsible: boolean;
+}
+
+interface IHeadingSection {
+    block: Parent;
+    index: number;
+    end: number;
+    level: number;
+    hasContent: boolean;
 }
 
 // Constructing and parsing every inline content node before the browser gets a
@@ -431,6 +454,16 @@ export class ScrollPage extends Parent implements IDocumentSurface {
     private _virtualResizeInteractionHandler: (() => void) | null = null;
     private _virtualLastScrollTop = 0;
     private _virtualLastViewportHeight = VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX;
+    private _collapsedHeadings = new Set<Parent>();
+    private _collapsedHeadingKeys = new Set<string>();
+    private _collapsedHeadingLevelByKey = new Map<string, number>();
+    private _headingSections: IHeadingSection[] = [];
+    private _headingSectionBySlug = new Map<string, IHeadingSection>();
+    private _headingKeyByBlock = new Map<Parent, string>();
+    private _headingStructureSignature = '';
+    private _headingStructureDirty = true;
+    private _collapseDomApplied = false;
+    private _hiddenVirtualRanges: IVirtualRange[] = [];
 
     // The desktop keeps at most two non-active tabs warm. Cache the bounded
     // progressive render window for non-virtualized documents. Virtualized
@@ -521,6 +554,7 @@ export class ScrollPage extends Parent implements IDocumentSurface {
     }
 
     protected override childStructureDidMutate(): void {
+        this._headingStructureDirty = true;
         if (this._virtualizationEnabled)
             this._virtualStructureDirty = true;
     }
@@ -645,17 +679,23 @@ export class ScrollPage extends Parent implements IDocumentSurface {
         this._renderedState = state;
         if (state.length > PROGRESSIVE_RENDER_THRESHOLD && shouldUseVirtualization(this.muya)) {
             this._mountVirtualization(state, cloneBlocks);
+            this._refreshHeadingSections();
+            this._syncHeadingCollapseDom();
             return;
         }
 
         if (state.length <= PROGRESSIVE_RENDER_THRESHOLD) {
             this._mountBlocks(state, false, cloneBlocks);
+            this._refreshHeadingSections();
+            this._syncHeadingCollapseDom();
             return;
         }
 
         const initialIndex = Math.min(PROGRESSIVE_RENDER_INITIAL_BLOCKS, state.length);
         this._mountBlocks(state.slice(0, initialIndex), false, cloneBlocks);
         this._startProgressiveRender(state, initialIndex, cloneBlocks, progressiveStartDelayMs);
+        this._refreshHeadingSections();
+        this._syncHeadingCollapseDom();
     }
 
     private _mountVirtualization(state: TState[], cloneBlocks: boolean): void {
@@ -1243,6 +1283,8 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             paragraphSpacing: this.muya.options.paragraphSpacing,
         };
         const advances = state.map((_, index) => {
+            if (this._isVirtualIndexHidden(index))
+                return 0;
             // The measured value is the real block-top -> next-block-top
             // advance, so it includes collapsed vertical margins just like the
             // virtual spacer geometry it replaces.
@@ -1352,8 +1394,10 @@ export class ScrollPage extends Parent implements IDocumentSurface {
 
     private _virtualBlockAdvanceEndNode(node: HTMLElement, index: number): HTMLElement | null {
         const nextNode = this._virtualBlocks[index + 1]?.domNode;
-        if (nextNode && this._canMeasureVirtualBlockAdvance(node, nextNode, index))
+        if (nextNode && !this._isVirtualIndexHidden(index + 1)
+            && this._canMeasureVirtualBlockAdvance(node, nextNode, index)) {
             return nextNode;
+        }
 
         if (index !== this._virtualBlocks.length - 1)
             return null;
@@ -1473,6 +1517,10 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             const index = this._virtualBlockIndexes.get(block);
             if (index === undefined)
                 continue;
+            if (this._isVirtualIndexHidden(index)) {
+                this._virtualMeasuredHeights.delete(index);
+                continue;
+            }
 
             // ResizeObserver border-box height excludes collapsed margins. Measure
             // the exact logical advance from this block's top to the next logical
@@ -1653,6 +1701,7 @@ export class ScrollPage extends Parent implements IDocumentSurface {
         }
 
         return [...indexes]
+            .filter(index => !this._isVirtualIndexHidden(index))
             .sort((left, right) => left - right)
             .map(index => ({ start: index, end: index + 1 }));
     }
@@ -1831,6 +1880,8 @@ export class ScrollPage extends Parent implements IDocumentSurface {
         }
 
         for (let index = localStart; index < localEnd; index += 1) {
+            if (this._isVirtualIndexHidden(index))
+                continue;
             const block = this._virtualBlocks[index];
             if (!block)
                 continue;
@@ -1844,6 +1895,7 @@ export class ScrollPage extends Parent implements IDocumentSurface {
                 continue;
             if (node.dataset.virtualBlockIndex !== String(index))
                 node.dataset.virtualBlockIndex = String(index);
+            this._applyCollapseToMountedBlock(block, index);
             sequence.push(node);
         }
 
@@ -2012,8 +2064,12 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             end: Math.max(0, Math.min(end, this._virtualBlocks.length)),
         };
         primaryRange.end = Math.max(primaryRange.start, primaryRange.end);
-        const ranges = preparedRanges ?? this._buildVirtualRanges(primaryRange.start, primaryRange.end, pinned);
-        const desiredIndexes = preparedDesiredIndexes ?? this._collectVirtualIndexes(ranges);
+        const ranges = this._subtractHiddenRanges(
+            preparedRanges ?? this._buildVirtualRanges(primaryRange.start, primaryRange.end, pinned),
+        );
+        const desiredIndexes = preparedDesiredIndexes
+            ? new Set([...preparedDesiredIndexes].filter(index => !this._isVirtualIndexHidden(index)))
+            : this._collectVirtualIndexes(ranges);
         this._removeBlocksOutsideVirtualRanges(desiredIndexes);
         const sequence = this._buildVirtualDomSequence(ranges);
         if (!sequence)
@@ -2136,6 +2192,499 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             pending += Math.max(0, batch.length - startIndex);
         }
         return pending;
+    }
+
+    private _headingText(section: IHeadingSection): string {
+        const text = section.block.firstContentInDescendant()?.text ?? '';
+        return section.block.blockName === 'atx-heading'
+            ? text.replace(/^\s*#{1,6}\s+/, '').trim()
+            : text.trim();
+    }
+
+    /**
+     * Rebuild the top-level heading section ranges. A section runs from its
+     * heading to the next heading of the same or a higher level. The heading is
+     * always visible; only the blocks after it participate in collapsing.
+     */
+    private _refreshHeadingSections(): boolean {
+        const children: Parent[] = [];
+        this.children.forEach((child) => {
+            if (child.isParent())
+                children.push(child as Parent);
+        });
+
+        const headings: { block: Parent; index: number; level: number }[] = [];
+        for (let index = 0; index < children.length; index += 1) {
+            const block = children[index];
+            if (block.blockName !== 'atx-heading' && block.blockName !== 'setext-heading')
+                continue;
+            const level = Number((block as Parent & { meta?: { level?: unknown } }).meta?.level);
+            headings.push({
+                block,
+                index,
+                level: Number.isInteger(level) && level >= 1 && level <= 6 ? level : 1,
+            });
+        }
+
+        const sections: IHeadingSection[] = headings.map((heading, headingIndex) => {
+            let end = children.length;
+            for (let next = headingIndex + 1; next < headings.length; next += 1) {
+                if (headings[next].level <= heading.level) {
+                    end = headings[next].index;
+                    break;
+                }
+            }
+            return {
+                block: heading.block,
+                index: heading.index,
+                end,
+                level: heading.level,
+                hasContent: end > heading.index + 1,
+            };
+        });
+
+        const before = new Set(this._collapsedHeadings);
+        const sectionByBlock = new Map(sections.map(section => [section.block, section]));
+        this._headingSections = sections;
+        this._headingSectionBySlug = new Map(
+            sections.map(section => [stableSlug(section.block), section]),
+        );
+        // getTOC() walks every top-level block. On a 50k cold mount there is
+        // no collapsed state to reconcile, so defer that walk until state is
+        // requested or a heading is actually collapsed.
+        if (this._collapsedHeadings.size > 0 || this._collapsedHeadingKeys.size > 0)
+            this._updateHeadingKeys();
+        const sectionByKey = new Map(
+            sections.flatMap((section) => {
+                const key = this._headingKeyByBlock.get(section.block);
+                return key ? [[key, section] as const] : [];
+            }),
+        );
+
+        // Remove persisted keys whose heading no longer has a collapsible
+        // section or whose level changed. A source/tab rebuild creates new block
+        // objects but keeps the same keys, so state survives that boundary.
+        for (const key of [...this._collapsedHeadingKeys]) {
+            const section = sectionByKey.get(key);
+            const previousLevel = this._collapsedHeadingLevelByKey.get(key);
+            if (
+                !section
+                || !section.hasContent
+                || (previousLevel !== undefined && previousLevel !== section.level)
+            ) {
+                this._collapsedHeadingKeys.delete(key);
+                this._collapsedHeadingLevelByKey.delete(key);
+            }
+        }
+
+        for (const block of [...this._collapsedHeadings]) {
+            const section = sectionByBlock.get(block);
+            if (!section) {
+                this._collapsedHeadings.delete(block);
+                continue;
+            }
+            const key = this._headingKeyByBlock.get(block);
+            if (key) {
+                this._collapsedHeadingKeys.add(key);
+                this._collapsedHeadingLevelByKey.set(key, section.level);
+            }
+            if (!section.hasContent)
+                this._collapsedHeadings.delete(block);
+        }
+
+        for (const section of sections) {
+            const key = this._headingKeyByBlock.get(section.block);
+            if (key && section.hasContent && this._collapsedHeadingKeys.has(key))
+                this._collapsedHeadings.add(section.block);
+        }
+
+        let changed = before.size !== this._collapsedHeadings.size
+            || [...before].some(block => !this._collapsedHeadings.has(block));
+        this._hiddenVirtualRanges = this._computeHiddenRanges();
+
+        const signature = sections
+            .map(section => `${section.index}:${section.level}:${section.end}:${section.hasContent}:${this._headingText(section)}`)
+            .join('|');
+        if (signature !== this._headingStructureSignature) {
+            this._headingStructureSignature = signature;
+            changed = true;
+        }
+        this._headingStructureDirty = false;
+        return changed;
+    }
+
+    private _hasDetachedCollapsedBlocks(): boolean {
+        for (const block of this._collapsedHeadings) {
+            if (block.parent !== this)
+                return true;
+        }
+        return false;
+    }
+
+    private _updateHeadingKeys(): void {
+        const previousKeys = new Map(this._headingKeyByBlock);
+        this._headingKeyByBlock.clear();
+        // During ScrollPage construction the editor has not published this
+        // instance yet, so getTOC() is unavailable. Keys are only consumed after
+        // mount, when callers ask for state or navigate.
+        const toc = this.muya.editor.scrollPage === this ? this.muya.getTOC() : [];
+        const tocBySlug = new Map(toc.map(item => [item.slug, item]));
+        const seen = new Map<string, number>();
+        for (const section of this._headingSections) {
+            const item = tocBySlug.get(stableSlug(section.block));
+            const base = item?.githubSlug || 'heading';
+            const occurrence = seen.get(base) ?? 0;
+            seen.set(base, occurrence + 1);
+            this._headingKeyByBlock.set(
+                section.block,
+                occurrence === 0 ? base : `${base}-${occurrence}`,
+            );
+        }
+
+        // A live heading can be renamed while collapsed. Move its persisted key
+        // instead of losing the state; the block object is the in-session
+        // identity, while the key survives a later block-tree rebuild.
+        for (const block of this._collapsedHeadings) {
+            const previousKey = previousKeys.get(block);
+            const nextKey = this._headingKeyByBlock.get(block);
+            if (previousKey && nextKey && previousKey !== nextKey) {
+                this._collapsedHeadingKeys.delete(previousKey);
+                this._collapsedHeadingLevelByKey.delete(previousKey);
+            }
+        }
+    }
+
+    private _computeHiddenRanges(): IVirtualRange[] {
+        const ranges = this._headingSections
+            .filter(section => this._collapsedHeadings.has(section.block) && section.hasContent)
+            .map(section => ({ start: section.index + 1, end: section.end }))
+            .sort((left, right) => left.start - right.start);
+        const merged: IVirtualRange[] = [];
+        for (const range of ranges) {
+            const previous = merged.at(-1);
+            if (previous && range.start <= previous.end)
+                previous.end = Math.max(previous.end, range.end);
+            else if (range.end > range.start)
+                merged.push({ ...range });
+        }
+        return merged;
+    }
+
+    private _isVirtualIndexHidden(index: number): boolean {
+        for (const range of this._hiddenVirtualRanges ?? []) {
+            if (index < range.start)
+                return false;
+            if (index < range.end)
+                return true;
+        }
+        return false;
+    }
+
+    private _syncHeadingCollapseDom(): void {
+        const hasHiddenRanges = this._hiddenVirtualRanges.length > 0;
+        // With no collapsed section the only work is heading control state.
+        // Avoid an O(all blocks) cold scan on large documents; once a section
+        // has actually been hidden, the full scan is needed to clear classes on
+        // expand.
+        if (hasHiddenRanges || this._collapseDomApplied) {
+            this.children.forEach((child, index) => {
+                if (!child.isParent())
+                    return;
+                const block = child as Parent;
+                const hidden = this._isVirtualIndexHidden(index);
+                const node = block.domNode;
+                if (node) {
+                    node.classList.toggle('mu-heading-section-hidden', hidden);
+                    if (hidden)
+                        node.setAttribute('aria-hidden', 'true');
+                    else
+                        node.removeAttribute('aria-hidden');
+                    if (block.blockName === 'atx-heading' || block.blockName === 'setext-heading') {
+                        node.classList.toggle('mu-heading-collapsed', this._collapsedHeadings.has(block));
+                    }
+                }
+            });
+        }
+
+        for (const section of this._headingSections)
+            this._syncHeadingToggle(section);
+        this._collapseDomApplied = hasHiddenRanges;
+    }
+
+    private _syncHeadingToggle(section: IHeadingSection): void {
+        const collapsed = this._collapsedHeadings.has(section.block);
+        const headingText = this._headingText(section);
+        section.block.attachments.forEach((attachment) => {
+            if (!(attachment instanceof HeadingCollapseToggle))
+                return;
+            attachment.setHeadingLabel(headingText);
+            attachment.setAvailable(section.hasContent);
+            attachment.setExpanded(!collapsed);
+        });
+    }
+
+    private _setHeadingSectionCollapsed(section: IHeadingSection, collapsed: boolean): void {
+        const key = this._headingKeyByBlock.get(section.block);
+        if (collapsed) {
+            this._collapsedHeadings.add(section.block);
+            if (key) {
+                this._collapsedHeadingKeys.add(key);
+                this._collapsedHeadingLevelByKey.set(key, section.level);
+            }
+        }
+        else {
+            this._collapsedHeadings.delete(section.block);
+            if (key) {
+                this._collapsedHeadingKeys.delete(key);
+                this._collapsedHeadingLevelByKey.delete(key);
+            }
+        }
+    }
+
+    private _applyCollapseToMountedBlock(block: Parent, index: number): void {
+        const hidden = this._isVirtualIndexHidden(index);
+        const node = block.domNode;
+        if (!node)
+            return;
+        node.classList.toggle('mu-heading-section-hidden', hidden);
+        if (hidden)
+            node.setAttribute('aria-hidden', 'true');
+        else
+            node.removeAttribute('aria-hidden');
+    }
+
+    private _subtractHiddenRanges(ranges: readonly IVirtualRange[]): IVirtualRange[] {
+        const result: IVirtualRange[] = [];
+        for (const range of ranges) {
+            let cursor = range.start;
+            for (const hidden of this._hiddenVirtualRanges ?? []) {
+                if (hidden.end <= cursor)
+                    continue;
+                if (hidden.start >= range.end)
+                    break;
+                if (hidden.start > cursor)
+                    result.push({ start: cursor, end: Math.min(hidden.start, range.end) });
+                cursor = Math.max(cursor, hidden.end);
+                if (cursor >= range.end)
+                    break;
+            }
+            if (cursor < range.end)
+                result.push({ start: cursor, end: range.end });
+        }
+        return result.filter(range => range.end > range.start);
+    }
+
+    private _isComposing(): boolean {
+        return Boolean(this.muya.editor.activeContentBlock?.isComposing);
+    }
+
+    private _applyHeadingCollapse(options: {
+        moveCaret?: boolean;
+        preferredHeading?: Parent | null;
+    } = {}): void {
+        const structureChanged = this._refreshHeadingSections();
+        this._syncHeadingCollapseDom();
+
+        if (this._virtualizationEnabled) {
+            const container = this._virtualScrollContainer;
+            const anchor = container ? this._captureVirtualViewportAnchor(container) : null;
+            this._virtualMeasuredHeights.clear();
+            this._rebuildVirtualOffsets(this._virtualStates);
+            if (container) {
+                const scrollTop = anchor
+                    ? Math.max(0, this._virtualOffsetAt(anchor.index) - anchor.viewportOffset)
+                    : this._virtualLastScrollTop;
+                container.scrollTop = scrollTop;
+                this.updateVirtualWindowForViewport(
+                    scrollTop,
+                    container.clientHeight || VIRTUAL_RENDERER_DEFAULT_VIEWPORT_PX,
+                );
+            }
+        }
+
+        if (options.moveCaret !== false)
+            this._moveCaretOutOfHiddenSection(options.preferredHeading ?? null);
+
+        this.muya.eventCenter.emit('heading-collapse-change', {
+            state: this.getHeadingCollapseState(),
+            structureChanged,
+        });
+    }
+
+    private _moveCaretOutOfHiddenSection(preferredHeading: Parent | null): void {
+        if (this._hiddenVirtualRanges.length === 0)
+            return;
+
+        const selection = this.muya.editor.selection;
+        const live = selection.getSelection();
+        const anchorBlock = (live?.anchor.block ?? selection.anchorBlock) as Parent | null;
+        const focusBlock = (live?.focus.block ?? selection.focusBlock) as Parent | null;
+        const indexOf = (block: Parent | null): number => {
+            const outMost = block?.outMostBlock;
+            return outMost ? this.children.offset(outMost) : -1;
+        };
+        const hiddenIndex = [indexOf(anchorBlock), indexOf(focusBlock)]
+            .find(index => index >= 0 && this._isVirtualIndexHidden(index));
+        if (hiddenIndex === undefined)
+            return;
+
+        let heading = preferredHeading;
+        if (!heading) {
+            heading = this._headingSections
+                .filter(section => section.index < hiddenIndex && section.end > hiddenIndex)
+                .at(-1)
+                ?.block ?? null;
+        }
+        const content = heading?.firstContentInDescendant();
+        if (!content)
+            return;
+        content.setCursor(content.text.length, content.text.length, true);
+        this.muya.editor.activeContentBlock = content;
+    }
+
+    private _findHeadingSection(slug: string): IHeadingSection | null {
+        this._refreshHeadingSections();
+        return this._headingSectionBySlug.get(slug) ?? null;
+    }
+
+    getHeadingCollapseState(): IHeadingCollapseState[] {
+        this._refreshHeadingSections();
+        this._updateHeadingKeys();
+        return this._headingSections.map(section => ({
+            key: this._headingKeyByBlock.get(section.block) ?? stableSlug(section.block),
+            level: section.level,
+            collapsed: this._collapsedHeadings.has(section.block),
+            collapsible: section.hasContent,
+        }));
+    }
+
+    setHeadingCollapseState(state: readonly IHeadingCollapseState[]): void {
+        this._refreshHeadingSections();
+        this._updateHeadingKeys();
+        const byKey = new Map(
+            this._headingSections.map(section => [
+                this._headingKeyByBlock.get(section.block) ?? stableSlug(section.block),
+                section,
+            ]),
+        );
+        this._collapsedHeadings.clear();
+        this._collapsedHeadingKeys.clear();
+        this._collapsedHeadingLevelByKey.clear();
+        for (const entry of state) {
+            const section = byKey.get(entry.key);
+            if (entry.collapsed && section?.hasContent) {
+                this._collapsedHeadingKeys.add(entry.key);
+                this._collapsedHeadingLevelByKey.set(entry.key, section.level);
+                this._collapsedHeadings.add(section.block);
+            }
+        }
+        this._applyHeadingCollapse({ moveCaret: false });
+    }
+
+    setHeadingCollapsed(slug: string, collapsed: boolean): boolean {
+        const section = this._findHeadingSection(slug);
+        if (!section)
+            return false;
+        if (collapsed && (!section.hasContent || this._isComposing()))
+            return false;
+        this._setHeadingSectionCollapsed(section, collapsed);
+        this._applyHeadingCollapse({
+            moveCaret: true,
+            preferredHeading: section.block,
+        });
+        return true;
+    }
+
+    toggleHeadingCollapse(heading: Parent): boolean {
+        if (this._isComposing())
+            return false;
+        this._refreshHeadingSections();
+        const section = this._headingSections.find(candidate => candidate.block === heading);
+        if (!section?.hasContent)
+            return false;
+        this._setHeadingSectionCollapsed(section, !this._collapsedHeadings.has(heading));
+        this._applyHeadingCollapse({ moveCaret: true, preferredHeading: heading });
+        return true;
+    }
+
+    /**
+     * Expand only the collapsed ancestors that hide a heading target. The
+     * target heading keeps its own collapsed state; callers that need to reveal
+     * body content use revealBlockTarget instead.
+     */
+    revealHeadingTarget(slug: string): boolean {
+        const target = this._findHeadingSection(slug);
+        if (!target)
+            return false;
+
+        let changed = false;
+        for (const candidate of this._headingSections) {
+            if (
+                candidate.level < target.level
+                && candidate.index < target.index
+                && candidate.end > target.index
+                && this._collapsedHeadings.has(candidate.block)
+            ) {
+                this._setHeadingSectionCollapsed(candidate, false);
+                changed = true;
+            }
+        }
+        if (changed)
+            this._applyHeadingCollapse({ moveCaret: false });
+        return true;
+    }
+
+    /**
+     * Expand every section containing a body block. Strict containment means a
+     * heading index expands its ancestors but not the heading's own section.
+     */
+    revealBlockTarget(index: number): boolean {
+        if (!Number.isInteger(index) || index < 0 || index >= this.children.length)
+            return false;
+        this._refreshHeadingSections();
+        let changed = false;
+        for (const section of this._headingSections) {
+            if (
+                section.index < index
+                && section.end > index
+                && this._collapsedHeadings.has(section.block)
+            ) {
+                this._setHeadingSectionCollapsed(section, false);
+                changed = true;
+            }
+        }
+        if (changed)
+            this._applyHeadingCollapse({ moveCaret: false });
+        return true;
+    }
+
+    revealElementTarget(element: Element): boolean {
+        const virtual = element.closest('[data-virtual-block-index]');
+        const rawIndex = virtual?.getAttribute('data-virtual-block-index');
+        const parsed = rawIndex === null || rawIndex === undefined ? Number.NaN : Number(rawIndex);
+        if (Number.isInteger(parsed))
+            return this.revealBlockTarget(parsed);
+
+        let node: Element | null = element;
+        while (
+            node?.parentElement
+            && !node.parentElement.classList.contains('mu-container')
+            && !node.parentElement.classList.contains('mu-virtual-segment')
+        ) {
+            node = node.parentElement;
+        }
+        const block = node ? (node as HTMLElement)[BLOCK_DOM_PROPERTY] : null;
+        if (!(block instanceof Parent))
+            return false;
+        return this.revealBlockTarget(this.children.offset(block));
+    }
+
+    isTocItemVisible(slug: string): boolean {
+        // Called once per outline entry when the active-highlight list is
+        // rebuilt. Keep it a map lookup; structure refresh happens on the
+        // collapse/tab/TOC change boundaries instead.
+        const section = this._headingSectionBySlug.get(slug);
+        return section ? !this._isVirtualIndexHidden(section.index) : false;
     }
 
     isWindowed(): boolean {
@@ -2756,6 +3305,16 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             this._renderedState = state;
             this._mountBlocks(state, false, cloneBlocks);
         }
+
+        // updateState is the whole-document render boundary (setContent,
+        // replaceContent, undo/redo rebuild). Unlike incremental text edits it
+        // may replace every block without a child-structure callback, so always
+        // re-evaluate heading controls here.
+        this._refreshHeadingSections();
+        this._syncHeadingCollapseDom();
+        this.muya.eventCenter.emit('heading-collapse-change', {
+            state: this.getHeadingCollapseState(),
+        });
     }
 
     private _authoritativeVirtualViewport(): { scrollTop: number; viewportHeight: number } {
@@ -2807,6 +3366,13 @@ export class ScrollPage extends Parent implements IDocumentSurface {
                     this._virtualMeasuredHeights.set(index, measuredHeight);
             }
             this._reindexVirtualBlocks();
+            if (this._headingStructureDirty || this._hasDetachedCollapsedBlocks()) {
+                this._refreshHeadingSections();
+                this._syncHeadingCollapseDom();
+                this.muya.eventCenter.emit('heading-collapse-change', {
+                    state: this.getHeadingCollapseState(),
+                });
+            }
             this._rebuildVirtualOffsets(state);
             this._virtualStructureDirty = false;
             // Structural edits can flush state before Chromium dispatches the
@@ -2818,6 +3384,14 @@ export class ScrollPage extends Parent implements IDocumentSurface {
             const viewport = this._authoritativeVirtualViewport();
             this.updateVirtualWindowForViewport(viewport.scrollTop, viewport.viewportHeight);
             return;
+        }
+
+        if (this._headingStructureDirty || this._hasDetachedCollapsedBlocks()) {
+            this._refreshHeadingSections();
+            this._syncHeadingCollapseDom();
+            this.muya.eventCenter.emit('heading-collapse-change', {
+                state: this.getHeadingCollapseState(),
+            });
         }
 
         if (this._progressiveStates === null)

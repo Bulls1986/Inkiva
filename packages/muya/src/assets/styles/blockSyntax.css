@@ -190,6 +190,92 @@
     height: 14px;
 }
 
+/* heading collapse affordance — sits immediately left of the heading text,
+   separate from the copy-anchor control in the outer gutter. */
+.mu-container h1 > .mu-heading-collapse-toggle,
+.mu-container h2 > .mu-heading-collapse-toggle,
+.mu-container h3 > .mu-heading-collapse-toggle,
+.mu-container h4 > .mu-heading-collapse-toggle,
+.mu-container h5 > .mu-heading-collapse-toggle,
+.mu-container h6 > .mu-heading-collapse-toggle {
+    position: absolute;
+    top: 0;
+    left: -22px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary, var(--editor-color-50));
+
+    transform: translateY(calc(0.7em - 9px));
+    cursor: pointer;
+
+    opacity: 0;
+
+    transition:
+        opacity var(--motion-fast, 120ms) ease,
+        color var(--motion-fast, 120ms) ease;
+
+    user-select: none;
+}
+
+.mu-container h1:hover > .mu-heading-collapse-toggle,
+.mu-container h2:hover > .mu-heading-collapse-toggle,
+.mu-container h3:hover > .mu-heading-collapse-toggle,
+.mu-container h4:hover > .mu-heading-collapse-toggle,
+.mu-container h5:hover > .mu-heading-collapse-toggle,
+.mu-container h6:hover > .mu-heading-collapse-toggle,
+.mu-container h1 > .mu-heading-collapse-toggle:focus-visible,
+.mu-container h2 > .mu-heading-collapse-toggle:focus-visible,
+.mu-container h3 > .mu-heading-collapse-toggle:focus-visible,
+.mu-container h4 > .mu-heading-collapse-toggle:focus-visible,
+.mu-container h5 > .mu-heading-collapse-toggle:focus-visible,
+.mu-container h6 > .mu-heading-collapse-toggle:focus-visible,
+.mu-container > .mu-heading-collapsed > .mu-heading-collapse-toggle,
+.mu-container > .mu-virtual-segment > .mu-heading-collapsed > .mu-heading-collapse-toggle {
+    opacity: 0.75;
+}
+
+.mu-container h1 > .mu-heading-collapse-toggle:hover,
+.mu-container h2 > .mu-heading-collapse-toggle:hover,
+.mu-container h3 > .mu-heading-collapse-toggle:hover,
+.mu-container h4 > .mu-heading-collapse-toggle:hover,
+.mu-container h5 > .mu-heading-collapse-toggle:hover,
+.mu-container h6 > .mu-heading-collapse-toggle:hover {
+    color: var(--color-accent, var(--theme-color));
+    opacity: 1;
+}
+
+.mu-heading-collapse-toggle::before {
+    content: '▾';
+    font-size: 13px;
+    line-height: 1;
+}
+
+.mu-heading-collapse-toggle.is-collapsed {
+    opacity: 1;
+}
+
+.mu-heading-collapse-toggle.is-collapsed::before {
+    content: '▸';
+}
+
+.mu-heading-collapse-toggle--hidden {
+    display: none !important;
+}
+
+/* Collapsed section content remains in the document model and serialization;
+   only its rendered projection is removed from layout. */
+.mu-heading-section-hidden {
+    display: none !important;
+}
+
 /* block quote */
 .mu-container blockquote {
     position: relative;

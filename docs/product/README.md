@@ -14,6 +14,10 @@ This directory contains durable product contracts and resumable implementation r
 - [US05 — Workspace / Session Restore](US05-WORKSPACE-RESTORE.md)
 - [US07 — Restore Editing Continuity](US07-RESTORE-EDITING-CONTINUITY.md)
 
+## v0.7.0 implementation records
+
+- [V07 — Body heading collapse and navigation](V07-HEADING-COLLAPSE-PROGRESS.md) — F1–F4 implementation, stable-key boundary for later cross-session persistence, Red/Green and remaining candidate-build checks.
+
 ## v0.6.0 planning
 
 - [v0.6.0 delivery plan, work breakdown, dependencies and acceptance gates](V0.6-DELIVERY-PLAN.md) — planned scope, static capability inventory, task IDs V06-00–V06-15, estimates, staged calendar, test/architecture guardrails and resumable planning ledger.
