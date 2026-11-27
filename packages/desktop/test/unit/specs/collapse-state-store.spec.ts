@@ -108,6 +108,25 @@ describe('CollapseStateStore persistence', () => {
     expect(() => JSON.parse(raw)).not.toThrow()
   })
 
+  it('carries a record across an app save that replaced the inode', async() => {
+    // write-file-atomic replaces the file, so the identity changes on every
+    // app-initiated save. The record must follow the same document.
+    let identity = 'dev1:ino1'
+    const { store } = createStore({ identity: async() => identity })
+    await store.save('/docs/a.md', { headings: [{ key: 'chapter', level: 2, ancestors: [] }] })
+
+    identity = 'dev1:ino2'
+    await store.rekey('dev1:ino1', 'dev1:ino2')
+
+    expect((await store.load('/docs/a.md'))?.headings[0]?.key).toBe('chapter')
+  })
+
+  it('does not invent a record when the previous identity held none', async() => {
+    const { store } = createStore({ identity: async() => 'dev1:ino2' })
+    await store.rekey('dev1:unknown', 'dev1:ino2')
+    expect(await store.load('/docs/a.md')).toBeNull()
+  })
+
   it('drops the record when asked (document closed without state)', async() => {
     const { store } = createStore()
     await store.save('/docs/a.md', { headings: [{ key: 'a', level: 1, ancestors: [] }] })

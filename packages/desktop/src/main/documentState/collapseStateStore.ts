@@ -99,6 +99,21 @@ export class CollapseStateStore {
     })
   }
 
+  /**
+   * Move a record to a new identity after the application itself replaced the
+   * file (atomic save). Only the file the app just wrote is re-keyed; nothing is
+   * inferred about other files, and a missing source record stays missing.
+   */
+  async rekey(previousIdentity: string, nextIdentity: string): Promise<void> {
+    if (!previousIdentity || !nextIdentity || previousIdentity === nextIdentity) return
+    await this.mutate((store) => {
+      const entry = store.documents[previousIdentity]
+      if (!entry) return
+      store.documents[nextIdentity] = entry
+      delete store.documents[previousIdentity]
+    })
+  }
+
   async clear(pathname: string): Promise<void> {
     const identity = await this.deps.identity(pathname)
     if (!identity) return

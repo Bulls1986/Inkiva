@@ -18,7 +18,10 @@
       :close-on-press-escape="false"
       @close="cancelLinkCompletion"
     >
-      <label class="ag-link-completion-label" for="ag-link-completion-destination">
+      <label
+        class="ag-link-completion-label"
+        for="ag-link-completion-destination"
+      >
         {{ t('editor.linkCompletion.destination') }}
       </label>
       <input
@@ -34,7 +37,7 @@
         @keydown="handleLinkCompletionKeydown"
         @compositionstart="linkSession.setComposing(true)"
         @compositionend="handleLinkCompositionEnd"
-      />
+      >
       <div
         v-if="linkSuggestionsVisible"
         id="ag-link-completion-list"
@@ -42,19 +45,34 @@
         role="listbox"
         :aria-label="t('editor.linkCompletion.suggestions')"
       >
-        <p v-if="linkCompletionLoading" role="status">
+        <p
+          v-if="linkCompletionLoading"
+          role="status"
+        >
           {{ t('editor.linkCompletion.loading') }}
         </p>
-        <p v-else-if="linkCompletionError" role="status">
+        <p
+          v-else-if="linkCompletionError"
+          role="status"
+        >
           {{ t('editor.linkCompletion.unavailable') }}
         </p>
-        <p v-else-if="linkCompletionNeedsSave" role="status">
+        <p
+          v-else-if="linkCompletionNeedsSave"
+          role="status"
+        >
           {{ t('editor.linkCompletion.saveAsFirst') }}
         </p>
-        <p v-else-if="!linkCompletionWorkspaceAvailable" role="status">
+        <p
+          v-else-if="!linkCompletionWorkspaceAvailable"
+          role="status"
+        >
           {{ t('editor.linkCompletion.noWorkspace') }}
         </p>
-        <p v-else-if="!linkCompletionCandidates.length" role="status">
+        <p
+          v-else-if="!linkCompletionCandidates.length"
+          role="status"
+        >
           {{ t('editor.linkCompletion.noMatches') }}
         </p>
         <button
@@ -257,6 +275,10 @@ import {
 } from '@muyajs/core'
 import { exportStyledHTML, type HeaderFooterPart } from '@/util/exportHtml'
 import { applyCursor, isIndexCursor } from '@/util/cursor'
+import {
+  buildHeadingRecords,
+  resolveCollapseRestore
+} from '@/services/collapseRestore'
 import bus, { type BusEvents } from '@/bus'
 import type { Handler } from 'mitt'
 import { DEFAULT_EDITOR_FONT_FAMILY, DEFAULT_CODE_FONT_FAMILY } from '@/config'
@@ -987,6 +1009,49 @@ let preSourceModeSelection: unknown = null
 // In-session document-scoped collapse state. Cross-session persistence is a
 // separate work item; this map is the boundary it will replace.
 const headingCollapseByDocument = new Map<string, IHeadingCollapseState[]>()
+
+// Cross-session persistence (F5/F6). Main keys the record by file identity, so
+// it follows the document across atomic saves and application restarts; a path
+// alone never revives state for a file that may have been replaced.
+let collapsePersistTimer: ReturnType<typeof setTimeout> | null = null
+const schedulePersistCollapse = (pathname: string, state: IHeadingCollapseState[]): void => {
+  if (collapsePersistTimer) clearTimeout(collapsePersistTimer)
+  collapsePersistTimer = setTimeout(() => {
+    collapsePersistTimer = null
+    window.collapseState?.save(pathname, buildHeadingRecords(state)).catch(() => {})
+  }, 300)
+}
+
+const restorePersistedCollapse = (pathname: string): void => {
+  restoreCollapseFromDisk(pathname).catch(() => {})
+}
+
+const restoreCollapseFromDisk = async (pathname: string): Promise<void> => {
+  const record = await window.collapseState?.load(pathname).catch(() => null)
+  if (!record || record.headings.length === 0) { return }
+  const currentState = editor.value?.getHeadingCollapseState() ?? []
+  if (currentState.length === 0) { return }
+  const currentRecords = buildHeadingRecords(currentState)
+  const { collapsedKeys, staleKeys } = resolveCollapseRestore(record.headings, currentRecords)
+  if (collapsedKeys.length > 0) {
+    const collapsed = new Set(collapsedKeys)
+    editor.value?.setHeadingCollapseState(
+      currentRecords.map((item) => ({
+        key: item.key,
+        level: item.level,
+        collapsed: collapsed.has(item.key),
+        collapsible:
+          currentState.find((entry: IHeadingCollapseState) => entry.key === item.key)
+            ?.collapsible ?? true
+      }))
+    )
+  }
+  if (staleKeys.length > 0) {
+    // Drop records that no longer describe this document instead of letting a
+    // later same-name heading inherit them.
+    await window.collapseState?.save(pathname, currentRecords).catch(() => {})
+  }
+}
 let preSourceModeHeadingCollapse: IHeadingCollapseState[] | null = null
 let documentContentSwitching = false
 function withDocumentContentSwitch<T> (callback: () => T): T {
@@ -2985,6 +3050,10 @@ const setMarkdownToEditor = (payload: unknown) => {
           editor.value?.setHeadingCollapseState(savedCollapse)
         })
       }
+      const pathname = currentFile.value?.pathname
+      if (!savedCollapse && pathname) {
+        runWhenEditorRenderComplete(id, () => restorePersistedCollapse(pathname))
+      }
     }
     // A freshly created/opened tab should be ready to type into.
     focusFreshEditor()
@@ -3220,6 +3289,11 @@ const handleFileChange = (payload: unknown) => {
         runWhenEditorRenderComplete(id, () => {
           editor.value?.setHeadingCollapseState(savedCollapse)
         })
+      } else {
+        const pathname = currentFile.value?.pathname
+        if (pathname) {
+          runWhenEditorRenderComplete(id, () => restorePersistedCollapse(pathname))
+        }
       }
     }
   } else if (newCursor) {
@@ -3721,6 +3795,10 @@ onMounted(() => {
       if (documentContentSwitching) { return }
       if (currentFile.value?.id) {
         headingCollapseByDocument.set(currentFile.value.id, state)
+      }
+      const pathname = currentFile.value?.pathname
+      if (pathname) {
+        schedulePersistCollapse(pathname, state)
       }
       tocScrollSync?.update(visibleTocItems())
       tocScrollSync?.refresh()

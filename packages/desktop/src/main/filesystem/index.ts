@@ -3,6 +3,8 @@ import path from 'path'
 import writeFileAtomic from 'write-file-atomic'
 import { isDirectory, isFile, isSymbolicLink } from 'common/filesystem'
 import { DocumentWriteQueue, type DocumentWriteResult } from './writeQueue'
+import { fileIdentity } from '../documentState/collapseStateStore'
+import { rekeyAfterAppSave } from '../documentState/collapseStateService'
 
 const documentWriteQueue = new DocumentWriteQueue()
 
@@ -62,7 +64,12 @@ export const writeFile = async(
       // write-file-atomic also preserves the target's mode/owner, writes through
       // a symlink to its target, and uses a unique temp name — all of which a
       // plain temp+rename dropped.
+      // An app-initiated atomic save replaces the inode, so the document's
+      // collapse record has to follow the file we are about to write. Both
+      // identities must exist for the migration; otherwise nothing is inferred.
+      const identityBeforeWrite = await fileIdentity(pathname)
       await writeFileAtomic(pathname, content, options)
+      await rekeyAfterAppSave(pathname, identityBeforeWrite).catch(() => {})
     }
   })
 }

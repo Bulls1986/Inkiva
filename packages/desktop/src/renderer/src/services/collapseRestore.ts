@@ -17,6 +17,12 @@ export interface CollapseHeadingRecord {
   ancestors: string[]
 }
 
+export interface HeadingStateLike {
+  key: string
+  level: number
+  collapsed?: boolean
+}
+
 export interface CurrentHeading {
   key: string
   level: number
@@ -33,6 +39,34 @@ const pathKey = (heading: { key: string, ancestors: string[] }): string =>
 
 const matchKey = (heading: { key: string, level: number, ancestors: string[] }): string =>
   JSON.stringify([heading.ancestors, heading.key, heading.level])
+
+/**
+ * Turn the editor's flat heading state into records that carry the ancestor key
+ * chain, using document order and heading levels. The key itself stays exactly
+ * what the engine reports, so a record written in one session matches the same
+ * heading in the next one.
+ */
+export const buildHeadingRecords = (
+  state: readonly HeadingStateLike[]
+): CollapseHeadingRecord[] => {
+  const stack: Array<{ level: number, key: string }> = []
+  const records: CollapseHeadingRecord[] = []
+
+  for (const heading of state) {
+    while (stack.length > 0 && stack[stack.length - 1]!.level >= heading.level) {
+      stack.pop()
+    }
+    records.push({
+      key: heading.key,
+      level: heading.level,
+      collapsed: heading.collapsed === true,
+      ancestors: stack.map((entry) => entry.key)
+    })
+    stack.push({ level: heading.level, key: heading.key })
+  }
+
+  return records
+}
 
 export const resolveCollapseRestore = (
   recorded: readonly CollapseHeadingRecord[],
