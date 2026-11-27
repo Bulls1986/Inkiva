@@ -23,6 +23,10 @@ import {
   type RipgrepRequest
 } from '@shared/types/ipc'
 import {
+  COLLAPSE_STATE_CHANNELS,
+  type CollapseHeadingRecordPayload
+} from '@shared/types/collapseState'
+import {
   DOCUMENT_INTELLIGENCE_CHANNELS,
   type ApplyRenameRepairRequest,
   type LocalHistoryCreateRequest,
@@ -404,6 +408,13 @@ const documentIntelligenceAPI = {
   pruneHistory: () => invoke(DOCUMENT_INTELLIGENCE_CHANNELS.pruneHistory)
 }
 
+const collapseStateAPI = {
+  load: (pathname: string) => invoke(COLLAPSE_STATE_CHANNELS.load, pathname),
+  save: (pathname: string, headings: CollapseHeadingRecordPayload[]) =>
+    invoke(COLLAPSE_STATE_CHANNELS.save, pathname, headings),
+  clear: (pathname: string) => invoke(COLLAPSE_STATE_CHANNELS.clear, pathname)
+}
+
 const fontsAPI = {
   list: () => invoke('mt::fonts::list')
 }
@@ -481,6 +492,7 @@ try {
   contextBridge.exposeInMainWorld('ripgrep', ripgrepAPI)
   contextBridge.exposeInMainWorld('uploader', uploaderAPI)
   contextBridge.exposeInMainWorld('documentIntelligence', documentIntelligenceAPI)
+  contextBridge.exposeInMainWorld('collapseState', collapseStateAPI)
   contextBridge.exposeInMainWorld('fonts', fontsAPI)
 } catch (error) {
   console.error(error)

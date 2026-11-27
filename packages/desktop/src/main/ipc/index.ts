@@ -11,6 +11,7 @@ import { registerI18nHandlers } from './i18n'
 import { registerPerformanceHandlers } from './performance'
 import { registerDocumentIntelligenceHandlers } from './documentIntelligence'
 import { registerRecoveryHandlers } from './recovery'
+import { registerCollapseStateHandlers } from './collapseState'
 
 export const registerSandboxIpcHandlers = (): void => {
   registerBootInfo()
@@ -26,4 +27,5 @@ export const registerSandboxIpcHandlers = (): void => {
   registerPerformanceHandlers()
   registerDocumentIntelligenceHandlers()
   registerRecoveryHandlers()
+  registerCollapseStateHandlers()
 }

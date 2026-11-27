@@ -32,6 +32,10 @@ import type {
 } from './files'
 import type { BufferedState as BufferedStateType } from './bufferedState'
 import type { RecoveryCenterState, RecoveryOpenResult, RecoveryReplaceResult } from './recovery'
+import type {
+  CollapseHeadingRecordPayload,
+  CollapseStateRecordPayload
+} from './collapseState'
 import type { MenuTemplate, MenuPopupPosition } from './menu'
 import type { ShortcutStyle } from './preferences'
 import type { UpdateStatus } from '../../main/update/types'
@@ -115,6 +119,15 @@ export interface IpcInvokeChannels {
   'mt::recovery-center::discard': { args: [itemId: string]; ret: boolean }
   'mt::recovery-center::discard-workspace': { args: []; ret: boolean }
   'mt::recovery-center::retry': { args: [itemId: string]; ret: RecoveryCenterState }
+  'mt::collapse-state::load': {
+    args: [pathname: string]
+    ret: CollapseStateRecordPayload | null
+  }
+  'mt::collapse-state::save': {
+    args: [pathname: string, headings: CollapseHeadingRecordPayload[]]
+    ret: void
+  }
+  'mt::collapse-state::clear': { args: [pathname: string]; ret: void }
   'mt::preferences::set': {
     args: [partial: PreferencePatch]
     ret: PreferenceMutationResult

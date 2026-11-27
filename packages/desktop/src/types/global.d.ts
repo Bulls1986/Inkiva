@@ -36,6 +36,10 @@ import type {
   RenameRepairPlan,
   WorkspaceLinkIndexResult
 } from '@shared/types/documentIntelligence'
+import type {
+  CollapseHeadingRecordPayload,
+  CollapseStateRecordPayload
+} from '@shared/types/collapseState'
 
 declare global {
   // ---- Build-time defines (electron-vite `define`) ----
@@ -224,6 +228,12 @@ declare global {
     list(): Promise<string[]>
   }
 
+  interface CollapseStateAPI {
+    load(pathname: string): Promise<CollapseStateRecordPayload | null>
+    save(pathname: string, headings: CollapseHeadingRecordPayload[]): Promise<void>
+    clear(pathname: string): Promise<void>
+  }
+
   interface DocumentIntelligenceAPI {
     indexWorkspace(rootPath: string | null): Promise<WorkspaceLinkIndexResult>
     refreshWorkspaceFile(pathname: string): Promise<void>
@@ -263,6 +273,7 @@ declare global {
     ripgrep: RipgrepAPI
     uploader: UploaderAPI
     documentIntelligence: DocumentIntelligenceAPI
+    collapseState: CollapseStateAPI
     fonts: FontsAPI
     process: ProcessShim
     rgPath: string
