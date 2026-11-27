@@ -50,6 +50,7 @@ const createHarness = (options: {
   printGate?: () => Promise<unknown>
   writeFile?: PdfPreviewServiceDeps['writeFile']
   showSaveDialog?: PdfPreviewServiceDeps['showSaveDialog']
+  hashFile?: PdfPreviewServiceDeps['hashFile']
   generationTimeoutMs?: number
   printOptions?: Record<string, unknown>[]
 } = {}) => {
@@ -95,6 +96,7 @@ const createHarness = (options: {
     showSaveDialog:
       options.showSaveDialog ??
       (async() => ({ canceled: false, filePath: '/out/report.pdf' })),
+    hashFile: options.hashFile,
     generationTimeoutMs: options.generationTimeoutMs ?? 2000,
     createPreviewId: () => 'preview-' + idSeq
   }
@@ -305,6 +307,121 @@ describe('PdfPreviewService save validity', () => {
 
     await expect(saving).rejects.toMatchObject({ code: 'stale' })
     expect(writeFile).not.toHaveBeenCalled()
+  })
+
+  it('rehashes referenced images after the dialog and refuses a mid-dialog replacement', async() => {
+    // The native dialog is a long user pause. In production the renderer never
+    // injects its own dialog, so main must verify content right before writing.
+    const dialog = defer<{ canceled: boolean; filePath?: string }>()
+    const writeFile = vi.fn(async() => {})
+    let imageHash: string | null = 'hash-a'
+    const { service } = createHarness({
+      showSaveDialog: () => dialog.promise,
+      writeFile,
+      hashFile: async() => imageHash
+    })
+
+    const preview = await service.generate({
+      ...KEY,
+      html: '<p>hi</p>',
+      resources: [{ path: '/doc/photo.png', hash: 'hash-a' }]
+    })
+    const saving = service.save({
+      previewId: preview.previewId,
+      ...KEY,
+      defaultPath: '/out/report.pdf'
+    })
+    await flush()
+
+    // Same size, same mtime, different bytes.
+    imageHash = 'hash-b'
+    dialog.resolve({ canceled: false, filePath: '/out/report.pdf' })
+
+    await expect(saving).rejects.toMatchObject({ code: 'stale' })
+    expect(writeFile).not.toHaveBeenCalled()
+  })
+
+  it('writes when the referenced image content is unchanged after the dialog', async() => {
+    const writeFile = vi.fn(async() => {})
+    const { service } = createHarness({
+      writeFile,
+      hashFile: async() => 'hash-a'
+    })
+
+    const preview = await service.generate({
+      ...KEY,
+      html: '<p>hi</p>',
+      resources: [{ path: '/doc/photo.png', hash: 'hash-a' }]
+    })
+
+    const saved = await service.save({
+      previewId: preview.previewId,
+      ...KEY,
+      defaultPath: '/out/report.pdf'
+    })
+    expect(saved).toMatchObject({ status: 'saved' })
+    expect(writeFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('treats an image that disappeared after generation as stale before writing', async() => {
+    const writeFile = vi.fn(async() => {})
+    const { service } = createHarness({
+      writeFile,
+      hashFile: async() => null
+    })
+
+    const preview = await service.generate({
+      ...KEY,
+      html: '<p>hi</p>',
+      resources: [{ path: '/doc/photo.png', hash: 'hash-a' }]
+    })
+
+    await expect(
+      service.save({ previewId: preview.previewId, ...KEY, defaultPath: '/out/report.pdf' })
+    ).rejects.toMatchObject({ code: 'stale' })
+    expect(writeFile).not.toHaveBeenCalled()
+  })
+
+  it('treats an image that appeared after a missing generation as stale', async() => {
+    const writeFile = vi.fn(async() => {})
+    const { service } = createHarness({
+      writeFile,
+      hashFile: async() => 'hash-late'
+    })
+
+    const preview = await service.generate({
+      ...KEY,
+      html: '<p>hi</p>',
+      resources: [{ path: '/doc/late.png', hash: null }]
+    })
+
+    await expect(
+      service.save({ previewId: preview.previewId, ...KEY, defaultPath: '/out/report.pdf' })
+    ).rejects.toMatchObject({ code: 'stale' })
+    expect(writeFile).not.toHaveBeenCalled()
+  })
+
+  it('still writes when an image was missing at generation and is still missing', async() => {
+    // Approved P2: a missing image warns but never blocks the save.
+    const writeFile = vi.fn(async() => {})
+    const { service } = createHarness({
+      writeFile,
+      hashFile: async() => null
+    })
+
+    const preview = await service.generate({
+      ...KEY,
+      html: '<p>hi</p>',
+      resources: [{ path: '/doc/never.png', hash: null }]
+    })
+
+    const saved = await service.save({
+      previewId: preview.previewId,
+      ...KEY,
+      defaultPath: '/out/report.pdf'
+    })
+    expect(saved).toMatchObject({ status: 'saved' })
+    expect(writeFile).toHaveBeenCalledTimes(1)
   })
 
   it('keeps the artifact and allows a retry after a write failure', async() => {

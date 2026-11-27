@@ -28,9 +28,13 @@ PRs and must not be mixed into this change.
 3. **Stale results never win.** Superseded, canceled or timed-out generations are
    released, never adopted; the session refuses to save anything that is not its
    current ready artifact.
-4. **Revalidate after the native dialog.** The artifact is checked again after
-   `showSaveDialog` returns; a document/settings/resource change while the OS
-   dialog was open blocks the write.
+4. **Revalidate after the native dialog, in the process that writes.** The
+   renderer's optional dialog hook is not wired in production, so main re-reads
+   the document/settings/resource key *and re-hashes every referenced image*
+   after `showSaveDialog` returns and immediately before the bytes are written.
+   A change during the dialog — including a same-size, same-mtime replacement —
+   throws `stale`, keeps the artifact and writes nothing; the renderer then shows
+   the preview as stale so saving stays disabled.
 5. **Failure keeps the preview.** A failed write leaves the artifact and the
    warning in place so the user can retry the same page.
 6. **Lifecycle edges are bounded and stale-proof.** Print-page teardown is
@@ -92,6 +96,8 @@ message alone.
 | Type check | `vue-tsc --noEmit -p tsconfig.json` | No errors in the changed files. |
 | Electron E2E | `playwright test test/e2e/{export-pdf,export-pdf-resources,export-pdf-acceptance}.spec.ts` | 11/11 passed, three consecutive runs on Windows x64. Covers SHA-256 equality of preview vs saved file, `/Outlines` + `/StructTreeRoot`, a same-size same-mtime image replacement blocking the save, a missing image that appears later blocking the save, a custom 180 × 240 mm paper whose saved `/MediaBox` measures 180 ± 2 mm × 240 ± 2 mm, a failed write that keeps the preview and then succeeds on retry, and no leftover hidden print window after generation. |
 | Visual baseline | `playwright test test/e2e/visual-regression.spec.ts --grep "floating dialog"` | The `dialog-linux.png` baseline was regenerated for the new PDF dialog layout: the measured card is 498 px in the old baseline and 878 px in the current build (CI actual and local win32 both 878 px), because the PDF dialog now shows settings next to the paginated preview at 880 px. Assertion and tolerance are unchanged. |
+| Red (mid-dialog change, review blocker) | `playwright test test/e2e/export-pdf-dialog-race.spec.ts` | Failed before the fix: the artifact was written and the status trail showed `saving>saved`, matching the independent review's 3/3 reproduction. |
+| Green (same) | same spec | `ready>saving>stale`, nothing written; the pair of dialog-race and deleted-image cases pass. |
 | Lint | `eslint` on the changed files | 0 errors. |
 
 ## Not covered here

@@ -32,6 +32,17 @@ export interface PdfPreviewGenerateRequest {
   resourceVersion: string
   html: string
   pageOptions?: PdfPreviewPageOptions
+  /**
+   * Local images the HTML embeds, with the SHA-256 of their bytes at generation
+   * time (`null` = unreadable then). Main re-hashes them right before writing,
+   * after the native save dialog returns.
+   */
+  resources?: PdfPreviewResourceIdentity[]
+}
+
+export interface PdfPreviewResourceIdentity {
+  path: string
+  hash: string | null
 }
 
 export type PdfPreviewFailureCode =

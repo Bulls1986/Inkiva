@@ -18,10 +18,7 @@
       :close-on-press-escape="false"
       @close="cancelLinkCompletion"
     >
-      <label
-        class="ag-link-completion-label"
-        for="ag-link-completion-destination"
-      >
+      <label class="ag-link-completion-label" for="ag-link-completion-destination">
         {{ t('editor.linkCompletion.destination') }}
       </label>
       <input
@@ -37,7 +34,7 @@
         @keydown="handleLinkCompletionKeydown"
         @compositionstart="linkSession.setComposing(true)"
         @compositionend="handleLinkCompositionEnd"
-      >
+      />
       <div
         v-if="linkSuggestionsVisible"
         id="ag-link-completion-list"
@@ -45,34 +42,19 @@
         role="listbox"
         :aria-label="t('editor.linkCompletion.suggestions')"
       >
-        <p
-          v-if="linkCompletionLoading"
-          role="status"
-        >
+        <p v-if="linkCompletionLoading" role="status">
           {{ t('editor.linkCompletion.loading') }}
         </p>
-        <p
-          v-else-if="linkCompletionError"
-          role="status"
-        >
+        <p v-else-if="linkCompletionError" role="status">
           {{ t('editor.linkCompletion.unavailable') }}
         </p>
-        <p
-          v-else-if="linkCompletionNeedsSave"
-          role="status"
-        >
+        <p v-else-if="linkCompletionNeedsSave" role="status">
           {{ t('editor.linkCompletion.saveAsFirst') }}
         </p>
-        <p
-          v-else-if="!linkCompletionWorkspaceAvailable"
-          role="status"
-        >
+        <p v-else-if="!linkCompletionWorkspaceAvailable" role="status">
           {{ t('editor.linkCompletion.noWorkspace') }}
         </p>
-        <p
-          v-else-if="!linkCompletionCandidates.length"
-          role="status"
-        >
+        <p v-else-if="!linkCompletionCandidates.length" role="status">
           {{ t('editor.linkCompletion.noMatches') }}
         </p>
         <button

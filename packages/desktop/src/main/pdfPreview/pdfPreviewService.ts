@@ -30,9 +30,21 @@ export interface PdfPreviewVersionKey {
   resourceVersion: string
 }
 
+/**
+ * Content identity of one referenced local resource, captured at generation
+ * time. `hash: null` means the file was not readable then; if it becomes
+ * readable later the pages change, so the preview must go stale.
+ */
+export interface PdfPreviewResourceIdentity {
+  path: string
+  hash: string | null
+}
+
 export interface PdfPreviewRequest extends PdfPreviewVersionKey {
   html: string
   pageOptions?: PdfPageSizeOptions
+  /** Local resources whose content the saved PDF depends on. */
+  resources?: PdfPreviewResourceIdentity[]
 }
 
 export interface PdfPreviewDescriptor {
@@ -84,6 +96,12 @@ export interface PdfPreviewServiceDeps {
   generationTimeoutMs?: number
   /** Upper bound for tearing a print page down before the queue moves on. */
   cleanupTimeoutMs?: number
+  /**
+   * Re-read a resource's content identity. `null` means the file is missing or
+   * unreadable. Main re-checks this right before writing, after the native
+   * dialog returns, because the renderer's own dialog hook is optional.
+   */
+  hashFile?(path: string): Promise<string | null>
   createPreviewId?: () => string
 }
 
@@ -95,6 +113,7 @@ interface PdfPreviewArtifact {
   id: string
   data: Uint8Array
   key: string
+  resources: PdfPreviewResourceIdentity[]
 }
 
 const DEFAULT_GENERATION_TIMEOUT_MS = 30000
@@ -150,6 +169,12 @@ export class PdfPreviewService {
     if (dialog.canceled || !dialog.filePath) {
       return { status: 'canceled' }
     }
+
+    // The dialog is a long user cancellation point: referenced images can be
+    // replaced (even with the same size and mtime) while it is open. Main owns
+    // the write, so it verifies the content here — after the dialog returned and
+    // immediately before the bytes hit the disk.
+    await this.assertResourcesUnchanged(artifact)
 
     // The dialog is a long user-controlled pause: the document may have been
     // edited or the preview released while it was open, and the older artifact
@@ -227,7 +252,7 @@ export class PdfPreviewService {
       const id = this.deps.createPreviewId
         ? this.deps.createPreviewId()
         : this.nextPreviewId()
-      this.artifact = { id, data, key }
+      this.artifact = { id, data, key, resources: request.resources ?? [] }
       return { previewId: id, byteLength: data.byteLength }
     } catch (error) {
       if (error instanceof PdfPreviewError) throw error
@@ -239,6 +264,26 @@ export class PdfPreviewService {
       if (this.activePage === page) this.activePage = null
       if (this.token === token) this.token = null
       await this.destroyPage(page)
+    }
+  }
+
+  /**
+   * Compare every referenced resource against the identity captured at
+   * generation time. Size and mtime are not identity, so the file bytes are
+   * hashed again here; `null` is a legitimate recorded value (the image was
+   * unreadable) and only differs when the file becomes readable later.
+   */
+  private async assertResourcesUnchanged(artifact: PdfPreviewArtifact): Promise<void> {
+    const hashFile = this.deps.hashFile
+    if (!hashFile || artifact.resources.length === 0) return
+    for (const resource of artifact.resources) {
+      const current = await hashFile(resource.path)
+      if (current !== resource.hash) {
+        throw new PdfPreviewError(
+          'stale',
+          'A referenced image changed on disk. Generate the preview again.'
+        )
+      }
     }
   }
 

@@ -136,7 +136,10 @@ export class PdfPreviewSession {
     const request: PdfPreviewGenerateRequest = {
       ...input.versions,
       html: input.html,
-      pageOptions: input.pageOptions
+      pageOptions: input.pageOptions,
+      // Main re-hashes these right before writing, after the native save dialog
+      // returns; the renderer must not be the only line of defence.
+      resources: input.resources ?? []
     }
     const generated = await this.deps.generate(request)
     if (sequence !== this.sequence) {
@@ -264,7 +267,15 @@ export class PdfPreviewSession {
       return 'canceled'
     }
     if (!result.ok) {
-      this.setStatus('ready')
+      // A stale rejection means main revalidated the artifact (for example a
+      // referenced image changed while the dialog was open): the preview is no
+      // longer usable, so saving must stay disabled.
+      if (result.code === 'stale') {
+        this.setStatus('stale')
+        this.state.message = null
+      } else {
+        this.setStatus('ready')
+      }
       this.state.error = result.message
       return 'failed'
     }

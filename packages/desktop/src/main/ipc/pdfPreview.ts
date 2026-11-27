@@ -1,4 +1,5 @@
 import { BrowserWindow, app, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import log from 'electron-log'
@@ -25,6 +26,19 @@ const servicesBySender = new Map<number, PdfPreviewService>()
 const lastTargetBySender = new Map<number, string>()
 
 const PRINT_PAGE_TIMEOUT_MS = 30000
+
+/**
+ * Content identity of a referenced image, recomputed by main right before a
+ * write. `null` means missing or unreadable, which is itself an identity value.
+ */
+const hashLocalFile = async(filePath: string): Promise<string | null> => {
+  try {
+    const bytes = await fs.readFile(filePath)
+    return createHash('sha256').update(bytes).digest('hex')
+  } catch {
+    return null
+  }
+}
 
 const temporaryPreviewRoot = (): string =>
   path.join(app.getPath('temp'), 'inkiva-pdf-preview')
@@ -139,6 +153,7 @@ const createService = (
     writeFile: async(filePath, data) => {
       await writeFileAtomic(filePath, Buffer.from(data))
     },
+    hashFile: hashLocalFile,
     generationTimeoutMs: PRINT_PAGE_TIMEOUT_MS
   })
 }
