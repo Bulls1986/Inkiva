@@ -83,9 +83,10 @@ describe('resolveCollapseRestore', () => {
 
   it('never restores a record without heading text', () => {
     const legacy = { key: 'a', level: 1, collapsed: true, ancestors: [] } as unknown as CollapseHeadingRecord
-    expect(resolveCollapseRestore([legacy], [current('a', 'A', 1)])).toEqual({
+    expect(resolveCollapseRestore([legacy], [current('a', 'A', 1)])).toMatchObject({
       collapsedKeys: [],
-      staleKeys: ['a']
+      staleKeys: ['a'],
+      canPrune: false
     })
   })
 })

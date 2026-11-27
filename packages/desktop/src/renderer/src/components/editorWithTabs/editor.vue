@@ -1036,21 +1036,61 @@ watch(
   }
 )
 
-const restoreCollapseFromDisk = async (pathname: string, documentId: string): Promise<void> => {
+// Cross-session persistence (F5/F6), per the architecture diagnosis:
+//  - only a user collapse writes; restore, programmatic clears and tree
+//    replacement change the UI only;
+//  - a restore is bound to a document activation generation and a
+//    user-interaction counter, so a late read cannot overwrite newer intent;
+//  - the single non-user write is a prune derived from that restore's own
+//    snapshot, committed once.
+let documentActivation = 0
+let collapseUserRevision = 0
+let insideProgrammaticCollapse = false
+
+const currentCollapseSnapshot = (): IHeadingCollapseState[] =>
+  editor.value?.getHeadingCollapseState() ?? []
+
+const applyCollapseProgrammatically = (state: IHeadingCollapseState[]): void => {
+  const previous = insideProgrammaticCollapse
+  insideProgrammaticCollapse = true
+  try {
+    editor.value?.setHeadingCollapseState(state)
+  } finally {
+    insideProgrammaticCollapse = previous
+  }
+}
+
+const restoreCollapseFromDisk = async (
+  pathname: string,
+  documentId: string,
+  activation: number
+): Promise<void> => {
   const record = await window.collapseState?.load(pathname).catch(() => null)
-  // The load is asynchronous: the user may have switched documents while it was
-  // in flight, and the record must never be applied to the new document.
-  if (currentFile.value?.id !== documentId || currentFile.value?.pathname !== pathname) {
+  // Reject a result that lost its turn: another document was activated later
+  // (including A→B→A), or the user collapsed something while the read was in
+  // flight. An id/path check alone cannot see either case.
+  if (
+    activation !== documentActivation ||
+    currentFile.value?.id !== documentId ||
+    currentFile.value?.pathname !== pathname
+  ) {
     return
   }
+  const revisionAtRead = collapseUserRevision
   if (!record || record.headings.length === 0) { return }
   const currentState = editor.value?.getHeadingCollapseState() ?? []
   if (currentState.length === 0) { return }
-  const currentRecords = buildHeadingRecords(currentState, outlineTexts())
-  const { collapsedKeys, staleKeys } = resolveCollapseRestore(record.headings, currentRecords)
+  const engineTexts = outlineTexts()
+  const currentRecords = buildHeadingRecords(currentState, engineTexts)
+  const { collapsedKeys, staleKeys, canPrune } = resolveCollapseRestore(
+    record.headings,
+    currentRecords
+  )
   if (collapsedKeys.length > 0) {
     const collapsed = new Set(collapsedKeys)
-    editor.value?.setHeadingCollapseState(
+    // Restoring is a UI-only transaction: the engine event must not persist it,
+    // otherwise a programmatic change would overwrite the record it came from.
+    applyCollapseProgrammatically(
       currentRecords.map((item) => ({
         key: item.key,
         level: item.level,
@@ -1061,21 +1101,20 @@ const restoreCollapseFromDisk = async (pathname: string, documentId: string): Pr
       }))
     )
   }
-  if (staleKeys.length > 0) {
-    // Prune records that no longer describe this document. This must persist the
-    // state *after* the restore was applied: saving the pre-restore snapshot (all
-    // expanded) would wipe the collapses the user still has, and a single renamed
-    // heading would then cost every other section on the next launch.
-    // Let the engine apply the restore before reading it back: reading in the
-    // same tick returns the pre-restore snapshot and would persist "expanded".
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    const applied = editor.value?.getHeadingCollapseState() ?? []
-    if (applied.length > 0) {
-      await window
-        .collapseState?.save(pathname, buildHeadingRecords(applied, outlineTexts()))
-        .catch(() => {})
-    }
-  }
+  // One prune per restore transaction. It is derived from the snapshot this
+  // restore just produced, so it cannot carry another document's headings, and
+  // it is skipped when the user already acted or another document was activated.
+  if (staleKeys.length === 0 || !canPrune) { return }
+  if (revisionAtRead !== collapseUserRevision || activation !== documentActivation) { return }
+
+  const appliedRecords = buildHeadingRecords(currentCollapseSnapshot(), engineTexts)
+  const stale = new Set(staleKeys)
+  const pruned = appliedRecords.map((item, index) =>
+    stale.has([...item.ancestors, item.text].join('/'))
+      ? { ...item, collapsed: false }
+      : item
+  )
+  window.collapseState?.save(pathname, pruned).catch(() => {})
 }
 let preSourceModeHeadingCollapse: IHeadingCollapseState[] | null = null
 let documentContentSwitching = false
@@ -2727,9 +2766,9 @@ const refreshEditorToc = (force = true): void => {
   maybeRestoreCollapseFromDisk()
 }
 
-// Restoring has to wait until the outline exists: an engine that is still
-// mounting headings would report an empty or partial heading list and the
-// record would be pruned as stale. Once per document is enough.
+// Restoring waits for the logical outline: an engine that is still mounting
+// headings would report a partial list and the record would look stale. A short
+// not-ready window must not consume the attempt.
 const collapseRestoreAttempted = new Set<string>()
 const maybeRestoreCollapseFromDisk = (): void => {
   const id = currentFile.value?.id
@@ -2737,12 +2776,20 @@ const maybeRestoreCollapseFromDisk = (): void => {
   if (!id || !pathname) { return }
   if (headingCollapseByDocument.has(id) || collapseRestoreAttempted.has(id)) { return }
   if ((editor.value?.getTOC().length ?? 0) === 0) { return }
-  // A document without an in-session record starts fully expanded. The engine can
-  // still hold the previous document's collapsed sections (the same heading keys
-  // exist in both), so clear it before any restore is attempted.
-  editor.value?.setHeadingCollapseState([])
+
+  // Starting point for a document without a session record is fully expanded.
+  // This clear is programmatic: the engine may still hold the previous
+  // document's collapsed sections, but clearing must not be persisted.
+  applyCollapseProgrammatically([])
   collapseRestoreAttempted.add(id)
-  restoreCollapseFromDisk(pathname, id).catch(() => {})
+  restoreCollapseFromDisk(pathname, id, documentActivation).catch(() => {})
+}
+
+// Every document activation opens a new generation, so a restore started for an
+// earlier document (or an earlier activation of the same one) is discarded.
+const beginCollapseActivation = (): void => {
+  documentActivation += 1
+  collapseUserRevision = 0
 }
 
 // US09 — delayed caret/viewport restoration is allowed to complete only while
@@ -3042,6 +3089,9 @@ const setMarkdownToEditor = (payload: unknown) => {
   if (isStaleEditorEvent(id, currentFile.value?.id)) return
   if (editor.value) {
     invalidateEditorCommandContext(id)
+    // A content load/switch begins a new activation: any restore still in flight
+    // for the previous document (or the previous selection of this one) is stale.
+    if (!contentAlreadyLoaded) { beginCollapseActivation() }
     if (!contentAlreadyLoaded) {
       beginEditorPerformanceOperation(id)
     }
@@ -3061,6 +3111,13 @@ const setMarkdownToEditor = (payload: unknown) => {
         withDocumentContentSwitch(() => editor.value.setContent(newMarkdown ?? ''))
       )
       editorLayoutReconciler?.reset(true)
+      // Muya rebuilds by re-using existing heading keys, so a freshly loaded
+      // document can carry the previous document's collapsed sections. With no
+      // session record of its own it must start fully expanded; the clear is
+      // programmatic and therefore never persisted.
+      if (!(currentFile.value?.id && headingCollapseByDocument.has(currentFile.value.id))) {
+        applyCollapseProgrammatically([])
+      }
     }
     // The freshly loaded content is this tab's clean baseline (id 0). History
     // comparison needs Muya's normalized serialization, but the authoritative
@@ -3836,7 +3893,22 @@ onMounted(() => {
   editor.value.on(
     'heading-collapse-change',
     ({ state }: { state: IHeadingCollapseState[] }) => {
+      // Programmatic changes (restore, clear, tree replacement) update the UI and
+      // never write: a restore that persisted itself would overwrite the record it
+      // was read from.
+      // A tree replacement emits this while the old tree is still in place and the
+      // store already points at the NEW document. Caching here would file the
+      // previous document's collapse state under the new one, which is exactly how
+      // B inherited A (and how it got persisted on the next click).
       if (documentContentSwitching) { return }
+      if (insideProgrammaticCollapse) {
+        if (currentFile.value?.id) {
+          headingCollapseByDocument.set(currentFile.value.id, state)
+        }
+        return
+      }
+      // A real user action: newer intent invalidates any restore still in flight.
+      collapseUserRevision += 1
       if (currentFile.value?.id) {
         headingCollapseByDocument.set(currentFile.value.id, state)
       }

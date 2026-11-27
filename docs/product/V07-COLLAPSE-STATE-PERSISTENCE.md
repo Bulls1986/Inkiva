@@ -68,17 +68,45 @@ produced for it. It is not claimed as verified behaviour.
 - macOS APFS and real devices are not tested (user decision); network/cloud drives
   are unknown.
 
-## Independent pre-verification (PR #291, head 0068cdcf) — status at this commit
+## Architecture diagnosis follow-up (head 7bec7a8e → fixed here)
 
-Three defects were reproduced through the production path in
-`collapse-regressions.spec.ts` (real quit + relaunch, no stubs).
+The diagnosis found that the earlier fixes addressed symptoms:
 
-| Defect | State |
-|---|---|
-| D3: an inserted identical heading collapsed the new heading and expanded the original | **fixed** — identity is now the heading text + level + ancestor texts, matched only when unique; the regression passes |
-| D1: pruning one stale key wiped every restored collapse | **not fixed** — reproduction still fails after changing the prune save to persist the post-restore state |
-| D2: a document without a record inherited the previous document's collapse | **not fixed** — reproduction still fails after clearing the engine collapse state before a restore attempt |
+| Issue | Root cause confirmed by the diagnosis | Fix |
+|---|---|---|
+| D1 restored collapses lost on the next launch | the pre-restore programmatic clear fired `heading-collapse-change`, which persisted the fully expanded state before the record was read | programmatic changes (restore, clear, tree replacement) now never persist; only a user collapse does |
+| D2 a document without a record inherited the previous document's collapse | Muya re-uses heading keys when it replaces the tree, and that event was filed under the already-switched new document, so the session cache and the next write carried the old document's state | the tree-replacement event is ignored (it is not a user action), and a document without a session record is reset to expanded programmatically |
+| D3 an inserted identical heading collapsed the wrong section | uniqueness was only counted on the current side | identity (text + level + ancestor texts) must be unique on BOTH sides; an ambiguous record is not pruned, it is kept for a later unambiguous document |
+| late read overwrote newer intent | only document id/path were checked | each restore carries a document activation generation and is discarded when the user collapsed something meanwhile or another document was activated (covers A→B, A→B→A and same-document settlement) |
 
-The two attempted fixes are in this commit but unproven; the failures mean the
-cause is elsewhere (likely the restore attempt guard and the point at which the
-engine state is read back). Do not merge until both regressions pass.
+## Evidence
+
+Red first, production path, real quit/relaunch (`collapse-regressions.spec.ts`):
+
+| Case | Before | After |
+|---|---|---|
+| D1 pruning a stale key keeps the restored collapses (3 launches) | failed | passes |
+| D2 a document without a record stays expanded (switch and switch back) | failed (test precondition also fixed) | passes |
+| D3 inserted identical heading stays expanded | passes (insert); the 2→1 delete case failed | passes |
+
+Full set: `collapse-regressions` + `collapse-persistence` + `collapse-multiwindow`
+= 11 cases, all green on Windows x64 with a clean process table:
+
+- restart after collapse + immediate quit; same-path replacement; identical copy; app atomic save then restart; same-volume move; corrupt store
+- second window in the same process on the same file: whole-record last write wins, store stays valid JSON, relaunch shows the later window's state
+- untitled document: first save binds the snapshot, relaunch restores it
+
+Unit: 33 assertions across five collapse specs (store, write-failure recovery,
+text identity, both-sides ambiguity, rekey race). `vue-tsc` 0 errors; full-repo
+eslint 0 errors.
+
+## Remaining boundaries
+
+- A window where the application's own save replaces the file between the last
+  identity check and the write cannot be distinguished from an external one.
+- Two windows writing simultaneously: the last completed write wins for the whole
+  document; there is no field-level merge (verified for sequential writes).
+- Network/cloud drives and macOS APFS are untested; macOS real devices are out of
+  scope by decision.
+- Very large documents: recovery is verified with the sample documents used here,
+  not a 200+ heading document.

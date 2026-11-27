@@ -101,6 +101,7 @@ test.describe('collapse pre-verification regressions', () => {
     fs.writeFileSync(fileA, DOCUMENT)
     fs.writeFileSync(fileB, '# Other doc\n\n## Installation\n\nB notes.\n\n## Configuration\n\nB notes.\n')
     try {
+      // Seed A with a collapsed section (its own record).
       const first = await launchOn(fileA, userDataDir)
       try {
         await waitForEditor(first.page)
@@ -110,13 +111,17 @@ test.describe('collapse pre-verification regressions', () => {
         await first.app.close()
       }
 
+      // Open A together with B. The precondition is on A only, so a failure here
+      // is reported as a restore failure rather than silently skipping the switch.
       const second = await launchOn(fileA, userDataDir, [fileB])
       try {
         await waitForEditor(second.page)
-        await expect.poll(() => isCollapsed(second.page, 'Installation'), { timeout: 20_000 }).toBe(true)
-        await second.page.locator('[data-testid="document-tabs"] li[role="tab"]')
+        const tabB = second.page.locator('[data-testid="document-tabs"] li[role="tab"]')
           .filter({ hasText: 'b.md' })
-          .click()
+        await expect.poll(() => tabB.count(), { timeout: 20_000 }).toBe(1)
+
+        // Switch to B directly: B has no record at all, so it must be expanded.
+        await tabB.click()
         await expect
           .poll(() => heading(second.page, 'Other doc').isVisible(), { timeout: 20_000 })
           .toBe(true)
@@ -125,6 +130,15 @@ test.describe('collapse pre-verification regressions', () => {
           await isCollapsed(second.page, 'Installation').catch(() => false),
           'B must not inherit the collapse state of A'
         ).toBe(false)
+        expect(await isCollapsed(second.page, 'Configuration').catch(() => false)).toBe(false)
+
+        // Going back to A keeps A's own state.
+        await second.page.locator('[data-testid="document-tabs"] li[role="tab"]')
+          .filter({ hasText: 'a.md' })
+          .click()
+        await expect
+          .poll(() => isCollapsed(second.page, 'Installation').catch(() => false), { timeout: 20_000 })
+          .toBe(true)
       } finally {
         await second.app.close()
       }

@@ -85,16 +85,31 @@
         </p>
       </section>
 
-      <section class="document-intelligence__section" data-testid="broken-link-section">
+      <section
+        class="document-intelligence__section"
+        data-testid="broken-link-section"
+      >
         <h3>{{ t('sideBar.documentIntelligence.brokenLinks') }}</h3>
-        <p v-if="diagnosticsLoading" class="document-intelligence__hint" role="status">
+        <p
+          v-if="diagnosticsLoading"
+          class="document-intelligence__hint"
+          role="status"
+        >
           {{ t('sideBar.documentIntelligence.checkingLinks') }}
         </p>
-        <p v-else-if="diagnosticsError" class="document-intelligence__error" role="alert">
+        <p
+          v-else-if="diagnosticsError"
+          class="document-intelligence__error"
+          role="alert"
+        >
           {{ t('sideBar.documentIntelligence.diagnosticUnavailable') }}
         </p>
         <template v-else-if="brokenLinks">
-          <p v-if="!brokenLinks.complete" class="document-intelligence__hint" role="status">
+          <p
+            v-if="!brokenLinks.complete"
+            class="document-intelligence__hint"
+            role="status"
+          >
             {{ t('sideBar.documentIntelligence.brokenPartial') }}
           </p>
           <ul v-if="brokenLinks.findings.length">
@@ -135,13 +150,20 @@
               </button>
             </li>
           </ul>
-          <p v-else class="document-intelligence__empty">
+          <p
+            v-else
+            class="document-intelligence__empty"
+          >
             {{ t(brokenLinks.complete
               ? 'sideBar.documentIntelligence.noBrokenLinks'
               : 'sideBar.documentIntelligence.noBrokenLinksPartial') }}
           </p>
         </template>
-        <p v-if="repairError" class="document-intelligence__error" role="alert">
+        <p
+          v-if="repairError"
+          class="document-intelligence__error"
+          role="alert"
+        >
           {{ t('sideBar.documentIntelligence.repairUnavailable') }}
         </p>
       </section>

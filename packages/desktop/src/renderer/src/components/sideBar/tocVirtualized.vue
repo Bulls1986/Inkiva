@@ -19,10 +19,10 @@
       >
         <div
           v-for="row in visibleRows"
+          :id="`toc-virtual-${row.key}`"
           :key="row.key"
           class="el-tree-node"
           :data-key="row.key"
-          :id="`toc-virtual-${row.key}`"
           :data-focused="row.key === keyboardTargetKey"
           role="treeitem"
           :aria-level="row.depth + 1"
